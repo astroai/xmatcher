@@ -191,7 +191,9 @@ def test_hats_native_with_local_lazyframe(tmp_path: Path):
         ra_column="ra",
         dec_column="dec",
     )
-    local_df = pl.DataFrame({"RAJ2000": [132.8978, 134.0], "DEJ2000": [11.5756, 12.0], "Vmag": [16.0, 18.5]})
+    local_df = pl.DataFrame(
+        {"RAJ2000": [132.8978, 134.0], "DEJ2000": [11.5756, 12.0], "Vmag": [16.0, 18.5]}
+    )
     src_local = CatalogueSource(
         name="local_right",
         is_local=True,

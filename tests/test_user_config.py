@@ -55,7 +55,7 @@ def test_looks_like_table_id_and_guess():
 def test_get_catalogue_config_resolves_aliases():
     cm = CrossMatch()
     cfg = cm.get_catalogue_config("gaia")
-    assert cfg["_catalogue_name"] == "gaia_cds"
+    assert cfg["_catalogue_name"] == "gaia_dr3_cds"
     cfg2 = cm.get_catalogue_config("gaia_esa")
     assert cfg2["_catalogue_name"] == "gaia_esa"
 
@@ -168,7 +168,7 @@ def test_deep_merge_and_user_overlay(tmp_path, monkeypatch):
     cfg, primary = load_merged_config(include_user_overlay=True)
     assert primary == user
     assert "ps1" in cfg["catalogues"]
-    assert "gaia_cds" in cfg["catalogues"]
+    assert "gaia_dr3_cds" in cfg["catalogues"]
     assert "gaia_esa" in cfg["catalogues"]  # from real bundled baseline
 
 
@@ -268,9 +268,9 @@ def test_failed_user_config_serialization_preserves_previous_file(tmp_path, monk
 
 def test_bundled_new_survey_aliases():
     cm = CrossMatch()
-    assert cm.resolve_name("ps1") == "ps1"
-    assert cm.resolve_name("twomass") == "twomass"
-    assert cm.resolve_name("catwise") == "catwise"
+    assert cm.resolve_name("ps1") == "ps1_dr1"
+    assert cm.resolve_name("twomass") == "twomass_psc"
+    assert cm.resolve_name("catwise") == "catwise_2020"
     assert cm.resolve_name("sdss") == "sdss"
     assert cm.resolve_name("nvss") == "nvss"
     assert cm.resolve_name("delve3") == "delve3"
@@ -289,12 +289,12 @@ def test_resolve_access_identifier_uses_bundled_catalogue():
     """Pasting ACCESS from `xmatcher list` must resolve to the short-name entry."""
     cm = CrossMatch()
     src = cm.resolve_source("II/349/ps1", {})
-    assert src.name == "ps1"
+    assert src.name == "ps1_dr1"
     assert src.default_columns is not None
     assert "gmag" in src.default_columns
-    # Data Lab tractor id → desils, not a raw TAP_SCHEMA probe.
+    # Data Lab tractor id → legacy_dr10, not a raw TAP_SCHEMA probe.
     src2 = cm.resolve_source("ls_dr10.tractor", {})
-    assert src2.name == "desils"
+    assert src2.name == "legacy_dr10"
     assert src2.access_identifier == "ls_dr10.tractor"
 
 

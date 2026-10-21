@@ -57,6 +57,25 @@ logger = logging.getLogger(__name__)
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
 
 
+class _HelpFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
+    """Preserve newlines in descriptions/epilogs and append option defaults.
+
+    Defaults are only shown for meaningful values: ``None`` ("not set") and
+    boolean flags add noise without information.
+    """
+
+    def _get_help_string(self, action: argparse.Action) -> str:
+        help_text = action.help or ""
+        if (
+            "%(default)" not in help_text
+            and action.default is not None
+            and action.default is not argparse.SUPPRESS
+            and not isinstance(action.default, bool)
+        ):
+            help_text += " (default: %(default)s)"
+        return help_text
+
+
 def _visible_len(s: str) -> int:
     return len(_ANSI_RE.sub("", s))
 
@@ -324,28 +343,38 @@ Examples:
   # Two local files, default radius (1 arcsec)
   xmatcher match a.parquet b.csv
 
-  # Choose engine, output, radius
-  xmatcher match a.parquet b.csv --engine fast -r 1.5 -o matches.parquet
+  # Explicit radius, engine, and output
+  xmatcher match a.parquet b.csv -r 1.5 --engine fast -o matches.parquet
 
-  # Bayesian p_match with photometric priors
-  xmatcher match a.parquet b.csv --engine fast --probabilistic --priors g,r -o m.parquet
+  # Adaptive positional errors from per-side columns
+  xmatcher match xray.fits optical.parquet --matcher skyerr \\
+      --side1 ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \\
+      --side2 ra_err_column=e_RAJ2000,dec_err_column=e_DEJ2000,pos_err_units=arcsec
+
+  # Bayesian p_match with photometric priors (both sides need errors)
+  xmatcher match a.parquet b.csv --probabilistic --priors g,r -o m.parquet
 
   # ID join instead of sky position
   xmatcher match a.csv b.csv --id-join --id1 source_id --id2 source_id
 
-  # N-way pairwise match across 3 catalogues
+  # N-way match, union, and Friends-of-Friends
   xmatcher match gaia allwise.csv twomass.csv -r 1.5 -o nway.parquet
-
-  # Master union catalogue (-o master.hats preferred for spatial queries)
-  xmatcher match gaia allwise.csv twomass.csv --union -o master.hats --hats-threshold 50000
-
-  # Friends-of-Friends transitive closure
+  xmatcher match gaia allwise.csv twomass.csv --union -o master.hats
   xmatcher match gaia allwise.csv twomass.csv --fof -o bundles.parquet
+
+  # Explicit catalogue identifiers
+  xmatcher match targets.csv vizier:II/349/ps1 -r 1.0
+  xmatcher match targets.csv tap:noirlab/nsc_dr2.object \\
+      --ra 150.1 --dec 2.2 --radius-deg 0.1
+
+  # Fail instead of substituting a fallback when the request cannot be honoured
+  xmatcher match a.parquet b.csv --matcher skyerr --fallback-policy error
 """
 
 LIST_EXAMPLES = """\
 Examples:
   xmatcher list
+  xmatcher list --aliases     # also show alias -> catalogue mappings
   xmatcher list --no-color    # plain text, friendly to pipes
 """
 
@@ -628,13 +657,69 @@ def _parse_extra_distance_cols(raw):
     return result
 
 
+# Per-side override keys accepted by ``--side1/--side2``. Column names and units
+# are strings; epoch and error floors are numeric. Dict-valued settings such as
+# ``astrometric_covariance_columns`` stay YAML/Python-only.
+_SIDE_CLI_TYPES: dict[str, Callable[[str], object]] = {
+    "ra_column": str,
+    "dec_column": str,
+    "id_column": str,
+    "ra_err_column": str,
+    "dec_err_column": str,
+    "corr_column": str,
+    "pos_err_units": str,
+    "default_pos_error_arcsec": float,
+    "epoch": float,
+    "epoch_column": str,
+    "pm_ra_column": str,
+    "pm_dec_column": str,
+    "parallax_column": str,
+    "radial_velocity_column": str,
+    "frame": str,
+}
+
+
+def _parse_side_overrides(values: Sequence[str] | None, side: int) -> dict[str, object]:
+    """Parse repeatable comma-separated ``KEY=VALUE`` side overrides."""
+    parsed: dict[str, object] = {}
+    for raw in values or []:
+        for chunk in str(raw).split(","):
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            key, sep, value = chunk.partition("=")
+            key = key.strip()
+            value = value.strip()
+            if not sep or not key or not value:
+                raise CrossMatchError(
+                    f"Invalid --side{side} override '{chunk}'; expected KEY=VALUE "
+                    f"(keys: {', '.join(_SIDE_CLI_TYPES)})."
+                )
+            caster = _SIDE_CLI_TYPES.get(key)
+            if caster is None:
+                raise CrossMatchError(
+                    f"Unknown --side{side} key '{key}'; expected one of: "
+                    f"{', '.join(_SIDE_CLI_TYPES)}."
+                )
+            try:
+                parsed[f"{key}_{side}"] = caster(value)
+            except ValueError as exc:
+                raise CrossMatchError(f"Invalid value for --side{side} {key}={value!r}.") from exc
+    return parsed
+
+
 def _build_params(args) -> dict:
     """Extract the match parameters from CLI args as a kwargs dict."""
     prior_columns = [c.strip() for c in (args.priors or "").split(",") if c.strip()]
     extra_distance = _parse_extra_distance_cols(args.extra_distance_cols)
     ml_color_columns = [c.strip() for c in (args.ml_color_cols or "").split(",") if c.strip()]
     macauff_flux_cols = [c.strip() for c in (args.macauff_flux_cols or "").split(",") if c.strip()]
+    side_overrides = {
+        **_parse_side_overrides(getattr(args, "side1_overrides", None), 1),
+        **_parse_side_overrides(getattr(args, "side2_overrides", None), 2),
+    }
     return dict(
+        **side_overrides,
         radius_arcsec=args.radius_arcsec,
         matcher=args.matcher or "sky",
         max_error=args.max_error,
@@ -681,6 +766,7 @@ def _build_params(args) -> dict:
         retries=getattr(args, "retries", None),
         fresh_after=getattr(args, "fresh_after", None),
         min_free_gb=getattr(args, "min_free_gb", None),
+        fallback_policy=getattr(args, "fallback_policy", None),
     )
 
 
@@ -695,18 +781,26 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         prog="xmatcher match",
         description=(
             "Cross-match two or more catalogues.\n\n"
-            "Inputs may be local Parquet/CSV/TSV/FITS files, Polars frames,\n"
-            "HATS directories, or configured remote catalogues (TAP / CDS XMatch).\n"
+            "Inputs may be local Parquet/CSV/TSV/FITS files, HATS directories,\n"
+            "configured catalogue names/aliases, or explicit identifiers:\n"
+            "vizier:<id>, tap:<endpoint>/<table>, or hats:<url>.\n"
             "Coordinate columns and matching strategy are auto-detected; flags\n"
-            "below refine geometry, algorithm, and output."
+            "below refine geometry, algorithm, and output.\n\n"
+            "Start here:\n"
+            "  xmatcher match a.parquet b.csv -r 1.5\n"
+            "  xmatcher match targets.csv gaia -o out.parquet\n"
+            "  xmatcher match targets.csv vizier:II/349/ps1 --ra 150.1 --dec 2.2 --radius-deg 0.1\n"
+            "  xmatcher match a b c --union -o master.hats\n"
+            "  xmatcher list --aliases"
         ),
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=_HelpFormatter,
         epilog=MATCH_EXAMPLES,
     )
     parser.add_argument(
         "catalogues",
         nargs="*",
-        help="Two or more catalogues: files, HATS dirs, or configured names.",
+        help="Two or more catalogues: files, HATS dirs, configured names/aliases, "
+        "or vizier:<id> / tap:<endpoint>/<table> / hats:<url>.",
     )
 
     g_out = parser.add_argument_group("Output")
@@ -728,7 +822,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "--batch-size",
         dest="batch_size",
         type=int,
-        help="HEALPix pixel groups per batch for out-of-core processing.",
+        help="HEALPix pixel groups per zone batch; not a general memory cap.",
     )
     g_out.add_argument(
         "--memory-budget-bytes",
@@ -761,33 +855,60 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_geom.add_argument(
         "--columns-1",
         dest="columns_1",
-        help="Comma-separated columns from catalogue 1.",
+        help="Comma-separated columns to read from catalogue 1 (projection).",
     )
     g_geom.add_argument(
         "--columns-2",
         dest="columns_2",
-        help="Comma-separated columns from catalogue 2.",
+        help="Comma-separated columns to read from catalogue 2 (projection).",
+    )
+
+    g_side = parser.add_argument_group(
+        "Per-catalogue overrides (skyerr / skyellipse / frames)",
+        description=(
+            "Repeatable comma-separated KEY=VALUE pairs. Keys:\n"
+            "  ra_column, dec_column, id_column, ra_err_column, dec_err_column,\n"
+            "  corr_column, pos_err_units, default_pos_error_arcsec, epoch,\n"
+            "  epoch_column, pm_ra_column, pm_dec_column, parallax_column,\n"
+            "  radial_velocity_column, frame.\n"
+            "Example: --side1 ra_err_column=ra_err,pos_err_units=mas"
+        ),
+    )
+    g_side.add_argument(
+        "--side1",
+        dest="side1_overrides",
+        action="append",
+        metavar="KEY=VALUE",
+        help="Overrides for catalogue 1.",
+    )
+    g_side.add_argument(
+        "--side2",
+        dest="side2_overrides",
+        action="append",
+        metavar="KEY=VALUE",
+        help="Overrides for catalogue 2.",
     )
 
     g_alg = parser.add_argument_group("Match algorithm")
     g_alg.add_argument(
         "--matcher",
         choices=["sky", "skyerr", "skyellipse", "lr", "ml", "xgb", "auf", "macauff"],
-        help="Match algorithm (default: sky).",
+        default="sky",
+        help="Match algorithm.",
     )
     g_alg.add_argument(
         "--max-error",
         dest="max_error",
         type=float,
         default=3.0,
-        help="N-sigma cap for skyerr/skyellipse.",
+        help="N-sigma cap for skyerr; Mahalanobis d cap for skyellipse.",
     )
     g_alg.add_argument(
         "--join",
         dest="join_type",
         default="1and2",
         choices=["1and2", "1or2", "all", "1not2", "2not1", "all1", "all2"],
-        help="Join type (1and2=inner, 1or2=outer, etc.).",
+        help="Join type (1and2=inner, 1or2=full outer, all1=left, all2=right, 1not2/2not1=anti).",
     )
     g_alg.add_argument(
         "--find",
@@ -807,10 +928,19 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         ),
     )
     g_alg.add_argument(
+        "--fallback-policy",
+        dest="fallback_policy",
+        choices=["warn", "error"],
+        default="warn",
+        help="When an engine or matcher cannot honour the request: 'warn' logs and "
+        "substitutes a supported path; 'error' aborts. Use 'error' for reproducible "
+        "science runs.",
+    )
+    g_alg.add_argument(
         "--union",
         dest="union_match",
         action="store_true",
-        help="Build a master union catalogue (outer join across all).",
+        help="Build a master union catalogue (full outer join across all).",
     )
     g_alg.add_argument(
         "--fof",
@@ -895,13 +1025,14 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "--probabilistic",
         dest="probabilistic",
         action="store_true",
-        help="Compute Budavari-style hierarchical Bayes factor (+ p_match).",
+        help="Compute a positional Bayesian p_match. Both sides need positional "
+        "errors; add --priors for photometric terms.",
     )
     g_prob.add_argument(
         "--priors",
         dest="priors",
         default="",
-        help="Comma-separated photometric columns used as priors (e.g. g,r).",
+        help="Comma-separated photometric prior columns; enables p_match (e.g. g,r).",
     )
 
     g_pm = parser.add_argument_group("Proper motion")
@@ -928,12 +1059,13 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_filt.add_argument(
         "--filter-expr",
         dest="filter_expr",
-        help="Polars SQL WHERE clause to post-filter matched pairs.",
+        help="Polars SQL WHERE clause applied after selection; rejected 'best' "
+        "matches are not replaced.",
     )
     g_filt.add_argument(
         "--extra-distance-cols",
         dest="extra_distance_cols",
-        help="Column:weight pairs for N-dim cKDTree ranking (e.g. 'g:0.5,bp_rp:0.3').",
+        help="Column:weight pairs for N-dimensional ranking (e.g. 'g:0.5,bp_rp:0.3').",
     )
 
     g_msm = parser.add_argument_group("Matcher-specific")
@@ -947,13 +1079,13 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         dest="lr_q",
         type=float,
         default=0.8,
-        help="Prior Q factor for LR matcher (0.5-1.0).",
+        help="Prior probability Q that a primary source has a counterpart (0-1).",
     )
     g_msm.add_argument(
         "--ml-color-cols",
         dest="ml_color_cols",
-        help="Comma-separated photometric columns for ML matcher features "
-        "(required when --matcher ml).",
+        help="Comma-separated photometric features for ml/xgb. Optional: without "
+        "them, ranking falls back to separation.",
     )
     g_msm.add_argument(
         "--ml-model-path",
@@ -982,7 +1114,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     )
     g_reg.add_argument(
         "--endpoint",
-        help="TAP endpoint for ad-hoc table ids (vizier, noirlab, gaia).",
+        help="TAP endpoint for ad-hoc table ids (vizier, noirlab, gaia, cadc).",
     )
 
     _add_global_options(parser)
@@ -1008,8 +1140,8 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "catalogues",
         nargs="+",
-        help="Catalogues to mirror: configured names, HATS URLs (https://…, vos:…), "
-        "or remote table ids.",
+        help="Catalogues to mirror: configured names/aliases, explicit "
+        "vizier:<id> / tap:<endpoint>/<table>, or HATS URLs (https://…, vos:…).",
     )
     parser.add_argument(
         "--rate-limit",
@@ -1064,9 +1196,20 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
 def _build_list_subparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xmatcher list",
-        description="List every catalogue defined in the active config.",
+        description=(
+            "List every catalogue defined in the active config.\n\n"
+            "Names and aliases are matched case-insensitively by every command.\n"
+            "Explicit identifiers (vizier:<id>, tap:<endpoint>/<table>, hats:<url>)\n"
+            "can be used without adding an entry to xmatcher.yaml."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=LIST_EXAMPLES,
+    )
+    parser.add_argument(
+        "--aliases",
+        dest="show_aliases",
+        action="store_true",
+        help="Also print alias -> catalogue mappings.",
     )
     _add_global_options(parser)
     return parser
@@ -1093,7 +1236,7 @@ def _build_discover_subparser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "endpoint",
-        help="Endpoint short-name (gaia, noirlab, vizier) or full TAP URL.",
+        help="Endpoint short-name (vizier, noirlab, gaia, cadc) or full TAP URL.",
     )
     parser.add_argument(
         "--schema",
@@ -1490,7 +1633,7 @@ def _build_top_parser() -> argparse.ArgumentParser:
     subcommand_blurb = (
         "\n\nAvailable commands:\n"
         "  match       cross-match catalogues (the default for `xmatcher CAT1 CAT2`)\n"
-        "  list        list every configured catalogue\n"
+        "  list        list configured catalogues and their aliases\n"
         "  describe    show columns & access info for a catalogue\n"
         "  discover    browse tables and columns on a remote TAP endpoint\n"
         "  search      search every endpoint for tables matching a substring\n"
@@ -1498,6 +1641,9 @@ def _build_top_parser() -> argparse.ArgumentParser:
         "  sync        mirror remote catalogues into the local HATS cache\n"
         "  completion  emit a shell tab-completion script (bash | zsh | fish)\n"
         "  doctor      report drift between your xmatcher.yaml and the bundled baseline\n"
+        "\n"
+        "Catalogue inputs: a configured name/alias, a local file or HATS directory,\n"
+        "or an explicit vizier:<id>, tap:<endpoint>/<table>, hats:<url> identifier.\n"
         "\n"
         "Run `xmatcher COMMAND --help` for command-specific options."
     )
@@ -1516,7 +1662,7 @@ def _build_top_parser() -> argparse.ArgumentParser:
 # ────────────────────────────────────────────────────────────────────────────
 
 
-def list_catalogues(cm: CrossMatch, console: Console) -> None:
+def list_catalogues(cm: CrossMatch, console: Console, *, show_aliases: bool = False) -> None:
     """Print all configured catalogues — colour-aware, table-formatted.
 
     Shows memorable survey names first. Archive/table details live in
@@ -1527,12 +1673,12 @@ def list_catalogues(cm: CrossMatch, console: Console) -> None:
     console.header(header)
     console.dim_print("\u2500" * _visible_len(header))
     # Prefer primary surveys; demote archive mirrors of the same survey.
-    # With `gaia` defaulting to CDS VizieR, gaia_cds is primary and the
+    # With `gaia` defaulting to CDS VizieR, gaia_dr3_cds is primary and the
     # ESA / NOIRLab mirrors are demoted.
     primary: list[str] = []
     mirrors: list[str] = []
     for name in sorted(cm.catalogues_config):
-        if name in {"gaia_esa", "gaia_noao"}:
+        if name in {"gaia_esa", "gaia_noirlab"}:
             mirrors.append(name)
         else:
             primary.append(name)
@@ -1556,10 +1702,22 @@ def list_catalogues(cm: CrossMatch, console: Console) -> None:
         console.dim_print("  Alternative Gaia archives (gaia defaults to CDS VizieR):")
         for name in mirrors:
             _emit(name, mirror=True)
+    if show_aliases:
+        sys.stdout.write("\n")
+        console.header("ALIAS                     CATALOGUE")
+        console.dim_print("\u2500" * 46)
+        for alias in sorted(cm.aliases_config, key=str.casefold):
+            sys.stdout.write(f"  {_pad(alias, 24)}  {cm.aliases_config[alias]}\n")
+
     sys.stdout.write("\n")
     console.info(f"{len(cm.catalogues_config)} catalogues, {len(cm.aliases_config)} aliases.")
     console.hint("Use 'xmatcher describe <name>' for archive/table/column details.")
-    console.hint("Match with the NAME column (e.g. ps1, desils), not the remote table id.")
+    console.hint(
+        "Match with a NAME/alias (e.g. gaia, ps1), vizier:<id>, "
+        "tap:<endpoint>/<table>, or hats:<url>."
+    )
+    if not show_aliases:
+        console.hint("Run 'xmatcher list --aliases' to see all short names.")
 
 
 def describe(cm: CrossMatch, name: str, console: Console) -> bool:
@@ -1582,9 +1740,13 @@ def describe(cm: CrossMatch, name: str, console: Console) -> bool:
             f"  {_pad(console.dim(label + ':'), label_width + 2)}{console.cyan(str(value))}\n"
         )
 
+    if name.casefold() != resolved.casefold():
+        kv("Alias", f"{name} -> {resolved}")
     kv("Description", cat.get("description", "—"))
     kv("Archive", cat.get("archive", "?"))
     kv("Service", cat.get("service_id", "?"))
+    if cat.get("release"):
+        kv("Release", cat["release"])
     kv("Table", cat.get("access_identifier", "?"))
     kv("RA column", cat.get("ra_column", "—"))
     kv("Dec column", cat.get("dec_column", "—"))
@@ -2212,7 +2374,7 @@ def _run_no_pos_subcommand(argv: Sequence[str], name: str) -> int:
 
     def body() -> int:
         if name == "list":
-            list_catalogues(cm, console)
+            list_catalogues(cm, console, show_aliases=bool(getattr(args, "show_aliases", False)))
             return 0
         if name == "discover":
             return handle_discover(cm, args.endpoint, args.schema_table, console)

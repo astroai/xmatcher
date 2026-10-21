@@ -173,7 +173,8 @@ def endpoint_archive(endpoint: str) -> tuple[str | None, str, str]:
     key = endpoint.lower().strip()
     info = _PUBLIC_TAP_ENDPOINTS.get(key)
     if info is None:
-        raise InputError(f"Unknown TAP endpoint '{endpoint}'.")
+        known = ", ".join(sorted(_PUBLIC_TAP_ENDPOINTS))
+        raise InputError(f"Unknown TAP endpoint '{endpoint}'; known public endpoints: {known}.")
     return info.get("archive"), info.get("service_id", "tap_service"), info["url"]
 
 

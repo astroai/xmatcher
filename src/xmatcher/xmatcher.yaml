@@ -55,65 +55,66 @@ archives:
 # --- Catalogue Aliases ---
 # Maps simple names to specific catalogue versions
 # This allows users to reference catalogues with simple names like "gaia" or "galex"
-# without needing to know the specific version or archive
+# without needing to know the specific version or archive. Every alias chain
+# must end at a key under `catalogues:`; see docs/naming.md for the scheme.
 catalogue_aliases:
-  # Short survey names are the catalogue keys themselves.
-  # These aliases are synonyms, version pins, and archive-specific mirrors.
+  # Values normally point straight at a key under `catalogues:` below. Chains
+  # (an alias pointing at another alias) are followed, with cycle detection.
+  # Names and targets are matched case-insensitively. See docs/naming.md.
 
-  # Gaia — default is CDS VizieR (`I/355/gaiadr3`); the ESA Gaia Archive
-  # mirror stays available as `gaia_esa`.
-  gaia: "gaia_cds"
-  gaia_dr3: "gaia_cds"
-  gaiadr3: "gaia_cds"
+  # --- Short names: the survey as people type it ---
+  # These are release-neutral on purpose. `xmatcher describe <name>` prints the
+  # release, table and epoch the alias currently resolves to.
+  gaia: "gaia_dr3_cds"
+  gaia_dr3: "gaia_dr3_cds"
+  gaiadr3: "gaia_dr3_cds"
+  panstarrs: "ps1_dr1"
+  panstarrs1: "ps1_dr1"
+  "2mass": "twomass_psc"
+  decals: "legacy_dr10"
+  decals_dr10: "legacy_dr10"
+  decals_objects: "decals_dr10_object"
+  ls_dr10_objects: "decals_dr10_object"
+  ukidsslas: "ukidss_las"
 
-  # Optical / NIR
-  panstarrs: "ps1"
-  panstarrs1: "ps1"
-  "2mass": "twomass"
-  des_dr2: "des"
-  nsc_dr2: "nsc"
-  smash_dr2: "smash"
-  desils_dr10: "desils"
-  ls_dr10: "desils"
-  decals: "desils"
-  decals_dr10: "desils"
-  decals_noao: "decals_objects"
-  ls_dr10_objects: "decals_objects"
-  ukidsslas: "ukidss"
-
-  # Mid-IR
-  unwise_dr1: "unwise"
+  # --- Mid-IR ---
   allwise_dl: "allwise"
 
-  # Extragalactic / Deep fields
+  # --- Extragalactic / deep fields ---
   cosmos-web: "cosmos_web"
   cosmosweb: "cosmos_web"
   z-cosmos: "zcosmos"
 
-  # Archive-qualified pins (optional; prefer the short name)
-  galex_cds: "galex"
-  vhs_cds: "vhs"
-  ps1_cds: "ps1"
-  twomass_cds: "twomass"
-  catwise_cds: "catwise"
+  # --- Release- and product-pinned synonyms ---
+  ls_dr10: "legacy_dr10"
+  desils_dr10: "legacy_dr10"
+
+  # --- Archive-qualified pins (`_cds`, `_esa`, `_noirlab`) ---
+  # Use these when the provider matters; prefer the short name otherwise.
+  galex_cds: "galex_ais"
+  vhs_cds: "vhs_dr5"
+  ps1_cds: "ps1_dr1"
+  twomass_cds: "twomass_psc"
+  catwise_cds: "catwise_2020"
   sdss_cds: "sdss"
   skymapper_cds: "skymapper"
   glimpse_cds: "glimpse"
   nvss_cds: "nvss"
   first_cds: "first"
-  xmm_cds: "xmm"
+  xmm_cds: "xmm_dr13"
   chandra_cds: "chandra"
   rosat_cds: "rosat"
-  erosita_cds: "erosita"
-  nsc_noao: "nsc"
-  des_noao: "des"
-  desils_noao: "desils"
+  erosita_cds: "erosita_erass1"
+  nsc_noao: "nsc_dr2"
+  des_noao: "des_dr2"
+  desils_noao: "legacy_dr10"
+  decals_noao: "decals_dr10_object"
   delve_noao: "delve"
   delve3_noao: "delve3"
-  smash_noao: "smash"
-  unwise_noao: "unwise"
+  smash_noao: "smash_dr2"
+  unwise_noao: "unwise_dr1"
   allwise_noao: "allwise"
-  ukidsslas_noao: "ukidss"
+  ukidsslas_noao: "ukidss_las"
   ukidss_gps_noao: "ukidss_gps"
   decaps_noao: "decaps"
   splus_noao: "splus"
@@ -126,6 +127,25 @@ catalogue_aliases:
   allwise_x_gaia_noao: "allwise_x_gaia"
   ukidss_gaia_xmatch_noao: "ukidss_x_gaia"
 
+  # --- Former catalogue keys (kept so existing scripts keep working) ---
+  # Canonical keys gained a release and/or product segment; see
+  # docs/naming.md for the migration table.
+  gaia_cds: "gaia_dr3_cds"
+  galex: "galex_ais"
+  vhs: "vhs_dr5"
+  ps1: "ps1_dr1"
+  twomass: "twomass_psc"
+  catwise: "catwise_2020"
+  des: "des_dr2"
+  nsc: "nsc_dr2"
+  smash: "smash_dr2"
+  unwise: "unwise_dr1"
+  desils: "legacy_dr10"
+  gaia_noao: "gaia_noirlab"
+  ukidss: "ukidss_las"
+  erosita: "erosita_erass1"
+  xmm: "xmm_dr13"
+
 # --- Catalogue Definitions ---
 # Defines specific astronomical catalogues, their location, and properties.
 # NOTE: Catalogue names are lowercase for easier command-line use.
@@ -133,7 +153,7 @@ catalogue_aliases:
 catalogues:
 
   # --- CDS Catalogues ---
-  gaia_cds:
+  gaia_dr3_cds:
     description: "Gaia (Source Catalogue) via CDS VizieR"
     archive: cds
     service_id: tap_service
@@ -162,12 +182,12 @@ catalogues:
     # Default error if specific columns are missing/null (in arcsec)
     default_pos_error_arcsec: 0.05
 
-  galex:
+  galex_ais:
     description: "GALEX All-Sky Imaging Survey (AIS) via CDS VizieR TAP"
     archive: cds
     service_id: tap_service
     release: "gr67"
-    access_identifier: "II/335"
+    access_identifier: "II/335/galex_ais"
     table_name: "II/335/galex_ais"
     epoch: 2000.0
     estimated_size: 'large' # ~83 million
@@ -177,7 +197,7 @@ catalogues:
     default_columns: ["obijd", "RAJ2000", "DEJ2000", "FUVmag", "e_FUVmag", "NUVmag", "e_NUVmag", "Fafl", "Nafl", "Fexf", "Nexf", "Ffux", "e_Fflux", "Nfux", "e_Nflux"]
     default_pos_error_arcsec: 3.0
 
-  vhs:
+  vhs_dr5:
     description: "VISTA Hemisphere Survey via CDS VizieR TAP"
     archive: cds
     service_id: tap_service
@@ -193,7 +213,7 @@ catalogues:
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.3
 
-  ps1:
+  ps1_dr1:
     description: "Pan-STARRS1 DR1 MeanObject photometry (g/r/i/z/y) via CDS VizieR"
     archive: cds
     service_id: tap_service
@@ -212,11 +232,11 @@ catalogues:
     epoch_column: "Epoch"
     default_pos_error_arcsec: 0.1
 
-  twomass:
-    description: "2MASS Point Source Catalog via CDS VizieR"
+  twomass_psc:
+    description: "2MASS Point Source Catalog (All-Sky release) via CDS VizieR"
     archive: cds
     service_id: tap_service
-    release: "psc"
+    release: "allsky"
     access_identifier: "II/246/out"
     table_name: "II/246/out"
     epoch: 2000.0
@@ -227,7 +247,7 @@ catalogues:
     default_columns: ["2MASS", "RAJ2000", "DEJ2000", "Jmag", "e_Jmag", "Hmag", "e_Hmag", "Kmag", "e_Kmag"]
     default_pos_error_arcsec: 0.2
 
-  catwise:
+  catwise_2020:
     description: "CatWISE2020 mid-IR catalog via CDS VizieR"
     archive: cds
     service_id: tap_service
@@ -319,7 +339,7 @@ catalogues:
     default_columns: ["FIRST", "RAJ2000", "DEJ2000", "Fpeak", "Fint"]
     default_pos_error_arcsec: 0.5
 
-  xmm:
+  xmm_dr13:
     description: "4XMM-DR13 slim X-ray catalog via CDS VizieR"
     archive: cds
     service_id: tap_service
@@ -364,7 +384,7 @@ catalogues:
     default_columns: ["2RXS", "RAJ2000", "DEJ2000", "CRate", "Fluxb"]
     default_pos_error_arcsec: 10.0
 
-  erosita:
+  erosita_erass1:
     description: "eROSITA eRASS1 main catalog via CDS VizieR"
     archive: cds
     service_id: tap_service
@@ -380,7 +400,7 @@ catalogues:
     default_pos_error_arcsec: 5.0
 
   # --- NOAO Data Lab Catalogues ---
-  nsc:
+  nsc_dr2:
     description: "NOIRLab Source Catalog (NSC) DR2 via Data Lab"
     archive: noao_datalab
     service_id: tap_service
@@ -398,7 +418,7 @@ catalogues:
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.05
 
-  des:
+  des_dr2:
     description: "Dark Energy Survey (DES) DR2 via Data Lab"
     archive: noao_datalab
     service_id: tap_service
@@ -416,8 +436,8 @@ catalogues:
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.1
 
-  decals_objects:
-    description: "DECaLS DR10 (object/detection table — no photometry; use 'desils' for tractor magnitudes) via Data Lab"
+  decals_dr10_object:
+    description: "DECaLS DR10 (object/detection table — no photometry; use 'legacy_dr10' for tractor magnitudes) via Data Lab"
     archive: noao_datalab
     service_id: tap_service
     release: "dr10"
@@ -432,7 +452,7 @@ catalogues:
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.1
 
-  smash:
+  smash_dr2:
     description: "Survey of the MAgellanic Stellar History (SMASH) DR2 via Data Lab"
     archive: noao_datalab
     service_id: tap_service
@@ -448,7 +468,7 @@ catalogues:
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.05
 
-  unwise:
+  unwise_dr1:
     description: "unWISE DR1 (NEO coadds) via Data Lab"
     archive: noao_datalab
     service_id: tap_service
@@ -498,7 +518,7 @@ catalogues:
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.1
 
-  gaia_noao:
+  gaia_noirlab:
     description: "Gaia (Source Catalogue) mirrored/available via NOIRLab Data Lab TAP"
     archive: noao_datalab
     service_id: tap_service
@@ -538,7 +558,7 @@ catalogues:
     pos_err_units: "mas"
     default_pos_error_arcsec: 0.01
 
-  desils:
+  legacy_dr10:
     description: "DESI Legacy Imaging Surveys (LS) via NOIRLab Data Lab TAP"
     archive: noao_datalab
     service_id: tap_service
@@ -557,7 +577,7 @@ catalogues:
     # pos_err_units: "ivar" # Or convert ivar to arcsec error
     default_pos_error_arcsec: 0.1 # Approximate default
 
-  ukidss:
+  ukidss_las:
     description: "UKIDSS Large Area Survey (LAS) via NOIRLab Data Lab"
     archive: noao_datalab
     service_id: tap_service

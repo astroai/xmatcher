@@ -31,12 +31,18 @@ def _hats_root(src: CatalogueSource) -> Path:
     if not root.exists():
         raise CrossMatchError(f"HATS path does not exist: {root}")
     # Auto-resolve workspace root to canonical HATS release directory
-    if not ((root / "properties").exists() or (root / "hats.properties").exists() or (root / "dataset").exists()):
+    if not (
+        (root / "properties").exists()
+        or (root / "hats.properties").exists()
+        or (root / "dataset").exists()
+    ):
         for candidate in (
             root / "data" / "merged" / "final",
             root / "data" / "release" / "latest",
         ):
-            if candidate.exists() and ((candidate / "properties").exists() or (candidate / "dataset").exists()):
+            if candidate.exists() and (
+                (candidate / "properties").exists() or (candidate / "dataset").exists()
+            ):
                 return candidate
     return root
 
@@ -397,7 +403,9 @@ def hats_native_crossmatch(
 
                     ra_t = torch.from_numpy(right_all[ra2_c].to_numpy())
                     dec_t = torch.from_numpy(right_all[dec2_c].to_numpy())
-                    base_pixs = ts_hp.ang2pix(nside0, ra_t, dec_t, nest=True, lonlat=True).unique().tolist()
+                    base_pixs = (
+                        ts_hp.ang2pix(nside0, ra_t, dec_t, nest=True, lonlat=True).unique().tolist()
+                    )
                     needed: set[int] = set()
                     eff_r = float(spec.radius_arcsec)
                     for bp in base_pixs:

@@ -84,6 +84,27 @@ DEFAULT_SYNC_WORKERS = 8
 DEFAULT_HATS_THRESHOLD = 100_000
 DEFAULT_RADIUS_ARCSEC = 1.0
 
+
+def _resolve_alias_chain(name: str, aliases: dict[str, str]) -> str:
+    """Follow ``catalogue_aliases`` to a terminal name.
+
+    Aliases normally point straight at a ``catalogues:`` key, but a user
+    overlay written before a rename may still point at a former key that is
+    now an alias.  Following the chain there keeps those overlays working;
+    a cycle is a configuration error rather than an infinite loop.
+    """
+    by_folded = {key.casefold(): target for key, target in aliases.items()}
+    seen: list[str] = []
+    current = name
+    while current.casefold() in by_folded:
+        folded = current.casefold()
+        if folded in seen:
+            raise ConfigError(f"Alias cycle: {' -> '.join([*seen, folded])}.")
+        seen.append(folded)
+        current = by_folded[folded]
+    return current
+
+
 # Geometry/identity overrides the ray-union route honours per catalogue
 # (mirrors the MatchRequest.from_params side mapping; --columns-* filtering
 # is sequential-path output concern the union output does not implement).
@@ -379,7 +400,7 @@ class CrossMatch:
                     )
 
         alias_names: dict[str, str] = {}
-        for alias, target in self.aliases_config.items():
+        for alias in self.aliases_config:
             if not isinstance(alias, str):
                 raise ConfigError(f"Alias names must be strings, got {alias!r}.")
             folded = alias.casefold()
@@ -387,8 +408,19 @@ class CrossMatch:
             if previous is not None and previous != alias:
                 raise ConfigError(f"Alias names '{previous}' and '{alias}' differ only by case.")
             alias_names[folded] = alias
-            if target not in self.catalogues_config:
-                raise ConfigError(f"Alias '{alias}' points to unknown catalogue '{target}'.")
+            if folded in canonical_names:
+                raise ConfigError(f"Alias '{alias}' shadows catalogue '{canonical_names[folded]}'.")
+
+        # Aliases may point at another alias (so an overlay written before a
+        # rename keeps working).  Validate the whole chain once here instead of
+        # failing later during resolution.
+        for alias in self.aliases_config:
+            resolved = _resolve_alias_chain(alias, self.aliases_config)
+            if resolved not in self.catalogues_config:
+                raise ConfigError(
+                    f"Alias '{alias}' resolves to unknown catalogue '{resolved}'; "
+                    "every chain must end at a key under 'catalogues'."
+                )
 
     def get_catalogue_config(self, name: str) -> dict[str, Any]:
         name = self.resolve_name(name)
@@ -417,13 +449,10 @@ class CrossMatch:
         return resolved
 
     def resolve_name(self, name: str) -> str:
+        """Return the canonical catalogue key for *name*, following aliases."""
         folded = name.casefold()
-        alias = next(
-            (target for key, target in self.aliases_config.items() if key.casefold() == folded),
-            None,
-        )
-        if alias is not None:
-            return alias
+        if any(key.casefold() == folded for key in self.aliases_config):
+            return _resolve_alias_chain(name, self.aliases_config)
         return next(
             (canonical for canonical in self.catalogues_config if canonical.casefold() == folded),
             name.lower(),
@@ -500,6 +529,49 @@ class CrossMatch:
             return self._local_source("frame", lf=lf, overrides=overrides)
 
         text = str(value)
+        prefix, sep, rest = text.partition(":")
+        prefix_lower = prefix.casefold() if sep else ""
+        if prefix_lower == "vizier":
+            table_id = rest.strip()
+            if not table_id:
+                raise InputError(
+                    "vizier: identifiers need a table id, e.g. vizier:II/349/ps1.",
+                    source=text,
+                )
+            configured = self._configured_table_source(table_id, "cds", overrides)
+            if configured is not None:
+                return configured
+            return self.source_from_table_id(table_id, endpoint="vizier", overrides=overrides)
+        if prefix_lower == "tap":
+            tap_endpoint, sep2, table_id = rest.partition("/")
+            if not sep2 or not tap_endpoint.strip() or not table_id.strip():
+                raise InputError(
+                    "TAP identifiers use tap:<endpoint>/<table>, e.g. tap:noirlab/nsc_dr2.object.",
+                    source=text,
+                )
+            table_id = table_id.strip()
+            archive_name, _, _ = endpoint_archive(tap_endpoint.strip())
+            configured = self._configured_table_source(table_id, archive_name, overrides)
+            if configured is not None:
+                return configured
+            return self.source_from_table_id(
+                table_id, endpoint=tap_endpoint.strip(), overrides=overrides
+            )
+        if prefix_lower == "hats":
+            target = rest.strip()
+            if not target:
+                raise InputError("hats: identifiers need a URL, e.g. hats:https://…", source=text)
+            if target.startswith(("http://", "https://", "vos:")):
+                return self._remote_hats_source(target, overrides)
+            local = Path(target).expanduser()
+            if local.is_dir() and io_utils.is_hats_dir(local):
+                return self._hats_source(local, overrides)
+            raise InputError(
+                f"Unknown HATS catalogue '{target}'. Registry short-name lookup is not "
+                "available yet; pass hats:<https://…|vos:…> or a local HATS directory.",
+                source=target,
+            )
+
         resolved = self.resolve_name(text)
         if resolved in self.catalogues_config:
             return self._remote_source(self.get_catalogue_config(resolved), overrides)
@@ -507,21 +579,7 @@ class CrossMatch:
         if text.startswith(("http://", "https://", "vos:")):
             # Remote HATS catalogue over HTTP / vos: — mirrored on demand by the
             # ray-union pipeline and `xmatcher sync`.
-            name = text.rstrip("/").rsplit("/", 1)[-1] or "remote-hats"
-            return CatalogueSource(
-                name=name,
-                is_local=False,
-                access_method="hats",
-                access_identifier=text,
-                ra_column=overrides.get("ra_column"),
-                dec_column=overrides.get("dec_column"),
-                id_column=overrides.get("id_column"),
-                release_namespace=overrides.get("release_namespace"),
-                release_metadata=overrides.get("release_metadata", {}),
-                photometry=overrides.get("photometry", []),
-                property_evidence=overrides.get("property_evidence", []),
-                frame=overrides.get("frame", "icrs"),
-            )
+            return self._remote_hats_source(text, overrides)
 
         path = Path(text)
         if io_utils.is_hats_dir(path):
@@ -538,7 +596,9 @@ class CrossMatch:
         if looks_like_table_id(text):
             # Prefer the table-id heuristic (VizieR slash vs schema.table) over a
             # global --endpoint meant for the other match operand.
-            endpoint = guess_endpoint(text) or overrides.get("endpoint") or self.default_endpoint
+            endpoint: str | None = (
+                guess_endpoint(text) or overrides.get("endpoint") or self.default_endpoint
+            )
             if endpoint:
                 return self.source_from_table_id(text, endpoint=endpoint, overrides=overrides)
 
@@ -547,6 +607,41 @@ class CrossMatch:
         raise InputError(
             f"'{text}' is not a file, HATS dir, or known catalogue.",
             source=text,
+        )
+
+    def _configured_table_source(
+        self, table_id: str, archive_name: str | None, overrides: dict[str, Any]
+    ) -> CatalogueSource | None:
+        """Return a curated entry for *table_id* on *archive_name*, if any.
+
+        The archive guard matters for the same table id appearing in multiple
+        archives; an explicit ``tap:<endpoint>/`` must not silently resolve to a
+        curated entry from a different service.
+        """
+        by_access = self.find_catalogue_by_access_id(table_id)
+        if by_access is None:
+            return None
+        cfg = self.get_catalogue_config(by_access)
+        if archive_name is None or cfg.get("archive") != archive_name:
+            return None
+        return self._remote_source(cfg, overrides)
+
+    def _remote_hats_source(self, url: str, overrides: dict[str, Any]) -> CatalogueSource:
+        """Build a remote-HATS source for an ``http(s):`` or ``vos:`` URL."""
+        name = url.rstrip("/").rsplit("/", 1)[-1] or "remote-hats"
+        return CatalogueSource(
+            name=name,
+            is_local=False,
+            access_method="hats",
+            access_identifier=url,
+            ra_column=overrides.get("ra_column"),
+            dec_column=overrides.get("dec_column"),
+            id_column=overrides.get("id_column"),
+            release_namespace=overrides.get("release_namespace"),
+            release_metadata=overrides.get("release_metadata", {}),
+            photometry=overrides.get("photometry", []),
+            property_evidence=overrides.get("property_evidence", []),
+            frame=overrides.get("frame", "icrs"),
         )
 
     def source_from_table_id(

@@ -14,14 +14,82 @@ def cm():
 
 # ------------------------------------------------------------------ config
 def test_bundled_config_loads_and_validates(cm):
-    assert "gaia_cds" in cm.catalogues_config
+    assert "gaia_dr3_cds" in cm.catalogues_config
     assert "gaia_esa" in cm.catalogues_config
-    assert cm.resolve_name("gaia") == "gaia_cds"
+    assert cm.resolve_name("gaia") == "gaia_dr3_cds"
+    # the pre-rename key still resolves
+    assert cm.resolve_name("gaia_cds") == "gaia_dr3_cds"
+
+
+def test_every_alias_resolves_to_a_catalogue(cm):
+    """Every bundled alias chain ends at a `catalogues:` key."""
+    canonical = {name.casefold() for name in cm.catalogues_config}
+    for alias in cm.aliases_config:
+        resolved = cm.resolve_name(alias)
+        assert resolved in cm.catalogues_config, f"{alias} -> {resolved} is dangling"
+        assert alias.casefold() not in canonical, f"{alias} shadows a catalogue key"
+
+
+def test_alias_chain_to_a_former_key_still_resolves(tmp_path, cm):
+    """An overlay written before the rename keeps working after upgrading."""
+    import copy
+
+    import yaml
+
+    config = copy.deepcopy(cm.config)
+    config["catalogue_aliases"]["my_gaia"] = "gaia_cds"  # former canonical key
+    path = tmp_path / "pre-rename-overlay.yaml"
+    path.write_text(yaml.safe_dump(config))
+
+    upgraded = CrossMatch(config_file=path)
+    assert upgraded.resolve_name("my_gaia") == "gaia_dr3_cds"
+    assert upgraded.resolve_source("my_gaia", {}).access_identifier == "I/355/gaiadr3"
+
+
+def test_config_rejects_alias_cycles(tmp_path, cm):
+    import copy
+
+    import yaml
+
+    config = copy.deepcopy(cm.config)
+    config["catalogue_aliases"]["loop_a"] = "loop_b"
+    config["catalogue_aliases"]["loop_b"] = "loop_a"
+    path = tmp_path / "alias-cycle.yaml"
+    path.write_text(yaml.safe_dump(config))
+
+    with pytest.raises(ConfigError, match="Alias cycle"):
+        CrossMatch(config_file=path)
+
+
+def test_former_catalogue_keys_remain_valid_aliases(cm):
+    """Renamed keys stay as aliases, so existing scripts keep working."""
+    legacy = {
+        "gaia_cds": "I/355/gaiadr3",
+        "galex": "II/335/galex_ais",
+        "vhs": "II/367/vhs_dr5",
+        "ps1": "II/349/ps1",
+        "twomass": "II/246/out",
+        "catwise": "II/365/catwise",
+        "xmm": "IX/69/xmm4d13s",
+        "erosita": "J/A+A/682/A34/erass1-m",
+        "nsc": "nsc_dr2.object",
+        "des": "des_dr2.main",
+        "smash": "smash_dr2.object",
+        "unwise": "unwise_dr1.object",
+        "decals_objects": "ls_dr10.object",
+        "desils": "ls_dr10.tractor",
+        "gaia_noao": "gaia_dr3.gaia_source",
+        "ukidss": "ukidss_dr11plus.lassource",
+    }
+    for alias, table in legacy.items():
+        src = cm.resolve_source(alias, {})
+        assert src.access_identifier == table, f"{alias} -> {src.access_identifier}"
+        assert src.name not in legacy, f"{alias} still resolves to a former key"
 
 
 def test_get_catalogue_config_merges_service(cm):
     cfg = cm.get_catalogue_config("gaia")
-    assert cfg["_catalogue_name"] == "gaia_cds"
+    assert cfg["_catalogue_name"] == "gaia_dr3_cds"
     assert cfg["access_method"] == "tap"  # inherited from the archive service
     assert cfg["ra_column"] == "RA_ICRS"
     esa = cm.get_catalogue_config("gaia_esa")
@@ -72,11 +140,26 @@ def test_config_rejects_alias_names_ambiguous_by_case(tmp_path, cm):
 
     config = copy.deepcopy(cm.config)
     config["catalogue_aliases"]["Alias_Case_Collision"] = "gaia_esa"
-    config["catalogue_aliases"]["alias_case_collision"] = "gaia_cds"
+    config["catalogue_aliases"]["alias_case_collision"] = "gaia_dr3_cds"
     path = tmp_path / "ambiguous-aliases.yaml"
     path.write_text(yaml.safe_dump(config))
 
     with pytest.raises(ConfigError):
+        CrossMatch(config_file=path)
+
+
+def test_config_rejects_alias_shadowing_a_catalogue(tmp_path, cm):
+    """An alias must never silently redirect a canonical catalogue name."""
+    import copy
+
+    import yaml
+
+    config = copy.deepcopy(cm.config)
+    config["catalogue_aliases"]["gaia_dr3_cds"] = "gaia_esa"
+    path = tmp_path / "shadowing-alias.yaml"
+    path.write_text(yaml.safe_dump(config))
+
+    with pytest.raises(ConfigError, match="shadows catalogue"):
         CrossMatch(config_file=path)
 
 
@@ -98,7 +181,12 @@ def test_resolve_source_remote_alias(cm):
     src = cm.resolve_source("gaia", {})
     assert not src.is_local
     assert src.access_method == "tap"
-    assert src.name == "gaia_cds"
+    assert src.name == "gaia_dr3_cds"
+
+
+def test_galex_access_identifier_names_the_table(cm):
+    src = cm.resolve_source("galex", {})
+    assert src.access_identifier == "II/335/galex_ais"
 
 
 def test_gaia_source_exposes_complete_space_motion_metadata(cm):
@@ -148,10 +236,10 @@ def test_local_source_preserves_space_motion_overrides(cm):
 def test_resolve_source_datalab_alias(cm):
     """Data Lab catalogue aliases resolve to TAP-backed CatalogueSource."""
     for alias, expected_name, expected_table, expect_ra, expect_dec in [
-        ("nsc", "nsc", "nsc_dr2.object", "ra", "dec"),
-        ("des", "des", "des_dr2.main", "ra", "dec"),
-        ("smash", "smash", "smash_dr2.object", "ra", "dec"),
-        ("unwise", "unwise", "unwise_dr1.object", "ra", "dec"),
+        ("nsc", "nsc_dr2", "nsc_dr2.object", "ra", "dec"),
+        ("des", "des_dr2", "des_dr2.main", "ra", "dec"),
+        ("smash", "smash_dr2", "smash_dr2.object", "ra", "dec"),
+        ("unwise", "unwise_dr1", "unwise_dr1.object", "ra", "dec"),
         ("allwise_dl", "allwise", "allwise.source", "ra", "dec"),
     ]:
         src = cm.resolve_source(alias, {})
@@ -184,6 +272,37 @@ def test_resolve_source_datalab_aliases_point_to_tractor_not_object(cm):
 def test_resolve_source_unknown_raises(cm):
     with pytest.raises(InputError):
         cm.resolve_source("totally_unknown_thing", {})
+
+
+def test_resolve_source_explicit_vizier_id_uses_configured_entry(cm):
+    src = cm.resolve_source("vizier:II/349/ps1", {})
+    assert src.name == "ps1_dr1"
+    assert src.access_method == "tap"
+    assert src.access_identifier == "II/349/ps1"
+
+
+def test_resolve_source_explicit_tap_id_uses_configured_entry(cm):
+    src = cm.resolve_source("tap:noirlab/nsc_dr2.object", {})
+    assert src.name == "nsc_dr2"
+    assert src.access_method == "tap"
+    assert src.access_identifier == "nsc_dr2.object"
+
+
+def test_resolve_source_explicit_tap_rejects_unknown_endpoint(cm):
+    with pytest.raises(InputError, match="known public endpoints"):
+        cm.resolve_source("tap:not_an_endpoint/foo.bar", {})
+
+
+def test_resolve_source_hats_url_and_reserved_registry_name(cm):
+    src = cm.resolve_source("hats:https://example.org/hats/survey/", {})
+    assert src.access_method == "hats"
+    assert src.name == "survey"
+    assert src.access_identifier == "https://example.org/hats/survey/"
+
+    # Registry short-name lookup is not implemented yet: fail with guidance
+    # instead of guessing a URL.
+    with pytest.raises(InputError, match="Registry short-name lookup"):
+        cm.resolve_source("hats:two_mass", {})
 
 
 def test_resolve_source_needs_coords_when_undetectable(cm):

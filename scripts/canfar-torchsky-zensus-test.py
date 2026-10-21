@@ -171,12 +171,14 @@ def main():
     matching_parts = []
     # Targeted spatial query via HEALPix order 5
     order = 5
-    nside = 2 ** order
+    nside = 2**order
     from torchsky.sphere import healpix as ts_healpix
 
     left_ra_t = torch.from_numpy(m67_pl["RAJ2000"].to_numpy())
     left_dec_t = torch.from_numpy(m67_pl["DEJ2000"].to_numpy())
-    target_pixs = ts_healpix.ang2pix(nside, left_ra_t, left_dec_t, nest=True, lonlat=True).unique().tolist()
+    target_pixs = (
+        ts_healpix.ang2pix(nside, left_ra_t, left_dec_t, nest=True, lonlat=True).unique().tolist()
+    )
     all_needed_pixs = set()
     for p in target_pixs:
         all_needed_pixs.add(int(p))
@@ -220,6 +222,7 @@ def main():
     # Fallback to general pixel search if order was different
     if not matching_parts:
         from xmatcher.hats_native import list_hats_pixels
+
         for _ord, _pix, p in list_hats_pixels(zensus_path):
             part_df = _load_pixel_path(p)
             if part_df.is_empty():

@@ -93,9 +93,10 @@ def test_cli_describe(capsys):
     err = capsys.readouterr().err
     assert "Catalogue 'not_real' not found." in err
 
-    assert main(["describe", "gaia_cds"]) == 0
+    assert main(["describe", "gaia_dr3_cds"]) == 0
     out = capsys.readouterr().out
-    assert "Catalogue: gaia_cds" in out
+    assert "Catalogue: gaia_dr3_cds" in out
+    assert "Release:" in out and "dr3" in out
 
 
 def test_cli_describe_no_dangling_whitespace_without_suggestion(capsys):
@@ -212,6 +213,100 @@ def test_cli_match_help_uses_grouped_sections(capsys):
         "Region",
     ):
         assert section in out, f"match --help missing section {section!r}"
+
+
+def test_cli_match_help_preserves_example_lines(capsys):
+    """The epilog must keep one example per line instead of collapsing it."""
+    with pytest.raises(SystemExit) as exc:
+        main(["match", "--help"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "Examples:\n  # Two local files" in out
+    assert "\n  # Explicit radius" in out
+    assert "--side1 KEY=VALUE" in out
+    assert "ra_err_column=ra_err" in out
+
+
+def test_cli_match_side_overrides_enable_skyerr(tmp_path, capsys):
+    """`--side1/--side2` expose the error columns needed by skyerr."""
+    a = tmp_path / "a.parquet"
+    b = tmp_path / "b.parquet"
+    pl.DataFrame(
+        {
+            "id": [1, 2],
+            "ra": [10.0, 20.0],
+            "dec": [5.0, 6.0],
+            "ra_err": [0.1, 0.1],
+            "dec_err": [0.1, 0.1],
+        }
+    ).write_parquet(a)
+    pl.DataFrame(
+        {
+            "id": [1, 2],
+            "ra": [10.00001, 20.00001],
+            "dec": [5.0, 6.0],
+            "ra_err": [0.1, 0.1],
+            "dec_err": [0.1, 0.1],
+        }
+    ).write_parquet(b)
+
+    side = "ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec"
+    rc = main(
+        [
+            "match",
+            str(a),
+            str(b),
+            "--matcher",
+            "skyerr",
+            "--side1",
+            side,
+            "--side2",
+            side,
+            "-o",
+            str(tmp_path / "out.parquet"),
+        ]
+    )
+    assert rc == 0
+    assert pl.read_parquet(tmp_path / "out.parquet").height == 2
+
+
+def test_cli_fallback_policy_error_fails_instead_of_substituting(tmp_path, capsys):
+    """`--fallback-policy error` makes an unsupported matcher abort."""
+    a = tmp_path / "a.csv"
+    b = tmp_path / "b.csv"
+    pl.DataFrame({"ra": [10.0], "dec": [5.0]}).write_csv(a)
+    pl.DataFrame({"ra": [10.00001], "dec": [5.0]}).write_csv(b)
+
+    rc = main(
+        [
+            "match",
+            str(a),
+            str(b),
+            "--matcher",
+            "skyerr",
+            "--fallback-policy",
+            "error",
+            "-o",
+            str(tmp_path / "out.parquet"),
+        ]
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "skyerr" in err and "positional errors" in err
+
+
+def test_cli_list_aliases_and_describe_alias(capsys):
+    assert main(["list", "--aliases"]) == 0
+    out = capsys.readouterr().out
+    assert "ALIAS" in out
+    assert "gaia_dr3_cds" in out
+    # the pre-rename keys are still listed, pointing at the canonical entry
+    assert "gaia_cds" in out
+
+    assert main(["describe", "gaia"]) == 0
+    out = capsys.readouterr().out
+    assert "Catalogue: gaia_dr3_cds" in out
+    assert "Alias:" in out and "gaia -> gaia_dr3_cds" in out
 
 
 def test_cli_no_color_flag_disables(capsys, monkeypatch):

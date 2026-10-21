@@ -24,7 +24,7 @@ cm = CrossMatch()  # loads bundled xmatcher.yaml and user overrides
 | [`union_match(...)`](#union_match) | Master union crossmatch producing a full-outer-join catalogue (in-memory or distributed HATS). |
 | [`nway_match(...)`](#nway_match) | Simultaneous Bayesian $N$-way crossmatching (Budavári & Szalay 2008 posterior). |
 | [`fof_match(...)`](#fof_match) | Friends-of-Friends transitive closure clustering detections into object bundles. |
-| `resolve_source(value, overrides)` | Builds a `CatalogueSource` from a file path, DataFrame, or configured name. |
+| `resolve_source(value, overrides)` | Builds a `CatalogueSource` from a file path, DataFrame, configured name/alias, or explicit `vizier:` / `tap:` / `hats:` identifier. |
 | `get_catalogue_config(name)` | Returns the merged YAML configuration for a catalogue alias or name. |
 
 ---
@@ -34,7 +34,9 @@ cm = CrossMatch()  # loads bundled xmatcher.yaml and user overrides
 **The preferred, strongly-typed API entry point.**
 
 ```python
-def crossmatch_request(self, req: MatchRequest) -> pl.DataFrame | pl.LazyFrame | None
+def crossmatch_request(
+    self, req: MatchRequest, *, hats_threshold: int = 100_000, progress_cb=None
+) -> pl.DataFrame | pl.LazyFrame | None
 ```
 
 **Parameters**:
@@ -76,7 +78,7 @@ result = cm.crossmatch_request(request)
 ```
 
 **Key Parameters**:
-- `cat1`, `cat2` (`str | Path | pl.DataFrame | pl.LazyFrame`): Input catalogues. Can be local file paths (`.parquet`, `.csv`, `.tsv`, `.fits`), HATS directory paths, remote TAP catalogue names (e.g. `"gaia"`, `"des"`), or in-memory Polars frames.
+- `cat1`, `cat2` (`str | Path | pl.DataFrame | pl.LazyFrame`): Input catalogues. Can be local file paths (`.parquet`, `.csv`, `.tsv`, `.fits`), HATS directory paths, remote TAP catalogue names or aliases (e.g. `"gaia"`, `"des"`), explicit `vizier:<id>` / `tap:<endpoint>/<table>` / `hats:<url>` identifiers, or in-memory Polars frames.
 - `output_file` (`str | Path | None`): Destination file/tree supported by the selected writer. Some sinks stream serialization, but that does not mean the matching step is bounded-memory.
 - `lazy` (`bool`): If `True`, returns an uncollected `pl.LazyFrame`.
 - `radius_arcsec` (`float`): Spatial matching radius in arcseconds.
@@ -95,8 +97,9 @@ Chains sequential pairwise crossmatches across $N \ge 2$ catalogues. Catalogue 1
 ```python
 def crossmatch_multi(
     self,
-    catalogues: Sequence[FrameInput],
+    catalogues: list[FrameInput],
     output_file: str | Path | None = None,
+    *,
     lazy: bool = False,
     **params: Any,
 ) -> pl.DataFrame | pl.LazyFrame | None
@@ -122,8 +125,9 @@ Constructs a master union catalogue via sequential full outer joins or Ray distr
 ```python
 def union_match(
     self,
-    catalogues: Sequence[FrameInput],
+    catalogues: list[FrameInput],
     output_file: str | Path | None = None,
+    *,
     lazy: bool = False,
     **params: Any,
 ) -> pl.DataFrame | pl.LazyFrame | None
@@ -196,6 +200,9 @@ Consolidated request dataclass.
 | `spec` | `MatchSpec` | `MatchSpec()` | Matching parameters and algorithm specification. |
 | `output_file` | `str | Path | None` | `None` | Stream output to file. |
 | `lazy` | `bool` | `False` | Return an uncollected `pl.LazyFrame`. |
+| `memory_budget_bytes` | `int | None` | `None` | Enable the pairwise spill path when projected inputs exceed this budget. |
+| `scratch_dir` | `str | Path | None` | `None` | Parent directory for spill partitions. |
+| `partition_order` | `str | int` | `"auto"` | Sky-zone order for bounded-memory matching. |
 | `engine` | `str` | `"auto"` | Spatial engine selector. |
 | `id_join` | `bool` | `False` | Switch from spatial matching to a relational ID join. |
 | `id_column_1`, `id_column_2` | `str | None` | `None` | Custom ID column names for ID join. |
@@ -220,6 +227,8 @@ Defines the algorithm criteria:
 | `filter_expr` | `str | None` | `None` | Polars SQL WHERE clause applied after scoring and `find` selection; rejected best matches are not replaced. Uses input column names with the result suffixes and retains survivor scores. Malformed expressions and unknown columns raise `CrossMatchError`. |
 | `extra_distance_cols` | `dict[str, float]` | `{}` | Extra columns & weights for $N$-dimensional `find="best"` ranking; declared columns must exist on both sides and contain numeric finite values, or `CrossMatchError` is raised. |
 | `batch_size` | `int | None` | `None` | Number of HEALPix pixel groups per batch in zone matching; not a general process-memory limit. |
+| `probabilistic` | `bool` | `False` | Enable positional `p_match` scoring (also settable on `MatchRequest`). |
+| `fallback_policy` | `str` | `"warn"` | `"warn"` logs and substitutes a supported engine/matcher; `"error"` aborts when the request cannot be honoured. |
 | `lr_magnitude_column` | `str | None` | `None` | Secondary magnitude column for Likelihood Ratio (`matcher="lr"`). |
 | `lr_q` | `float` | `0.8` | Prior probability of counterpart detection in primary survey. |
 | `ml_color_columns` | `list[str]` | `[]` | Colour/magnitude feature columns for RF/XGB matchers. |
@@ -235,6 +244,16 @@ Defines the algorithm criteria:
 `astrometric_covariance_columns`, `pos_err_units`, `default_pos_error_arcsec`,
 `epoch`, `epoch_column`, `pm_ra_column`, `pm_dec_column`,
 `parallax_column`, `radial_velocity_column`, `endpoint`, and `frame`.
+
+The CLI exposes every `SideOverrides` key except `columns`,
+`astrometric_covariance_columns`, and `endpoint` through repeatable
+`--side1` / `--side2` `KEY=VALUE` pairs. Use `--columns-1` / `--columns-2` and
+`--endpoint` for those three.
+
+`MatchSpec.fallback_policy` controls what happens when a requested engine or
+matcher cannot honour the request. The default `"warn"` logs and substitutes a
+supported path; `"error"` raises `CrossMatchError` instead. The CLI equivalent
+is `--fallback-policy error`.
 
 ---
 
@@ -312,7 +331,7 @@ from xmatcher import (
 The mirroring subsystem backs offline queries and the distributed `ray-union` pipeline:
 
 ```python
-from xmatcher.mirror import mirror_catalogue, TokenBucket
+from xmatcher.mirror import sync_catalogue, ensure_mirrored, TokenBucket
 from xmatcher.storage import open_storage
 ```
 
@@ -369,7 +388,7 @@ Sidecar graph representation for multi-survey crossmatch components:
 # 1. Publish verified association release
 manifest = write_association_release(
     sorted_records,
-    output_directory="releases/cosmos_v1",
+    "releases/cosmos_v1",
     provenance=provenance_obj,
 )
 
@@ -384,7 +403,7 @@ for record in iter_association_release("releases/cosmos_v1"):
 comp_manifest = write_association_component_release(
     components,
     association_release_directory="releases/cosmos_v1",
-    component_release_directory="components/cosmos_v1",
+    directory="components/cosmos_v1",
 )
 ```
 

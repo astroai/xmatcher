@@ -387,21 +387,26 @@ def write_frame(
         )
         return
     out = Path(output_file)
-    out.parent.mkdir(parents=True, exist_ok=True)
     suffix = out.suffix.lower()
     lf = to_lazy(frame)
 
-    if suffix == ".parquet":
-        lf.sink_parquet(out, engine="streaming")
-    elif suffix == ".csv":
-        lf.sink_csv(out, engine="streaming")
-    elif suffix in (".tsv", ".tab"):
-        lf.sink_csv(out, separator="\t")
-    elif suffix in (".fits", ".fit"):
-        polars_to_astropy(lf).write(out, overwrite=True, serialize_method="data_mask")
-    elif suffix == ".hats":
-        write_hats(frame, out, ra_column=ra_column, dec_column=dec_column, threshold=hats_threshold)
-        return
-    else:
-        raise InputError(f"Unsupported output format '{suffix}'.")
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        if suffix == ".parquet":
+            lf.sink_parquet(out, engine="streaming")
+        elif suffix == ".csv":
+            lf.sink_csv(out, engine="streaming")
+        elif suffix in (".tsv", ".tab"):
+            lf.sink_csv(out, separator="\t")
+        elif suffix in (".fits", ".fit"):
+            polars_to_astropy(lf).write(out, overwrite=True, serialize_method="data_mask")
+        elif suffix == ".hats":
+            write_hats(
+                frame, out, ra_column=ra_column, dec_column=dec_column, threshold=hats_threshold
+            )
+            return
+        else:
+            raise InputError(f"Unsupported output format '{suffix}'.")
+    except OSError as exc:
+        raise InputError(f"Could not write '{out}': {exc}") from exc
     logger.info("Wrote results to %s", out)

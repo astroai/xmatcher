@@ -11,7 +11,7 @@ keeps the old `xmatch` name. See the
 xmatcher match catalog1.parquet catalog2.csv -o matches.parquet -r 1.0
 ```
 
-Inputs can be local Parquet, CSV, TSV, or FITS files, HATS directories, Polars frames, or configured remote catalogues. Coordinate names can be configured or detected. Proper-motion propagation uses declared epoch and motion metadata; mixed coordinate frames are rejected and generic catalogue discovery does not invent positional uncertainties.
+Inputs can be local Parquet, CSV, TSV, or FITS files, HATS directories, configured catalogue names/aliases, or explicit `vizier:<id>`, `tap:<endpoint>/<table>`, and `hats:<url>` identifiers. Coordinate names can be configured or detected. Proper-motion propagation uses declared epoch and motion metadata; mixed coordinate frames are rejected and generic catalogue discovery does not invent positional uncertainties.
 
 ---
 
@@ -24,7 +24,10 @@ All detailed architectural references and user guides are organized in the [`doc
 - **[Crossmatch Algorithms & Math (`docs/algorithms.md`)](docs/algorithms.md)**: Matcher definitions, uncertainty assumptions, score semantics, and engine behavior.
 - **[Source & Measurement Releases (`docs/observations.md`)](docs/observations.md)**: Lazy, source-preserving measurement ledgers, photometric unit/limit normalization, property evidence, and checksummed Parquet releases.
 - **[Candidate & Association Pipeline (`docs/catalogue-pipeline.md`)](docs/catalogue-pipeline.md)**: End-to-end workflow from pinned survey observation and sparse-candidate releases to per-target association hypotheses.
+- **[Catalogue Naming (`docs/naming.md`)](docs/naming.md)**: Bare survey names, releases, provider suffixes, and the `vizier:` / `tap:` / `hats:` identifier grammar.
 - **[Association Contract v1 (`docs/association-v1.md`)](docs/association-v1.md)**: Audit-grade versioned association record specification, release directories, component sidecars, and member equivalence tracking.
+
+A [documentation index](docs/README.md) separates current guides from historical release and scaling records.
 
 ---
 
@@ -32,7 +35,7 @@ All detailed architectural references and user guides are organized in the [`doc
 
 - **Universal Multi-Format I/O**:
   - Ingests and streams `.parquet`, `.csv`, `.tsv`, `.tab`, `.fits` (via high-speed Torchfits with Astropy fallback), and HATS.
-  - Remote storage connectors: POSIX filesystem, CANFAR VOSpace (`vos:`), HTTP/HTTPS, and S3.
+  - Remote storage connectors: POSIX filesystem, CANFAR VOSpace (`vos:`), and HTTP/HTTPS. (`s3://` HATS URLs are not read directly; use an HTTPS mirror.)
 - **File I/O and explicit memory controls**:
   - Parquet, CSV, TSV, FITS, and HATS readers with Parquet/CSV/TSV/FITS outputs.
   - Output sinks can stream serialization. Most matching engines still materialize inputs and matches; local pairwise CSV/Parquet requests can opt into the spill path with `--memory-budget-bytes` and file output. See [memory limits](docs/usage.md#pairwise-spill-matching-on-one-machine).
@@ -114,6 +117,10 @@ PyPI.
 | Mirror remote surveys to local cache | `xmatcher sync gaia allwise 2mass` |
 | Search remote TAP archives | `xmatcher search des` |
 | Discover archive schemas | `xmatcher discover noirlab --schema nsc_dr2.object` |
+| List short names and aliases | `xmatcher list --aliases` |
+| Explicit VizieR / TAP table | `xmatcher match targets.csv vizier:II/349/ps1 -r 1.0` |
+| Shell completion | `xmatcher completion bash` |
+| Check local config drift | `xmatcher doctor` |
 
 ---
 

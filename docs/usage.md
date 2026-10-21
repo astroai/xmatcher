@@ -172,7 +172,7 @@ partitioned spill path when projected inputs exceed the budget:
 ```bash
 xmatcher match large_a.parquet large_b.parquet \
   --memory-budget-bytes 1073741824 --scratch-dir /scratch/xmatcher \
-  --matcher sky --join-type 1or2 -o matches.parquet
+  --matcher sky --join 1or2 -o matches.parquet
 ```
 
 This path currently supports pairwise `sky` and `skyerr`, inner or full-outer
@@ -188,6 +188,27 @@ a general memory limit.
 ## 4. Remote Archive Federation & Discovery
 
 `xmatcher` includes catalogue and endpoint configurations for several TAP services. Availability, access policy, table schemas, and service limits can change; verify them with `xmatcher search` / `xmatcher describe` before large queries.
+
+### Catalogue identifiers
+
+Every catalogue position accepts one of these forms, resolved in this order:
+
+1. A local file or HATS directory.
+2. A configured name or alias, matched case-insensitively. `xmatcher list --aliases`
+   prints every short name and what it resolves to.
+3. An explicit identifier:
+   - `vizier:<id>` — a VizieR catalogue/table id, e.g. `vizier:II/349/ps1`.
+   - `tap:<endpoint>/<table>` — a table on a supported public TAP endpoint
+     (`vizier`, `noirlab`, `gaia`, `cadc`), e.g. `tap:noirlab/nsc_dr2.object`.
+   - `hats:<url>` — a remote HATS tree over HTTP(S) or VOSpace, e.g.
+     `hats:https://example.org/hats/my_survey/` (a single tree, not a HATS
+     collection root or an `s3://` path).
+4. A bare remote table id such as `II/349/ps1` (legacy convenience; prefer
+   `vizier:` so the access route is unambiguous).
+
+Bare names, releases, and provider suffixes are described in
+[naming.md](naming.md). HATS short-name registry lookup (`hats:<name>`) is not
+enabled yet; pass a URL or use a configured name.
 
 ### Querying Remote Archives Automatically
 
@@ -225,8 +246,9 @@ xmatcher match nsc_x_gaia my_stars.csv --ra 279.2 --dec 38.8 --radius-deg 0.01 -
 ### Interactive Remote Archive Discovery
 
 ```bash
-# List all built-in catalogue aliases
+# List configured catalogues (add --aliases for short-name mappings)
 xmatcher list
+xmatcher list --aliases
 
 # Search remote TAP endpoints for datasets matching a keyword
 xmatcher search rubin
@@ -280,6 +302,30 @@ from xmatcher import CrossMatch, MatchRequest, MatchSpec, SideOverrides
 
 cm = CrossMatch()
 ```
+
+### CLI error-model and fallback controls
+
+Small local files rarely carry the column metadata that `skyerr`,
+`skyellipse`, and probabilistic scoring need. The CLI exposes the same
+per-side settings as `SideOverrides` through repeatable `--side1` / `--side2`
+`KEY=VALUE` pairs:
+
+```bash
+xmatcher match xray.fits optical.parquet --matcher skyerr \
+  --side1 ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \
+  --side2 ra_err_column=e_RAJ2000,dec_err_column=e_DEJ2000,pos_err_units=arcsec
+```
+
+Accepted keys are `ra_column`, `dec_column`, `id_column`, `ra_err_column`,
+`dec_err_column`, `corr_column`, `pos_err_units`, `default_pos_error_arcsec`,
+`epoch`, `epoch_column`, `pm_ra_column`, `pm_dec_column`, `parallax_column`,
+`radial_velocity_column`, and `frame`. These override YAML metadata and
+auto-detection for that catalogue only.
+
+If a requested matcher or engine cannot honour the request, the default
+`--fallback-policy warn` logs a warning and substitutes a supported path;
+this can change the selection criterion. Add `--fallback-policy error` for
+reproducible runs that must fail loudly instead.
 
 ### A. Simple Positional Matching (`matcher="sky"`)
 
@@ -534,7 +580,7 @@ partitioned spill path when projected input size exceeds the requested budget:
 ```bash
 xmatcher match large_a.parquet large_b.parquet \
   --memory-budget-bytes 1073741824 --scratch-dir /scratch/xmatcher \
-  --matcher sky --join-type 1or2 -o matches.parquet
+  --matcher sky --join 1or2 -o matches.parquet
 ```
 
 The current spill path supports `sky` and `skyerr`, inner (`1and2`) and full
@@ -551,10 +597,11 @@ HEALPix pixel groups for the zone path and is not a general memory limit.
 inputs into frames and assembles the final candidate result, so coordinator
 memory still grows with the input and output. Use it when parallel candidate
 search is useful and the coordinator can hold those data. This engine does not
-turn an arbitrary flat-file match into an out-of-core operation. Optional
-matchers and Ray behavior depend on the selected matcher and installed extras;
-unsupported combinations should raise an error rather than silently changing
-criteria.
+turn an arbitrary flat-file match into an out-of-core operation.Optional matchers and Ray behaviour depend on the selected matcher and installed
+extras. By default (`fallback_policy="warn"`) an unsupported combination logs a
+warning and substitutes a supported path; this can change the science criteria.
+Set `--fallback-policy error` (or `MatchSpec(fallback_policy="error")`) to fail
+instead, and use that setting for reproducible science runs.
 
 ```python
 from xmatcher import CrossMatch, MatchRequest, MatchSpec
@@ -624,3 +671,26 @@ omitted. Isolated first-catalogue rows are retained. Numeric attributes are
 aggregated by mean and nonnumeric attributes use the first value; inspect the
 source membership (`_src_cats`) before interpreting an aggregate as one
 measurement.
+
+## 10. Configuration health and shell completion
+
+`xmatcher doctor` compares the active configuration with the bundled baseline
+and reports structural drift (a renamed column, a moved table, a changed
+alias). The default exit code is nonzero only when a structural field differs;
+`--strict` treats any topology change as failure, `--json` is machine-readable,
+and `--quiet` emits one summary line.
+
+```bash
+xmatcher doctor
+xmatcher doctor --json
+xmatcher doctor --strict --quiet
+```
+
+`xmatcher completion` emits a completion script populated from the active
+configuration:
+
+```bash
+xmatcher completion bash > ~/.local/share/bash-completion/completions/xmatcher
+xmatcher completion zsh > "${ZDOTDIR:-$HOME}/.zsh/completions/_xmatcher"
+xmatcher completion fish > ~/.config/fish/completions/xmatcher.fish
+```

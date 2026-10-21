@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Explicit catalogue identifiers: `vizier:<id>`, `tap:<endpoint>/<table>`, and
+  `hats:<url>`, documented in [docs/naming.md](docs/naming.md). Configured
+  tables resolve before any TAP_SCHEMA probe.
+- Repeatable `--side1` / `--side2 KEY=VALUE` CLI overrides, so `skyerr`,
+  `skyellipse`, target-epoch, and probabilistic matching work on plain local
+  files without editing `xmatcher.yaml`.
+- `--fallback-policy {warn,error}` on the CLI, matching
+  `MatchSpec.fallback_policy`.
+- `xmatcher list --aliases` prints alias-to-catalogue mappings, and
+  `xmatcher describe` shows the alias used and the catalogue's release.
+- `docs/naming.md` and `docs/README.md`.
+
+### Changed
+
+- Catalogue keys now follow `<survey>[_<release>][_<product>][_<provider>]`:
+  `gaia_cds` → `gaia_dr3_cds`, `des` → `des_dr2`, `nsc` → `nsc_dr2`,
+  `ps1` → `ps1_dr1`, `twomass` → `twomass_psc`, `unwise` → `unwise_dr1`,
+  `catwise` → `catwise_2020`, `desils` → `legacy_dr10`,
+  `decals_objects` → `decals_dr10_object`, `galex` → `galex_ais`,
+  `vhs` → `vhs_dr5`, `gaia_noao` → `gaia_noirlab`, `ukidss` → `ukidss_las`,
+  `erosita` → `erosita_erass1`, and `xmm` → `xmm_dr13`. Every former key stays
+  as an alias, and short names (`gaia`, `des`, `ps1`, …) are unchanged. `decals`
+  still resolves to the tractor table. Mirrors sync into a new cache directory
+  named after the canonical key; see [docs/naming.md](docs/naming.md).
+- The 2MASS entry's `release` is now `allsky` (the PSC all-sky release) rather
+  than the product token `psc`.
+
+### Fixed
+
+- `xmatcher match --help` preserves the example block and description layout;
+  defaults are only shown when meaningful.
+- Documented `--join` (the previous `--join-type` spelling in the user guide was
+  not a real flag), association writer argument names, and the `mirror` exports.
+- Output paths that cannot be created now raise an actionable `InputError`
+  instead of logging a traceback.
+- Removed the unsupported S3 storage-connector claim from the README.
+- `galex` resolved to the VizieR catalogue parent `II/335`; it now names the
+  `II/335/galex_ais` table.
+- Alias resolution follows alias chains, so a user overlay written before a
+  catalogue rename keeps working. Alias cycles and aliases that shadow a
+  catalogue name are now `ConfigError`s instead of silent misresolution.
+
 ## [0.5.1] — 2026-10-08
 
 Published on PyPI as `xmatcher`. The `v0.5.1` tag is the GitHub release.

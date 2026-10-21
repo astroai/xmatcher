@@ -199,7 +199,7 @@ def test_target_epoch_bypasses_unpropagated_cds_xmatch(cm, monkeypatch):
     result = cm._local_vs_remote(local, remote, request).collect()
 
     assert result["ok"].to_list() == [True]
-    assert downloads == ["gaia_cds"]
+    assert downloads == ["gaia_dr3_cds"]
 
 
 def test_download_remote_requires_region_when_no_local(cm):
@@ -494,7 +494,7 @@ def test_tap_without_projection_selects_all_columns():
 
 
 def _write_fake_mirror(cm, tmp_path, rows):
-    """Build a minimal mirrored HATS copy for ``gaia_cds`` under tmp_path cache."""
+    """Build a minimal mirrored HATS copy for ``gaia_dr3_cds`` under tmp_path cache."""
     from xmatcher.mirror import _safe_name, _version_dir
 
     src = cm.resolve_source("gaia_cds", {})
