@@ -176,6 +176,41 @@ def test_hats_native_requires_hats_side():
         )
 
 
+def test_hats_native_with_local_lazyframe(tmp_path: Path):
+    """HATS side crossmatched against local LazyFrame side works without boolean error."""
+    hats_dir = _write_hats(
+        tmp_path / "hats_left",
+        [{"ra": 132.8978, "dec": 11.5756, "source_id": 101}],
+        pix=0,
+    )
+    src_hats = CatalogueSource(
+        name="hats_left",
+        is_local=False,
+        access_method="hats",
+        access_identifier=str(hats_dir),
+        ra_column="ra",
+        dec_column="dec",
+    )
+    local_df = pl.DataFrame({"RAJ2000": [132.8978, 134.0], "DEJ2000": [11.5756, 12.0], "Vmag": [16.0, 18.5]})
+    src_local = CatalogueSource(
+        name="local_right",
+        is_local=True,
+        ra_column="RAJ2000",
+        dec_column="DEJ2000",
+        _frame=local_df.lazy(),
+    )
+    out = hats_native.hats_native_crossmatch(
+        src_hats,
+        src_local,
+        MatchSpec(radius_arcsec=1.0, join_type="1and2"),
+        local_lf2=local_df.lazy(),
+        engine="fast",
+    )
+    assert out.height == 1
+    assert "Vmag" in out.columns
+    assert "source_id" in out.columns
+
+
 def test_empty_native_hats_retains_schema_through_full_outer_match(tmp_path: Path) -> None:
     """Zero-pixel HATS keeps its metadata schema for null-extended output."""
     empty_path = tmp_path / "empty"

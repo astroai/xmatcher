@@ -340,8 +340,16 @@ def hats_native_crossmatch(
             spec.matcher,
             eng,
         )
-        left_df = load_hats_all(src1) if left_hats else (local_lf1 or src1.lazy()).collect()
-        right_df = load_hats_all(src2) if right_hats else (local_lf2 or src2.lazy()).collect()
+        left_df = (
+            load_hats_all(src1)
+            if left_hats
+            else (local_lf1 if local_lf1 is not None else src1.lazy()).collect()
+        )
+        right_df = (
+            load_hats_all(src2)
+            if right_hats
+            else (local_lf2 if local_lf2 is not None else src2.lazy()).collect()
+        )
         return _match_frames(
             src1,
             src2,
@@ -369,7 +377,7 @@ def hats_native_crossmatch(
                 sample_df = _load_pixel_path(path)
                 right_empty_schema = dict(sample_df.schema)
     else:
-        right_all = (local_lf2 or src2.lazy()).collect()
+        right_all = (local_lf2 if local_lf2 is not None else src2.lazy()).collect()
 
     results: list[pl.DataFrame] = []
     right_idx_str = {k: str(v) for k, v in right_index.items()}
