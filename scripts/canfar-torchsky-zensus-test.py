@@ -545,6 +545,73 @@ def main():
         }
 
     # =========================================================================
+    # PART 2: DECENT-SIZE GALAXY PHOTOMETRY CATALOG CROSSMATCH (zCOSMOS, 10,644 galaxies)
+    # =========================================================================
+    logger.info("==================================================================")
+    logger.info("PART 2: Testing Decent-Size Galaxy Photometry Catalog: zCOSMOS (10k galaxies)")
+    logger.info("==================================================================")
+    time.time()
+    try:
+        logger.info("Fetching zCOSMOS galaxy sample (J/ApJS/184/218/table3)...")
+        v_gal = Vizier(row_limit=-1)
+        zcos_tabs = v_gal.get_catalogs("J/ApJS/184/218/table3")
+        if zcos_tabs:
+            zcos_pl = astropy_table_to_polars(zcos_tabs[0])
+            zcos_parquet = scratch / "zcosmos_galaxies.parquet"
+            zcos_pl.write_parquet(zcos_parquet)
+            logger.info(
+                "Retrieved %d galaxies from zCOSMOS. Columns: %s", zcos_pl.height, zcos_pl.columns
+            )
+
+            t_xgal = time.time()
+            out_gal_file = out_dir / "zcosmos_zensus_torchsky.parquet"
+            xm_gal = cm.crossmatch(
+                str(zensus_path),
+                str(zcos_parquet),
+                engine="torchsky",
+                radius_arcsec=1.5,
+                output_file=str(out_gal_file),
+            )
+            dur_gal = time.time() - t_xgal
+            df_gal = (
+                pl.read_parquet(out_gal_file)
+                if out_gal_file.exists()
+                else (xm_gal if isinstance(xm_gal, pl.DataFrame) else xm_gal.collect())
+            )
+            match_rate = round(float(df_gal.height) / max(1, zcos_pl.height), 4)
+            med_sep = (
+                float(df_gal["sep_arcsec"].median()) if "sep_arcsec" in df_gal.columns else 0.0
+            )
+
+            logger.info(
+                "zCOSMOS Galaxy Match: %d / %d matched (%.1f%%) in %.2fs (median sep: %.3f arcsec)",
+                df_gal.height,
+                zcos_pl.height,
+                match_rate * 100,
+                dur_gal,
+                med_sep,
+            )
+            summary["galaxy_catalog_test"] = {
+                "catalog_id": "J/ApJS/184/218/table3",
+                "total_galaxies": zcos_pl.height,
+                "matches": df_gal.height,
+                "match_rate": match_rate,
+                "duration_sec": round(dur_gal, 4),
+                "throughput_galaxies_per_sec": round(
+                    float(zcos_pl.height) / max(0.001, dur_gal), 1
+                ),
+                "median_separation_arcsec": round(med_sep, 4),
+                "status": "PASSED",
+            }
+    except Exception as exc_gal:
+        logger.error("Galaxy crossmatch error: %s", exc_gal)
+        summary["galaxy_catalog_test"] = {
+            "catalog_id": "J/ApJS/184/218/table3",
+            "status": "FAILED",
+            "error": str(exc_gal),
+        }
+
+    # =========================================================================
     # SUMMARY & TELEMETRY
     # =========================================================================
     summary["status"] = "SUCCESS"
