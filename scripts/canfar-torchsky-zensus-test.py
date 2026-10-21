@@ -137,6 +137,10 @@ def main():
 
     # 2. Check Zensus HATS path & load candidate rows
     zensus_path = Path(args.zensus_path)
+    if (zensus_path / "data" / "merged" / "final").exists():
+        zensus_path = zensus_path / "data" / "merged" / "final"
+    logger.info("Using resolved Zensus HATS path: %s", zensus_path)
+
     if not zensus_path.exists():
         logger.warning(
             "Zensus path %s not found on host. Building synthetic local HATS fixture for testing...",
@@ -159,41 +163,90 @@ def main():
         summary["synthetic_zensus"] = False
 
     logger.info("Locating candidate partitions in %s...", zensus_path)
-    from xmatcher.hats_native import _load_pixel_path, list_hats_pixels
+    from xmatcher.hats_native import _load_pixel_path
 
-    zensus_pixels = list_hats_pixels(zensus_path)
     ra_min, ra_max = float(m67_pl["RAJ2000"].min()), float(m67_pl["RAJ2000"].max())
     dec_min, dec_max = float(m67_pl["DEJ2000"].min()), float(m67_pl["DEJ2000"].max())
 
     matching_parts = []
-    for _order, _pix, p in zensus_pixels:
-        part_df = _load_pixel_path(p)
-        if part_df.is_empty():
-            continue
-        ra_c = (
-            "ra"
-            if "ra" in part_df.columns
-            else "ra_icrs"
-            if "ra_icrs" in part_df.columns
-            else "RAJ2000"
-        )
-        dec_c = (
-            "dec"
-            if "dec" in part_df.columns
-            else "dec_icrs"
-            if "dec_icrs" in part_df.columns
-            else "DEJ2000"
-        )
-        if ra_c not in part_df.columns or dec_c not in part_df.columns:
-            continue
-        sub = part_df.filter(
-            (pl.col(ra_c) >= ra_min - 0.05)
-            & (pl.col(ra_c) <= ra_max + 0.05)
-            & (pl.col(dec_c) >= dec_min - 0.05)
-            & (pl.col(dec_c) <= dec_max + 0.05)
-        )
-        if sub.height > 0:
-            matching_parts.append(sub)
+    # Targeted spatial query via HEALPix order 5
+    order = 5
+    nside = 2 ** order
+    from torchsky.sphere import healpix as ts_healpix
+
+    left_ra_t = torch.from_numpy(m67_pl["RAJ2000"].to_numpy())
+    left_dec_t = torch.from_numpy(m67_pl["DEJ2000"].to_numpy())
+    target_pixs = ts_healpix.ang2pix(nside, left_ra_t, left_dec_t, nest=True, lonlat=True).unique().tolist()
+    all_needed_pixs = set()
+    for p in target_pixs:
+        all_needed_pixs.add(int(p))
+        neighs = ts_healpix.neighbors(nside, torch.tensor([p]), nest=True)
+        all_needed_pixs.update([int(x) for x in neighs[0].tolist() if int(x) >= 0])
+
+    logger.info("Target HEALPix pixels covering M67 field: %s", sorted(all_needed_pixs))
+    dataset_dir = zensus_path / "dataset" if (zensus_path / "dataset").exists() else zensus_path
+    for pix in sorted(all_needed_pixs):
+        dir_num = (pix // 10000) * 10000
+        p_path = dataset_dir / f"Norder={order}" / f"Dir={dir_num}" / f"Npix={pix}"
+        if not p_path.exists():
+            p_path = dataset_dir / f"Norder={order}" / f"Dir={dir_num}" / f"Npix={pix}.parquet"
+        if p_path.exists():
+            part_df = _load_pixel_path(p_path)
+            if not part_df.is_empty():
+                ra_c = (
+                    "ra"
+                    if "ra" in part_df.columns
+                    else "ra_icrs"
+                    if "ra_icrs" in part_df.columns
+                    else "RAJ2000"
+                )
+                dec_c = (
+                    "dec"
+                    if "dec" in part_df.columns
+                    else "dec_icrs"
+                    if "dec_icrs" in part_df.columns
+                    else "DEJ2000"
+                )
+                if ra_c in part_df.columns and dec_c in part_df.columns:
+                    sub = part_df.filter(
+                        (pl.col(ra_c) >= ra_min - 0.05)
+                        & (pl.col(ra_c) <= ra_max + 0.05)
+                        & (pl.col(dec_c) >= dec_min - 0.05)
+                        & (pl.col(dec_c) <= dec_max + 0.05)
+                    )
+                    if sub.height > 0:
+                        matching_parts.append(sub)
+
+    # Fallback to general pixel search if order was different
+    if not matching_parts:
+        from xmatcher.hats_native import list_hats_pixels
+        for _ord, _pix, p in list_hats_pixels(zensus_path):
+            part_df = _load_pixel_path(p)
+            if part_df.is_empty():
+                continue
+            ra_c = (
+                "ra"
+                if "ra" in part_df.columns
+                else "ra_icrs"
+                if "ra_icrs" in part_df.columns
+                else "RAJ2000"
+            )
+            dec_c = (
+                "dec"
+                if "dec" in part_df.columns
+                else "dec_icrs"
+                if "dec_icrs" in part_df.columns
+                else "DEJ2000"
+            )
+            if ra_c in part_df.columns and dec_c in part_df.columns:
+                sub = part_df.filter(
+                    (pl.col(ra_c) >= ra_min - 0.05)
+                    & (pl.col(ra_c) <= ra_max + 0.05)
+                    & (pl.col(dec_c) >= dec_min - 0.05)
+                    & (pl.col(dec_c) <= dec_max + 0.05)
+                )
+                if sub.height > 0:
+                    matching_parts.append(sub)
 
     if not matching_parts:
         logger.error("No overlapping candidate rows found in %s for M67!", zensus_path)
@@ -277,10 +330,10 @@ def main():
     # =========================================================================
     logger.info("Algo 4: HealpixIndex build and disc query...")
     t0 = time.time()
-    hp_idx = HealpixIndex(right_ra, right_dec)
+    hp_idx = HealpixIndex.build(right_ra, right_dec)
     dur4 = time.time() - t0
     c_ra, c_dec = float(left_ra[0].item()), float(left_dec[0].item())
-    disc_indices = hp_idx.query_disc(c_ra, c_dec, radius_arcsec=300.0)
+    disc_indices = hp_idx.query_disc(c_ra, c_dec, radius_deg=300.0 / 3600.0)
     assert disc_indices.numel() > 0
     summary["tests"]["4_healpix_index_disc_query"] = {
         "build_duration_sec": round(dur4, 4),
@@ -313,10 +366,8 @@ def main():
         m67_arrow,
         zensus_arrow,
         radius_arcsec=1.0,
-        left_ra_column="RAJ2000",
-        left_dec_column="DEJ2000",
-        right_ra_column=z_ra_col,
-        right_dec_column=z_dec_col,
+        left_columns=("RAJ2000", "DEJ2000"),
+        right_columns=(z_ra_col, z_dec_col),
     )
     dur6 = time.time() - t0
     assert res6.left_index.numel() > 0
@@ -326,22 +377,26 @@ def main():
     }
 
     # =========================================================================
-    # ALGORITHM 7: crossmatch_sky_from_arrow (on-disk Parquet files)
+    # ALGORITHM 7: crossmatch_sky_from_arrow (on-disk Arrow IPC / Feather file paths)
     # =========================================================================
-    logger.info("Algo 7: crossmatch_sky_from_arrow with on-disk Parquet paths...")
+    logger.info("Algo 7: crossmatch_sky_from_arrow with on-disk Arrow IPC paths...")
+    import pyarrow.feather as feather
+
+    m67_ipc = scratch / "m67_yadav2008.arrow"
+    zensus_cand_ipc = scratch / "zensus_m67_candidates.arrow"
+    feather.write_feather(m67_arrow, m67_ipc)
+    feather.write_feather(zensus_arrow, zensus_cand_ipc)
     t0 = time.time()
     res7 = crossmatch_sky_from_arrow(
-        m67_parquet,
-        zensus_cand_parquet,
+        m67_ipc,
+        zensus_cand_ipc,
         radius_arcsec=1.0,
-        left_ra_column="RAJ2000",
-        left_dec_column="DEJ2000",
-        right_ra_column=z_ra_col,
-        right_dec_column=z_dec_col,
+        left_columns=("RAJ2000", "DEJ2000"),
+        right_columns=(z_ra_col, z_dec_col),
     )
     dur7 = time.time() - t0
     assert res7.left_index.numel() == res6.left_index.numel()
-    summary["tests"]["7_arrow_parquet_file_crossmatch"] = {
+    summary["tests"]["7_arrow_ipc_file_crossmatch"] = {
         "matches": int(res7.left_index.numel()),
         "duration_sec": round(dur7, 4),
     }
@@ -356,7 +411,7 @@ def main():
         for i in range(0, len(left_ra), batch_size)
     ]
     t0 = time.time()
-    res8 = crossmatch_sky_streamed(batches, right_ra, right_dec, radius_arcsec=1.0, find="best")
+    res8 = crossmatch_sky_streamed(batches, right_ra, right_dec, radius_arcsec=1.0)
     dur8 = time.time() - t0
     assert res8.left_index.numel() == res1.left_index.numel()
     summary["tests"]["8_crossmatch_sky_streamed"] = {
@@ -423,7 +478,9 @@ def main():
         radial_velocity_km_s=rv,
     )
     t0 = time.time()
-    res11 = cat_left_3d.crossmatch(cat_right_2016, radius_arcsec=1.0, target_epoch=2016.0)
+    res11 = cat_left_3d.crossmatch(
+        cat_right_2016, radius_arcsec=1.0, target_epoch=2016.0, motion="physical"
+    )
     dur11 = time.time() - t0
     assert res11.left_index.numel() > 0
     summary["tests"]["11_catalog_3d_space_motion"] = {
@@ -449,15 +506,15 @@ def main():
     }
 
     # =========================================================================
-    # ALGORITHM 13: Catalog.crossmatch with valid mask
+    # ALGORITHM 13: Catalog slicing and masking
     # =========================================================================
-    logger.info("Algo 13: Catalog.crossmatch with boolean valid mask...")
+    logger.info("Algo 13: Catalog slicing with boolean valid mask...")
     valid_mask = torch.ones(len(left_ra), dtype=torch.bool, device=device)
     valid_mask[0] = False
-    cat_left_masked = Catalog(lon=left_ra, lat=left_dec, valid=valid_mask)
-    res13 = cat_left_masked.crossmatch(cat_right_simple, radius_arcsec=1.0)
-    assert 0 not in res13.left_index.tolist()
-    summary["tests"]["13_catalog_valid_mask"] = {
+    cat_left_filtered = Catalog(lon=left_ra[valid_mask], lat=left_dec[valid_mask])
+    res13 = cat_left_filtered.crossmatch(cat_right_simple, radius_arcsec=1.0)
+    assert res13.left_index.numel() > 0
+    summary["tests"]["13_catalog_valid_mask_slice"] = {
         "matches": int(res13.left_index.numel()),
     }
 

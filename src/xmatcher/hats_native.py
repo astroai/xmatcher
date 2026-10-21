@@ -30,6 +30,14 @@ def _hats_root(src: CatalogueSource) -> Path:
     root = Path(path).expanduser()
     if not root.exists():
         raise CrossMatchError(f"HATS path does not exist: {root}")
+    # Auto-resolve workspace root to canonical HATS release directory
+    if not ((root / "properties").exists() or (root / "hats.properties").exists() or (root / "dataset").exists()):
+        for candidate in (
+            root / "data" / "merged" / "final",
+            root / "data" / "release" / "latest",
+        ):
+            if candidate.exists() and ((candidate / "properties").exists() or (candidate / "dataset").exists()):
+                return candidate
     return root
 
 
@@ -378,6 +386,25 @@ def hats_native_crossmatch(
                 right_empty_schema = dict(sample_df.schema)
     else:
         right_all = (local_lf2 if local_lf2 is not None else src2.lazy()).collect()
+        if right_all.height > 0 and left_pixels:
+            order0 = left_pixels[0][0]
+            nside0 = 2 ** int(order0)
+            ra2_c, dec2_c = _ra_dec_columns(src2, left_root)
+            if ra2_c in right_all.columns and dec2_c in right_all.columns:
+                try:
+                    import torch
+                    from torchsky.sphere import healpix as ts_hp
+
+                    ra_t = torch.from_numpy(right_all[ra2_c].to_numpy())
+                    dec_t = torch.from_numpy(right_all[dec2_c].to_numpy())
+                    base_pixs = ts_hp.ang2pix(nside0, ra_t, dec_t, nest=True, lonlat=True).unique().tolist()
+                    needed: set[int] = set()
+                    eff_r = float(spec.radius_arcsec)
+                    for bp in base_pixs:
+                        needed.update(_healpix_neighbors(order0, int(bp), radius_arcsec=eff_r))
+                    left_pixels = [p for p in left_pixels if p[1] in needed]
+                except Exception as _filt_exc:
+                    logger.debug("HATS spatial pruning skipped: %s", _filt_exc)
 
     results: list[pl.DataFrame] = []
     right_idx_str = {k: str(v) for k, v in right_index.items()}
