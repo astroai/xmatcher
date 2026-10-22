@@ -11,6 +11,18 @@ from .test_real_catalogues import allwise_csv, gaia_csv, usno_csv  # noqa: F401
 BENCH_RESULTS: list[dict] = []
 
 
+@pytest.fixture(autouse=True)
+def _isolate_disk_headroom(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the suite independent of the host's free space.
+
+    The production sync/union guard defaults to 10 GiB, but CI runners and
+    small volumes can sit below that; failing every mirror test there would
+    test the runner, not the code.  Tests that exercise the guard pass
+    ``min_free_gb`` explicitly, so the default is disabled for the suite.
+    """
+    monkeypatch.setenv("XMATCHER_MIN_FREE_GB", "0")
+
+
 # --------------------------------------------------------------------------- #
 # Custom CLI options
 # --------------------------------------------------------------------------- #
