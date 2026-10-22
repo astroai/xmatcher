@@ -177,7 +177,7 @@ catalogues:
     # Positional Error Configuration (check VizieR column names)
     ra_err_column: "e_RA_ICRS"
     dec_err_column: "e_DE_ICRS"
-    corr_column: "RADECor"
+    corr_column: "RADEcor"
     pos_err_units: "mas"
     # Default error if specific columns are missing/null (in arcsec)
     default_pos_error_arcsec: 0.05

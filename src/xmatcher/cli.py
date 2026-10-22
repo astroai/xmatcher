@@ -718,8 +718,7 @@ def _build_params(args) -> dict:
         **_parse_side_overrides(getattr(args, "side1_overrides", None), 1),
         **_parse_side_overrides(getattr(args, "side2_overrides", None), 2),
     }
-    return dict(
-        **side_overrides,
+    params = dict(
         radius_arcsec=args.radius_arcsec,
         matcher=args.matcher or "sky",
         max_error=args.max_error,
@@ -768,6 +767,10 @@ def _build_params(args) -> dict:
         min_free_gb=getattr(args, "min_free_gb", None),
         fallback_policy=getattr(args, "fallback_policy", None),
     )
+    # ``--side1/--side2`` are the more specific spelling of the per-side
+    # column flags, so they win when both are supplied.
+    params.update(side_overrides)
+    return params
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -1772,6 +1775,19 @@ def describe(cm: CrossMatch, name: str, console: Console) -> bool:
     return True
 
 
+def _discover_with_case_fallback(url: str, pattern: str | None, auth_session) -> pl.DataFrame:
+    """Run a TAP name filter, retrying lowercased when it matches nothing.
+
+    TAP ``TAP_SCHEMA`` filters are server-side ``LIKE`` matches, which almost
+    every service evaluates case-sensitively; ``xmatcher search unWISE``
+    should still find ``unwise_dr1`` tables.
+    """
+    tables = discover_tables(url, name_filter=pattern, auth_session=auth_session)
+    if tables.height == 0 and pattern and any(ch.isupper() for ch in pattern):
+        tables = discover_tables(url, name_filter=pattern.lower(), auth_session=auth_session)
+    return tables
+
+
 def handle_search(cm: CrossMatch, pattern: str, console: Console) -> int:
     endpoints = get_public_endpoints()
     found_any = False
@@ -1783,10 +1799,10 @@ def handle_search(cm: CrossMatch, pattern: str, console: Console) -> int:
         console.header(f"── {console.bold(name)}  {console.dim(info['description'])} ──")
         try:
             with Progress(f"Discovering tables on {name} …", enabled=console.enabled):
-                tables = discover_tables(
+                tables = _discover_with_case_fallback(
                     info["url"],
-                    name_filter=effective_pattern if effective_pattern != "%" else None,
-                    auth_session=(
+                    effective_pattern if effective_pattern != "%" else None,
+                    (
                         cm.auth_config.get_auth_session(info["archive"])
                         if info.get("archive")
                         else None
@@ -1815,10 +1831,10 @@ def handle_search(cm: CrossMatch, pattern: str, console: Console) -> int:
                 with Progress(
                     f"Discovering tables on {archive_key}/{svc_key} …", enabled=console.enabled
                 ):
-                    tables = discover_tables(
+                    tables = _discover_with_case_fallback(
                         url,
-                        name_filter=effective_pattern if effective_pattern != "%" else None,
-                        auth_session=cm.auth_config.get_auth_session(archive_key),
+                        effective_pattern if effective_pattern != "%" else None,
+                        cm.auth_config.get_auth_session(archive_key),
                     )
             except Exception:
                 continue

@@ -109,6 +109,18 @@ def pixi_python(code: str, *args: str, timeout: int = 600) -> subprocess.Complet
     return sh(["pixi", "run", "python", "-c", code, *args], cwd=REPO, timeout=timeout)
 
 
+def stream(cmd: list[str], *, cwd: Path | None = None, timeout: int = 900) -> int:
+    """Run a command with its output left on the session log (no capture)."""
+    print("+", " ".join(cmd), flush=True)
+    return subprocess.run(
+        cmd,
+        cwd=str(cwd) if cwd else None,
+        env=dict(os.environ),
+        timeout=timeout,
+        check=False,
+    ).returncode
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -610,6 +622,30 @@ def scenario_hats() -> None:
     require("Traceback" not in (proc.stdout + proc.stderr), "unknown hats raised a traceback")
 
 
+def scenario_ray_probe() -> None:
+    """Diagnose a Ray startup that does not finish inside a headless session."""
+
+    def probe() -> dict:
+        code = (
+            "import os, shutil, time\n"
+            "print('dev-shm', shutil.disk_usage('/dev/shm'), flush=True)\n"
+            "print('cpus', os.cpu_count(), flush=True)\n"
+            "print('ray-env', {k: v for k, v in os.environ.items() if 'RAY' in k}, flush=True)\n"
+            "import ray\n"
+            "started = time.time()\n"
+            "ray.init(num_cpus=1, include_dashboard=False, log_to_driver=True)\n"
+            "print('init-seconds', round(time.time() - started, 1), flush=True)\n"
+            "print('resources', ray.cluster_resources(), flush=True)\n"
+            "ray.shutdown()\n"
+        )
+        code_path = WORK / "out" / SCENARIO / "ray_probe.py"
+        code_path.parent.mkdir(parents=True, exist_ok=True)
+        code_path.write_text(code)
+        return {"exit": stream(["pixi", "run", "python", "-u", str(code_path)], timeout=300)}
+
+    check("ray-probe", probe)
+
+
 def scenario_ray() -> None:
     left = out("ray-left.parquet")
     right = out("ray-right.parquet")
@@ -635,7 +671,7 @@ def scenario_ray() -> None:
             "ray-union",
             "-o",
             str(path),
-            timeout=1200,
+            timeout=600,
         )
         require_ok(proc, "ray-union")
         verify = (
@@ -704,6 +740,7 @@ SCENARIOS = {
     "discovery": scenario_discovery,
     "hats": scenario_hats,
     "ray": scenario_ray,
+    "ray-probe": scenario_ray_probe,
 }
 
 

@@ -57,6 +57,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `allwise_x_gaia`, `ukidss_x_gaia`) declare `default_pos_error_arcsec: 0.75`;
   without per-pair errors, positional-error matching treated them as having no
   uncertainty.
+- The CDS Gaia DR3 correlation column is `RADEcor`, not `RADECor`, so
+  `--matcher skyerr` against `gaia` failed in the TAP service.
+- `--side1` / `--side2` overrides such as `ra_column=ra` collided with the
+  dedicated `--ra-column-1` flags (`TypeError: dict() got multiple values`);
+  side overrides now apply last and win.
+- Re-matching an earlier output that already carries `ra_2` (for example a
+  HATS directory) raised `DuplicateError`; colliding right-hand columns now
+  take the next free suffix (`ra_2_2`).
+- `xmatcher search` retries a lowercased name filter when the server-side TAP
+  `LIKE` match finds nothing, so `search unWISE` finds `unwise_dr1` tables.
 - Alias resolution follows alias chains, so a user overlay written before a
   catalogue rename keeps working. Alias cycles and aliases that shadow a
   catalogue name are now `ConfigError`s instead of silent misresolution.

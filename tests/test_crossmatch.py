@@ -201,6 +201,9 @@ def test_gaia_source_exposes_complete_space_motion_metadata(cm):
     assert src.radial_velocity_column == "RV"
     assert "Plx" in src.default_columns
     assert "RV" in src.default_columns
+    # VizieR spells the RA-Dec correlation "RADEcor"; a wrong name makes the
+    # skyerr TAP query fail server-side.
+    assert src.corr_column == "RADEcor"
     assert src.astrometric_covariance_columns is None
     # the ESA mirror keeps the archive schema + covariance block
     esa = cm.resolve_source("gaia_esa", {})

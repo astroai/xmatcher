@@ -253,10 +253,24 @@ def _gather(df: pl.DataFrame, idx: np.ndarray) -> pl.DataFrame:
 
 
 def _rename_right(right: pl.DataFrame, left_cols, suffix: str = _RIGHT_SUFFIX) -> pl.DataFrame:
+    """Suffix right-hand columns that collide with the left frame.
+
+    The suffix is applied again when it is already taken by a left column, so
+    re-matching an earlier match output (which already carries ``ra_2``) does
+    not create a duplicate ``ra_2``.
+    """
     overlap = set(left_cols) & set(right.columns)
-    if overlap:
-        right = right.rename({c: f"{c}{suffix}" for c in overlap})
-    return right
+    if not overlap:
+        return right
+    taken = set(left_cols)
+    rename: dict[str, str] = {}
+    for column in sorted(overlap):
+        candidate = f"{column}{suffix}"
+        while candidate in taken:
+            candidate += suffix
+        rename[column] = candidate
+        taken.add(candidate)
+    return right.rename(rename)
 
 
 def _build_result(

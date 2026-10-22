@@ -270,6 +270,91 @@ def test_cli_match_side_overrides_enable_skyerr(tmp_path, capsys):
     assert pl.read_parquet(tmp_path / "out.parquet").height == 2
 
 
+def test_cli_side_overrides_replace_dedicated_column_flags(tmp_path):
+    """`--side1 ra_column=...` feeds the same key as `--ra-column-1`.
+
+    Both spellings land in ``params`` as ``ra_column_1``; supplying both used
+    to raise ``TypeError: dict() got multiple values``.
+    """
+    a = tmp_path / "a.parquet"
+    b = tmp_path / "b.parquet"
+    for path, shift in ((a, 0.0), (b, 0.00001)):
+        pl.DataFrame(
+            {
+                "id": [1, 2],
+                "ra": [10.0 + shift, 20.0 + shift],
+                "dec": [5.0, 6.0],
+                "ra_err": [0.1, 0.1],
+                "dec_err": [0.1, 0.1],
+            }
+        ).write_parquet(path)
+
+    side = "ra_column=ra,dec_column=dec,ra_err_column=ra_err,dec_err_column=dec_err"
+    rc = main(
+        [
+            "match",
+            str(a),
+            str(b),
+            "--matcher",
+            "skyerr",
+            "--side1",
+            side,
+            "--side2",
+            side,
+            "-o",
+            str(tmp_path / "out.parquet"),
+        ]
+    )
+    assert rc == 0
+    assert pl.read_parquet(tmp_path / "out.parquet").height == 2
+
+
+def test_cli_rematching_a_hats_output_keeps_right_columns_unique(tmp_path):
+    """Re-matching an earlier output already has ``ra_2``; do not duplicate it."""
+    n = 20
+    left = tmp_path / "left.parquet"
+    right = tmp_path / "right.parquet"
+    pl.DataFrame(
+        {"ra": [10.0 + i * 1e-4 for i in range(n)], "dec": [5.0] * n, "id": list(range(n))}
+    ).write_parquet(left)
+    pl.DataFrame(
+        {"ra": [10.0 + i * 1e-4 for i in range(n)], "dec": [5.0] * n, "id2": list(range(n))}
+    ).write_parquet(right)
+
+    first = tmp_path / "first.hats"
+    assert main(["match", str(left), str(right), "-r", "2.0", "-o", str(first)]) == 0
+    second = tmp_path / "second.parquet"
+    assert main(["match", f"hats:{first}", str(right), "-r", "2.0", "-o", str(second)]) == 0
+    out = pl.read_parquet(second)
+    assert out.height == n
+    assert "ra_2_2" in out.columns
+    assert out.columns.count("ra_2") == 1
+
+
+def test_discover_case_fallback_lowercases_a_miss(monkeypatch):
+    """TAP name filters are case-sensitive; a miss retries lowercased."""
+    from xmatcher import cli as cli_module
+
+    seen: list[str | None] = []
+    empty = pl.DataFrame(schema={"table_name": pl.Utf8})
+    hit = pl.DataFrame({"table_name": ["unwise_dr1.object"]})
+
+    def fake_discover(url, name_filter=None, auth_session=None):
+        seen.append(name_filter)
+        if name_filter and any(ch.isupper() for ch in name_filter):
+            return empty
+        return hit
+
+    monkeypatch.setattr(cli_module, "discover_tables", fake_discover)
+    result = cli_module._discover_with_case_fallback("http://tap", "%unWISE%", None)
+    assert result.height == 1
+    assert seen == ["%unWISE%", "%unwise%"]
+
+    seen.clear()
+    cli_module._discover_with_case_fallback("http://tap", None, None)
+    assert seen == [None]
+
+
 def test_cli_fallback_policy_error_fails_instead_of_substituting(tmp_path, capsys):
     """`--fallback-policy error` makes an unsupported matcher abort."""
     a = tmp_path / "a.csv"

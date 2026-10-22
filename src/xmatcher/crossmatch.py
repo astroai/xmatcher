@@ -162,13 +162,18 @@ def _joined_column_name(
     preferred and the plain name is the fallback.
     """
     suffixed = f"{original}{suffix}"
+    repeated = f"{suffixed}{suffix}"
     if added:
-        if suffixed in added:
-            return suffixed
+        candidates = [name for name in added if name == suffixed or name.startswith(repeated)]
+        if candidates:
+            return min(candidates, key=len)
         if original in added:
             return original
     if suffixed in schema_names:
         return suffixed
+    repeated_names = sorted(name for name in schema_names if name.startswith(repeated))
+    if repeated_names:
+        return repeated_names[0]
     if original in schema_names:
         return original
     return None
