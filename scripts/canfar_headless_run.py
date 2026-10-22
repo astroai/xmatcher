@@ -109,16 +109,40 @@ def pixi_python(code: str, *args: str, timeout: int = 600) -> subprocess.Complet
     return sh(["pixi", "run", "python", "-c", code, *args], cwd=REPO, timeout=timeout)
 
 
-def stream(cmd: list[str], *, cwd: Path | None = None, timeout: int = 900) -> int:
+def stream(
+    cmd: list[str],
+    *,
+    cwd: Path | None = None,
+    timeout: int = 900,
+    env: dict[str, str] | None = None,
+) -> int:
     """Run a command with its output left on the session log (no capture)."""
     print("+", " ".join(cmd), flush=True)
+    full_env = dict(os.environ)
+    if env:
+        full_env.update(env)
     return subprocess.run(
         cmd,
         cwd=str(cwd) if cwd else None,
-        env=dict(os.environ),
+        env=full_env,
         timeout=timeout,
         check=False,
     ).returncode
+
+
+def dump_ray_logs() -> None:
+    """Print the tail of the local Ray logs for a wedged ray-union run."""
+    logs = Path("/tmp/ray/session_latest/logs")
+    if not logs.is_dir():
+        print(f"no ray logs at {logs}", flush=True)
+        return
+    for path in sorted(logs.glob("*"))[-8:]:
+        try:
+            text = path.read_text(errors="replace")
+        except OSError:
+            continue
+        print(f"--- {path.name}", flush=True)
+        print(text[-2500:], flush=True)
 
 
 def require(condition: bool, message: str) -> None:
@@ -668,24 +692,31 @@ def scenario_ray() -> None:
         path = out("ray-union.hats")
         # Stream, never capture: Ray workers inherit the pipe descriptors, so
         # a timeout would otherwise wait forever for EOF on orphaned workers.
-        code = stream(
-            [
-                "pixi",
-                "run",
-                "xmatcher",
-                "match",
-                str(left),
-                str(right),
-                "-r",
-                "1.0",
-                "--engine",
-                "ray-union",
-                "-o",
-                str(path),
-            ],
-            cwd=REPO,
-            timeout=600,
-        )
+        try:
+            code = stream(
+                [
+                    "pixi",
+                    "run",
+                    "xmatcher",
+                    "-v",
+                    "match",
+                    str(left),
+                    str(right),
+                    "-r",
+                    "1.0",
+                    "--engine",
+                    "ray-union",
+                    "-o",
+                    str(path),
+                ],
+                cwd=REPO,
+                timeout=300,
+                env={"RAY_LOG_TO_STDERR": "1"},
+            )
+        except subprocess.TimeoutExpired:
+            print("ray-union timed out; local ray logs follow", flush=True)
+            dump_ray_logs()
+            raise
         require(code == 0, f"ray-union exited {code}")
         verify = (
             "import sys\n"
