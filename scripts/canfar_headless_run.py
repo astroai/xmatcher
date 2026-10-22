@@ -2,12 +2,12 @@
 """Run one xmatcher test scenario inside a CANFAR headless session.
 
 CANFAR splits ``create ... -- CMD ARGS`` on whitespace and does not honour
-shell quoting, so the session command has to be a single token.  The one-line
-bootstrap in ``scripts/canfar_bootstrap.py`` satisfies that: it is fetched
-with ``urllib`` from the pinned GitHub commit, clones the repository into
-``/scratch``, and hands off to this file:
+shell quoting, so the session command has to be a single token.  The embeddable
+bootstrap in ``scripts/canfar_bootstrap.py`` satisfies that: it copies a
+source tarball from VOSpace (the repository is private) into ``/scratch`` and
+hands off to this file:
 
-    python3 -c exec(...raw.githubusercontent.com/.../canfar_bootstrap.py...) <scenario>
+    python3 -c exec(__import__('base64').b64decode('<bootstrap>').decode()) <scenario>
 
 Scenarios use real TAP services with small explicit cones, so they stay
 bounded while exercising alias resolution, explicit identifiers, matchers,
@@ -703,22 +703,25 @@ SCENARIOS = {
 
 def prepare() -> str:
     WORK.mkdir(parents=True, exist_ok=True)
-    if not (REPO / ".git").is_dir():
+    if not (REPO / ".git").is_dir() and not (REPO / "src" / "xmatcher").is_dir():
         require_ok(sh(["git", "clone", "--depth", "1", REPO_URL, str(REPO)], timeout=900), "clone")
-    if REF != "main":
+    if REF != "main" and (REPO / ".git").is_dir():
         fetched = sh(["git", "-C", str(REPO), "fetch", "--depth", "1", "origin", REF], timeout=900)
         require_ok(fetched, f"fetch {REF}")
         require_ok(
             sh(["git", "-C", str(REPO), "checkout", "--detach", "FETCH_HEAD"], timeout=120),
             "checkout",
         )
-    commit = sh(["git", "-C", str(REPO), "rev-parse", "HEAD"], timeout=60)
-    require_ok(commit, "rev-parse")
+    commit = os.environ.get("XMATCHER_COMMIT")
+    if not commit:
+        rev = sh(["git", "-C", str(REPO), "rev-parse", "HEAD"], timeout=60)
+        require_ok(rev, "rev-parse")
+        commit = rev.stdout.strip()
     require_ok(
         sh(["pixi", "install", "--color", "never"], cwd=REPO, timeout=1800),
         "pixi install",
     )
-    return commit.stdout.strip()
+    return commit
 
 
 def publish() -> None:
