@@ -666,19 +666,27 @@ def scenario_ray() -> None:
 
     def union() -> dict:
         path = out("ray-union.hats")
-        proc = xmatcher(
-            "match",
-            str(left),
-            str(right),
-            "-r",
-            "1.0",
-            "--engine",
-            "ray-union",
-            "-o",
-            str(path),
+        # Stream, never capture: Ray workers inherit the pipe descriptors, so
+        # a timeout would otherwise wait forever for EOF on orphaned workers.
+        code = stream(
+            [
+                "pixi",
+                "run",
+                "xmatcher",
+                "match",
+                str(left),
+                str(right),
+                "-r",
+                "1.0",
+                "--engine",
+                "ray-union",
+                "-o",
+                str(path),
+            ],
+            cwd=REPO,
             timeout=600,
         )
-        require_ok(proc, "ray-union")
+        require(code == 0, f"ray-union exited {code}")
         verify = (
             "import sys\n"
             "import hats\n"

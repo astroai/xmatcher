@@ -204,43 +204,52 @@ def discover_columns(
     polars.DataFrame
         Columns: ``column_name``, ``datatype``, ``ucd``, ``unit``, ``description``.
     """
+    original = table_name.strip().strip('"')
     if schema_name is None:
         schema_name, table_name = split_table_id(table_name)
-    safe_table = table_name.replace("'", "''")
-    query = (
-        "SELECT column_name, datatype, ucd, unit, description "
-        "FROM TAP_SCHEMA.columns "
-        f"WHERE table_name = '{safe_table}'"
-    )
-    if schema_name:
-        safe = schema_name.replace("'", "''")
-        query += f" AND schema_name = '{safe}'"
-    query += " ORDER BY column_name"
 
-    service = get_tap_service(tap_url, auth_session=auth_session)
-    table = execute_tap_query(service, query)
-    from .io_utils import astropy_table_to_polars
-
-    df = astropy_table_to_polars(table)
-    if df.height == 0 and not safe_table.startswith('"') and not safe_table.endswith('"'):
-        # VizieR TAP_SCHEMA stores slash-delimited table names with literal double quotes: "II/349/ps1"
-        q_quoted = (
+    def query_for(name: str, schema: str | None) -> str:
+        safe = name.replace("'", "''")
+        text = (
             "SELECT column_name, datatype, ucd, unit, description "
             "FROM TAP_SCHEMA.columns "
-            f"WHERE table_name = '\"{safe_table}\"'"
+            f"WHERE table_name = '{safe}'"
         )
-        if schema_name:
-            safe = schema_name.replace("'", "''")
-            q_quoted += f" AND schema_name = '{safe}'"
-        q_quoted += " ORDER BY column_name"
+        if schema:
+            text += f" AND schema_name = '{schema.replace(chr(39), chr(39) * 2)}'"
+        return text + " ORDER BY column_name"
+
+    # TAP_SCHEMA.columns is not required to carry ``schema_name`` (Data Lab
+    # errors on it) and VizieR stores slash-delimited ids with literal quotes.
+    # Try the most specific spelling first, then fall back to the others.
+    candidates = []
+    if schema_name:
+        candidates.append(query_for(table_name, schema_name))
+    candidates.append(query_for(table_name, None))
+    if original != table_name:
+        candidates.append(query_for(original, None))
+    if not original.startswith('"'):
+        candidates.append(query_for(f'"{original}"', None))
+
+    service = get_tap_service(tap_url, auth_session=auth_session)
+    from .io_utils import astropy_table_to_polars
+
+    last_error: Exception | None = None
+    answered = False
+    for query in candidates:
         try:
-            t_quoted = execute_tap_query(service, q_quoted)
-            df = astropy_table_to_polars(t_quoted)
-        except Exception:
-            pass
-    if df.height > 0 and "column_name" in df.columns:
-        df = df.with_columns(pl.col("column_name").str.strip_chars('"'))
-    return df
+            df = astropy_table_to_polars(execute_tap_query(service, query))
+        except Exception as exc:  # noqa: BLE001 - try the next spelling
+            last_error = exc
+            continue
+        answered = True
+        if df.height > 0:
+            if "column_name" in df.columns:
+                df = df.with_columns(pl.col("column_name").str.strip_chars('"'))
+            return df
+    if not answered and last_error is not None:
+        raise last_error
+    return pl.DataFrame()
 
 
 def detect_radec_columns(cols_df: pl.DataFrame) -> tuple[str | None, str | None]:
