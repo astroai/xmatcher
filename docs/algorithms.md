@@ -94,6 +94,11 @@ $$\theta \le N_{\sigma} \cdot (\sigma_1 + \sigma_2)$$
 All engines enforce the row-level filter per pair, and `find="best"` ranks candidates by the normalized separation:
 $$\text{rank} = \frac{\theta}{\sigma_1 + \sigma_2}$$
 
+The requested `radius_arcsec` stays an upper bound on $\theta$: the N-sigma
+criterion may only narrow it. A catalogue with corrupted per-row errors (PS1
+DR1 carries `e_RAJ2000` values of hundreds of arcseconds for some rows) would
+otherwise accept unrelated counterparts far outside the requested radius.
+
 For each catalogue, the engine combines the two axis errors as radial RMS
 `hypot(sigma_ra, sigma_dec)` for the search criterion. Generic TAP schema
 discovery does not invent these errors. Supply or configure meaningful

@@ -446,6 +446,7 @@ def ray_zone_match(
             rsig,
             spec.max_error,
             find="all" if spec.extra_distance_cols else spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
 
     if spec.extra_distance_cols and spec.find == "best" and left_idx.size > 0:

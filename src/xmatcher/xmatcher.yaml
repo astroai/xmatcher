@@ -306,7 +306,7 @@ catalogues:
     ra_column: "RAJ2000"
     dec_column: "DEJ2000"
     id_column: "GLIMPSE"
-    default_columns: ["GLIMPSE", "RAJ2000", "DEJ2000", "3_6mag", "4_5mag", "5_8mag", "8_0mag"]
+    default_columns: ["GLIMPSE", "RAJ2000", "DEJ2000", "3.6mag", "4.5mag", "5.8mag", "8.0mag"]
     default_pos_error_arcsec: 0.3
 
   nvss:
@@ -321,7 +321,7 @@ catalogues:
     ra_column: "RAJ2000"
     dec_column: "DEJ2000"
     id_column: "NVSS"
-    default_columns: ["NVSS", "RAJ2000", "DEJ2000", "S1_4", "e_S1_4"]
+    default_columns: ["NVSS", "RAJ2000", "DEJ2000", "S1.4", "e_S1.4"]
     default_pos_error_arcsec: 1.0
 
   first:
@@ -411,8 +411,8 @@ catalogues:
     estimated_size: 'huge'  # ~3.9 billion
     ra_column: "ra"
     dec_column: "dec"
-    id_column: "objid"
-    default_columns: ["objid", "ra", "dec", "umag", "gmag", "rmag", "imag", "zmag", "ymag", "nepochs", "flags"]
+    id_column: "id"
+    default_columns: ["id", "ra", "dec", "umag", "gmag", "rmag", "imag", "zmag", "ymag", "ndet", "flags"]
     ra_err_column: "raerr"
     dec_err_column: "decerr"
     pos_err_units: "arcsec"
@@ -431,8 +431,8 @@ catalogues:
     dec_column: "dec"
     id_column: "coadd_object_id"
     default_columns: ["coadd_object_id", "ra", "dec", "mag_auto_g", "mag_auto_r", "mag_auto_i", "mag_auto_z", "magerr_auto_g", "magerr_auto_r", "magerr_auto_i", "magerr_auto_z"]
-    ra_err_column: "ra_err"
-    dec_err_column: "dec_err"
+    # DES DR2 publishes no single position-error column; the 0.1" floor below
+    # is the declared input model for skyerr.
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.1
 
@@ -463,8 +463,8 @@ catalogues:
     estimated_size: 'large'  # ~360 million
     ra_column: "ra"
     dec_column: "dec"
-    id_column: "objid"
-    default_columns: ["objid", "ra", "dec", "umag", "gmag", "rmag", "imag", "zmag"]
+    id_column: "id"
+    default_columns: ["id", "ra", "dec", "umag", "gmag", "rmag", "imag", "zmag"]
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.05
 
@@ -479,8 +479,8 @@ catalogues:
     estimated_size: 'huge'
     ra_column: "ra"
     dec_column: "dec"
-    id_column: "sourceid"
-    default_columns: ["sourceid", "ra", "dec", "flux_w1", "flux_w2", "snr_w1", "snr_w2"]  # flux units, not mags
+    id_column: "unwise_objid"
+    default_columns: ["unwise_objid", "ra", "dec", "flux_w1", "flux_w2", "mag_w1_vg", "mag_w2_vg"]  # flux units, not mags
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.5
 
@@ -496,9 +496,9 @@ catalogues:
     ra_column: "ra"
     dec_column: "dec"
     id_column: "source_id"
-    default_columns: ["source_id", "ra", "dec", "w1mag", "w2mag", "w3mag", "w4mag", "w1sigm", "w2sigm", "w3sigm", "w4sigm"]
-    ra_err_column: "raerr"
-    dec_err_column: "decerr"
+    default_columns: ["source_id", "ra", "dec", "w1mpro", "w2mpro", "w3mpro", "w4mpro", "w1sigmpro", "w2sigmpro", "w3sigmpro", "w4sigmpro"]
+    ra_err_column: "sigra"
+    dec_err_column: "sigdec"
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.2
 

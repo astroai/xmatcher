@@ -181,6 +181,30 @@ def test_skyerr_sigma_criterion():
     assert out2.height == 1
 
 
+def test_skyerr_radius_bounds_the_sigma_criterion():
+    """A corrupted per-row error must not defeat the requested radius.
+
+    PS1 DR1 carries ``e_RAJ2000`` values of hundreds of arcseconds for some
+    rows; three sigma of those would accept unrelated counterparts.  The
+    declared ``radius_arcsec`` stays an upper bound on separation.
+    """
+    dec = 5.0
+    offset = 2.0 / 3600.0 / np.cos(np.radians(dec))
+    left = pl.DataFrame({"ra": [10.0], "dec": [dec], "rae": [100.0], "dee": [0.0]})
+    right = pl.DataFrame({"ra": [10.0 + offset], "dec": [dec], "rae": [100.0], "dee": [0.0]})
+    a = _src("a", ra_err_column="rae", dec_err_column="dee", pos_err_units="arcsec")
+    b = _src("b", ra_err_column="rae", dec_err_column="dee", pos_err_units="arcsec")
+
+    tight = MatchSpec(radius_arcsec=1.0, matcher="skyerr", max_error=3.0)
+    out = sky_match(a, b, left.lazy(), right.lazy(), tight, engine="astropy").collect()
+    assert out.height == 0
+
+    wide = MatchSpec(radius_arcsec=10.0, matcher="skyerr", max_error=3.0)
+    out_wide = sky_match(a, b, left.lazy(), right.lazy(), wide, engine="astropy").collect()
+    assert out_wide.height == 1
+    assert abs(out_wide["sep_arcsec"][0] - 2.0) < 1e-3
+
+
 @pytest.mark.parametrize("radius", [648_000.0, 1_000_000.0])
 def test_arcsec_to_chord_saturates_at_half_circumference(radius):
     from xmatcher.matchers import _arcsec_to_chord

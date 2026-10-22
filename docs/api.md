@@ -216,7 +216,7 @@ Defines the algorithm criteria:
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `radius_arcsec` | `float` | `1.0` | Search radius for `matcher="sky"`. |
+| `radius_arcsec` | `float` | `1.0` | Search radius for `matcher="sky"`, and an upper bound on the pair separation for `skyerr`/`skyellipse` (the error criterion can only narrow it). |
 | `matcher` | `str` | `"sky"` | `"sky"`, `"skyerr"`, `"skyellipse"`, `"lr"`, `"ml"`, `"xgb"`, `"auf"`, `"macauff"`. |
 | `max_error` | `float` | `3.0` | $N$-$\sigma$ cap for `skyerr` and Mahalanobis $d^2$ cap for `skyellipse`. |
 | `join_type` | `str` | `"1and2"` | `"1and2"`, `"1or2"`, `"all1"`, `"all2"`, `"1not2"`, `"2not1"`, `"all"`. |

@@ -194,6 +194,37 @@ def test_galex_access_identifier_and_columns_match_the_table(cm):
     assert "obijd" not in src.default_columns
 
 
+@pytest.mark.parametrize(
+    ("catalogue", "expected", "forbidden"),
+    [
+        ("nsc", {"id", "ndet"}, {"objid", "nepochs"}),
+        ("unwise", {"unwise_objid", "mag_w1_vg"}, {"sourceid", "snr_w1"}),
+        ("allwise", {"w1mpro", "w1sigmpro"}, {"w1mag", "w1sigm"}),
+        ("smash", {"id"}, {"objid"}),
+        ("glimpse", {"3.6mag", "8.0mag"}, {"3_6mag"}),
+        ("nvss", {"S1.4", "e_S1.4"}, {"S1_4"}),
+    ],
+)
+def test_configured_columns_match_the_live_tables(cm, catalogue, expected, forbidden):
+    """These tables rejected the configured names with a server-side ADQL error."""
+    src = cm.resolve_source(catalogue, {})
+    known = set(src.default_columns or []) | {
+        src.id_column,
+        src.ra_err_column,
+        src.dec_err_column,
+    }
+    assert expected <= known
+    assert not forbidden & known
+
+
+def test_des_has_no_position_error_columns(cm):
+    """DES DR2 publishes no ra_err/dec_err; the declared floor is the model."""
+    src = cm.resolve_source("des", {})
+    assert src.ra_err_column is None
+    assert src.dec_err_column is None
+    assert src.default_pos_error_arcsec == 0.1
+
+
 def test_gaia_source_exposes_complete_space_motion_metadata(cm):
     # `gaia` defaults to CDS VizieR (`I/355/gaiadr3`)
     src = cm.resolve_source("gaia", {})

@@ -751,15 +751,20 @@ def _skyerr_pair_filter(
     max_error: float,
     *,
     find: str,
+    radius_arcsec: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Apply the per-row N-sigma criterion to candidate pairs.
 
-    ``skyerr`` matches a pair iff ``sep <= max_error * (sigma_l + sigma_r)``.
-    The engine's spatial bound is built from the *global* sigma maxima as a
-    candidate pre-filter only; applying the criterion per row (as ``astropy``,
-    ``stilts``, ``torchsky`` and the bounded-memory spill path do) keeps every
-    engine on the same pair set.  Rows with a non-finite per-row sigma are
-    rejected — an unknown uncertainty is not an infinite acceptance radius.
+    ``skyerr`` matches a pair iff ``sep <= max_error * (sigma_l + sigma_r)``,
+    bounded by the requested ``radius_arcsec`` when one is supplied.  Without
+    that bound a single corrupted error in the catalogue (some PS1 rows carry
+    errors of hundreds of arcseconds) would accept unrelated counterparts far
+    outside the requested radius.  The engine's spatial bound is built from
+    the *global* sigma maxima as a candidate pre-filter only; applying the
+    criterion per row (as ``astropy``, ``stilts``, ``torchsky`` and the
+    bounded-memory spill path do) keeps every engine on the same pair set.
+    Rows with a non-finite per-row sigma are rejected — an unknown uncertainty
+    is not an infinite acceptance radius.
 
     With ``find="best"`` the surviving candidates are ranked by *normalised*
     separation ``sep / (sigma_l + sigma_r)``, matching astropy's score, then
@@ -768,6 +773,8 @@ def _skyerr_pair_filter(
     if left_idx.size == 0:
         return left_idx, right_idx, seps
     limit = max_error * (lsig[left_idx] + rsig[right_idx])
+    if radius_arcsec is not None:
+        limit = np.minimum(limit, float(radius_arcsec))
     keep = np.isfinite(limit) & np.isfinite(seps) & (seps <= limit)
     left_idx, right_idx, seps, limit = (
         left_idx[keep],
@@ -1477,6 +1484,9 @@ def _scipy_match(
             )
             return empty
         search_radius = spec.max_error * (float(np.nanmax(lsig)) + float(np.nanmax(rsig)))
+        if spec.radius_arcsec is not None:
+            # The N-sigma criterion may only narrow the requested radius.
+            search_radius = min(search_radius, float(spec.radius_arcsec))
         chord_max = _arcsec_to_chord(max(search_radius, 0.0))
     if chord_max <= 0:
         return empty
@@ -1511,6 +1521,7 @@ def _scipy_match(
             rsig,
             spec.max_error,
             find="all" if spec.extra_distance_cols else spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
         if spec.extra_distance_cols and spec.find == "best":
             return _rank_nd_candidates(
@@ -2767,6 +2778,7 @@ def _torchsky_match(
             rsig,
             spec.max_error,
             find=spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
     return left_idx, right_idx, seps
 
@@ -3071,6 +3083,7 @@ def _zone_match_healpix(
             rsig,
             spec.max_error,
             find="all" if spec.extra_distance_cols else spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
 
     # --- N-dimensional ranking (when extra_distance_cols is set) ------------
@@ -3168,21 +3181,26 @@ def _astropy_match(
         )
         return empty
     search_radius = spec.max_error * (float(np.nanmax(lsig)) + float(np.nanmax(rsig)))
+    if spec.radius_arcsec is not None:
+        # The N-sigma criterion may only narrow the requested radius.
+        search_radius = min(search_radius, float(spec.radius_arcsec))
     if search_radius <= 0:
         return empty
     left_idx, right_idx, sep2d, _ = search_around_sky(lcoord, rcoord, search_radius * u.arcsec)
     seps = sep2d.arcsec
-    combined = lsig[left_idx] + rsig[right_idx]
-    keep = seps <= spec.max_error * combined
-    left_idx, right_idx, seps, combined = (
+    limit = spec.max_error * (lsig[left_idx] + rsig[right_idx])
+    if spec.radius_arcsec is not None:
+        limit = np.minimum(limit, float(spec.radius_arcsec))
+    keep = np.isfinite(limit) & (seps <= limit)
+    left_idx, right_idx, seps, limit = (
         left_idx[keep],
         right_idx[keep],
         seps[keep],
-        combined[keep],
+        limit[keep],
     )
 
     if spec.find == "best" and len(left_idx) > 0:
-        score = seps / np.where(combined > 0, combined, np.inf)
+        score = np.divide(seps, limit, out=np.full_like(seps, np.inf), where=limit > 0)
         order = np.lexsort((score, left_idx))
 
         first_occurrence_idx = _first_occurrence_indices(left_idx[order])

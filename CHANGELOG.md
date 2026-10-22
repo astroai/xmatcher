@@ -67,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   take the next free suffix (`ra_2_2`).
 - `xmatcher search` retries a lowercased name filter when the server-side TAP
   `LIKE` match finds nothing, so `search unWISE` finds `unwise_dr1` tables.
+- `skyerr` ignored `radius_arcsec`: one corrupted per-row error (PS1 DR1 has
+  `e_RAJ2000` values of hundreds of arcseconds) widened the acceptance circle
+  to arcminutes. The radius is now an upper bound in every engine, and only
+  the N-sigma test can narrow it.
 - Alias resolution follows alias chains, so a user overlay written before a
   catalogue rename keeps working. Alias cycles and aliases that shadow a
   catalogue name are now `ConfigError`s instead of silent misresolution.
