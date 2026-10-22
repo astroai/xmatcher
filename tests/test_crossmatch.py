@@ -184,9 +184,14 @@ def test_resolve_source_remote_alias(cm):
     assert src.name == "gaia_dr3_cds"
 
 
-def test_galex_access_identifier_names_the_table(cm):
+def test_galex_access_identifier_and_columns_match_the_table(cm):
     src = cm.resolve_source("galex", {})
     assert src.access_identifier == "II/335/galex_ais"
+    # VizieR spells the GALEX primary key "objid"; a wrong id/default column
+    # makes every TAP cone query fail server-side.
+    assert src.id_column == "objid"
+    assert "objid" in src.default_columns
+    assert "obijd" not in src.default_columns
 
 
 def test_gaia_source_exposes_complete_space_motion_metadata(cm):

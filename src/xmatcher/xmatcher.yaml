@@ -193,8 +193,8 @@ catalogues:
     estimated_size: 'large' # ~83 million
     ra_column: "RAJ2000"
     dec_column: "DEJ2000"
-    id_column: "obijd" # Add ID column
-    default_columns: ["obijd", "RAJ2000", "DEJ2000", "FUVmag", "e_FUVmag", "NUVmag", "e_NUVmag", "Fafl", "Nafl", "Fexf", "Nexf", "Ffux", "e_Fflux", "Nfux", "e_Nflux"]
+    id_column: "objid" # VizieR spells the primary key "objid" (not "obijd")
+    default_columns: ["objid", "RAJ2000", "DEJ2000", "FUVmag", "e_FUVmag", "NUVmag", "e_NUVmag", "Fafl", "Nafl", "Fexf", "Nexf", "Fflux", "e_Fflux", "Nflux", "e_Nflux"]
     default_pos_error_arcsec: 3.0
 
   vhs_dr5:
@@ -787,6 +787,8 @@ catalogues:
     dec_column: "dec1"
     id_column: "id1"
     default_columns: ["ra1", "dec1", "ra2", "dec2", "id1", "id2", "distance"]
+    # No per-pair errors in the product; 0.75" stands in for the 1.5" pairing box.
+    default_pos_error_arcsec: 0.75
     estimated_size: 'large'
 
   des_x_gaia:
@@ -800,6 +802,8 @@ catalogues:
     dec_column: "dec1"
     id_column: "id1"
     default_columns: ["ra1", "dec1", "ra2", "dec2", "id1", "id2", "distance"]
+    # No per-pair errors in the product; 0.75" stands in for the 1.5" pairing box.
+    default_pos_error_arcsec: 0.75
     estimated_size: 'large'
 
   decals_x_gaia:
@@ -813,6 +817,8 @@ catalogues:
     dec_column: "dec1"
     id_column: "id1"
     default_columns: ["ra1", "dec1", "ra2", "dec2", "id1", "id2", "distance"]
+    # No per-pair errors in the product; 0.75" stands in for the 1.5" pairing box.
+    default_pos_error_arcsec: 0.75
     estimated_size: 'large'
 
   allwise_x_gaia:
@@ -826,6 +832,8 @@ catalogues:
     dec_column: "dec1"
     id_column: "id1"
     default_columns: ["ra1", "dec1", "ra2", "dec2", "id1", "id2", "distance"]
+    # No per-pair errors in the product; 0.75" stands in for the 1.5" pairing box.
+    default_pos_error_arcsec: 0.75
     estimated_size: 'large'
 
   ukidss_x_gaia:
@@ -845,6 +853,8 @@ catalogues:
     dec_column: "dec1"
     # Define some default columns for viewing, including the crucial IDs
     default_columns: ["ra1", "dec1", "ra2", "dec2", "id1", "id2", "distance"]
+    # No per-pair errors in the product; 0.75" stands in for the 1.5" pairing box.
+    default_pos_error_arcsec: 0.75
     estimated_size: 'large' # Size depends on the overlap
 
 
