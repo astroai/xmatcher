@@ -32,6 +32,12 @@ REF = os.environ.get("XMATCHER_REF", "main")
 RUN_ID = os.environ.get("XMATCHER_RUN_ID") or time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
 WORK = Path(os.environ.get("XMATCHER_WORK", f"/scratch/xmatcher-{RUN_ID}"))
 REPO = Path(os.environ.get("XMATCHER_REPO", str(WORK / "xmatcher")))
+
+# The base image ships a pixi config pointing at the read-only
+# /usr/local/share/pixi; sessions run as an unprivileged user.
+os.environ["PIXI_HOME"] = str(WORK / "pixi-home")
+os.environ["PIXI_CACHE_DIR"] = str(WORK / "pixi-cache")
+os.environ["UV_CACHE_DIR"] = str(WORK / "uv-cache")
 REPO_URL = "https://github.com/sfabbro/xmatcher.git"
 ARC_ROOT = Path("/arc/projects/hats/tests/xmatcher-matrix") / RUN_ID
 
