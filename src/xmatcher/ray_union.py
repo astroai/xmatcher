@@ -1542,6 +1542,55 @@ def _atomic_write_text(text: str, dest: Path) -> None:
         tmp.unlink(missing_ok=True)
 
 
+def _write_hats_tree(
+    out: Path,
+    info_rows: Sequence[dict[str, Any]],
+    props: dict[str, str],
+) -> dict[str, int]:
+    """Write the HATS metadata for a tree whose partitions are already on disk.
+
+    Shared by ``ray-anchor`` and ``project-hats``: both write one partition
+    file per HEALPix pixel and then need the same root/``dataset`` copies of
+    ``partition_info`` and ``properties`` plus Arrow footer metadata.  The
+    ``file_loc`` values in ``info_rows`` are relative to ``dataset/`` and omit
+    the ``.parquet`` suffix.
+
+    Returns ``{"rows": total, "partitions": n}``.
+    """
+    dataset = out / "dataset"
+    dataset.mkdir(parents=True, exist_ok=True)
+    schema = {
+        "Norder": pl.Int64,
+        "Dir": pl.Int64,
+        "Npix": pl.Int64,
+        "Nfiles": pl.Int64,
+        "file_loc": pl.Utf8,
+        "file_size": pl.Int64,
+        "count": pl.Int64,
+    }
+    info = pl.DataFrame(list(info_rows), schema=schema)
+    _atomic_write_csv(info, dataset / "partition_info.csv")
+    _atomic_write_csv(info, out / "partition_info.csv")
+    _atomic_write_parquet(info, dataset / "partition_info.parquet")
+    total = int(info["count"].sum()) if info.height else 0
+    tree_props = dict(props)
+    tree_props["hats_nrows"] = str(total)
+    text = _props_text(tree_props)
+    _atomic_write_text(text, out / "properties")
+    _atomic_write_text(text, dataset / "properties")
+    if info.height:
+        try:
+            import pyarrow.parquet as pq  # noqa: PLC0415
+
+            first = dataset / f"{info['file_loc'][0]}.parquet"
+            arrow_schema = pq.read_schema(first)
+            pq.write_metadata(arrow_schema, dataset / "_common_metadata")
+            pq.write_metadata(arrow_schema, dataset / "_metadata")
+        except Exception:  # noqa: BLE001 - metadata is advisory
+            logger.warning("skipping HATS metadata for %s", out)
+    return {"rows": total, "partitions": info.height}
+
+
 def _assemble(plan: UnionPlan) -> dict[str, Any]:
     """Turn the per-chunk parquets into a HATS catalogue at ``plan.out_dir``."""
     out = Path(plan.out_dir)

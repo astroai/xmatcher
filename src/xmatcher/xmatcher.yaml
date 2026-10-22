@@ -76,6 +76,8 @@ catalogue_aliases:
   gaiadr3: "gaia_dr3_cds"
   gaia_hats: "gaia_dr3_hats"
   gaia3_hats: "gaia_dr3_hats"
+  gaia_lsdb: "gaia_lsdb_hats"
+  gaia_dr3_lsdb: "gaia_lsdb_hats"
   sdss_hats: "sdss_dr16_hats"
   sdss16_hats: "sdss_dr16_hats"
   catwise_hats: "catwise2020_hats"
@@ -210,6 +212,29 @@ catalogues:
   # --- Pinned HATS catalogues ---
   # These are explicit URLs or local trees for products that are not in the
   # IVOA HATS registry. They mirror on demand and keep the same HATS reader.
+  gaia_lsdb_hats:
+    description: "Gaia DR3 source catalogue via LSDB HATS (compact anchor source)"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "https://data.lsdb.io/hats/gaia_dr3/gaia"
+    estimated_size: 'huge'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "source_id"
+    epoch: 2016.0
+    epoch_column: "ref_epoch"
+    default_columns: ["source_id", "ra", "dec", "ref_epoch", "parallax", "parallax_error", "pmra", "pmra_error", "pmdec", "pmdec_error", "ruwe", "phot_g_mean_mag", "phot_bp_mean_mag", "phot_rp_mean_mag", "bp_rp", "radial_velocity", "teff_gspphot", "logg_gspphot", "mh_gspphot", "distance_gspphot", "azero_gspphot", "ebpminrp_gspphot", "classprob_dsc_combmod_star", "classprob_dsc_combmod_galaxy", "classprob_dsc_combmod_quasar", "has_xp_continuous", "has_xp_sampled", "has_rvs", "has_epoch_photometry", "phot_variable_flag", "duplicated_source", "l", "b"]
+    pm_ra_column: "pmra"
+    pm_dec_column: "pmdec"
+    parallax_column: "parallax"
+    radial_velocity_column: "radial_velocity"
+    ra_err_column: "ra_error"
+    dec_err_column: "dec_error"
+    corr_column: "ra_dec_corr"
+    pos_err_units: "mas"
+    default_pos_error_arcsec: 0.01
+
   gaia_dr3_hats:
     description: "Gaia DR3 source catalogue via CDS on-the-fly HATS"
     archive: hats

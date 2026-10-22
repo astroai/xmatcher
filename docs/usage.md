@@ -695,9 +695,11 @@ access and has no synthetic row-count oracle.
 `engine="ray-anchor"` keeps one row per source in the first catalogue (the
 anchor) and attaches the best counterpart from every later catalogue. It is
 the right engine when Gaia is the master list and no Gaia source may be
-dropped. The output is a HATS tree with anchor columns unchanged and, for each
-survey, `<survey>_sep_arcsec`, `<survey>_sep_second`, `<survey>_n_within`,
-`<survey>_crowded`, `<survey>_pm_warn`, and `<survey>_quality`.
+dropped. The output is a HATS tree with the anchor's selected columns
+preserved, its coordinates at `--target-epoch` when one is given, and, for
+each survey, `<survey>_sep_arcsec`, `<survey>_sep_second`,
+`<survey>_n_within`, `<survey>_crowded`, `<survey>_pm_warn`, and
+`<survey>_quality`.
 
 ```bash
 xmatcher match gaia_hats sdss_hats ps1_hats catwise_hats \
@@ -710,8 +712,13 @@ would otherwise ignore (ID joins, filters, probabilistic scoring, regions,
 extra-distance columns, `find="all"`). Use `ray-union` for `skyerr` or
 `skyellipse`, or when secondary-only sources must survive.
 
-See [ray-anchor.md](ray-anchor.md) for the full schema, epoch/PM policy,
-projection workflow, and CANFAR local-product aliases.
+Narrow wide inputs first with `xmatcher project-hats <source> <out> --columns
+…`; it writes a new HATS tree with the same partition layout and only the
+requested columns, streaming an HTTPS tree without a full mirror. See
+[ray-anchor.md](ray-anchor.md) for the full schema, epoch/PM policy,
+projection workflow, and CANFAR local-product aliases, and
+[gaia-master-data.md](gaia-master-data.md) for the data inventory and the
+large-run wrapper.
 
 ## 9. Friends-of-Friends output policy
 

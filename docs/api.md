@@ -156,11 +156,41 @@ def anchor_match(
 ```
 
 - The first catalogue is the anchor. Every later catalogue is a survey.
-- The output is a HATS directory. Anchor columns are preserved; the anchor ID column is renamed to `source_id` by default (`--anchor-id-name` overrides it).
+- The output is a HATS directory. The anchor's selected columns are preserved (its schema, or its `default_columns`); coordinates are propagated when `target_epoch` is set and `properties` records the result in `hats_epoch`. The anchor ID column is renamed to `source_id` by default (`--anchor-id-name` overrides it); an anchor with no usable identifier is rejected.
 - Per survey, the output adds `<survey>_sep_arcsec`, `<survey>_sep_second`, `<survey>_n_within`, `<survey>_crowded`, `<survey>_pm_warn`, and `<survey>_quality`.
 - Only `matcher="sky"` is supported. The engine rejects options it cannot honour: ID joins, filters, probabilistic scores, regions, extra-distance columns, `find="all"`, and `skyerr`/`skyellipse`.
 - `target_epoch` propagates rows with epoch and proper-motion metadata. `pm_warn` flags the anchor's motion over the anchor-survey epoch baseline.
-- The output is resumable per anchor partition; see [ray-anchor.md](ray-anchor.md).
+- The output is resumable per anchor partition; a fingerprint change wipes the old dataset instead of mixing plans. See [ray-anchor.md](ray-anchor.md).
+
+---
+
+### `hats_project.project_hats`
+
+Write a narrow HATS tree with only the requested columns, preserving the
+partition layout (including zero-row partitions) and row counts.
+
+```python
+def project_hats(
+    source: CatalogueSource,
+    output: str | Path,
+    columns: Sequence[str],
+    *,
+    cache_root: str | None = None,
+    hats_threshold: int = 100_000,
+    sync: bool = True,
+    rate_limit_rps: float = 1.0,
+    resume: bool = False,
+    progress_cb: Callable[[str], None] | None = None,
+) -> dict[str, Any]
+```
+
+- An HTTPS HATS tree is streamed partition by partition without mirroring the
+  full tree; other remote sources are mirrored first unless `sync=False`.
+- Unknown columns and an output that overlaps its input are rejected. An
+  already populated output is rejected too, unless `resume=True`, which
+  requires the matching `project.state` fingerprint and reuses the finished
+  partitions.
+- The returned dict carries `rows`, `columns`, and `partitions`.
 
 ---
 

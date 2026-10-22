@@ -2,8 +2,10 @@
 
 ``engine="ray-anchor"`` treats the first catalogue as the *anchor* (normally
 Gaia DR3) and every later catalogue as a survey.  The output has exactly one
-row per anchor source: the anchor columns are kept unchanged and each survey
-contributes its best counterpart plus a small ambiguity block:
+row per anchor source: the anchor's selected columns are kept and each survey
+contributes its best counterpart plus a small ambiguity block.  Anchor and
+survey coordinates are propagated to ``target_epoch`` when one is requested,
+so the anchor's coordinate columns hold the epoch-adjusted position:
 
 ``<survey>_sep_arcsec``
     Separation of the best counterpart, arcsec (null when unmatched).
@@ -52,7 +54,6 @@ from .exceptions import CrossMatchError
 from .ray_union import (
     CataloguePlan,
     PartitionPlan,
-    _atomic_write_csv,
     _atomic_write_parquet,
     _atomic_write_text,
     _catalogue_root,
@@ -68,6 +69,7 @@ from .ray_union import (
     _pixel_diagonal_deg,
     _plan_source,
     _read_hats_properties,
+    _write_hats_tree,
 )
 from .sources import CatalogueSource
 from .storage import LocalStorage, open_storage
@@ -234,6 +236,12 @@ def _build_catalogue_plan(
             if candidate in schema:
                 inferred_id = candidate
                 break
+    if is_anchor and inferred_id is None:
+        raise CrossMatchError(
+            f"catalogue '{src.name}': engine='ray-anchor' needs an identifier for the "
+            "anchor, so every master row can be keyed. Set `id_column` for this "
+            "catalogue (CLI: `--id1 <column>`) or project one in."
+        )
     src = replace(
         src,
         ra_column=inferred_ra,
@@ -690,50 +698,20 @@ def _write_metadata(plan: AnchorPlan) -> dict[str, Any]:
                 "count": int(count),
             }
         )
-    schema = {
-        "Norder": pl.Int64,
-        "Dir": pl.Int64,
-        "Npix": pl.Int64,
-        "Nfiles": pl.Int64,
-        "file_loc": pl.Utf8,
-        "file_size": pl.Int64,
-        "count": pl.Int64,
-    }
-    info = pl.DataFrame(info_rows, schema=schema)
-    _atomic_write_csv(info, dataset / "partition_info.csv")
-    _atomic_write_csv(info, out / "partition_info.csv")
-    _atomic_write_parquet(info, dataset / "partition_info.parquet")
-
-    total = int(info["count"].sum()) if info.height else 0
     max_order = max((p.order for p in plan.anchor.partitions), default=0)
+    epoch = plan.target_epoch if plan.target_epoch is not None else plan.anchor_epoch
     props = {
         "obs_collection": out.name or "xmatcher-anchor",
         "dataproduct_type": "object",
-        "hats_nrows": str(total),
         "hats_col_ra": plan.anchor.ra,
         "hats_col_dec": plan.anchor.dec,
-        "hats_epoch": "J2016.000" if plan.target_epoch == 2016.0 else "J2000",
+        "hats_epoch": f"J{float(epoch):.3f}" if epoch is not None else "J2000",
         "hats_ordering": "NESTED",
         "hats_max_depth": str(max_order),
         "hats_cols_default": " ".join(plan.out_columns),
         "hats_npix_suffix": ".parquet",
     }
-    _atomic_write_text("".join(f"{k}={v}\n" for k, v in sorted(props.items())), out / "properties")
-    _atomic_write_text(
-        "".join(f"{k}={v}\n" for k, v in sorted(props.items())), dataset / "properties"
-    )
-
-    if info.height:
-        try:
-            import pyarrow.parquet as pq  # noqa: PLC0415
-
-            first_rel = str(info["file_loc"][0])
-            schema_arrow = pq.read_schema(dataset / f"{first_rel}.parquet")
-            pq.write_metadata(schema_arrow, dataset / "_common_metadata")
-            pq.write_metadata(schema_arrow, dataset / "_metadata")
-        except Exception:  # noqa: BLE001
-            logger.warning("skipping HATS metadata for %s", out)
-    return {"rows": total, "partitions": info.height}
+    return _write_hats_tree(out, info_rows, props)
 
 
 # --------------------------------------------------------------------------- #

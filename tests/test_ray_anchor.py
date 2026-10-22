@@ -141,6 +141,7 @@ def test_hats_aliases_resolve_without_network() -> None:
     cm = CrossMatch()
     expected = {
         "gaia_hats": "gaia_dr3_hats",
+        "gaia_lsdb": "gaia_lsdb_hats",
         "sdss_hats": "sdss_dr16_hats",
         "catwise_hats": "catwise2020_hats",
         "vhs_hats": "vhs_dr5_hats",
@@ -157,6 +158,9 @@ def test_hats_aliases_resolve_without_network() -> None:
     source = cm.resolve_source("gaia_hats", {})
     assert source.access_method == "hats"
     assert source.access_identifier.startswith("https://vizcat.cds.unistra.fr/hats/gaia_dr3")
+    local = cm.resolve_source("gaia_lsdb", {})
+    assert local.access_identifier == "https://data.lsdb.io/hats/gaia_dr3/gaia"
+    assert local.id_column == "source_id"
 
 
 def test_anchor_rejects_unsupported_matcher(survey_tree: Path) -> None:

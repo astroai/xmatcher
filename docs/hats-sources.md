@@ -95,6 +95,18 @@ or pass `hats:<url>` directly.
 | `galex_hats` | `https://vizcat.cds.unistra.fr/hats/galex_gr67/main` | 82,992,086 | GALEX GR6/7 |
 | `splus_hats` | `https://vizcat.cds.unistra.fr/hats/splus_dr4/main` | 27,235,968 | S-PLUS DR4 public HATS; DR5 is not public |
 
+The anchor has an LSDB-pinned alias too: `gaia_lsdb_hats`
+(`https://data.lsdb.io/hats/gaia_dr3/gaia`, 1,812,731,847 rows, 153 columns,
+~712 GiB). It is the same tree as the registry's `gaia_dr3`, pinned so a run
+cannot silently follow a registry change, and it is the preferred anchor for
+[`ray-anchor`](ray-anchor.md) because the narrow schema needs less storage.
+
+Local CANFAR products are addressed by aliases whose roots come from the
+environment: `uhs_hats` (`XMATCHER_UHS_DR3_HATS`), `splus5_hats`
+(`XMATCHER_SPLUS_DR5_HATS`), `xp_hats` (`XMATCHER_GAIA_XP_HATS`), and `dp2`
+(`XMATCHER_DP2_HATS`). An unset variable fails resolution with the variable
+named instead of falling back to another sky.
+
 The CDS service supports row limits (`:n=`) and asks that large catalogues are
 not bulk-harvested. The mirror's rate limit and incremental manifest apply.
 `sdss_hats` is the photometry source for the Gaia-anchored workflow: SDSS

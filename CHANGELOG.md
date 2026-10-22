@@ -5,7 +5,10 @@ All notable changes to `xmatcher` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.6.0] — 2026-10-22
+
+The `v0.6.0` tag is the GitHub release. See the
+[release notes](docs/release-0.6.0.md).
 
 ### Added
 
@@ -18,22 +21,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   [docs/ray-anchor.md](docs/ray-anchor.md).
 - `xmatcher project-hats` and `xmatcher.hats_project.project_hats`: write a
   narrow HATS tree with selected columns while preserving the partition layout
-  and row counts.
+  and row counts. HTTPS trees are streamed partition by partition (up to eight
+  `?columns=` names per request on CDS), so a wide catalogue is not mirrored
+  in full first. `--resume` completes an interrupted projection from its
+  `project.state` fingerprint and skips finished partitions.
 - Pinned HATS catalogue aliases for products not in the IVOA registry:
   `gaia_hats`, `sdss_hats` (CDS `sdss_dr16`), `catwise_hats`, `vhs_hats`,
   `ps1_hats`, `galex_hats`, `splus_hats`, plus local CANFAR aliases
   `uhs_hats`, `splus5_hats`, `xp_hats`, and `dp2` driven by environment
-  variables.
+  variables. `gaia_lsdb_hats` pins the 153-column LSDB Gaia DR3 tree as the
+  compact anchor source.
+- `scripts/run_gaia_master.sh` wraps the public-survey anchor run with local
+  CANFAR products, preflight/dry-run modes, and validation;
+  `scripts/validate_anchor_output.py` streams a master and reports row counts,
+  null/duplicate IDs, and per-survey ambiguity coverage. The data inventory,
+  quota model, and staging order are in
+  [docs/gaia-master-data.md](docs/gaia-master-data.md).
 - `docs/ray-anchor.md` documents the schema, epoch/PM policy, projection, and
   CANFAR local-product setup.
-
-## [0.6.0] — 2026-10-22
-
-The `v0.6.0` tag is the GitHub release. See the
-[release notes](docs/release-0.6.0.md).
-
-### Added
-
 - Explicit catalogue identifiers: `vizier:<id>`, `tap:<endpoint>/<table>`, and
   `hats:<url>`, documented in [docs/naming.md](docs/naming.md). Configured
   tables resolve before any TAP_SCHEMA probe.
@@ -85,6 +90,17 @@ The `v0.6.0` tag is the GitHub release. See the
 
 ### Fixed
 
+- `project-hats` copied a source `properties` file verbatim, so a projection
+  that dropped the coordinate columns still advertised `hats_col_ra`/
+  `hats_col_dec`; the keys are now removed when their column is not in the
+  projection. It also refused to write into an existing non-empty output, kept
+  zero-row source partitions so the layout really is preserved, and made
+  `--no-sync` on a remote source name the missing mirror instead of reporting
+  “no HATS partitions”.
+- `ray-anchor` wrote `hats_epoch=J2000` for any target epoch other than 2016.0;
+  the requested epoch (or the anchor epoch when none is requested) is recorded.
+  An anchor with no resolvable identifier is now an error instead of a master
+  tree without `source_id`.
 - LSDB/IRSA HATS trees could not be mirrored over HTTP: their Apache-style
   listings start with a `/parent/dir/` row, which the walker descended into,
   404'd, and then declared the whole catalogue incomplete. Absolute and

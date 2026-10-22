@@ -2,9 +2,9 @@
 
 `xmatcher` matches and joins astronomical catalogues from local files, HATS trees, and configured remote archives. Matching features depend on the selected engine and the metadata supplied for each catalogue; the guides document those limits and the memory trade-offs.
 
-The source tree is version 0.6.0, pending release; PyPI serves 0.5.1 until the
-tag is published. The [0.6.0 release notes](docs/release-0.6.0.md) list what
-changed and how it was verified. The
+Version 0.6.0 is released. The
+[0.6.0 release notes](docs/release-0.6.0.md) list what changed and how it was
+verified. The
 [v0.5.0](https://github.com/astroai/xmatch/releases/tag/v0.5.0) GitHub release
 keeps the old `xmatch` name, and the
 [migration notes](docs/release-0.5.1.md) cover the 0.5.1 rename.
@@ -27,6 +27,7 @@ All detailed architectural references and user guides are organized in the [`doc
 - **[Source & Measurement Releases (`docs/observations.md`)](docs/observations.md)**: Lazy, source-preserving measurement ledgers, photometric unit/limit normalization, property evidence, and checksummed Parquet releases.
 - **[Candidate & Association Pipeline (`docs/catalogue-pipeline.md`)](docs/catalogue-pipeline.md)**: End-to-end workflow from pinned survey observation and sparse-candidate releases to per-target association hypotheses.
 - **[Catalogue Naming (`docs/naming.md`)](docs/naming.md)**: Bare survey names, releases, provider suffixes, and the `vizier:` / `tap:` / `hats:` identifier grammar.
+- **[Gaia DR3 master data (`docs/gaia-master-data.md`)](docs/gaia-master-data.md)**: Survey inventory, staging order, quota model, and validation for the big Gaia-anchored run.
 - **[Association Contract v1 (`docs/association-v1.md`)](docs/association-v1.md)**: Audit-grade versioned association record specification, release directories, component sidecars, and member equivalence tracking.
 
 A [documentation index](docs/README.md) separates current guides from historical release and scaling records.
@@ -84,10 +85,10 @@ pixi run ci-local
 ### Standard: Pip
 
 ```bash
-python -m pip install "xmatcher==0.5.1"
+python -m pip install "xmatcher==0.6.0"
 
 # Optional integrations; use only the extras you need
-python -m pip install "xmatcher[cds,hats-ray,torchfits,ml]==0.5.1"
+python -m pip install "xmatcher[cds,hats-ray,torchfits,ml]==0.6.0"
 ```
 
 A source checkout uses the same extras from the tree:
@@ -118,6 +119,7 @@ PyPI.
 | Multi-survey 3-way chain | `xmatcher match gaia wise.csv 2mass.parquet -r 1.5 -o 3way.parquet` |
 | Distributed HATS master union | `xmatcher match gaia allwise 2mass des --union --engine ray-union -o /data/master.hats` |
 | Gaia-anchored master (all Gaia rows) | `xmatcher match gaia_hats sdss_hats ps1_hats --engine ray-anchor -r 1.5 -o gaia_master.hats` |
+| Narrow a wide HATS tree | `xmatcher project-hats gaia_hats gaia_core.hats --columns Source,RA_ICRS,DE_ICRS,Plx,pmRA,pmDE` |
 | Mirror remote surveys to local cache | `xmatcher sync gaia allwise 2mass` |
 | Search remote TAP archives | `xmatcher search des` |
 | Discover archive schemas | `xmatcher discover noirlab --schema nsc_dr2.object` |

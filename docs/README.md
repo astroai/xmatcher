@@ -15,6 +15,8 @@
 - [Gaia-anchored master catalogue](ray-anchor.md) — one row per Gaia source,
   best counterpart per survey, ambiguity fields, HATS projection, and CANFAR
   local products.
+- [Gaia DR3 master data inventory](gaia-master-data.md) — survey sizes, staging
+  order, quota model, CANFAR local products, and validation for the big run.
 - [Source and measurement releases](observations.md) — lazy measurement
   ledgers, photometric normalization, and checksummed releases.
 - [Catalogue-to-model pipeline](catalogue-pipeline.md) — pinned observations,

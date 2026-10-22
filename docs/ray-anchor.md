@@ -35,8 +35,11 @@ xmatcher match gaia_hats $SURVEYS --engine ray-anchor -r 1.5 \
 
 ## Output schema
 
-Anchor columns are preserved. The anchor ID column is renamed to `source_id`
-by default (`--anchor-id-name` changes it). Each survey contributes:
+The anchor's selected columns are preserved: its whole schema, or the
+`default_columns` listed in its catalogue entry. The anchor ID column is
+renamed to `source_id` by default (`--anchor-id-name` changes it). An anchor
+whose schema has no column that can serve as an identifier is rejected, rather
+than producing a master that cannot be keyed. Each survey contributes:
 
 | Column | Meaning |
 |---|---|
@@ -64,13 +67,22 @@ input passed without a configured projection carries its full schema.
 - `ambiguous+pm_warn`: both conditions.
 - `no_match`: no survey source inside the radius.
 
+Labels are applied in that order: a crowded match with a PM warning is
+`ambiguous+pm_warn`, and a single `poor` match that also has a PM warning is
+reported as `pm_warn`. Use the individual boolean/count columns when a
+consumer needs the conditions separately.
+
 ## Epochs and proper motion
 
 `--target-epoch` propagates both the anchor and any survey row that has epoch
-and proper-motion metadata. Surveys without motion metadata stay at their
-published coordinates; `pm_warn` still flags the anchor's motion over the
-anchor-survey epoch baseline. For a reproducible run, set `--target-epoch` to
-the anchor epoch (2016.0 for Gaia DR3) and keep `--fallback-policy error`.
+and proper-motion metadata. The anchor's coordinate columns in the output hold
+the propagated position, and `properties` records the epoch in `hats_epoch`
+(`J2020.000` for `--target-epoch 2020`). Surveys without motion metadata stay
+at their published coordinates; `pm_warn` still flags the anchor's motion over
+the anchor-survey epoch baseline. Without `--target-epoch`, `hats_epoch`
+records the anchor epoch when one is configured. For a reproducible run, set
+`--target-epoch` to the anchor epoch (2016.0 for Gaia DR3) and keep
+`--fallback-policy error`.
 
 `pm_warn` uses the anchor proper motion when available. If the anchor has no
 usable motion and the epoch baseline exceeds five years, every anchor row for
@@ -107,9 +119,21 @@ xmatcher project-hats sdss_hats sdss_phot.hats \
   --columns objID,RA_ICRS,DE_ICRS,upmag,gpmag,rpmag,ipmag,zpmag,uMJD,gMJD,rMJD,iMJD,zMJD
 ```
 
-`project-hats` preserves the partition layout and row counts, writes a valid
-HATS `properties`/`partition_info`, and refuses output that overlaps its input.
-For a remote source it mirrors first unless `--no-sync` is given.
+`project-hats` preserves the partition layout and row counts — including
+zero-row partitions — writes a valid HATS `properties`/`partition_info`, and
+refuses output that overlaps its input or already contains a tree, unless
+`--resume` is given. Resume requires the `project.state` fingerprint written
+by the interrupted run (same source and columns), skips partitions that are
+already on disk, and completes the metadata; a mismatched or missing state is
+an error rather than a silently mixed tree. An HTTPS HATS tree is streamed
+partition by partition without mirroring the wide tree first (CDS accepts up
+to eight column names per `?columns=` request); other remote sources are
+mirrored unless `--no-sync` is given, in which case a cached copy must already
+exist. A multi-TB projection can be resumed with `--resume`;
+the `project.state` fingerprint binds the source, columns, and layout, and
+completed partitions are skipped. Coordinate keys (`hats_col_ra`/`hats_col_dec`)
+are dropped from the output `properties` when the projection does not carry
+those columns.
 
 ## Resume and scheduling
 
@@ -161,6 +185,9 @@ photometry tree.
 
 ## Limits
 
+- The anchor must have a usable identifier column (`id_column` in the
+  catalogue entry, `--id1`, or a recognised name such as `source_id`/`Source`
+  in its HATS schema).
 - The current engine supports `matcher="sky"` and keeps the best counterpart
   per survey. Use `ray-union` for `skyerr`/`skyellipse`.
 - It always performs a left join from the anchor; `find="all"`, ID joins,

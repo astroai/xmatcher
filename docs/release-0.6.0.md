@@ -1,7 +1,8 @@
 # xmatcher 0.6.0
 
 Release notes for the 0.6.0 source tree, prepared 2026-10-22 for tag `v0.6.0`.
-This release makes remote catalogues addressable by name, adds anonymous S3 and
+This release makes remote catalogues addressable by name, adds a Gaia-anchored
+master catalogue built from streamed remote HATS trees, adds anonymous S3 and
 Hugging Face HATS reads, and fixes a class of positional-error matches that
 silently widened past the requested radius.
 
@@ -22,6 +23,40 @@ Explicit identifiers (`vizier:<id>`, `tap:<endpoint>/<table>`, `hats:<url>`)
 resolve before any `TAP_SCHEMA` probe, and the naming grammar
 (`<survey>[_<release>][_<product>][_<provider>]`) is documented in
 [docs/naming.md](naming.md) with every former key kept as an alias.
+
+### One row per Gaia source
+
+`engine="ray-anchor"` (also `CrossMatch.anchor_match`) builds the master the
+other way round: the first catalogue is the anchor, normally Gaia DR3, and it
+decides the rows. Every later catalogue is matched independently and
+contributes its best counterpart plus `sep_arcsec`, `sep_second`, `n_within`,
+`crowded`, `pm_warn`, and a `quality` label. An anchor source with no
+counterpart keeps its row with null survey columns, and the anchor ID becomes
+`source_id` (`--anchor-id-name` renames it).
+
+The run is a HATS pipeline: inputs are mirrored into the cache on demand (or
+read from a local tree), each anchor partition is one Ray task, and a finished
+partition is skipped on a rerun. The fingerprint in `resume.state` covers the
+inputs, selected columns, radius, target epoch, and anchor ID name; changing
+any of them into the same output wipes the old dataset rather than mixing two
+plans. `--target-epoch` propagates both sides where epoch and proper motion
+exist, `pm_warn` flags an anchor whose motion exceeds half the radius over the
+baseline, and `hats_epoch` records the epoch of the written coordinates.
+
+`xmatcher project-hats <source> <out> --columns …` writes the narrow HATS tree
+the anchor run wants without mirroring the wide one first: it keeps the
+partition layout and row counts, streams an HTTPS tree partition by partition
+(CDS accepts up to eight column names per request), and refuses an output that
+overlaps its input or is already populated. Pinned aliases cover the CDS HATS
+products that are absent from the IVOA registry (`gaia_hats`, `sdss_hats`,
+`catwise_hats`, `vhs_hats`, `ps1_hats`, `galex_hats`, `splus_hats`), and
+`gaia_lsdb_hats` pins the 153-column LSDB Gaia DR3 tree as a smaller anchor.
+[ray-anchor.md](ray-anchor.md) documents the schema and limits;
+[gaia-master-data.md](gaia-master-data.md) is the data-side runbook, with
+`scripts/run_gaia_master.sh` and `scripts/validate_anchor_output.py` for a
+large run. Only `matcher="sky"` and the best counterpart are supported;
+`ray-union` remains the engine for `skyerr`/`skyellipse` and for
+secondary-only sources.
 
 ### HATS over HTTPS, S3 and Hugging Face
 
@@ -79,19 +114,37 @@ row count and the knobs that fix it.
   registry inventory behind `--hats`.
 - `hats:<name>` performs a registry lookup on first use (network); the snapshot
   is cached for seven days and reused offline.
+- `project-hats` writes a new directory by default: an existing non-empty
+  output is refused, because a stale partition from an earlier projection would
+  otherwise survive. `--resume` continues an interrupted projection when its
+  `project.state` fingerprint matches (same source and columns); a mismatch is
+  reported rather than merged.
+- `ray-anchor` needs an identifier column on the anchor (`id_column`, or a
+  recognised name such as `source_id`/`Source` in the HATS schema); a bare
+  `hats:<url>` anchor with no id is rejected. The output is a new master tree,
+  never an in-place edit of an input.
 - The 0.5.1 `xmatch` → `xmatcher` rename (package, command, `xmatcher.yaml`,
   `XMATCHER_*` environment variables) is unchanged; see the
   [migration notes](release-0.5.1.md).
 
 ## Verification
 
-- Offline suite: **864 passed, 50 skipped, 13 warnings** in 244.21 s, including
+- Offline suite: **901 passed, 51 skipped, 14 warnings** in 246.97 s, including
   new end-to-end mirrors of a HATS tree served over S3 and over a Hub-shaped
   API, the registry resolution and CLI contracts, and the documentation drift
-  guards. `ruff check .`, `ruff format --check .`, `mypy src/xmatcher tests
-  scripts` (81 files) and `python -m compileall` are clean.
+  guards. The anchor engine is checked against an all-pairs brute-force
+  reference over a multi-partition tree (best/second separation, counts,
+  `crowded`, `quality`, and the chosen counterpart), together with resume,
+  fingerprint invalidation, target-epoch coordinates, and local-vs-HTTPS
+  projection parity. `ruff check .`, `ruff format --check .`, `mypy
+  src/xmatcher tests scripts` (88 files) and `python -m compileall` are clean.
 - Live HATS registry: all 90 registrations resolve; all 41 `hf://` entries
   resolved name → collection → tree → `properties` in 58 s with no failures.
+- Live pinned trees: the seven CDS HATS endpoints answer their `properties`
+  with the row counts in [hats-sources.md](hats-sources.md), and
+  `gaia_lsdb_hats` exposes all 153 columns (every `default_columns` entry,
+  plus the ID, coordinate, epoch, proper-motion, parallax and radial-velocity
+  columns) at 1,812,731,847 rows.
 - Live mirroring: `hats:mmu_cfa_seccsn` over Hugging Face produced 66 files
   (362 KB) and read back 64 rows; the IRSA Euclid Q1 S3 tree listed 123 objects
   (114 pixel parts, 344.6 GiB) and its smallest partition opened with 17 rows

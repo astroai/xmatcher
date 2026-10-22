@@ -1250,6 +1250,12 @@ def _build_project_hats_subparser() -> argparse.ArgumentParser:
         help="Do not mirror a remote source; require an existing cached copy.",
     )
     parser.add_argument(
+        "--resume",
+        dest="resume",
+        action="store_true",
+        help="Resume a partial projection; requires a matching project.state.",
+    )
+    parser.add_argument(
         "--cache-root",
         dest="cache_root",
         help="Durable cache root for mirrored HATS catalogues.",
@@ -2445,6 +2451,7 @@ def _run_project_hats(argv: Sequence[str]) -> int:
                 hats_threshold=int(args.hats_threshold),
                 sync=not args.no_sync,
                 rate_limit_rps=float(args.rate_limit_rps),
+                resume=bool(args.resume),
                 progress_cb=progress.update,
             )
         console.info(
