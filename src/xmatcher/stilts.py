@@ -214,6 +214,10 @@ def stilts_sky_match(
                 "catalogues, or a default_pos_error_arcsec in the config."
             )
         scale = spec.max_error * (float(np.nanmax(lsig)) + float(np.nanmax(rsig)))
+        if spec.radius_arcsec is not None:
+            # The N-sigma criterion may only narrow the requested radius; a
+            # corrupted per-row error must not widen the candidate bin.
+            scale = min(scale, float(spec.radius_arcsec))
         stilts_matcher = "skyerr"
         params_value = str(max(scale, 1e-6))
 
@@ -254,4 +258,12 @@ def stilts_sky_match(
         collide = set(left.columns) & set(right.columns)
         r_ra = right_src.ra_column + (right_suffix if right_src.ra_column in collide else "")
         r_dec = right_src.dec_column + (right_suffix if right_src.dec_column in collide else "")
-        return _add_true_separation(result, left_src.ra_column, left_src.dec_column, r_ra, r_dec)
+        result = _add_true_separation(result, left_src.ra_column, left_src.dec_column, r_ra, r_dec)
+        if spec.matcher == "skyerr" and spec.radius_arcsec is not None:
+            # STILTS bins candidates; enforce the requested radius exactly.
+            # Unmatched outer rows have no separation and are kept.
+            result = result.filter(
+                pl.col("sep_arcsec").is_null()
+                | (pl.col("sep_arcsec") <= float(spec.radius_arcsec))
+            )
+        return result

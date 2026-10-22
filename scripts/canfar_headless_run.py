@@ -637,6 +637,11 @@ def scenario_ray_probe() -> None:
             "print('init-seconds', round(time.time() - started, 1), flush=True)\n"
             "print('resources', ray.cluster_resources(), flush=True)\n"
             "ray.shutdown()\n"
+            "started = time.time()\n"
+            "ray.init(address='local', ignore_reinit_error=True)\n"
+            "print('engine-init-seconds', round(time.time() - started, 1), flush=True)\n"
+            "print('engine-resources', ray.cluster_resources(), flush=True)\n"
+            "ray.shutdown()\n"
         )
         code_path = WORK / "out" / SCENARIO / "ray_probe.py"
         code_path.parent.mkdir(parents=True, exist_ok=True)
@@ -727,6 +732,245 @@ def scenario_report() -> None:
                 print(f"  FAIL {entry.get('name')}: {entry.get('error')}")
 
 
+def scenario_cds_mix() -> None:
+    """Cross-archive pairings that combine CDS and Data Lab tables."""
+    for left, right, field, radius in (
+        ("galex_ais", "gaia_dr3_cds", "galex", 5.0),
+        ("galex_ais", "twomass_psc", "galex", 5.0),
+        ("ps1_dr1", "twomass_psc", "cosmos", 1.5),
+        ("catwise_2020", "gaia_dr3_cds", "cosmos", 2.0),
+        ("vhs_dr5", "des_dr2", "des", 2.0),
+    ):
+        check(
+            f"mix-{left}-{right}",
+            lambda a=left, b=right, f=field, r=radius: match_check(
+                f"{a}__{b}", a, b, f, radius_arcsec=r
+            ),
+        )
+
+
+def scenario_noirlab_mix() -> None:
+    """Data Lab pairings that exercise the corrected NSC/unWISE/AllWISE columns."""
+    for left, right, field, radius in (
+        ("nsc_dr2", "allwise", "nsc", 2.0),
+        ("nsc_dr2", "unwise_dr1", "nsc", 2.0),
+        ("des_dr2", "allwise", "des", 2.0),
+        ("unwise_dr1", "allwise", "cosmos", 2.0),
+        ("legacy_dr10", "des_dr2", "des", 2.0),
+    ):
+        check(
+            f"mix-{left}-{right}",
+            lambda a=left, b=right, f=field, r=radius: match_check(
+                f"{a}__{b}", a, b, f, radius_arcsec=r
+            ),
+        )
+
+
+def scenario_skyerr_real() -> None:
+    """Per-row N-sigma matching on live catalogues with real uncertainties."""
+    for left, right, field, radius in (
+        ("gaia_dr3_cds", "ps1_dr1", "cosmos", 1.0),
+        ("gaia_dr3_cds", "nsc_dr2", "nsc", 1.0),
+        ("nsc_dr2", "allwise", "nsc", 1.5),
+        ("des_dr2", "unwise_dr1", "des", 1.5),
+    ):
+        check(
+            f"skyerr-{left}-{right}",
+            lambda a=left, b=right, f=field, r=radius: match_check(
+                f"skyerr-{a}__{b}",
+                a,
+                b,
+                f,
+                radius_arcsec=r,
+                extra=["--matcher", "skyerr", "--max-error", "3"],
+            ),
+        )
+
+
+def scenario_formats() -> None:
+    """The same local catalogue in parquet/CSV/TSV/FITS must match identically."""
+    base = out("format-inputs")
+    base.mkdir(parents=True, exist_ok=True)
+    code = (
+        "import sys, polars as pl\n"
+        "from pathlib import Path\n"
+        "from astropy.table import Table\n"
+        "d = Path(sys.argv[1])\n"
+        "n = 60\n"
+        "frame = pl.DataFrame({'ra': [10.0 + (i % 10) * 0.0002 for i in range(n)],"
+        " 'dec': [5.0 + (i // 10) * 0.0002 for i in range(n)], 'id': list(range(n))})\n"
+        "frame.write_parquet(d / 'left.parquet')\n"
+        "frame.write_csv(d / 'left.csv')\n"
+        "frame.write_csv(d / 'left.tsv', separator='\\t')\n"
+        "Table.from_pandas(frame.to_pandas()).write(d / 'left.fits', overwrite=True)\n"
+        "frame.select(['ra', 'dec']).write_parquet(d / 'right.parquet')\n"
+    )
+    require_ok(pixi_python(code, str(base)), "format inputs")
+
+    def one(name, left):
+        def run() -> dict:
+            path = out(f"fmt-{name}.parquet")
+            proc = xmatcher(
+                "match", str(left), str(base / "right.parquet"), "-r", "1.0", "-o", str(path)
+            )
+            require_ok(proc, name)
+            rows = parquet_rows(path)
+            require(rows == 60, f"{name}: expected 60 rows, got {rows}")
+            require(parquet_max_sep(path) <= 1.0, f"{name}: separation exceeds radius")
+            return {"rows": rows}
+
+        check(name, run)
+
+    for name, filename in (
+        ("parquet", "left.parquet"),
+        ("csv", "left.csv"),
+        ("tsv", "left.tsv"),
+        ("fits", "left.fits"),
+    ):
+        one(f"input-{name}", base / filename)
+
+    def hats_output() -> dict:
+        path = out("format-output.hats")
+        proc = xmatcher(
+            "match",
+            str(base / "left.parquet"),
+            str(base / "right.parquet"),
+            "-r",
+            "1.0",
+            "-o",
+            str(path),
+        )
+        require_ok(proc, "hats output")
+        verify = (
+            "import sys, hats\n"
+            "ds = hats.read_hats(sys.argv[1])\n"
+            "assert len(ds.partition_info.as_dataframe()) > 0\n"
+            "print('ok')\n"
+        )
+        require_ok(pixi_python(verify, str(path)), "read HATS output")
+        return {"ok": True}
+
+    check("output-hats", hats_output)
+
+
+def scenario_multi_3way() -> None:
+    """Four-way union/fof at COSMOS and a three-way union at the DES field."""
+
+    def run(keys: list[str], field: str, flags: list[str], name: str) -> dict:
+        ra, dec, radius_deg = FIELDS[field]
+        path = out(f"{name}.parquet")
+        proc = xmatcher(
+            "match",
+            *keys,
+            "--ra",
+            str(ra),
+            "--dec",
+            str(dec),
+            "--radius-deg",
+            str(radius_deg),
+            *flags,
+            "-o",
+            str(path),
+        )
+        require_ok(proc, name)
+        rows = parquet_rows(path)
+        require(rows > 0, f"{name} returned no rows")
+        columns = pixi_python(
+            "import sys, polars as pl; print(','.join(pl.read_parquet(sys.argv[1]).columns))",
+            str(path),
+        )
+        require_ok(columns, f"{name} columns")
+        return {"rows": rows, "has_src_cats": "_src_cats" in columns.stdout}
+
+    check(
+        "cosmos-union-4way",
+        lambda: run(
+            ["gaia_dr3_cds", "ps1_dr1", "twomass_psc", "catwise_2020"],
+            "cosmos",
+            ["--union"],
+            "multi4-union",
+        ),
+    )
+    check(
+        "cosmos-fof-4way",
+        lambda: run(
+            ["gaia_dr3_cds", "ps1_dr1", "twomass_psc", "catwise_2020"],
+            "cosmos",
+            ["--fof", "-r", "2.0"],
+            "multi4-fof",
+        ),
+    )
+    check(
+        "des-union-3way",
+        lambda: run(["nsc_dr2", "des_dr2", "allwise"], "des", ["--union"], "des3-union"),
+    )
+
+
+def scenario_engines() -> None:
+    """fast/zone/astropy must agree on the same live pair set."""
+    counts: dict[str, int] = {}
+
+    for engine in ("fast", "zone", "astropy"):
+
+        def run(eng=engine) -> dict:
+            path = out(f"engine-{eng}.parquet")
+            proc = xmatcher(
+                "match",
+                "gaia_dr3_cds",
+                "ps1_dr1",
+                *cone_args("cosmos", 1.0),
+                "--engine",
+                eng,
+                "-o",
+                str(path),
+            )
+            require_ok(proc, f"engine {eng}")
+            rows = parquet_rows(path)
+            counts[eng] = rows
+            require(parquet_max_sep(path) <= 1.0, f"engine {eng}: separation exceeds radius")
+            return {"rows": rows}
+
+        check(f"engine-{engine}", run)
+
+    require(len(set(counts.values())) == 1, f"engines disagree: {counts}")
+
+
+def scenario_precomputed() -> None:
+    """Match NOIRLab's pre-computed pair tables against a live catalogue."""
+    for table, field in (("nsc_x_gaia", "nsc"), ("des_x_gaia", "des")):
+
+        def run(name=table, f=field) -> dict:
+            ra, dec, radius_deg = FIELDS[f]
+            path = out(f"{name}.parquet")
+            proc = xmatcher(
+                "match",
+                name,
+                "gaia_dr3_cds",
+                "--ra",
+                str(ra),
+                "--dec",
+                str(dec),
+                "--radius-deg",
+                str(radius_deg),
+                "-r",
+                "2.0",
+                "-o",
+                str(path),
+            )
+            require_ok(proc, name)
+            rows = parquet_rows(path)
+            require(rows > 0, f"{name} returned no rows")
+            columns = pixi_python(
+                "import sys, polars as pl; print(','.join(pl.read_parquet(sys.argv[1]).columns))",
+                str(path),
+            )
+            require_ok(columns, f"{name} columns")
+            require("distance" in columns.stdout, f"{name} lost the distance column")
+            return {"rows": rows}
+
+        check(f"precomputed-{table}", run)
+
+
 SCENARIOS = {
     "registry": scenario_registry,
     "aliases-cds": scenario_aliases_cds,
@@ -741,6 +985,13 @@ SCENARIOS = {
     "hats": scenario_hats,
     "ray": scenario_ray,
     "ray-probe": scenario_ray_probe,
+    "cds-mix": scenario_cds_mix,
+    "noirlab-mix": scenario_noirlab_mix,
+    "skyerr-real": scenario_skyerr_real,
+    "formats": scenario_formats,
+    "multi-3way": scenario_multi_3way,
+    "engines": scenario_engines,
+    "precomputed": scenario_precomputed,
 }
 
 

@@ -374,6 +374,17 @@ def test_stilts_skyerr_rejects_outside_n_sigma(skyerr_pair):
     assert out.height == 0
 
 
+def test_stilts_skyerr_respects_the_requested_radius():
+    """A corrupted 100" error must not widen the caller's 1" radius."""
+    cos_dec = 0.9961946980917455  # cos(5 deg)
+    left = pl.DataFrame({"ra": [10.0], "dec": [5.0], "rae": [100.0], "dee": [0.0]})
+    right = pl.DataFrame(
+        {"ra": [10.0 + 2.0 / 3600.0 / cos_dec], "dec": [5.0], "rae": [100.0], "dee": [0.0]}
+    )
+    out = _stilts_skyerr(left, right, max_error=3.0)
+    assert out.height == 0
+
+
 def test_stilts_skyerr_keeps_valid_pair_without_bin_engineer():
     """The candidate-search scale must retain a pair inside its error bound."""
     sigma_axis = _SKYERR_ERROR_AXIS
