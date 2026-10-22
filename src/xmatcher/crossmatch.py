@@ -47,6 +47,7 @@ from .discovery import (
     looks_like_table_id,
 )
 from .exceptions import ConfigError, CrossMatchError, InputError
+from .hats_registry import resolve_hats_short_name
 from .matchers import (
     _RIGHT_SUFFIX,
     PMATCH_COLUMN,
@@ -58,7 +59,7 @@ from .matchers import (
     sky_match,
 )
 from .request import MatchRequest, MatchSpec
-from .sources import ASTROMETRIC_COVARIANCE_KEYS, CatalogueSource
+from .sources import ASTROMETRIC_COVARIANCE_KEYS, CatalogueSource, is_remote_hats_uri
 from .user_config import bundled_config_path, load_merged_config
 
 logger = logging.getLogger(__name__)
@@ -327,6 +328,8 @@ class CrossMatch:
 
         self.auth_config = auth.load_auth_config()
         self.last_spill_stats: dict[str, int] | None = None
+        self.last_ray_union_plan: Any = None
+        self.last_ray_anchor_plan: Any = None
         self._validate_config()
         logger.info("CrossMatch initialised from %s", self.config_file)
 
@@ -565,25 +568,34 @@ class CrossMatch:
         if prefix_lower == "hats":
             target = rest.strip()
             if not target:
-                raise InputError("hats: identifiers need a URL, e.g. hats:https://…", source=text)
-            if target.startswith(("http://", "https://", "vos:")):
+                raise InputError(
+                    "hats: identifiers need a URL or a registry name, e.g. "
+                    "hats:https://… or hats:two_mass.",
+                    source=text,
+                )
+            if is_remote_hats_uri(target):
                 return self._remote_hats_source(target, overrides)
             local = Path(target).expanduser()
             if local.is_dir() and io_utils.is_hats_dir(local):
                 return self._hats_source(local, overrides)
-            raise InputError(
-                f"Unknown HATS catalogue '{target}'. Registry short-name lookup is not "
-                "available yet; pass hats:<https://…|vos:…> or a local HATS directory.",
-                source=target,
-            )
+            # A bare name is resolved through the IVOA HATS registry (cached),
+            # so `hats:two_mass` works without pasting a URL.
+            try:
+                url = resolve_hats_short_name(target)
+            except InputError as exc:
+                raise InputError(
+                    f"Cannot resolve HATS catalogue '{target}': {exc}", source=target
+                ) from exc
+            logger.info("resolved hats:%s to %s", target, url)
+            return self._remote_hats_source(url, overrides)
 
         resolved = self.resolve_name(text)
         if resolved in self.catalogues_config:
             return self._remote_source(self.get_catalogue_config(resolved), overrides)
 
-        if text.startswith(("http://", "https://", "vos:")):
-            # Remote HATS catalogue over HTTP / vos: — mirrored on demand by the
-            # ray-union pipeline and `xmatcher sync`.
+        if is_remote_hats_uri(text):
+            # Remote HATS catalogue over HTTP / vos: / s3:// / hf:// —
+            # mirrored on demand by the ray-union pipeline and `xmatcher sync`.
             return self._remote_hats_source(text, overrides)
 
         path = Path(text)
@@ -632,7 +644,17 @@ class CrossMatch:
         return self._remote_source(cfg, overrides)
 
     def _remote_hats_source(self, url: str, overrides: dict[str, Any]) -> CatalogueSource:
-        """Build a remote-HATS source for an ``http(s):`` or ``vos:`` URL."""
+        """Build a remote-HATS source for an ``http(s):``, ``vos:``, ``s3://`` or ``hf://`` URL.
+
+        A collection root (LSDB/registry URLs such as
+        ``…/hats/gaia_dr3/``) is descended to the single catalogue tree it
+        holds, so the registry names and the published URLs both mirror.
+        Unreachable servers leave the URL untouched; the sync then reports
+        the real problem.
+        """
+        from .mirror import resolve_hats_tree_root  # noqa: PLC0415 - avoid a cycle at import
+
+        url = resolve_hats_tree_root(url)
         name = url.rstrip("/").rsplit("/", 1)[-1] or "remote-hats"
         return CatalogueSource(
             name=name,
@@ -758,13 +780,14 @@ class CrossMatch:
         """Resolve one ``fallback:`` entry of a catalogue config.
 
         Known catalogue/alias names resolve to their full
-        :class:`CatalogueSource`; raw ``http(s)://`` / ``vos:`` URLs are kept
-        for remote-HATS sources as direct mirror endpoints.  Resolution is
-        config-only (no TAP_SCHEMA probes), so ``describe`` / ``list`` stay
-        side-effect-free; the schema gate runs at sync time, not here.
+        :class:`CatalogueSource`; raw ``http(s)://`` / ``vos:`` / ``s3://`` /
+        ``hf://`` URLs are kept for remote-HATS sources as direct mirror endpoints.
+        Resolution is config-only (no TAP_SCHEMA probes), so ``describe`` /
+        ``list`` stay side-effect-free; the schema gate runs at sync time,
+        not here.
         """
         text = str(value).strip()
-        if text.startswith(("http://", "https://", "vos:")):
+        if is_remote_hats_uri(text):
             if primary_access != "hats":
                 raise CrossMatchError(
                     f"fallback '{text}' for '{primary_name}': raw URLs are only valid "
@@ -779,6 +802,21 @@ class CrossMatch:
         return self._remote_source(self.get_catalogue_config(resolved), {})
 
     def _remote_source(self, cfg: dict[str, Any], overrides) -> CatalogueSource:
+        access_method = cfg.get("access_method")
+        access_identifier = cfg.get("access_identifier") or cfg.get("table_name")
+        if (
+            access_method == "hats"
+            and isinstance(access_identifier, str)
+            and not is_remote_hats_uri(access_identifier)
+        ):
+            expanded = os.path.expandvars(os.path.expanduser(access_identifier))
+            if not expanded or "$" in expanded:
+                raise ConfigError(
+                    f"Catalogue '{cfg['_catalogue_name']}' points at local HATS path "
+                    f"{access_identifier!r}; set the environment variable or edit the "
+                    "catalogue's access_identifier."
+                )
+            access_identifier = expanded
         src = CatalogueSource(
             name=cfg["_catalogue_name"],
             is_local=False,
@@ -804,9 +842,9 @@ class CrossMatch:
             parallax_column=overrides.get("parallax_column") or cfg.get("parallax_column"),
             radial_velocity_column=overrides.get("radial_velocity_column")
             or cfg.get("radial_velocity_column"),
-            access_method=cfg.get("access_method"),
+            access_method=access_method,
             archive=cfg.get("_archive_name"),
-            access_identifier=cfg.get("access_identifier") or cfg.get("table_name"),
+            access_identifier=access_identifier,
             tap_url=cfg.get("access_url") or cfg.get("tap_url"),
             default_columns=cfg.get("default_columns"),
         )
@@ -873,6 +911,15 @@ class CrossMatch:
                 progress_cb=progress_cb,
                 **params,
             )
+        if engine_choice == "ray-anchor":
+            self.anchor_match(
+                [catalogue_1_input, catalogue_2_input],
+                output_file=output_file,
+                lazy=lazy,
+                progress_cb=progress_cb,
+                **params,
+            )
+            return None
         req = MatchRequest.from_params(
             catalogue_1_input,
             catalogue_2_input,
@@ -1012,6 +1059,38 @@ class CrossMatch:
             progress_cb=progress_cb,
             union_match=True,
             **union_params,
+        )
+
+    def anchor_match(
+        self,
+        catalogues: list[FrameInput],
+        output_file: str | Path | None = None,
+        *,
+        lazy: bool = False,
+        progress_cb: Callable[[str], None] | None = None,
+        **params: Any,
+    ) -> None:
+        """Gaia-anchored master catalogue: one row per anchor source.
+
+        The first catalogue is the anchor (typically Gaia DR3); every later
+        catalogue contributes its best counterpart and an ambiguity block
+        (``sep_arcsec``, ``sep_second``, ``n_within``, ``crowded``,
+        ``pm_warn``, ``quality``).  Anchor rows are never dropped.
+
+        This is a distributed HATS pipeline: inputs are mirrored on demand and
+        the output is a HATS directory.  It requires an output path.
+        """
+        if lazy:
+            raise CrossMatchError(
+                "engine='ray-anchor' writes a HATS tree; lazy output is unsupported."
+            )
+        self._multi_match_impl(
+            catalogues,
+            output_file,
+            False,
+            progress_cb=progress_cb,
+            anchor_match=True,
+            **params,
         )
 
     def fof_match(
@@ -1614,9 +1693,7 @@ class CrossMatch:
                     for i, src in enumerate(sources):
                         if src.access_method == "tap" or (
                             src.access_method == "hats"
-                            and (src.access_identifier or "").startswith(
-                                ("http://", "https://", "vos:")
-                            )
+                            and is_remote_hats_uri(src.access_identifier)
                         ):
                             root, rel = locate_mirrored(src, cache_roots=roots)
                             sources[i] = _mirrored_source(src, open_storage(root), rel, root)
@@ -1662,6 +1739,155 @@ class CrossMatch:
                 _append_run("attempt_failed", attempt=attempt, error=str(exc), backoff_s=delay)
                 time.sleep(delay)
 
+    def _ray_anchor_multi(
+        self,
+        catalogues: list[FrameInput],
+        output_file: str | Path | None,
+        progress_cb: Callable[[str], None] | None = None,
+        **params: Any,
+    ) -> None:
+        """Distributed one-row-per-anchor join via :mod:`xmatcher.ray_anchor`."""
+        if output_file is None:
+            raise CrossMatchError(
+                "engine='ray-anchor' requires an output HATS path (-o/--output <out>.hats)."
+            )
+        if len(catalogues) < 2:
+            raise CrossMatchError("engine='ray-anchor' needs an anchor and at least one survey.")
+        unsupported = [
+            key
+            for key in (
+                "id_join",
+                "extra_distance_cols",
+                "prior_columns",
+                "probabilistic",
+                "filter_expr",
+                "columns_1",
+                "columns_2",
+                "memory_budget_bytes",
+                "ra",
+                "dec",
+                "radius_deg",
+                "region",
+                "pm_prior",
+            )
+            if params.get(key) is not None
+            and params.get(key) is not False
+            and params.get(key) != []
+            and params.get(key) != {}
+        ]
+        if unsupported:
+            raise CrossMatchError(
+                "engine='ray-anchor' does not support "
+                + ", ".join(unsupported)
+                + "; use a pairwise or sequential engine for these options."
+            )
+        matcher = params.get("matcher") or "sky"
+        if matcher != "sky":
+            raise CrossMatchError(
+                "engine='ray-anchor' currently supports matcher='sky'; "
+                f"got matcher='{matcher}'. Use ray-union for skyerr/skyellipse."
+            )
+        find = params.get("find") or "best"
+        if find != "best":
+            raise CrossMatchError(
+                "engine='ray-anchor' always keeps the best counterpart per survey."
+            )
+        join_type = params.get("join_type") or "1and2"
+        if join_type not in ("1and2", "1or2", "all"):
+            raise CrossMatchError(
+                "engine='ray-anchor' always writes a left join from the anchor; "
+                f"got join_type='{join_type}'."
+            )
+        if str(output_file).startswith("vos:"):
+            raise CrossMatchError(
+                "engine='ray-anchor' currently writes a local HATS directory; "
+                "stage it to VOSpace with `xmatcher sync` afterwards."
+            )
+
+        from . import ray_anchor
+        from .mirror import _mirrored_source, ensure_mirrored, locate_mirrored
+        from .storage import all_cache_roots, assert_headroom
+
+        cache_cfg = self.config.get("cache", {}) if isinstance(self.config, dict) else {}
+        roots = all_cache_roots(cache_cfg)
+        if params.get("cache_root"):
+            roots = [params["cache_root"], *(r for r in roots if r != params["cache_root"])]
+        cache_root = roots[0]
+        synclimit = params.get("synclimit")
+        rate_limit = float(
+            synclimit
+            if synclimit is not None
+            else (cache_cfg.get("rate_limit_rps") or DEFAULT_SYNC_RATE_LIMIT)
+        )
+        threads = params.get("threads")
+        workers = int(threads if threads is not None else DEFAULT_SYNC_WORKERS)
+        min_free = float(
+            params.get("min_free_gb")
+            or os.environ.get("XMATCHER_MIN_FREE_GB")
+            or cache_cfg.get("min_free_gb")
+            or DEFAULT_MIN_FREE_GB
+        )
+        assert_headroom(cache_root, min_free, f"cache root '{cache_root}'")
+        out_dir = Path(str(output_file))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        assert_headroom(str(out_dir.parent), min_free, f"output directory '{out_dir.parent}'")
+
+        def progress(msg: str) -> None:
+            if progress_cb:
+                progress_cb(msg)
+
+        sources: list[CatalogueSource] = []
+        for i, cat in enumerate(catalogues, start=1):
+            sources.append(self.resolve_source(cat, _side_overrides(params, i)))
+        _validate_coordinate_frames(sources, target_epoch=params.get("target_epoch"))
+
+        if not params.get("no_sync"):
+            sources = [
+                ensure_mirrored(
+                    src,
+                    cache_root=cache_root,
+                    replica_roots=roots[1:],
+                    rate_limit_rps=rate_limit,
+                    workers=workers,
+                    force=bool(params.get("force_sync")),
+                    progress_cb=progress,
+                    hats_threshold=int(params.get("hats_threshold", DEFAULT_HATS_THRESHOLD)),
+                    fresh_after=(
+                        float(params["fresh_after"])
+                        if params.get("fresh_after") is not None
+                        else None
+                    ),
+                    min_free_gb=min_free,
+                )
+                for src in sources
+            ]
+        else:
+            from .storage import open_storage
+
+            for i, src in enumerate(sources):
+                if src.access_method == "tap" or (
+                    src.access_method == "hats" and is_remote_hats_uri(src.access_identifier)
+                ):
+                    root, rel = locate_mirrored(src, cache_roots=roots)
+                    sources[i] = _mirrored_source(src, open_storage(root), rel, root)
+
+        ray_anchor.ray_anchor_match(
+            sources[0],
+            sources[1:],
+            sep_arcsec=float(params.get("radius_arcsec", DEFAULT_RADIUS_ARCSEC)),
+            output_file=str(out_dir),
+            hats_threshold=int(params.get("hats_threshold", DEFAULT_HATS_THRESHOLD)),
+            task_rows=params.get("task_rows"),
+            chunk_memory_gb=params.get("chunk_memory_gb"),
+            cache_root=cache_root,
+            progress_cb=progress,
+            target_epoch=params.get("target_epoch"),
+            anchor_id_name=str(params.get("anchor_id_name") or "source_id"),
+            matcher=matcher,
+            fallback_policy=str(params.get("fallback_policy", "warn")),
+        )
+        self.last_ray_anchor_plan = ray_anchor.last_plan()
+
     def _multi_match_impl(
         self,
         catalogues: list[FrameInput],
@@ -1669,6 +1895,7 @@ class CrossMatch:
         lazy: bool,
         *,
         union_match: bool = False,
+        anchor_match: bool = False,
         progress_cb: Callable[[str], None] | None = None,
         **params: Any,
     ) -> pl.DataFrame | pl.LazyFrame | None:
@@ -1676,6 +1903,14 @@ class CrossMatch:
             raise CrossMatchError("At least two catalogues are required for crossmatching.")
 
         engine_choice = (params.get("engine") or "auto").lower()
+        if engine_choice == "ray-anchor" or anchor_match:
+            self._ray_anchor_multi(
+                catalogues,
+                output_file,
+                progress_cb=progress_cb,
+                **params,
+            )
+            return None
         if engine_choice == "ray-union":
             # the distributed N-way join *is* the union engine: route
             # unconditionally (README's `--engine ray-union` examples never

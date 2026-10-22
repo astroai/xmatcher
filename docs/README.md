@@ -10,12 +10,19 @@
   uncertainty assumptions, and expected limits.
 - [Catalogue naming](naming.md) — bare-name grammar, `vizier:` / `tap:` /
   `hats:` identifiers, and the applied key migration with kept aliases.
+- [HATS catalogue sources](hats-sources.md) — registry name lookup, verified
+  LSDB/IRSA trees with row counts, and what the mirror can and cannot read.
+- [Gaia-anchored master catalogue](ray-anchor.md) — one row per Gaia source,
+  best counterpart per survey, ambiguity fields, HATS projection, and CANFAR
+  local products.
 - [Source and measurement releases](observations.md) — lazy measurement
   ledgers, photometric normalization, and checksummed releases.
 - [Catalogue-to-model pipeline](catalogue-pipeline.md) — pinned observations,
   sparse candidate releases, and association hypotheses.
 - [Association contract v1](association-v1.md) — normative versioned record,
   release directory, and component-sidecar specification.
+- [0.6.0 release notes](release-0.6.0.md) — named catalogues, HATS over S3 and
+  Hugging Face, the `skyerr` radius bound, and upgrade notes.
 - [0.5.1 migration notes](release-0.5.1.md) — the `xmatch` → `xmatcher` rename
   and path/config changes.
 

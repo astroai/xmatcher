@@ -897,3 +897,25 @@ def test_cli_completion_dispatches_through_main(capsys):
     out = capsys.readouterr().out
     assert "#compdef xmatcher" in out
     assert "gaia" in out
+
+
+def test_bare_xmatcher_prints_a_usage_synopsis(capsys):
+    """No positional arguments should show the shape of a command, not only a hint."""
+    assert main(["only-one"]) == 2
+    err = capsys.readouterr().err
+    assert "Usage: xmatcher CAT1 CAT2" in err
+
+
+def test_guarded_reports_io_errors_without_a_traceback(capsys):
+    """An unreadable input is a user-path error, not an unexpected crash."""
+    from xmatcher.cli import Console, _guarded
+
+    cm = xmatcher.CrossMatch()
+
+    def body() -> int:
+        raise OSError("cannot read part.parquet: Permission denied")
+
+    assert _guarded(cm, Console(enabled=False), body) == 1
+    captured = capsys.readouterr()
+    assert "Error: cannot read part.parquet: Permission denied" in captured.err
+    assert "Unexpected error" not in captured.err

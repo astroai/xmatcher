@@ -9,6 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `engine="ray-anchor"` (`CrossMatch.anchor_match`, CLI
+  `--engine ray-anchor`): a Gaia-anchored master HATS catalogue with one row
+  per anchor source and the best counterpart from every survey. Output adds
+  per-survey `sep_arcsec`, `sep_second`, `n_within`, `crowded`, `pm_warn`, and
+  `quality` fields, preserves all anchor rows, and resumes per anchor
+  partition. Currently supports `matcher="sky"`; see
+  [docs/ray-anchor.md](docs/ray-anchor.md).
+- `xmatcher project-hats` and `xmatcher.hats_project.project_hats`: write a
+  narrow HATS tree with selected columns while preserving the partition layout
+  and row counts.
+- Pinned HATS catalogue aliases for products not in the IVOA registry:
+  `gaia_hats`, `sdss_hats` (CDS `sdss_dr16`), `catwise_hats`, `vhs_hats`,
+  `ps1_hats`, `galex_hats`, `splus_hats`, plus local CANFAR aliases
+  `uhs_hats`, `splus5_hats`, `xp_hats`, and `dp2` driven by environment
+  variables.
+- `docs/ray-anchor.md` documents the schema, epoch/PM policy, projection, and
+  CANFAR local-product setup.
+
+## [0.6.0] — 2026-10-22
+
+The `v0.6.0` tag is the GitHub release. See the
+[release notes](docs/release-0.6.0.md).
+
+### Added
+
 - Explicit catalogue identifiers: `vizier:<id>`, `tap:<endpoint>/<table>`, and
   `hats:<url>`, documented in [docs/naming.md](docs/naming.md). Configured
   tables resolve before any TAP_SCHEMA probe.
@@ -23,24 +48,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `scripts/canfar_headless_run.py` and `scripts/canfar_bootstrap.py` run the
   scenario matrix (aliases, explicit identifiers, matchers, multi/union/fof,
   discovery, HATS, Ray) in CANFAR headless sessions against live TAP services.
-
-### Changed
-
-- Catalogue keys now follow `<survey>[_<release>][_<product>][_<provider>]`:
-  `gaia_cds` → `gaia_dr3_cds`, `des` → `des_dr2`, `nsc` → `nsc_dr2`,
-  `ps1` → `ps1_dr1`, `twomass` → `twomass_psc`, `unwise` → `unwise_dr1`,
-  `catwise` → `catwise_2020`, `desils` → `legacy_dr10`,
-  `decals_objects` → `decals_dr10_object`, `galex` → `galex_ais`,
-  `vhs` → `vhs_dr5`, `gaia_noao` → `gaia_noirlab`, `ukidss` → `ukidss_las`,
-  `erosita` → `erosita_erass1`, and `xmm` → `xmm_dr13`. Every former key stays
-  as an alias, and short names (`gaia`, `des`, `ps1`, …) are unchanged. `decals`
-  still resolves to the tractor table. Mirrors sync into a new cache directory
-  named after the canonical key; see [docs/naming.md](docs/naming.md).
-- The 2MASS entry's `release` is now `allsky` (the PSC all-sky release) rather
-  than the product token `psc`.
+- `hats:<short_name>` resolves through the IVOA HATS registry instead of
+  failing as an unimplemented namespace. The lookup is cached for seven days
+  under `<cache>/registry/hats_registry.json`, reused when the registry is
+  unreachable, refuses ambiguous prefixes by listing them, and names any
+  registration it cannot read instead of substituting a different copy.
+  HTTPS, VOSpace, `s3://` and `hf://` trees all resolve. `xmatcher list --hats`
+  prints the live inventory.
+- Anonymous `s3://` HATS support: S3 trees are listed with one paginated
+  ListObjectsV2 walk (object sizes included) and streamed over HTTPS, so the
+  STScI/IRSA/MAST cloud catalogues (`hats:gaia_dr3_stsci`,
+  `hats:euclid_q1_ipac`, the Pan-STARRS and ZTF DR23 copies) mirror like
+  HTTPS trees. Read-only, with no `boto3` or credential chain;
+  `XMATCHER_S3_ENDPOINT` selects an S3-compatible endpoint. `s3://` collection
+  roots descend through `collection.properties` to their primary table, and
+  CSV partition tables without `file_loc`/`Nfiles` are resolved by deriving
+  pixel paths — including `Npix=N/part*.parquet` pixel directories.
+- Anonymous Hugging Face HATS support: `hf://datasets/<owner>/<name>` trees are
+  read through the Hub's public API — one `Link`-cursor tree walk with file
+  sizes, and `/resolve` downloads — so the 41 `mmu_*` Multimodal Universe and
+  community HATS datasets (`hats:mmu_jwst_gds`, `hats:mmu_gaia_gaia`,
+  `hats:tevcat_hats`) mirror like HTTPS trees. Read-only, with no
+  `huggingface_hub` dependency, token or repository clone;
+  `XMATCHER_HF_ENDPOINT` selects a Hub-compatible endpoint. Every registry
+  entry is now readable by the mirror.
+- `docs/hats-sources.md` lists the verified public HATS trees (LSDB, IRSA,
+  MAST) with row counts, sizes, the collection-root form, and access notes.
+- `tests/test_catalogue_live.py`: opt-in (`XMATCHER_LIVE=1`) check that every
+  bundled `access_identifier` is a real table and that its declared RA/Dec,
+  error, motion and `default_columns` exist in the live `TAP_SCHEMA` — the
+  guard for the `galex` (`II/335` vs `II/335/galex_ais`) class of drift.
+- CANFAR scenarios for engine-independent `skyerr` pair sets, join-type
+  composition (`1and2`/`1or2`/`all1`/`all2`/anti joins, `find=all`), RA = 0/360
+  seam handling, a distributed union checked against the sequential oracle, and
+  a live HATS source check (registry name, collection descent, mirror, match).
 
 ### Fixed
 
+- LSDB/IRSA HATS trees could not be mirrored over HTTP: their Apache-style
+  listings start with a `/parent/dir/` row, which the walker descended into,
+  404'd, and then declared the whole catalogue incomplete. Absolute and
+  external hrefs are now ignored by the listing and by both walkers.
+- A HATS *collection* root (`https://data.lsdb.io/hats/gaia_dr3/`) resolves to
+  its single primary tree, skipping HEALPix margin caches (`*_5arcs`,
+  `*_10arcs`) and id indexes (`*_index`). A collection holding several real
+  catalogues is left alone and reported, instead of guessing.
+- `match` with a remote HATS catalogue raised `HATS path does not exist:
+  https:/…` (the URL collapsed into a path). It now says to run `xmatcher sync`
+  or use `engine='ray-union'`, which mirrors on demand.
+- `engine='ray-union'` checks the rows a block will *emit* against
+  `--chunk-memory-gb` before materialising them: a field much denser than the
+  search radius used to consume the worker's memory and die (the pool guard
+  only ever measured input rows). The error names the chunk, the row count and
+  the knobs that fix it.
+- CLI: an input `OSError` (missing directory, permission denied, unreadable
+  parquet) is reported as `Error: …` instead of `Unexpected error` with a
+  traceback, and a bare `xmatcher` prints a usage synopsis.
+- `engine='stilts'` with `matcher='skyerr'` now caps each per-row error at
+  `radius_arcsec / max_error`. STILTS bins and ranks candidates in its
+  error-normalised space, so a corrupted error (some PS1 rows declare ~1000
+  arcsec) made a far-away counterpart win `best`, only to be dropped by the
+  radius filter — the live GAIA × PS1 cone returned 10 rows where the other
+  engines returned 34. Capping keeps every pair inside the radius reachable and
+  makes `skyerr` pair sets engine-independent again.
 - `xmatcher match --help` preserves the example block and description layout;
   defaults are only shown when meaningful.
 - Documented `--join` (the previous `--join-type` spelling in the user guide was
@@ -74,6 +144,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Alias resolution follows alias chains, so a user overlay written before a
   catalogue rename keeps working. Alias cycles and aliases that shadow a
   catalogue name are now `ConfigError`s instead of silent misresolution.
+
+### Changed
+
+- Catalogue keys now follow `<survey>[_<release>][_<product>][_<provider>]`:
+  `gaia_cds` → `gaia_dr3_cds`, `des` → `des_dr2`, `nsc` → `nsc_dr2`,
+  `ps1` → `ps1_dr1`, `twomass` → `twomass_psc`, `unwise` → `unwise_dr1`,
+  `catwise` → `catwise_2020`, `desils` → `legacy_dr10`,
+  `decals_objects` → `decals_dr10_object`, `galex` → `galex_ais`,
+  `vhs` → `vhs_dr5`, `gaia_noao` → `gaia_noirlab`, `ukidss` → `ukidss_las`,
+  `erosita` → `erosita_erass1`, and `xmm` → `xmm_dr13`. Every former key stays
+  as an alias, and short names (`gaia`, `des`, `ps1`, …) are unchanged. `decals`
+  still resolves to the tractor table. Mirrors sync into a new cache directory
+  named after the canonical key; see [docs/naming.md](docs/naming.md).
+- The 2MASS entry's `release` is now `allsky` (the PSC all-sky release) rather
+  than the product token `psc`.
 
 ## [0.5.1] — 2026-10-08
 

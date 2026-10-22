@@ -159,6 +159,7 @@ class UnionPlan:
     max_tuples: int
     col_names: list[str]  # final output column order (incl. sep_arcsec/_src_cats)
     out_dir: str
+    chunk_memory_gb: float = 8.0
     chunks: list[ChunkPlan] = field(default_factory=list)
     rest: list[RestPlan] = field(default_factory=list)
     rest_keys: set = field(default_factory=set)  # {(cat, part_idx)} of rest runs
@@ -661,6 +662,7 @@ def build_union_plan(
         sep_arcsec=sep_arcsec,
         delta_deg=max_delta,
         max_tuples=max_tuples,
+        chunk_memory_gb=chunk_memory_gb,
         col_names=all_cols,
         out_dir=out_dir,
         chunks=chunks,
@@ -849,6 +851,33 @@ def _gather_rows(frame: pl.DataFrame, idx: np.ndarray) -> pl.DataFrame:
     return out
 
 
+def _output_row_bytes(catalogues: Sequence[CataloguePlan]) -> int:
+    """Estimated in-memory bytes per output row (payload + two fixed columns).
+
+    Used only as a budget denominator: a dense field can expand a block into
+    far more rows than the candidate pool, and the pool guard in
+    :func:`build_union_plan` never sees that.  Strings and nested types get a
+    pointer-sized placeholder; the number does not need to be exact, only
+    stable enough to stop an OOM before it happens.
+    """
+    dtypes: dict[str, pl.DataType] = {}
+    for cat in catalogues:
+        dtypes.update(cat.dtypes)
+    payload = 0
+    for dtype in dtypes.values():
+        if dtype in (pl.Float64, pl.Int64, pl.UInt64):
+            payload += 8
+        elif dtype in (pl.Float32, pl.Int32, pl.UInt32):
+            payload += 4
+        elif dtype in (pl.Int16, pl.UInt16):
+            payload += 2
+        elif dtype in (pl.Int8, pl.UInt8, pl.Boolean):
+            payload += 1
+        else:
+            payload += 24
+    return max(32, payload + 32)  # sep_arcsec + _src_cats + row overhead
+
+
 def _block_combos(
     centre_ra: np.ndarray,
     centre_dec: np.ndarray,
@@ -864,6 +893,8 @@ def _block_combos(
     max_error: float = 1.0,
     centre_err: Any = None,
     pool_errs: Sequence[Any] | None = None,
+    max_block_rows: int | None = None,
+    block_label: str = "",
 ) -> tuple[dict[int, np.ndarray], np.ndarray, list[str], np.ndarray]:
     """Enumerate star-shaped row sets for one block of centre rows.
 
@@ -881,6 +912,12 @@ def _block_combos(
     that has ANY mate — the sequential-union oracle never keeps a singleton
     for a matched row.  ``drop_singles`` (rest partitions) drops all
     centre-only combos: the rest task emits those rows instead.
+
+    ``max_block_rows`` bounds the rows this block may emit (each row emits
+    at most ``min(product, max_tuples)`` sets).  It is raised *before* the
+    combinations are materialised, so a dense field fails with an actionable
+    error — narrow the radius, lower ``max_tuples``, or raise
+    ``--chunk-memory-gb`` — instead of exhausting the worker's memory.
     """
     from scipy.spatial import cKDTree  # noqa: PLC0415
 
@@ -897,6 +934,7 @@ def _block_combos(
     centre_out: list[int] = []
     sep_out: list[float] = []
     src_out: list[str] = []
+    planned = 0
 
     for bi in range(len(centre_ra)):
         nbrs: list[tuple[np.ndarray, np.ndarray]] = []  # (sorted idx, sep)
@@ -978,6 +1016,18 @@ def _block_combos(
                 else np.array([-1], dtype=np.int64)
             )
         total = math.prod(len(each) for each in lists)
+        # Each row emits at most max_tuples sets (the cap is a best-first
+        # traversal below), so this is an upper bound on what the block will
+        # hold in memory before it is assembled and written.
+        planned += min(total, max_tuples)
+        if max_block_rows is not None and planned > max_block_rows:
+            raise CrossMatchError(
+                f"{block_label or 'block'}: {len(centre_ra)} centre row(s) expand to "
+                f"~{planned:,} output rows, above the --chunk-memory-gb budget "
+                f"({max_block_rows:,} rows at the estimated output width). Narrow "
+                "--radius, lower --max-tuples, split the input catalogue, or raise "
+                "--chunk-memory-gb."
+            )
 
         def sep_of(
             combo: tuple[int, ...], nbrs: list[tuple[np.ndarray, np.ndarray]] = nbrs
@@ -1156,6 +1206,13 @@ def _run_chunk(plan: UnionPlan, chunk: ChunkPlan) -> dict[str, Any]:
 
     sep_chord = _effective_pair_chord(plan, centre_err, pool_errs)
     drop_singles = (chunk.center, chunk.center_idx) in plan.rest_keys
+    # The candidate-pool guard in build_union_plan caps inputs; a dense field
+    # can still expand the OUTPUT far past memory (every hub row times
+    # thousands of mates).  This is the same --chunk-memory-gb knob applied to
+    # the rows a block will actually emit, checked before they are built.
+    block_row_budget = max(
+        1, int(plan.chunk_memory_gb * 1024**3 / _output_row_bytes(plan.catalogues))
+    )
     blocks: list[pl.DataFrame] = []
     for b0 in range(0, n, _HUB_BLOCK):
         b1 = min(b0 + _HUB_BLOCK, n)
@@ -1184,6 +1241,8 @@ def _run_chunk(plan: UnionPlan, chunk: ChunkPlan) -> dict[str, Any]:
             max_error=plan.max_error,
             centre_err=block_centre_err,
             pool_errs=pool_errs,
+            max_block_rows=block_row_budget,
+            block_label=f"chunk {chunk.key} rows {b0}-{b1}",
         )
         if not len(seps):
             continue

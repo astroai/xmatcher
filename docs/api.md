@@ -83,7 +83,7 @@ result = cm.crossmatch_request(request)
 - `lazy` (`bool`): If `True`, returns an uncollected `pl.LazyFrame`.
 - `radius_arcsec` (`float`): Spatial matching radius in arcseconds.
 - `matcher` (`str`): Match algorithm: `"sky"`, `"skyerr"`, `"skyellipse"`, `"lr"`, `"ml"`, `"xgb"`, `"auf"`, `"macauff"`.
-- `engine` (`str`): Spatial engine: `"auto"`, `"fast"`, `"zone"`, `"ray"`, `"ray-union"`, `"astropy"`, `"stilts"`, `"torchsky"`.
+- `engine` (`str`): Spatial engine: `"auto"`, `"fast"`, `"zone"`, `"ray"`, `"ray-union"`, `"ray-anchor"`, `"astropy"`, `"stilts"`, `"torchsky"`.
 - `join_type` (`str`): Relational join mode: `"1and2"` (inner), `"all1"` (left), `"all2"` (right), `"1or2"` or `"all"` (full outer), `"1not2"` (left anti), `"2not1"` (right anti).
 - `find` (`str`): Candidate selection policy: `"best"` (nearest/top-ranked match) or `"all"` (all pairs within radius).
 - `**params`: Matching parameters (`radius_arcsec`, `matcher`, `engine`, `join_type`, `find`, etc.), side overrides such as `ra_column_1` / `dec_column_1`, remote cone constraints (`ra`, `dec`, `radius_deg`), and spill controls.
@@ -137,6 +137,30 @@ def union_match(
 - `ray-union` supports `sky`, `skyerr`, and `skyellipse` and HATS output only. It rejects region constraints and unsupported filters, ID joins, scores, and extra columns. Compressed interval planning handles mixed-order/RING inputs and distributed tasks apply measured per-source uncertainty or epoch-motion halos; planning may scan additional partitions. The separate pairwise native HATS path materializes globally for adaptive, RING, mixed-order, and epoch-aligned cases. `engine="ray"` distributes pairwise candidate search, while its caller still materializes inputs and collects results on the coordinator.
 - HATS union outputs include non-null `_union_ra` and `_union_dec` routing coordinates from the lowest-indexed catalogue member in each row; output tree metadata declares NESTED ordering and those columns as the spatial coordinates.
 - Valid zero-row HATS inputs retain their advertised schema. The first nonempty input supplies output tiling without changing catalogue order or column suffixes; if every input is empty, the result is still a readable zero-row HATS catalogue.
+
+---
+
+### `anchor_match`
+
+One row per anchor source with the best counterpart from each survey. This is the Gaia-driven master-catalogue workflow; unlike `union_match`, secondary-only sources do not create rows.
+
+```python
+def anchor_match(
+    self,
+    catalogues: list[FrameInput],
+    output_file: str | Path | None = None,
+    *,
+    lazy: bool = False,
+    **params: Any,
+) -> None
+```
+
+- The first catalogue is the anchor. Every later catalogue is a survey.
+- The output is a HATS directory. Anchor columns are preserved; the anchor ID column is renamed to `source_id` by default (`--anchor-id-name` overrides it).
+- Per survey, the output adds `<survey>_sep_arcsec`, `<survey>_sep_second`, `<survey>_n_within`, `<survey>_crowded`, `<survey>_pm_warn`, and `<survey>_quality`.
+- Only `matcher="sky"` is supported. The engine rejects options it cannot honour: ID joins, filters, probabilistic scores, regions, extra-distance columns, `find="all"`, and `skyerr`/`skyellipse`.
+- `target_epoch` propagates rows with epoch and proper-motion metadata. `pm_warn` flags the anchor's motion over the anchor-survey epoch baseline.
+- The output is resumable per anchor partition; see [ray-anchor.md](ray-anchor.md).
 
 ---
 
@@ -267,6 +291,7 @@ is `--fallback-policy error`.
 | **`zone`** | `cdshealpix` + `cKDTree` | HEALPix pixel groups on one machine | Pixel batching; total memory depends on input/result path | Zone-based candidate queries; `batch_size` is not a process-memory cap. |
 | **`ray`** | Ray | Distributed HEALPix candidate queries | Coordinator holds input frames and assembles final result | Pairwise work only; it is not an out-of-core flat-file pipeline. |
 | **`ray-union`** | Ray + HATS | Full-sky union to HATS output | Distributed interval plan; may read extra partitions for conservative halos | Supports `sky`, `skyerr`, `skyellipse`; handles mixed-order/RING layouts and uncertainty/epoch halos. |
+| **`ray-anchor`** | Ray + HATS | One row per anchor partition, resumable | Candidate survey partitions per anchor partition; task guards | `sky` only; best counterpart per survey plus `sep_second`, `n_within`, `crowded`, `pm_warn`, `quality`. |
 | **`astropy`** | Astropy `SkyCoord` | Astropy sky-coordinate queries | Depends on input and candidate counts | Alternative local geometry backend. |
 | **`stilts`** | STILTS `tmatch2` | External Java subprocess | Managed by JVM | Requires Java and a working `stilts` executable; matcher support depends on requested options. |
 | **`torchsky`** | PyTorch / Torchsky | Tensor-based candidate search | Depends on tensors and returned candidates | Requires a separately installed compatible Torchsky checkout; no PyPI distribution is available. Tested with the sibling 0.4 development source installed editable. |
@@ -335,7 +360,9 @@ from xmatcher.mirror import sync_catalogue, ensure_mirrored, TokenBucket
 from xmatcher.storage import open_storage
 ```
 
-- **Remote HATS Replication**: Synchronizes remote HATS directories over HTTP or `vos:` into the local cache (`~/.cache/xmatcher` or `/arc/projects/hats`). HTTP sync compares advertised partition sizes with the mirror manifest; use `--force` to detect upstream edits that keep the same size. The documented CANFAR working/output directory is `/arc/projects/hats/xmatcher`.
+- **Remote HATS Replication**: Synchronizes remote HATS directories over HTTP, `vos:`, `s3://` or `hf://` into the local cache (`~/.cache/xmatcher` or `/arc/projects/hats`). HTTP sync compares advertised partition sizes with the mirror manifest; use `--force` to detect upstream edits that keep the same size. The documented CANFAR working/output directory is `/arc/projects/hats/xmatcher`.
+- **Anonymous S3 reads**: `xmatcher.s3.S3Remote` speaks ListObjectsV2 and plain GET/HEAD over HTTPS, so a public bucket tree is listed (one paginated walk, object sizes included) and staged without `boto3` or credentials. It is read-only: S3 has no rename, so mirrors are published to the cache, never back into the bucket. `XMATCHER_S3_ENDPOINT` selects an S3-compatible endpoint (path-style URLs).
+- **Anonymous Hugging Face reads**: `xmatcher.hf.HFRemote` walks the Hub tree API (`Link`-cursor pagination, sizes included) and streams `/resolve/<revision>/<path>` downloads, so an `hf://datasets/<owner>/<name>` tree mirrors without `huggingface_hub`, a token or a repository clone. Read-only, and a gated or private dataset is reported as denied. `XMATCHER_HF_ENDPOINT` selects a Hub-compatible endpoint.
 - **TAP Keyset Pagination**: Downloads TAP catalogues with local resume manifests (`sync.json`) and requires a unique, non-null stable key. Page-window row counts do not detect same-count edits; `--force` requests a full refresh. Append-only growth is detected using a maximum-key probe.
 - **TokenBucket Rate Limiter**: Thread-safe per-host rate limiting handling HTTP 429/503 responses with exponential backoff.
 

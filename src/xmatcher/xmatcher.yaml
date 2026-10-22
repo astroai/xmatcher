@@ -52,6 +52,12 @@ archives:
     crossmatch_input_methods: [remote_table_join, cone_search, polygon_search, table_upload]
     service_priority: [tap_service]
 
+  hats:
+    description: "IVOA HATS catalogues (registered or pinned URLs and local trees)"
+    hats_service:
+      access_method: hats
+      column_selection_supported: true
+
 # --- Catalogue Aliases ---
 # Maps simple names to specific catalogue versions
 # This allows users to reference catalogues with simple names like "gaia" or "galex"
@@ -68,6 +74,19 @@ catalogue_aliases:
   gaia: "gaia_dr3_cds"
   gaia_dr3: "gaia_dr3_cds"
   gaiadr3: "gaia_dr3_cds"
+  gaia_hats: "gaia_dr3_hats"
+  gaia3_hats: "gaia_dr3_hats"
+  sdss_hats: "sdss_dr16_hats"
+  sdss16_hats: "sdss_dr16_hats"
+  catwise_hats: "catwise2020_hats"
+  vhs_hats: "vhs_dr5_hats"
+  ps1_hats: "ps1_dr2_hats"
+  galex_hats: "galex_gr67_hats"
+  splus_hats: "splus_dr4_hats"
+  splus5_hats: "splus_dr5_hats"
+  uhs_hats: "uhs_dr3_hats"
+  xp_hats: "gaia_xp_hats"
+  dp2: "dp2_hats"
   panstarrs: "ps1_dr1"
   panstarrs1: "ps1_dr1"
   "2mass": "twomass_psc"
@@ -75,6 +94,12 @@ catalogue_aliases:
   decals_dr10: "legacy_dr10"
   decals_objects: "decals_dr10_object"
   ls_dr10_objects: "decals_dr10_object"
+  ls_dr11: "legacy_dr11"
+  pristine_hats: "pristine_dr2_hats"
+  hsc_hats: "hsc_pdr3_hats"
+  skymapper_hats: "skymapper_dr4_hats"
+  twomass_hats: "twomass_psc_hats"
+  wise_hats: "allwise_hats"
   ukidsslas: "ukidss_las"
 
   # --- Mid-IR ---
@@ -181,6 +206,256 @@ catalogues:
     pos_err_units: "mas"
     # Default error if specific columns are missing/null (in arcsec)
     default_pos_error_arcsec: 0.05
+
+  # --- Pinned HATS catalogues ---
+  # These are explicit URLs or local trees for products that are not in the
+  # IVOA HATS registry. They mirror on demand and keep the same HATS reader.
+  gaia_dr3_hats:
+    description: "Gaia DR3 source catalogue via CDS on-the-fly HATS"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "https://vizcat.cds.unistra.fr/hats/gaia_dr3/main"
+    estimated_size: 'huge'
+    ra_column: "RA_ICRS"
+    dec_column: "DE_ICRS"
+    id_column: "Source"
+    epoch: 2016.0
+    default_columns: ["Source", "RA_ICRS", "DE_ICRS", "Plx", "e_Plx", "pmRA", "e_pmRA", "pmDE", "e_pmDE", "RUWE", "Gmag", "BPmag", "RPmag", "BP-RP", "RV", "Teff", "logg", "[Fe/H]", "Dist", "A0", "E(BP-RP)", "QSO", "Gal", "NSS", "XPcont", "XPsamp", "RVS", "EpochPh", "EpochRV", "RAJ2000", "DEJ2000"]
+    pm_ra_column: "pmRA"
+    pm_dec_column: "pmDE"
+    parallax_column: "Plx"
+    radial_velocity_column: "RV"
+    ra_err_column: "e_RA_ICRS"
+    dec_err_column: "e_DE_ICRS"
+    corr_column: "RADEcor"
+    pos_err_units: "mas"
+    default_pos_error_arcsec: 0.01
+
+  twomass_psc_hats:
+    description: "2MASS PSC via LSDB HATS"
+    archive: hats
+    service_id: hats_service
+    release: "allsky"
+    access_identifier: "https://data.lsdb.io/hats/two_mass/two_mass"
+    estimated_size: 'huge'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "designation"
+    epoch: 2000.0
+    default_columns: ["designation", "ra", "dec", "j_m", "h_m", "k_m", "j_msigcom", "h_msigcom", "k_msigcom", "ph_qual", "rd_flg", "glon", "glat"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.2
+
+  allwise_hats:
+    description: "AllWISE via LSDB HATS"
+    archive: hats
+    service_id: hats_service
+    release: "allwise"
+    access_identifier: "https://data.lsdb.io/hats/wise/allwise/allwise"
+    estimated_size: 'huge'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "source_id"
+    epoch: 2010.0
+    default_columns: ["source_id", "ra", "dec", "w1mpro", "w2mpro", "w3mpro", "w4mpro", "w1sigmpro", "w2sigmpro", "w3sigmpro", "w4sigmpro", "ph_qual", "ext_flg", "var_flg", "pmra", "pmdec", "sigpmra", "sigpmdec"]
+    pm_ra_column: "pmra"
+    pm_dec_column: "pmdec"
+    ra_err_column: "sigra"
+    dec_err_column: "sigdec"
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.2
+
+  skymapper_dr4_hats:
+    description: "SkyMapper DR4 via LSDB HATS"
+    archive: hats
+    service_id: hats_service
+    release: "dr4"
+    access_identifier: "https://data.lsdb.io/hats/skymapper_dr4/catalog/sky_mapper_dr4"
+    estimated_size: 'huge'
+    ra_column: "raj2000"
+    dec_column: "dej2000"
+    id_column: "object_id"
+    epoch: 2015.0
+    default_columns: ["object_id", "raj2000", "dej2000", "u_psf", "v_psf", "g_psf", "r_psf", "i_psf", "z_psf", "e_u_psf", "e_v_psf", "e_g_psf", "e_r_psf", "e_i_psf", "e_z_psf", "class_star", "flags", "mean_epoch"]
+    ra_err_column: "e_raj2000"
+    dec_err_column: "e_dej2000"
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  sdss_dr16_hats:
+    description: "SDSS DR16 photometry via CDS on-the-fly HATS (static imaging)"
+    archive: hats
+    service_id: hats_service
+    release: "dr16"
+    access_identifier: "https://vizcat.cds.unistra.fr/hats/sdss_dr16/main"
+    estimated_size: 'huge'
+    ra_column: "RA_ICRS"
+    dec_column: "DE_ICRS"
+    id_column: "objID"
+    epoch: 2000.0
+    default_columns: ["objID", "RA_ICRS", "DE_ICRS", "mode", "class", "clean", "flags", "upmag", "gpmag", "rpmag", "ipmag", "zpmag", "e_upmag", "e_gpmag", "e_rpmag", "e_ipmag", "e_zpmag", "uMJD", "gMJD", "rMJD", "iMJD", "zMJD", "pmRA", "pmDE", "Q"]
+    pm_ra_column: "pmRA"
+    pm_dec_column: "pmDE"
+    ra_err_column: "e_RA_ICRS"
+    dec_err_column: "e_DE_ICRS"
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  catwise2020_hats:
+    description: "CatWISE2020 via CDS on-the-fly HATS"
+    archive: hats
+    service_id: hats_service
+    release: "2020"
+    access_identifier: "https://vizcat.cds.unistra.fr/hats/catwise2020/main"
+    estimated_size: 'huge'
+    ra_column: "RA_ICRS"
+    dec_column: "DE_ICRS"
+    id_column: "objID"
+    epoch: 2015.0
+    default_columns: ["objID", "RA_ICRS", "DE_ICRS", "W1mproPM", "W2mproPM", "e_W1mproPM", "e_W2mproPM", "pmRA", "pmDE", "e_pmRA", "e_pmDE", "MJD", "pmQual"]
+    pm_ra_column: "pmRA"
+    pm_dec_column: "pmDE"
+    ra_err_column: "e_RA_ICRS"
+    dec_err_column: "e_DE_ICRS"
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.2
+
+  vhs_dr5_hats:
+    description: "VHS DR5 via CDS on-the-fly HATS"
+    archive: hats
+    service_id: hats_service
+    release: "dr5"
+    access_identifier: "https://vizcat.cds.unistra.fr/hats/vhs_dr5/main"
+    estimated_size: 'huge'
+    ra_column: "RAJ2000"
+    dec_column: "DEJ2000"
+    id_column: "SrcID"
+    epoch: 2000.0
+    default_columns: ["SrcID", "RAJ2000", "DEJ2000", "Yap3", "e_Yap3", "Jap3", "e_Jap3", "Hap3", "e_Hap3", "Ksap3", "e_Ksap3", "YMJD", "JMJD", "HMJD", "KsMJD", "pStar", "pGal", "PriOrSec"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.3
+
+  ps1_dr2_hats:
+    description: "Pan-STARRS1 DR2 via CDS on-the-fly HATS"
+    archive: hats
+    service_id: hats_service
+    release: "dr2"
+    access_identifier: "https://vizcat.cds.unistra.fr/hats/ps1_dr2/main"
+    estimated_size: 'huge'
+    ra_column: "RAJ2000"
+    dec_column: "DEJ2000"
+    id_column: "objID"
+    epoch: 2012.0
+    default_columns: ["objID", "RAJ2000", "DEJ2000", "gmag", "e_gmag", "rmag", "e_rmag", "imag", "e_imag", "zmag", "e_zmag", "ymag", "e_ymag", "Qual", "Epoch"]
+    ra_err_column: "e_RAJ2000"
+    dec_err_column: "e_DEJ2000"
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  galex_gr67_hats:
+    description: "GALEX GR6/7 via CDS on-the-fly HATS"
+    archive: hats
+    service_id: hats_service
+    release: "gr67"
+    access_identifier: "https://vizcat.cds.unistra.fr/hats/galex_gr67/main"
+    estimated_size: 'large'
+    ra_column: "RAJ2000"
+    dec_column: "DEJ2000"
+    id_column: "objid"
+    epoch: 2000.0
+    default_columns: ["objid", "RAJ2000", "DEJ2000", "FUVmag", "e_FUVmag", "NUVmag", "e_NUVmag", "Fafl", "Nafl", "Fexf", "Nexf"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 3.0
+
+  splus_dr4_hats:
+    description: "S-PLUS DR4 via CDS on-the-fly HATS"
+    archive: hats
+    service_id: hats_service
+    release: "dr4"
+    access_identifier: "https://vizcat.cds.unistra.fr/hats/splus_dr4/main"
+    estimated_size: 'large'
+    ra_column: "RAJ2000"
+    dec_column: "DEJ2000"
+    id_column: "ID"
+    epoch: 2018.0
+    default_columns: ["ID", "RAJ2000", "DEJ2000", "umag", "e_umag", "gmag", "e_gmag", "rmag", "e_rmag", "imag", "e_imag", "zmag", "e_zmag"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  # Local CANFAR products. The environment variable must point at an existing
+  # HATS tree; `xmatcher describe` reports a clear error when it is unset.
+  pristine_dr2_hats:
+    description: "Pristine DR2 local HATS tree (set XMATCHER_PRISTINE_DR2_HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "dr2"
+    access_identifier: "${XMATCHER_PRISTINE_DR2_HATS}"
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "source_id"
+    epoch: 2015.0
+    estimated_size: 'large'
+
+  hsc_pdr3_hats:
+    description: "HSC-SSP PDR3 combined local HATS tree (set XMATCHER_HSC_PDR3_HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "pdr3"
+    access_identifier: "${XMATCHER_HSC_PDR3_HATS}"
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "object_id"
+    epoch: 2015.0
+    estimated_size: 'huge'
+
+  uhs_dr3_hats:
+    description: "UHS DR3 local HATS tree (set XMATCHER_UHS_DR3_HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "${XMATCHER_UHS_DR3_HATS}"
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "source_id"
+    epoch: 2015.0
+    estimated_size: 'huge'
+
+  splus_dr5_hats:
+    description: "S-PLUS DR5 local HATS tree (set XMATCHER_SPLUS_DR5_HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "dr5"
+    access_identifier: "${XMATCHER_SPLUS_DR5_HATS}"
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "id"
+    epoch: 2019.0
+    estimated_size: 'huge'
+
+  gaia_xp_hats:
+    description: "Gaia DR3 XP coefficients local HATS/Parquet tree (set XMATCHER_GAIA_XP_HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "${XMATCHER_GAIA_XP_HATS}"
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "source_id"
+    epoch: 2016.0
+    estimated_size: 'huge'
+
+  dp2_hats:
+    description: "LSST DP2 local HATS tree (set XMATCHER_DP2_HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "dp2"
+    access_identifier: "${XMATCHER_DP2_HATS}"
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "objectId"
+    epoch: 2025.0
+    estimated_size: 'huge'
 
   galex_ais:
     description: "GALEX All-Sky Imaging Survey (AIS) via CDS VizieR TAP"
@@ -576,6 +851,21 @@ catalogues:
     # dec_err_column: "dec_ivar"
     # pos_err_units: "ivar" # Or convert ivar to arcsec error
     default_pos_error_arcsec: 0.1 # Approximate default
+
+  legacy_dr11:
+    description: "DESI Legacy Imaging Surveys DR11 (LS DR11) via NOIRLab Data Lab TAP"
+    archive: noao_datalab
+    service_id: tap_service
+    release: "dr11"
+    access_identifier: "ls_dr11.tractor"
+    table_name: "ls_dr11.tractor"
+    epoch: 2015.0
+    estimated_size: 'huge'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "ls_id_dr11"
+    default_columns: ["ls_id_dr11", "ra", "dec", "mag_g", "mag_r", "mag_i", "mag_z", "type", "brick_primary"]
+    default_pos_error_arcsec: 0.1
 
   ukidss_las:
     description: "UKIDSS Large Area Survey (LAS) via NOIRLab Data Lab"

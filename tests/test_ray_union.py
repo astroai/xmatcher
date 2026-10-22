@@ -1199,3 +1199,68 @@ def test_resume_rejects_missing_or_corrupt_fingerprint(tmp_path):
     with pytest.raises(CrossMatchError, match="fingerprint"):
         ray_union.ray_union_match([a, a], sep_arcsec=1.0, output_file=str(out))
     assert (out / "chunks" / "c0-00000.parquet").is_file()
+
+
+# --------------------------------------------------------------------------- #
+# output-size guard: a dense field must fail with advice, not OOM the worker
+# --------------------------------------------------------------------------- #
+def test_block_combos_stops_before_a_dense_expansion(monkeypatch) -> None:
+    """Two pools of 40 coincident rows expand to 40 * 41 * 41 = 67k row sets.
+
+    The budget is checked per row before any combination is materialised, so
+    the error names the block and the knobs that would fix it.
+    """
+    ra = np.linspace(10.0, 10.0 + 1e-4, 40)
+    dec = np.zeros(40)
+    chord = 2 * math.sin(math.radians(2.0 / 3600.0) / 2)
+    with pytest.raises(CrossMatchError) as excinfo:
+        ray_union._block_combos(
+            ra,
+            dec,
+            np.arange(40, dtype=np.int64),
+            [(ra.copy(), dec.copy()), (ra.copy(), dec.copy())],
+            chord,
+            10_000,
+            centre_label=1,
+            cat_labels=(2, 3),
+            max_block_rows=1_000,
+            block_label="chunk c0-00000 rows 0-40",
+        )
+    message = str(excinfo.value)
+    assert "chunk c0-00000 rows 0-40" in message
+    assert "--chunk-memory-gb" in message
+    assert "lower --max-tuples" in message
+
+
+def test_dense_union_fails_at_run_time_with_the_memory_knob(tmp_path: Path) -> None:
+    """A plan that passes the pool guard still stops when output explodes."""
+    step = 0.1 / 3600.0  # 0.1 arcsec grid: every row has ~50 mates inside 2"
+    rows = [(10.0 + (i % 10) * step, 5.0 + (i // 10) * step) for i in range(50)]
+    left = _catalogue(
+        tmp_path / "left",
+        "left",
+        pl.DataFrame(
+            {"ra": [r[0] for r in rows], "dec": [r[1] for r in rows], "id": list(range(50))}
+        ),
+    )
+    right = _catalogue(
+        tmp_path / "right",
+        "right",
+        pl.DataFrame(
+            {"ra": [r[0] for r in rows], "dec": [r[1] for r in rows], "id2": list(range(50))}
+        ),
+    )
+    with pytest.raises(CrossMatchError) as excinfo:
+        ray_union.ray_union_match(
+            [left, right],
+            sep_arcsec=2.0,
+            output_file=str(tmp_path / "out.hats"),
+            # The pool is ~100 rows (well under this budget); the 50x50 row
+            # sets per hub row are not, so the run-time guard must stop them.
+            chunk_memory_gb=1e-5,
+            task_rows=10_000,
+            hats_threshold=10_000,
+        )
+    message = str(excinfo.value)
+    assert "--chunk-memory-gb" in message
+    assert "output rows" in message

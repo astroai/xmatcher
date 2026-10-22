@@ -139,6 +139,8 @@ flowchart LR
 | **FITS** | `.fits`, `.fit` | `torchfits` (fallback Astropy) | `polars_to_astropy().write()` | Eager |
 | **HATS** | directory | Native HATS pixel reader | `write_hats()` / `ray_union` | Partitioned input; matching memory depends on engine and path |
 | **VOSpace** | `vos:*` | `storage.py` staging | Staged upload to VOSpace node | Bounded |
+| **S3 (HATS)** | `s3://bucket/prefix` | Anonymous HTTPS listing/GET (`s3.py`) | Mirrored into the local cache, then written as usual | Bounded (streamed) |
+| **Hugging Face (HATS)** | `hf://datasets/owner/name` | Hub tree API listing + `/resolve` download (`hf.py`) | Mirrored into the local cache, then written as usual | Bounded (streamed) |
 
 ### Lazy output and bounded-memory matching
 
@@ -200,15 +202,19 @@ Every catalogue position accepts one of these forms, resolved in this order:
    - `vizier:<id>` — a VizieR catalogue/table id, e.g. `vizier:II/349/ps1`.
    - `tap:<endpoint>/<table>` — a table on a supported public TAP endpoint
      (`vizier`, `noirlab`, `gaia`, `cadc`), e.g. `tap:noirlab/nsc_dr2.object`.
-   - `hats:<url>` — a remote HATS tree over HTTP(S) or VOSpace, e.g.
-     `hats:https://example.org/hats/my_survey/` (a single tree, not a HATS
-     collection root or an `s3://` path).
+   - `hats:<url>` — a remote HATS tree over HTTP(S), VOSpace, S3 or Hugging
+     Face, e.g. `hats:https://example.org/hats/my_survey/`,
+     `hats:s3://stpubdata/gaia/gaia_dr3/public/hats` or
+     `hats:hf://datasets/UniverseTBD/mmu_jwst_gds`. A collection root is
+     descended to its primary tree; `s3://` buckets and `hf://` datasets must
+     allow anonymous reads (see [hats-sources.md](hats-sources.md)).
 4. A bare remote table id such as `II/349/ps1` (legacy convenience; prefer
    `vizier:` so the access route is unambiguous).
 
 Bare names, releases, and provider suffixes are described in
-[naming.md](naming.md). HATS short-name registry lookup (`hats:<name>`) is not
-enabled yet; pass a URL or use a configured name.
+[naming.md](naming.md). HATS short-name registry lookup (`hats:<name>`) is
+cached for seven days and works offline after the first resolution; the
+resolved URL is logged.
 
 ### Querying Remote Archives Automatically
 
@@ -250,6 +256,9 @@ xmatcher match nsc_x_gaia my_stars.csv --ra 279.2 --dec 38.8 --radius-deg 0.01 -
 xmatcher list
 xmatcher list --aliases
 
+# List HATS catalogues registered in the IVOA registry (see hats-sources.md)
+xmatcher list --hats
+
 # Search remote TAP endpoints for datasets matching a keyword
 xmatcher search rubin
 xmatcher search unWISE
@@ -279,6 +288,12 @@ xmatcher sync gaia
 
 # Force full re-download
 xmatcher sync gaia --force
+
+# Mirror a catalogue the registry publishes only on S3 (anonymous read)
+xmatcher sync hats:euclid_q1_ipac
+
+# Mirror a model catalogue the registry publishes on Hugging Face
+xmatcher sync hats:mmu_cfa_seccsn
 ```
 
 ### Benefits of Local Mirroring:
@@ -292,6 +307,21 @@ such mutations or when expanding the page window. Append-only growth is checked
 with a maximum-key probe. Remote HATS synchronization compares advertised
 partition sizes with the mirror manifest. Use `--force` to detect upstream
 edits that keep the same size.
+
+An `s3://` source is read anonymously over plain HTTPS (ListObjectsV2 for the
+listing and sizes, GET for partitions), so no credentials or AWS configuration
+are involved. A bucket that needs signed or requester-pays access is reported as
+denied instead of being treated as an empty catalogue. `XMATCHER_S3_ENDPOINT`
+points the reader at an S3-compatible service (path-style URLs). The mirror
+always writes to the local cache: S3 has no rename, so a partially transferred
+tree is never published back into the bucket.
+
+An `hf://datasets/<owner>/<name>` source is read anonymously through the
+Hugging Face Hub API: one paginated tree listing supplies names and sizes, and
+files are streamed from `/resolve/<revision>/<path>`. No token, no
+`huggingface_hub` and no clone are involved, and the mirror is written to the
+local cache rather than to the dataset. A private or gated dataset is reported
+as denied. `XMATCHER_HF_ENDPOINT` selects a Hub-compatible endpoint.
 
 ---
 
@@ -659,6 +689,29 @@ partial run to be reused. For a local end-to-end synthetic smoke test, use
 catalogue names runs their complete remote sync and union, then checks only
 readability and nonempty output; it requires working credentials and network
 access and has no synthetic row-count oracle.
+
+### Gaia-anchored master (`ray-anchor`)
+
+`engine="ray-anchor"` keeps one row per source in the first catalogue (the
+anchor) and attaches the best counterpart from every later catalogue. It is
+the right engine when Gaia is the master list and no Gaia source may be
+dropped. The output is a HATS tree with anchor columns unchanged and, for each
+survey, `<survey>_sep_arcsec`, `<survey>_sep_second`, `<survey>_n_within`,
+`<survey>_crowded`, `<survey>_pm_warn`, and `<survey>_quality`.
+
+```bash
+xmatcher match gaia_hats sdss_hats ps1_hats catwise_hats \
+  --engine ray-anchor -r 1.5 --target-epoch 2016.0 \
+  -o gaia_master.hats
+```
+
+Only `matcher="sky"` is currently supported. The engine rejects options it
+would otherwise ignore (ID joins, filters, probabilistic scoring, regions,
+extra-distance columns, `find="all"`). Use `ray-union` for `skyerr` or
+`skyellipse`, or when secondary-only sources must survive.
+
+See [ray-anchor.md](ray-anchor.md) for the full schema, epoch/PM policy,
+projection workflow, and CANFAR local-product aliases.
 
 ## 9. Friends-of-Friends output policy
 

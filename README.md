@@ -2,10 +2,12 @@
 
 `xmatcher` matches and joins astronomical catalogues from local files, HATS trees, and configured remote archives. Matching features depend on the selected engine and the metadata supplied for each catalogue; the guides document those limits and the memory trade-offs.
 
-Version 0.5.1 is the PyPI release. The
+The source tree is version 0.6.0, pending release; PyPI serves 0.5.1 until the
+tag is published. The [0.6.0 release notes](docs/release-0.6.0.md) list what
+changed and how it was verified. The
 [v0.5.0](https://github.com/astroai/xmatch/releases/tag/v0.5.0) GitHub release
-keeps the old `xmatch` name. See the
-[migration notes](docs/release-0.5.1.md).
+keeps the old `xmatch` name, and the
+[migration notes](docs/release-0.5.1.md) cover the 0.5.1 rename.
 
 ```bash
 xmatcher match catalog1.parquet catalog2.csv -o matches.parquet -r 1.0
@@ -35,7 +37,7 @@ A [documentation index](docs/README.md) separates current guides from historical
 
 - **Universal Multi-Format I/O**:
   - Ingests and streams `.parquet`, `.csv`, `.tsv`, `.tab`, `.fits` (via high-speed Torchfits with Astropy fallback), and HATS.
-  - Remote storage connectors: POSIX filesystem, CANFAR VOSpace (`vos:`), and HTTP/HTTPS. (`s3://` HATS URLs are not read directly; use an HTTPS mirror.)
+  - Remote storage connectors: POSIX filesystem, CANFAR VOSpace (`vos:`), HTTP/HTTPS, anonymous S3 (`s3://` HATS trees) and anonymous Hugging Face datasets (`hf://datasets/…`); public sources only, read-only, mirrored into the cache before matching.
 - **File I/O and explicit memory controls**:
   - Parquet, CSV, TSV, FITS, and HATS readers with Parquet/CSV/TSV/FITS outputs.
   - Output sinks can stream serialization. Most matching engines still materialize inputs and matches; local pairwise CSV/Parquet requests can opt into the spill path with `--memory-budget-bytes` and file output. See [memory limits](docs/usage.md#pairwise-spill-matching-on-one-machine).
@@ -57,6 +59,7 @@ A [documentation index](docs/README.md) separates current guides from historical
 - **Distributed execution**:
   - `engine="ray"` parallelizes pairwise HEALPix candidate searches. The coordinator still holds the input frames and final result in memory.
   - `engine="ray-union"` mirrors inputs into HATS and writes a full-sky, full-outer HATS union. It supports `sky`, `skyerr`, and `skyellipse`; compressed interval planning handles mixed-order/RING layouts and uncertainty or epoch halos in distributed tasks. Planning may scan additional partitions. Output trees add non-null `_union_ra` and `_union_dec` routing columns and declare NESTED ordering.
+  - `engine="ray-anchor"` keeps one row per anchor source (normally Gaia DR3) and attaches the best counterpart from every survey plus `sep_second`, `n_within`, `crowded`, `pm_warn`, and `quality` fields. It is the Gaia-complete master workflow; see [docs/ray-anchor.md](docs/ray-anchor.md).
 
 ---
 
@@ -114,6 +117,7 @@ PyPI.
 | Relational ID join | `xmatcher match cat1.parquet cat2.parquet --id-join --id1 objid --id2 objid` |
 | Multi-survey 3-way chain | `xmatcher match gaia wise.csv 2mass.parquet -r 1.5 -o 3way.parquet` |
 | Distributed HATS master union | `xmatcher match gaia allwise 2mass des --union --engine ray-union -o /data/master.hats` |
+| Gaia-anchored master (all Gaia rows) | `xmatcher match gaia_hats sdss_hats ps1_hats --engine ray-anchor -r 1.5 -o gaia_master.hats` |
 | Mirror remote surveys to local cache | `xmatcher sync gaia allwise 2mass` |
 | Search remote TAP archives | `xmatcher search des` |
 | Discover archive schemas | `xmatcher discover noirlab --schema nsc_dr2.object` |

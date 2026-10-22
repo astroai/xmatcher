@@ -1,7 +1,8 @@
 """Remote catalogue mirroring + incremental local cache (TAP and HATS inputs).
 
 Backs the ``engine=ray-union`` pipeline: every remote input (a TAP table, or a
-HATS catalogue served over HTTP / ``vos:``) is mirrored into a per-catalogue
+HATS catalogue served over HTTP / ``vos:`` / ``s3://`` / ``hf://``) is mirrored
+into a per-catalogue
 cache dir under the cache root (``XMATCHER_CACHE_ROOT``; on AstroAI/CANFAR
 sessions ``/arc/projects/hats``, else ``~/.cache/xmatcher``), stored through
 :class:`xmatcher.storage.Storage` (POSIX dir or VOSpace ``vos:`` URI).  Re-syncs
@@ -59,8 +60,10 @@ import polars as pl
 
 from . import io_utils
 from .exceptions import CrossMatchError, TapError
+from .hf import HFRemote, is_hf_uri
 from .remote_tap import _quote_id, _select_columns, _table_ref
-from .sources import CatalogueSource
+from .s3 import S3Remote, is_s3_uri, split_s3_uri
+from .sources import CatalogueSource, is_remote_hats_uri
 from .storage import LocalStorage, Storage, open_storage
 
 logger = logging.getLogger(__name__)
@@ -82,6 +85,11 @@ _HATS_METADATA_NAMES = frozenset(
 _HTTP_RETRIES = 3
 _HTTP_BACKOFF_CAP_S = 60.0
 _DEFAULT_MIN_FREE_GB = 10.0
+# Auxiliary HATS trees published beside a catalogue: HEALPix margin caches and
+# id indexes.  They are real HATS trees but not the survey catalogue.
+# LSDB names them `*_margin_10arcsec` / `*_index_object_id`; hats-import uses
+# `*_10arcs` / `*_source_id_index`.
+_AUXILIARY_TREE = re.compile(r"(?:\d+arcs(?:ec)?|_margin(?:_|$)|_index(?:_|$))")
 
 
 def _min_free_gb(explicit: float | None) -> float:
@@ -150,10 +158,7 @@ class SyncStats:
 # source classification
 # --------------------------------------------------------------------------- #
 def _is_remote_hats(src: CatalogueSource) -> bool:
-    ident = src.access_identifier or ""
-    return src.access_method == "hats" and (
-        ident.startswith("http://") or ident.startswith("https://") or ident.startswith("vos:")
-    )
+    return src.access_method == "hats" and is_remote_hats_uri(src.access_identifier)
 
 
 def _rate_host(src: CatalogueSource) -> str | None:
@@ -162,6 +167,10 @@ def _rate_host(src: CatalogueSource) -> str | None:
     ident = src.access_identifier or ""
     if ident.startswith(("http://", "https://")):
         return urllib.parse.urlparse(ident).netloc or None
+    if is_s3_uri(ident):
+        return f"{split_s3_uri(ident)[0]}.s3.amazonaws.com"
+    if is_hf_uri(ident):
+        return urllib.parse.urlparse(HFRemote(ident).endpoint).netloc or None
     return None
 
 
@@ -181,7 +190,14 @@ def _version_dir(src: CatalogueSource) -> str:
         table = (src.access_identifier or "table").replace("/", ".")
         return f"tap-{_safe_name(host)}-{_safe_name(table)}-{_sha1_str(f'{src.tap_url}/{src.access_identifier}', 8)}"
     ident = src.access_identifier or ""
-    scheme = "vos" if ident.startswith("vos:") else "http"
+    if is_s3_uri(ident):
+        scheme = "s3"
+    elif is_hf_uri(ident):
+        scheme = "hf"
+    elif ident.startswith("vos:"):
+        scheme = "vos"
+    else:
+        scheme = "http"
     return f"hats-{scheme}-{_sha1_str(ident, 12)}"
 
 
@@ -254,6 +270,9 @@ def _http_request(
 
 def _http_listing(url: str, bucket: TokenBucket) -> tuple[list[str], bool]:
     """Entry names and whether the HTTP directory listing was retrieved."""
+    # Directory URLs need the trailing slash on services (notably CDS) that
+    # otherwise serve the parent index for ``.../main``.
+    url = url.rstrip("/") + "/"
     try:
         body, _ = _http_request(url, bucket)
     except (urllib.error.HTTPError, urllib.error.URLError, OSError):
@@ -266,6 +285,12 @@ def _http_listing(url: str, bucket: TokenBucket) -> tuple[list[str], bool]:
         name = m.group(1)
         if name in (".", ".."):
             continue
+        if name.startswith("/") or "://" in name:
+            # Absolute links are not entries of this directory: Apache-style
+            # listings put a "/parent/dir/" row at the top, and descending
+            # into it 404s, which used to make the whole walk look incomplete
+            # (LSDB trees therefore could not be mirrored at all).
+            continue
         names.append(urllib.parse.unquote(name))
     return names, True
 
@@ -276,7 +301,9 @@ def _http_probe(url: str, bucket: TokenBucket) -> tuple[bool, int | None]:
         _, size = _http_request(url, bucket, head=True)
         return True, size
     except urllib.error.HTTPError as exc:
-        if exc.code != 405:
+        # 405: method not allowed; 501: the CDS on-the-fly HATS service does
+        # not implement HEAD.  Fall back to a one-byte ranged GET.
+        if exc.code not in (405, 501):
             return False, None
         try:
             body, size = _http_request(url, bucket, range_probe=True)
@@ -300,6 +327,146 @@ def _http_hats_properties(root: str, bucket: TokenBucket) -> tuple[dict[str, Any
         if row_count is not None:
             return {"rel": rel, "size": size}, row_count
     return None
+
+
+_HATS_PROPERTIES_RELS = ("properties", "dataset/properties", "hats.properties")
+_COLLECTION_PROPERTIES = "collection.properties"
+
+
+def _tree_properties_rel(reader: Any) -> str | None:
+    """Rel of a tree's HATS properties file, or ``None`` when it has none."""
+    for rel in _HATS_PROPERTIES_RELS:
+        if reader.exists(rel):
+            return rel
+    return None
+
+
+def _properties_dict(body: bytes) -> dict[str, str]:
+    """Parse a HATS ``key=value`` properties file (comments and blanks ignored)."""
+    props: dict[str, str] = {}
+    for line in body.decode("utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        props[key.strip().lower()] = value.strip()
+    return props
+
+
+def _resolve_reader_tree_root(url: str, reader: Any) -> str:
+    """Descend a remote HATS *collection* root to the catalogue tree it holds.
+
+    LSDB publishes the same layout over HTTPS, on S3 and on Hugging Face: a
+    collection prefix with ``collection.properties`` and one primary tree
+    named by ``hats_primary_table_url``, beside HEALPix margin caches and id
+    indexes.  The properties file is authoritative; the listing is only a
+    fallback, and an ambiguous prefix is returned unchanged so the caller
+    reports "no HATS partitions" instead of silently matching a margin cache.
+    """
+    root = url.rstrip("/")
+    if _tree_properties_rel(reader) is not None:
+        return url  # already a tree: keep the caller's exact URL
+
+    primary = None
+    if reader.exists(_COLLECTION_PROPERTIES):
+        props = _properties_dict(reader.read_bytes(_COLLECTION_PROPERTIES))
+        primary = (props.get("hats_primary_table_url") or "").strip().strip("/") or None
+    if primary:
+        candidate = f"{root}/{primary}"
+        if _tree_properties_rel(reader.child(primary)) is not None:
+            logger.info("HATS collection %s resolves to its primary tree %s", root, candidate)
+            return candidate
+        logger.warning(
+            "HATS collection %s names a primary table %r without HATS properties",
+            root,
+            primary,
+        )
+
+    trees = [
+        f"{root}/{name.strip('/')}"
+        for name in reader.list()
+        if name.endswith("/") and _tree_properties_rel(reader.child(name.strip("/"))) is not None
+    ]
+    if len(trees) > 1:
+        primary_trees = [t for t in trees if not _AUXILIARY_TREE.search(t.rsplit("/", 1)[-1])]
+        if len(primary_trees) == 1:
+            trees = primary_trees
+    if len(trees) == 1:
+        logger.info("HATS collection %s resolves to its single tree %s", root, trees[0])
+        return trees[0]
+    if trees:
+        logger.warning(
+            "HATS collection %s holds %d catalogues (%s); pass one tree URL",
+            root,
+            len(trees),
+            ", ".join(trees),
+        )
+    return root
+
+
+def resolve_hats_tree_root(url: str, *, bucket: TokenBucket | None = None) -> str:
+    """Descend a HATS *collection* root to the single catalogue tree it holds.
+
+    LSDB and the IVOA registry publish collection roots
+    (``https://data.lsdb.io/hats/gaia_dr3/``) whose child directories are the
+    HATS trees (``…/gaia_dr3/gaia/``).  xmatcher mirrors one tree, so a
+    collection URL is resolved once here.  The URL is returned unchanged when
+    it already is a tree, when the listing is unavailable, or when the
+    collection holds several catalogues — guessing between them would match
+    the wrong sky, so the caller gets the normal "no HATS partitions" error
+    instead.
+    """
+    root = url.rstrip("/")
+    if is_s3_uri(root):
+        return _resolve_reader_tree_root(root, S3Remote(root, limiter=bucket))
+    if is_hf_uri(root):
+        return _resolve_reader_tree_root(root, HFRemote(root, limiter=bucket))
+    if not root.startswith(("http://", "https://")):
+        return root
+    bucket = bucket or TokenBucket(1.0)
+    if _http_hats_properties(root, bucket) is not None:
+        return url  # already a tree: keep the caller's exact URL
+
+    names, complete = _http_listing(f"{root}/", bucket)
+    if not complete:
+        return root
+    base = urllib.parse.urlparse(f"{root}/")
+    trees: list[str] = []
+    for name in names:
+        joined = urllib.parse.urlparse(urllib.parse.urljoin(f"{root}/", name))
+        if joined.netloc != base.netloc or not joined.path.startswith(base.path):
+            continue
+        child = joined.path[len(base.path) :].strip("/")
+        if not child or "/" in child:
+            continue
+        candidate = f"{root}/{child}"
+        if candidate in trees:
+            continue
+        if _http_hats_properties(candidate, bucket) is not None:
+            trees.append(candidate)
+    if len(trees) > 1:
+        # A collection usually holds the catalogue plus auxiliary trees: HEALPix
+        # margin caches (`*_5arcs`, `*_10arcs`) and id indexes.  Those are not
+        # the catalogue, so drop them; if one primary tree is left, use it.
+        primary = [
+            url
+            for url in trees
+            if not _AUXILIARY_TREE.search(urllib.parse.urlparse(url).path.rsplit("/", 1)[-1])
+        ]
+        if len(primary) == 1:
+            trees = primary
+        else:
+            logger.warning(
+                "HATS collection %s holds %d catalogues (%s); pass one tree URL",
+                root,
+                len(trees),
+                ", ".join(trees),
+            )
+            return root
+    if len(trees) == 1:
+        logger.info("HATS collection %s resolves to its single tree %s", root, trees[0])
+        return trees[0]
+    return root
 
 
 def _hats_property_count(body: bytes) -> int | None:
@@ -340,11 +507,13 @@ def _remote_hats_listing(
     """List ``{rel, size}`` pairs for every HATS file on the remote source.
 
     Prefers ``partition_info.parquet`` (authoritative list + sizes), then an
-    HTML walk (``http.server`` listings), then a ``vos:`` Storage walk.
+    HTML walk (``http.server`` listings), then a tree-reader walk
+    (``vos:``, ``s3://``, ``hf://``).
     """
     ident = src.access_identifier or ""
-    if ident.startswith("vos:"):
-        return _vos_hats_listing(ident)
+    reader = _remote_reader(ident, bucket)
+    if reader is not None:
+        return _storage_hats_listing(reader, ident)
     if bucket is None:
         bucket = TokenBucket(1.0)
     root = ident.rstrip("/")
@@ -354,6 +523,11 @@ def _remote_hats_listing(
         except (urllib.error.HTTPError, urllib.error.URLError, OSError):
             continue
         if not body:
+            continue
+        if not body.startswith(b"PAR1"):
+            # CDS (and some other on-the-fly HATS services) answer a missing
+            # partition_info.parquet with a 200 HTML directory index.  That is
+            # not an authoritative table; fall through to the HTML walk.
             continue
         try:
             info = pl.read_parquet(_io.BytesIO(body))
@@ -468,6 +642,8 @@ def _as_size(value: Any) -> int | None:
 
 def _http_walk_hats(root: str, bucket: TokenBucket) -> tuple[list[dict[str, Any]], bool]:
     """Walk accessible HTML listings, returning files and listing completeness."""
+    # CDS serves ``.../main`` as the parent collection index and ``.../main/``
+    # as the catalogue itself; ``_http_listing`` adds the trailing slash.
     out: list[dict[str, Any]] = []
     root_names, complete = _http_listing(root, bucket)
     if not complete:
@@ -527,6 +703,16 @@ def _http_walk_hats(root: str, bucket: TokenBucket) -> tuple[list[dict[str, Any]
     return out, True
 
 
+def _is_absolute_link(name: str) -> bool:
+    """True for ``/parent/dir`` and ``scheme://host`` hrefs.
+
+    Directory listings put a parent-directory row at the top; it names a
+    sibling path, not an entry of the directory being walked, and descending
+    into it 404s.
+    """
+    return name.startswith("/") or "://" in name
+
+
 def _walk_order_dir(
     url: str, bucket: TokenBucket, prefix: str
 ) -> tuple[list[dict[str, Any]], bool]:
@@ -535,6 +721,8 @@ def _walk_order_dir(
     if not complete:
         return [], False
     for name in names:
+        if _is_absolute_link(name):
+            continue
         child = name.strip("/")
         if child.startswith("Dir="):
             entries, complete = _walk_dir(url + "/" + child, bucket, f"{prefix}/{child}")
@@ -550,6 +738,8 @@ def _walk_dir(url: str, bucket: TokenBucket, prefix: str) -> tuple[list[dict[str
     if not complete:
         return [], False
     for name in names:
+        if _is_absolute_link(name):
+            continue
         child = name.strip("/")
         rel = f"{prefix}/{child}" if prefix else child
         if child.lower().endswith(".parquet"):
@@ -571,21 +761,30 @@ def _walk_dir(url: str, bucket: TokenBucket, prefix: str) -> tuple[list[dict[str
     return out, True
 
 
-def _vos_hats_listing(ident: str) -> list[dict[str, Any]]:
-    storage = open_storage(ident)
-    props_rel = next(
-        (
-            rel
-            for rel in ("properties", "dataset/properties", "hats.properties")
-            if storage.exists(rel)
-        ),
-        None,
-    )
+def _index_children(index: dict[str, int]) -> dict[str, set[str]]:
+    """``{parent rel: {child names}}`` from a flat ``{key: size}`` index.
+
+    Directories keep a trailing ``/`` so the part-file filter and the replica
+    walker can tell them apart without another request.
+    """
+    tree: dict[str, set[str]] = {}
+    for key in index:
+        parts = key.split("/")
+        for depth, part in enumerate(parts):
+            parent = "/".join(parts[:depth])
+            tree.setdefault(parent, set()).add(part + ("/" if depth < len(parts) - 1 else ""))
+    return tree
+
+
+def _storage_hats_listing(reader: Any, ident: str) -> list[dict[str, Any]]:
+    """List a HATS tree through a non-HTTP tree reader (``vos:``, ``s3://``, ``hf://``)."""
+    storage = reader
+    props_rel = _tree_properties_rel(storage)
     if props_rel is None:
         raise OSError(
             f"could not confirm HATS properties at {ident}; preserving the existing mirror"
         )
-    with tempfile.TemporaryDirectory(prefix="xmatcher-vos-list-") as directory:
+    with tempfile.TemporaryDirectory(prefix="xmatcher-hats-list-") as directory:
         props_path = Path(directory) / "properties"
         storage.stage_in(props_rel, props_path)
         row_count = _hats_property_count(props_path.read_bytes())
@@ -607,7 +806,7 @@ def _vos_hats_listing(ident: str) -> list[dict[str, Any]]:
             if not storage.exists(candidate):
                 continue
             try:
-                with tempfile.TemporaryDirectory(prefix="xmatcher-vos-list-") as directory:
+                with tempfile.TemporaryDirectory(prefix="xmatcher-hats-list-") as directory:
                     local = Path(directory) / "partition_info.csv"
                     storage.stage_in(candidate, local)
                     info = pl.read_csv(local)
@@ -639,9 +838,25 @@ def _vos_hats_listing(ident: str) -> list[dict[str, Any]]:
         raise OSError(f"invalid HATS listing at {ident}; preserving the existing mirror")
     _validate_hats_partition_info(info, row_count, info_rel)
     base = "dataset" if info_rel.startswith("dataset/") or info_rel.endswith(".csv") else ""
+    # S3 and Hugging Face report every object size in one paginated listing;
+    # using it turns two HEAD probes per partition into one request per page.
+    index = storage.index() if callable(getattr(storage, "index", None)) else None
+    children = _index_children(index) if index is not None else None
+
+    def exists(rel: str) -> bool:
+        return rel in index if index is not None else storage.exists(rel)
+
+    def size(rel: str) -> int:
+        return index.get(rel, -1) if index is not None else storage.size(rel)
+
+    def list_children(rel: str) -> list[str]:
+        if children is not None:
+            return sorted(children.get(rel.strip("/"), ()))
+        return storage.list(rel)
+
     out: list[dict[str, Any]] = [
-        {"rel": props_rel, "size": storage.size(props_rel)},
-        {"rel": info_rel, "size": storage.size(info_rel)},
+        {"rel": props_rel, "size": size(props_rel)},
+        {"rel": info_rel, "size": size(info_rel)},
     ]
     for row in info.rows(named=True):
         raw_loc = row.get("file_loc")
@@ -653,31 +868,47 @@ def _vos_hats_listing(ident: str) -> list[dict[str, Any]]:
         rel = f"{base}/{loc}" if base else loc
         nfiles = _as_size(row.get("Nfiles")) or 1
         if not rel.endswith(".parquet") and nfiles > 1:
-            part_names = storage.list(rel)
+            part_names = list_children(rel)
             parts = [name for name in part_names if name.endswith(".parquet")]
             if len(parts) != nfiles or any("/" in name or name in (".", "..") for name in parts):
                 raise OSError(f"incomplete HATS partition {rel!r}; preserving the existing mirror")
             for part in parts:
                 candidate = f"{rel}/{part}"
-                if not storage.exists(candidate):
+                if not exists(candidate):
                     raise OSError(
                         f"missing HATS partition file {candidate!r}; preserving the existing mirror"
                     )
-                out.append({"rel": candidate, "size": storage.size(candidate)})
+                out.append({"rel": candidate, "size": size(candidate)})
             continue
         candidates = (rel,) if rel.endswith(".parquet") else (rel, f"{rel}.parquet")
-        for candidate in candidates:
-            if storage.exists(candidate):
-                size = storage.size(candidate)
-                out.append(
-                    {
-                        "rel": candidate,
-                        "size": size if size >= 0 else _as_size(row.get("file_size")),
-                    }
-                )
-                break
-        else:
+        found = next((candidate for candidate in candidates if exists(candidate)), None)
+        if found is not None:
+            found_size = size(found)
+            out.append(
+                {
+                    "rel": found,
+                    "size": found_size if found_size >= 0 else _as_size(row.get("file_size")),
+                }
+            )
+            continue
+        # hats-import and LSDB write multi-file pixels as
+        # `Npix=N/part0.snappy.parquet`, and the IRSA/S3 exports publish no
+        # Nfiles column, so a pixel directory is a valid partition too.
+        parts = [
+            name
+            for name in list_children(rel)
+            if name.endswith(".parquet") and name not in (".", "..") and "/" not in name
+        ]
+        if not parts:
             raise OSError(f"missing HATS partition {rel!r}; preserving the existing mirror")
+        for part in parts:
+            candidate = f"{rel}/{part}"
+            part_size = size(candidate)
+            if part_size < 0:
+                raise OSError(
+                    f"missing HATS partition file {candidate!r}; preserving the existing mirror"
+                )
+            out.append({"rel": candidate, "size": part_size})
     metadata_files = (
         "dataset/_common_metadata",
         "dataset/_metadata",
@@ -685,8 +916,8 @@ def _vos_hats_listing(ident: str) -> list[dict[str, Any]]:
         "_metadata",
     )
     for extra in metadata_files:
-        if storage.exists(extra) and all(entry["rel"] != extra for entry in out):
-            out.append({"rel": extra, "size": storage.size(extra)})
+        if exists(extra) and all(entry["rel"] != extra for entry in out):
+            out.append({"rel": extra, "size": size(extra)})
     if row_count == 0 and not any(
         entry["rel"].endswith(("_common_metadata", "_metadata")) for entry in out
     ):
@@ -881,10 +1112,11 @@ def _mirror_remote_hats(
         backup_ready = False
         upload_started = False
         try:
-            if _remote_via_storage(fetch):
-                # vos: nodes have no HTTP endpoint; transfer node → temp → cache.
-                storage = open_storage((fetch.access_identifier or "").rstrip("/"))
-                storage.stage_in(rel, local_tmp)
+            reader = _remote_reader(fetch.access_identifier or "", bucket)
+            if reader is not None:
+                # vos:/s3://hf:// trees have no HTTP directory endpoint;
+                # transfer through the tree reader to a temp file, then publish.
+                reader.stage_in(rel, local_tmp)
             else:
                 body, _ = _http_request(_remote_url(fetch, rel), bucket)
                 if body is None:
@@ -1006,15 +1238,28 @@ def _mirror_remote_hats(
     )
 
 
+def _remote_reader(
+    ident: str, bucket: TokenBucket | None = None
+) -> Storage | S3Remote | HFRemote | None:
+    """Tree reader for a non-HTTP HATS root (``vos:``, ``s3://``, ``hf://``)."""
+    if ident.startswith("vos:"):
+        return open_storage(ident)
+    if is_s3_uri(ident):
+        return S3Remote(ident, limiter=bucket)
+    if is_hf_uri(ident):
+        return HFRemote(ident, limiter=bucket)
+    return None
+
+
 def _remote_via_storage(src: CatalogueSource) -> bool:
-    """True when the remote HATS source is fetched via a ``Storage`` (vos:)."""
-    return (src.access_identifier or "").startswith("vos:")
+    """True when the remote HATS source is fetched through a tree reader."""
+    return _remote_reader(src.access_identifier or "") is not None
 
 
 def _remote_url(src: CatalogueSource, rel: str) -> str:
     ident = (src.access_identifier or "").rstrip("/")
     if _remote_via_storage(src):
-        raise CrossMatchError("vos: HATS not supported over HTTP fetch")
+        raise CrossMatchError("vos:, s3:// and hf:// HATS trees are not fetched over HTTP")
     return f"{ident}/{rel}"
 
 
@@ -1873,7 +2118,8 @@ def locate_mirrored(
     if src.access_method not in ("hats", "tap"):
         raise CrossMatchError(
             f"Cannot mirror access method '{src.access_method}' for '{src.name}'; "
-            "ray-union supports local HATS, remote HATS (http/vos:), and TAP inputs."
+            "ray-union supports local HATS, remote HATS (http(s), vos:, s3://, hf://), "
+            "and TAP inputs."
         )
     version = _version_dir(src)
     rel = f"{_safe_name(src.name)}/{version}"

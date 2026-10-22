@@ -298,6 +298,7 @@ SUBCOMMANDS = (
     "adopt",
     "completion",
     "sync",
+    "project-hats",
     "doctor",
 )
 
@@ -762,6 +763,7 @@ def _build_params(args) -> dict:
         cache_root=getattr(args, "cache_root", None),
         max_tuples=getattr(args, "max_tuples", None),
         chunk_memory_gb=getattr(args, "chunk_memory_gb", None),
+        anchor_id_name=getattr(args, "anchor_id_name", "source_id"),
         retries=getattr(args, "retries", None),
         fresh_after=getattr(args, "fresh_after", None),
         min_free_gb=getattr(args, "min_free_gb", None),
@@ -921,13 +923,24 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     )
     g_alg.add_argument(
         "--engine",
-        choices=["auto", "stilts", "astropy", "fast", "torchsky", "zone", "ray", "ray-union"],
+        choices=[
+            "auto",
+            "stilts",
+            "astropy",
+            "fast",
+            "torchsky",
+            "zone",
+            "ray",
+            "ray-union",
+            "ray-anchor",
+        ],
         default="auto",
         help=(
             "Sky-match engine (auto=default dispatch, stilts=Java tmatch2, "
             "astropy=pure-Python KD-tree, fast=scipy.cKDTree, torchsky=tensor-native, "
             "zone=HEALPix, ray=distributed zone match, ray-union=distributed N-way "
-            "outer join on Ray with mirrored HATS inputs)."
+            "outer join on Ray with mirrored HATS inputs, ray-anchor=one row per "
+            "anchor source with the best counterpart from every survey)."
         ),
     )
     g_alg.add_argument(
@@ -988,6 +1001,13 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         dest="chunk_memory_gb",
         type=float,
         help="Per-chunk candidate-pool memory guard in GiB (default 8.0).",
+    )
+    g_ray.add_argument(
+        "--anchor-id-name",
+        dest="anchor_id_name",
+        default="source_id",
+        help="Output name for the anchor catalogue's ID column (default: source_id). "
+        "Used by engine=ray-anchor, e.g. to rename Gaia's VizieR 'Source' column.",
     )
     g_ray.add_argument(
         "--retries",
@@ -1129,8 +1149,8 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xmatcher sync",
         description=(
-            "Mirror remote catalogues (TAP, or HATS over HTTP / vos:) into the durable "
-            "cache root as HATS, with incremental re-sync on later runs."
+            "Mirror remote catalogues (TAP, or HATS over HTTP / vos: / s3:// / hf://) "
+            "into the durable cache root as HATS, with incremental re-sync on later runs."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
@@ -1144,7 +1164,8 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
         "catalogues",
         nargs="+",
         help="Catalogues to mirror: configured names/aliases, explicit "
-        "vizier:<id> / tap:<endpoint>/<table>, or HATS URLs (https://…, vos:…).",
+        "vizier:<id> / tap:<endpoint>/<table>, or HATS URLs "
+        "(https://…, vos:…, s3://…, hf://datasets/…).",
     )
     parser.add_argument(
         "--rate-limit",
@@ -1196,6 +1217,61 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_project_hats_subparser() -> argparse.ArgumentParser:
+    """Standalone parser for the ``project-hats`` subcommand."""
+    parser = argparse.ArgumentParser(
+        prog="xmatcher project-hats",
+        description=(
+            "Write a narrow HATS tree with only the requested columns. "
+            "The partition layout and row counts are preserved."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  xmatcher project-hats gaia_hats gaia_core.hats "
+            "--columns Source,RA_ICRS,DE_ICRS,Plx,pmRA,pmDE,Gmag\n"
+            "  xmatcher project-hats sdss_hats sdss_phot.hats "
+            "--columns objID,RA_ICRS,DE_ICRS,upmag,gpmag,rpmag,ipmag,zpmag\n"
+        ),
+    )
+    parser.add_argument(
+        "source", help="Source catalogue: configured name/alias, HATS URL, or local HATS dir."
+    )
+    parser.add_argument("output", help="Destination HATS directory.")
+    parser.add_argument(
+        "--columns",
+        required=True,
+        help="Comma-separated columns to retain.",
+    )
+    parser.add_argument(
+        "--no-sync",
+        dest="no_sync",
+        action="store_true",
+        help="Do not mirror a remote source; require an existing cached copy.",
+    )
+    parser.add_argument(
+        "--cache-root",
+        dest="cache_root",
+        help="Durable cache root for mirrored HATS catalogues.",
+    )
+    parser.add_argument(
+        "--hats-threshold",
+        dest="hats_threshold",
+        type=int,
+        default=100_000,
+        help="Max rows per HEALPix pixel when a non-HATS source is converted.",
+    )
+    parser.add_argument(
+        "--rate-limit",
+        dest="rate_limit_rps",
+        type=float,
+        default=1.0,
+        help="Requests/sec when projecting an HTTPS HATS tree directly (default 1.0).",
+    )
+    _add_global_options(parser)
+    return parser
+
+
 def _build_list_subparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xmatcher list",
@@ -1213,6 +1289,12 @@ def _build_list_subparser() -> argparse.ArgumentParser:
         dest="show_aliases",
         action="store_true",
         help="Also print alias -> catalogue mappings.",
+    )
+    parser.add_argument(
+        "--hats",
+        dest="show_hats",
+        action="store_true",
+        help="List the HATS catalogues registered in the IVOA registry (cached).",
     )
     _add_global_options(parser)
     return parser
@@ -1642,6 +1724,7 @@ def _build_top_parser() -> argparse.ArgumentParser:
         "  search      search every endpoint for tables matching a substring\n"
         "  adopt       save a remote table into ~/.config/xmatcher/xmatcher.yaml\n"
         "  sync        mirror remote catalogues into the local HATS cache\n"
+        "  project-hats  write a narrow HATS tree with selected columns\n"
         "  completion  emit a shell tab-completion script (bash | zsh | fish)\n"
         "  doctor      report drift between your xmatcher.yaml and the bundled baseline\n"
         "\n"
@@ -1721,6 +1804,37 @@ def list_catalogues(cm: CrossMatch, console: Console, *, show_aliases: bool = Fa
     )
     if not show_aliases:
         console.hint("Run 'xmatcher list --aliases' to see all short names.")
+
+
+def list_hats_catalogues(console: Console) -> int:
+    """Print the HATS catalogues registered in the IVOA registry.
+
+    These are the names ``hats:<name>`` accepts; the URL is what the mirror
+    would sync.  An entry registered under a scheme no reader supports is
+    listed with that reason rather than hidden, because hiding it would make
+    the registry look smaller than it is.
+    """
+    from .hats_registry import hats_catalogues  # noqa: PLC0415 - keeps --help offline
+    from .sources import is_remote_hats_uri  # noqa: PLC0415 - keeps --help offline
+
+    catalogues = hats_catalogues()
+    console.header(f"{'NAME':<26}  HATS URL")
+    console.dim_print("\u2500" * 78)
+    readable = 0
+    for key in sorted(catalogues):
+        records = catalogues[key]
+        record = next((r for r in records if is_remote_hats_uri(r["url"])), records[0])
+        name = record.get("short_name") or key
+        url = record["url"]
+        is_readable = is_remote_hats_uri(url)
+        readable += int(is_readable)
+        label = console.bold(name) if is_readable else console.dim(name)
+        suffix = "" if is_readable else console.dim("  (not readable by the mirror)")
+        sys.stdout.write(f"  {_pad(label, 26)}  {url}{suffix}\n")
+    sys.stdout.write("\n")
+    console.info(f"{len(catalogues)} registered HATS catalogues, {readable} readable here.")
+    console.hint("Match one with 'hats:<name>', e.g. hats:two_mass, or pass hats:<url>.")
+    return 0
 
 
 def describe(cm: CrossMatch, name: str, console: Console) -> bool:
@@ -2134,6 +2248,7 @@ def _execute_match(args, cm: CrossMatch, console: Console) -> int:
         args.output_file = _resolve_output_path(args.output_file)
     if len(args.catalogues) < 2:
         console.error("Error: at least two catalogues are required for a crossmatch.")
+        console.hint("Usage: xmatcher CAT1 CAT2 [CAT3 …] [-r ARCSEC] [-o OUT] [options]")
         console.hint("Try 'xmatcher --help' for usage, 'xmatcher list' for catalogues,")
         console.hint("     'xmatcher discover <endpoint>' to explore remote tables.")
         return 2
@@ -2218,6 +2333,12 @@ def _guarded(
         return 130
     except SystemExit:
         raise
+    except OSError as exc:
+        # Missing inputs, permission problems and unreadable files are
+        # user-path mistakes: report them without a traceback.
+        logger.debug("I/O error", exc_info=True)
+        console.error(f"Error: {exc}")
+        return 1
     except Exception as exc:  # noqa: BLE001
         logger.exception("Unexpected error")
         console.error(f"Unexpected error: {exc}")
@@ -2296,6 +2417,41 @@ def _run_sync_subcommand(argv: Sequence[str]) -> int:
             f"({total.files_skipped} skipped, {total.failed} failed)."
         )
         return 0 if total.failed == 0 else 1
+
+    return _guarded(cm, console, body)
+
+
+def _run_project_hats(argv: Sequence[str]) -> int:
+    parser = _build_project_hats_subparser()
+    args = parser.parse_args(list(argv))
+    setup_logging(args.verbose)
+    console = _make_console(no_color=bool(getattr(args, "no_color", False)))
+    cm = _load_cli_crossmatch(args.config_file, console)
+    if cm is None:
+        return 1
+
+    def body() -> int:
+        from .hats_project import project_hats
+
+        columns = [c.strip() for c in args.columns.split(",") if c.strip()]
+        source = cm.resolve_source(args.source, {})
+        progress = Progress(f"Projecting {args.source}", enabled=console.enabled)
+        with progress:
+            stats = project_hats(
+                source,
+                args.output,
+                columns,
+                cache_root=args.cache_root,
+                hats_threshold=int(args.hats_threshold),
+                sync=not args.no_sync,
+                rate_limit_rps=float(args.rate_limit_rps),
+                progress_cb=progress.update,
+            )
+        console.info(
+            f"Wrote {stats['rows']} rows x {len(stats['columns'])} columns to {args.output} "
+            f"({stats['partitions']} partition(s))."
+        )
+        return 0
 
     return _guarded(cm, console, body)
 
@@ -2390,6 +2546,8 @@ def _run_no_pos_subcommand(argv: Sequence[str], name: str) -> int:
 
     def body() -> int:
         if name == "list":
+            if getattr(args, "show_hats", False):
+                return list_hats_catalogues(console)
             list_catalogues(cm, console, show_aliases=bool(getattr(args, "show_aliases", False)))
             return 0
         if name == "discover":
@@ -2889,6 +3047,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_match_subcommand(remaining)
     if cmd == "sync":
         return _run_sync_subcommand(remaining)
+    if cmd == "project-hats":
+        return _run_project_hats(remaining)
     if cmd == "describe":
         return _run_simple_describe(remaining)
     if cmd == "adopt":

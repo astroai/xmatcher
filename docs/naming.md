@@ -17,7 +17,7 @@ to that scheme. It is the reference for `xmatcher list --aliases`,
 | Bare name or alias | `gaia`, `ps1`, `des` | A curated entry in `xmatcher.yaml` (bundled plus user overlay). |
 | `vizier:<id>` | `vizier:II/349/ps1` | A VizieR catalogue/table id. |
 | `tap:<endpoint>/<table>` | `tap:noirlab/nsc_dr2.object` | A table on a supported public TAP endpoint. |
-| `hats:<url>` | `hats:https://example.org/hats/my_survey/` | A remote HATS tree over HTTP(S) or VOSpace. |
+| `hats:<url>` | `hats:https://example.org/hats/my_survey/` | A remote HATS tree over HTTP(S), VOSpace, S3 or Hugging Face (a tree or a collection root). |
 
 Bare names are matched case-insensitively. Explicit identifiers avoid the two
 places where a bare string is ambiguous:
@@ -29,14 +29,14 @@ Supported `tap:` endpoints are the public endpoints listed by
 `xmatcher discover --help`: `vizier`, `noirlab`, `gaia`, and `cadc`. An unknown
 endpoint fails with the list of valid names.
 
-> `hats:<name>` registry lookup is **not** enabled yet. The IVOA HATS registry
-> and LSDB's catalogue index are still evolving, and the same survey is
-> published under several provider-qualified names (`gaia_dr3_stsci`,
-> `des_dr2_us_east_s3`, `two_mass`). Until that settles, pass a HATS URL (or a
-> configured name); the `hats:` namespace is reserved for the registry form.
-> For HTTP URLs, the mirror currently expects a single HATS tree with
-> `properties` and `partition_info.parquet`; it does not read HATS collection
-> roots or `s3://` paths.
+> `hats:<name>` resolves through the IVOA HATS registry (cached for seven days)
+> and `hats:<url>` accepts a single tree or an LSDB-style collection root, which
+> is descended to its primary catalogue tree. The same survey still appears
+> under several provider-qualified names (`gaia_dr3`, `gaia_dr3_stsci`,
+> `gaia_dr3_uw`), so pin the provider when reproducibility matters. HTTPS,
+> VOSpace, `s3://` and `hf://datasets/…` trees are read; an unsupported access
+> URL is reported rather than silently substituted. The verified sources are
+> listed in [hats-sources.md](hats-sources.md).
 
 ---
 
@@ -89,7 +89,9 @@ pattern to avoid — that is why the canonical keys below include the release.
 - **HATS is a format, not a survey registry.** HATS trees are named by their
   location. IVOA HATS services register `short_name` values in the VO registry
   (LSDB does this for `two_mass`, `gaia_dr3_stsci`, …), but those names are
-  provider-specific and the registry is not yet a stable catalogue namespace.
+  provider-specific and the registry is not a stable catalogue namespace:
+  `hats:<name>` is resolved for convenience and logged, while a repeated run
+  should pin the tree URL. See [hats-sources.md](hats-sources.md).
 
 ---
 

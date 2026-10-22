@@ -293,6 +293,36 @@ def test_sky_engine_parity():
 
 
 @pytest.mark.skipif("stilts" not in _ENGINES, reason="STILTS not available")
+def test_skyerr_corrupted_errors_do_not_displace_the_real_match():
+    """A wildly inflated error must not outrank a well-measured counterpart.
+
+    STILTS ranks candidates in its error-normalised space, so a row declaring
+    ~400 arcsec of position error makes a counterpart 60 arcsec away look closer
+    than the real one 0.2 arcsec away.  Capping the error at radius/max_error
+    keeps the engines on the same pair set.
+    """
+    cos = np.cos(np.radians(5.0))
+    left = pl.DataFrame({"ra": [10.0], "dec": [5.0], "rae": [0.1], "dee": [0.1]})
+    right = pl.DataFrame(
+        {
+            "ra": [10.0 + 0.2 / 3600 / cos, 10.0 + 60.0 / 3600 / cos],
+            "dec": [5.0, 5.0],
+            "rae": [0.1, 400.0],
+            "dee": [0.1, 400.0],
+            "rid": [1, 2],
+        }
+    )
+    a = _src("a", ra_err_column="rae", dec_err_column="dee")
+    b = _src("b", ra_err_column="rae", dec_err_column="dee")
+    spec = MatchSpec(matcher="skyerr", max_error=3.0, radius_arcsec=1.0)
+    rows = {
+        eng: sky_match(a, b, left.lazy(), right.lazy(), spec, engine=eng).collect()["rid"].to_list()
+        for eng in ("astropy", "stilts")
+    }
+    assert rows["stilts"] == rows["astropy"] == [1]
+
+
+@pytest.mark.skipif("stilts" not in _ENGINES, reason="STILTS not available")
 def test_skyerr_engine_parity():
     cos = np.cos(np.radians(5.0))
     left = pl.DataFrame({"ra": [10.0], "dec": [5.0], "rae": [0.1], "dee": [0.1]})

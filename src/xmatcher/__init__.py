@@ -18,6 +18,7 @@ from .candidates import (
 )
 from .crossmatch import CrossMatch
 from .exceptions import ConfigError, CrossMatchError, InputError, StiltsError, TapError
+from .hats_project import project_hats
 from .io_utils import (
     FrameLike,
     astropy_table_to_polars,
@@ -40,7 +41,7 @@ from .observations import (
 from .request import MatchRequest, SideOverrides  # noqa: F401
 from .sources import CatalogueSource
 
-__version__ = "0.5.1"
+__version__ = "0.6.0"
 
 __all__ = [
     # Main entry points
@@ -69,6 +70,7 @@ __all__ = [
     # I/O helpers (Arrow interop)
     "FrameLike",
     "is_hats_dir",
+    "project_hats",
     "scan_frame",
     "write_frame",
     "astropy_table_to_polars",

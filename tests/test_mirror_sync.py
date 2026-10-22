@@ -1022,3 +1022,122 @@ def test_write_hats_native_empty_frame_produces_readable_catalogue(tmp_path: Pat
     read = hats.read_hats(out)
     assert read.catalog_info.total_rows == 0
     assert read.get_healpix_pixels() == []
+
+
+# --------------------------------------------------------------------------- #
+# LSDB / Apache-style listings and HATS collection roots
+# --------------------------------------------------------------------------- #
+def test_hats_walk_ignores_absolute_parent_links(monkeypatch) -> None:
+    """Apache listings start with ``/parent/dir/``; descending into it 404s.
+
+    LSDB trees are served this way, and the 404 made the whole walk report
+    "incomplete", so no LSDB HATS catalogue could be mirrored at all.
+    """
+    root = "https://example.test/hats/tns/2026-10-22"
+    listings = {
+        root: ["/hats/tns/", "dataset/", "properties", "partition_info.csv"],
+        f"{root}/dataset": ["/hats/tns/2026-10-22/", "Norder=0/", "_common_metadata"],
+        f"{root}/dataset/Norder=0": ["/hats/tns/2026-10-22/dataset/", "Dir=0/"],
+        f"{root}/dataset/Norder=0/Dir=0": [
+            "/hats/tns/2026-10-22/dataset/Norder=0/",
+            "Npix=0.parquet",
+        ],
+    }
+
+    def fake_listing(url, bucket):
+        key = url.rstrip("/")
+        return list(listings.get(key, [])), key in listings
+
+    monkeypatch.setattr(mirror, "_http_listing", fake_listing)
+    monkeypatch.setattr(mirror, "_http_probe", lambda url, bucket: (True, 10))
+    monkeypatch.setattr(
+        mirror,
+        "_http_hats_properties",
+        lambda url, bucket: ({"rel": "properties", "size": 3}, 7),
+    )
+
+    files, complete = mirror._http_walk_hats(root, mirror.TokenBucket(0))
+    assert complete
+    rels = {entry["rel"] for entry in files}
+    assert "dataset/Norder=0/Dir=0/Npix=0.parquet" in rels
+    assert "properties" in rels
+
+
+def test_http_listing_drops_absolute_and_external_links(monkeypatch) -> None:
+    body = (
+        b'<a href="/hats/parent/">up</a><a href="Npix=1.parquet">f</a><a href="https://x/y">x</a>'
+    )
+    monkeypatch.setattr(mirror, "_http_request", lambda url, bucket, **kw: (body, len(body)))
+    names, complete = mirror._http_listing("https://example.test/dir", mirror.TokenBucket(0))
+    assert complete
+    assert names == ["Npix=1.parquet"]
+
+
+def test_resolve_hats_tree_root_descends_a_collection_past_margin_and_index(monkeypatch) -> None:
+    root = "https://example.test/hats/gaia_dr3"
+    trees = {
+        f"{root}/gaia": True,
+        f"{root}/gaia_10arcs": True,
+        f"{root}/gaia_300arcs": True,
+        f"{root}/gaia_source_id_index": True,
+    }
+    monkeypatch.setattr(
+        mirror,
+        "_http_hats_properties",
+        lambda url, bucket: ({"rel": "properties", "size": 1}, 10) if url in trees else None,
+    )
+    monkeypatch.setattr(
+        mirror,
+        "_http_listing",
+        lambda url, bucket: (
+            ["/hats/", "gaia/", "gaia_10arcs/", "gaia_300arcs/", "gaia_source_id_index/"],
+            True,
+        ),
+    )
+    assert mirror.resolve_hats_tree_root(root) == f"{root}/gaia"
+
+
+def test_resolve_hats_tree_root_keeps_an_ambiguous_collection(monkeypatch) -> None:
+    root = "https://example.test/hats/delve"
+    monkeypatch.setattr(
+        mirror,
+        "_http_hats_properties",
+        lambda url, bucket: (
+            ({"rel": "properties", "size": 1}, 10)
+            if url.rsplit("/", 1)[-1] in {"delve_dr2", "delve_dr3_gold"}
+            else None
+        ),
+    )
+    monkeypatch.setattr(
+        mirror, "_http_listing", lambda url, bucket: (["delve_dr2/", "delve_dr3_gold/"], True)
+    )
+    assert mirror.resolve_hats_tree_root(root) == root
+
+
+def test_resolve_hats_tree_root_returns_a_tree_unchanged(monkeypatch) -> None:
+    root = "https://example.test/hats/gaia_dr3/gaia"
+    monkeypatch.setattr(
+        mirror,
+        "_http_hats_properties",
+        lambda url, bucket: ({"rel": "properties", "size": 1}, 10),
+    )
+
+    def fail(url, bucket):
+        raise AssertionError("a tree root must not be listed")
+
+    monkeypatch.setattr(mirror, "_http_listing", fail)
+    assert mirror.resolve_hats_tree_root(root + "/") == root + "/"
+
+
+def test_hats_native_rejects_a_remote_source_with_sync_guidance() -> None:
+    src = CatalogueSource(
+        name="tns",
+        is_local=False,
+        access_method="hats",
+        access_identifier="https://data.lsdb.io/hats/tns/2026-10-22",
+    )
+    with pytest.raises(CrossMatchError) as excinfo:
+        hats_native._hats_root(src)
+    message = str(excinfo.value)
+    assert "xmatcher sync hats:https://data.lsdb.io/hats/tns/2026-10-22" in message
+    assert "ray-union" in message

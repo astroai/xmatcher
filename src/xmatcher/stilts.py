@@ -140,13 +140,22 @@ def _add_true_separation(result: pl.DataFrame, l_ra, l_dec, r_ra, r_dec) -> pl.D
     return result.with_columns(pl.Series("sep_arcsec", sep))
 
 
-def _error_value_expr(src, max_error: float) -> str:
+def _error_value_expr(src, max_error: float, radius_arcsec: float | None = None) -> str:
     """STILTS expression for the n-sigma positional error radius (arcsec).
 
     Mirrors :func:`xmatcher.matchers._pos_sigma_arcsec`: the per-row error is
     ``hypot(ra_err, dec_err)`` (unit-converted, floored), scaled by ``max_error``
     so that STILTS' ``sep <= err1 + err2`` rule becomes
     ``sep <= max_error * (e1 + e2)``.
+
+    When a search radius is requested, each per-row error is additionally capped
+    at ``radius_arcsec / max_error``.  STILTS bins and ranks candidates in its
+    error-normalised space, so a corrupted error (some PS1 rows declare ~1000
+    arcsec) makes an unrelated counterpart far outside the radius look like the
+    best match and evicts the real one; the other engines cap candidates at the
+    radius first.  Capping the error keeps every pair inside the radius reachable
+    (the criterion still admits ``2 * radius_arcsec``) while no far pair can win
+    the ``best1`` ranking.
     """
     factor = position_error_to_arcsec_factor(src.pos_err_units)
     if src.ra_err_column and src.dec_err_column:
@@ -156,6 +165,9 @@ def _error_value_expr(src, max_error: float) -> str:
     if src.default_pos_error_arcsec is not None:
         floor = float(src.default_pos_error_arcsec) * (2**0.5)
         core = f"max({core},{floor})"
+    if radius_arcsec is not None and max_error > 0:
+        cap = float(radius_arcsec) / float(max_error)
+        core = f"min({core},{cap!r})"
     return f"{max_error}*({core})"
 
 
@@ -165,7 +177,7 @@ def _values_expr(src, spec) -> str:
         return f"{ra} {dec}"
     # skyerr uses a circular n-sigma error radius. skyellipse is rejected at
     # the STILTS entrypoint because this backend cannot honor its covariance.
-    return f"{ra} {dec} {_error_value_expr(src, spec.max_error)}"
+    return f"{ra} {dec} {_error_value_expr(src, spec.max_error, spec.radius_arcsec)}"
 
 
 def stilts_sky_match(
@@ -263,7 +275,6 @@ def stilts_sky_match(
             # STILTS bins candidates; enforce the requested radius exactly.
             # Unmatched outer rows have no separation and are kept.
             result = result.filter(
-                pl.col("sep_arcsec").is_null()
-                | (pl.col("sep_arcsec") <= float(spec.radius_arcsec))
+                pl.col("sep_arcsec").is_null() | (pl.col("sep_arcsec") <= float(spec.radius_arcsec))
             )
         return result

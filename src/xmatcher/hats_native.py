@@ -18,7 +18,7 @@ import polars as pl
 
 from .exceptions import CrossMatchError
 from .matchers import MatchSpec, sky_match
-from .sources import CatalogueSource
+from .sources import CatalogueSource, is_remote_hats_uri
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,12 @@ def _hats_root(src: CatalogueSource) -> Path:
     path = src.access_identifier or (str(src.path) if src.path else None)
     if not path:
         raise CrossMatchError(f"No HATS path for '{src.name}'.")
+    if is_remote_hats_uri(path):
+        raise CrossMatchError(
+            f"Remote HATS catalogue '{src.name}' ({path}) must be mirrored before a "
+            f"local match: run `xmatcher sync hats:{path}` and pass the mirrored "
+            "directory, or use engine='ray-union', which mirrors on demand."
+        )
     root = Path(path).expanduser()
     if not root.exists():
         raise CrossMatchError(f"HATS path does not exist: {root}")

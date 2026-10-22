@@ -19,6 +19,15 @@ import polars as pl
 from . import io_utils
 from .exceptions import CrossMatchError
 
+#: URL schemes naming a remote HATS tree the mirror can read.
+REMOTE_HATS_SCHEMES = ("http://", "https://", "vos:", "s3://", "hf://")
+
+
+def is_remote_hats_uri(text: object) -> bool:
+    """True for an HTTP(S), VOSpace, S3, or Hugging Face remote HATS tree."""
+    return isinstance(text, str) and text.startswith(REMOTE_HATS_SCHEMES)
+
+
 _POSITION_ERROR_UNIT_TO_ARCSEC = {
     "arcsec": 1.0,
     "mas": 1e-3,

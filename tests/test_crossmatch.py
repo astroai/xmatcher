@@ -332,16 +332,28 @@ def test_resolve_source_explicit_tap_rejects_unknown_endpoint(cm):
         cm.resolve_source("tap:not_an_endpoint/foo.bar", {})
 
 
-def test_resolve_source_hats_url_and_reserved_registry_name(cm):
+def test_resolve_source_hats_url_and_registry_name(cm, monkeypatch):
     src = cm.resolve_source("hats:https://example.org/hats/survey/", {})
     assert src.access_method == "hats"
     assert src.name == "survey"
-    assert src.access_identifier == "https://example.org/hats/survey/"
+    # The tree probe normalises the URL (a trailing slash is optional).
+    assert src.access_identifier.rstrip("/") == "https://example.org/hats/survey"
 
-    # Registry short-name lookup is not implemented yet: fail with guidance
-    # instead of guessing a URL.
-    with pytest.raises(InputError, match="Registry short-name lookup"):
-        cm.resolve_source("hats:two_mass", {})
+    # Registry short-name lookup resolves to a tree URL; both the registry and
+    # the one-probe collection descent are patched so this stays offline.
+    import xmatcher.crossmatch as crossmatch_module
+    import xmatcher.mirror as mirror_module
+
+    monkeypatch.setattr(
+        crossmatch_module,
+        "resolve_hats_short_name",
+        lambda name: "https://example.org/hats/two_mass/",
+    )
+    monkeypatch.setattr(mirror_module, "resolve_hats_tree_root", lambda url: url)
+    src = cm.resolve_source("hats:two_mass", {})
+    assert src.access_method == "hats"
+    assert src.name == "two_mass"
+    assert src.access_identifier.rstrip("/") == "https://example.org/hats/two_mass"
 
 
 def test_resolve_source_needs_coords_when_undetectable(cm):

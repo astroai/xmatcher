@@ -11,7 +11,8 @@ hands off to this file:
 
 Scenarios use real TAP services with small explicit cones, so they stay
 bounded while exercising alias resolution, explicit identifiers, matchers,
-union/fof, HATS inputs, discovery, and the registry contract.
+union/fof, HATS inputs, discovery, the registry contract, engine-independent
+``skyerr`` pair sets, join-type composition, and RA = 0/360 seam handling.
 
 Results are written to ``/arc/projects/hats/tests/xmatcher-matrix/<run>/``
 and a ``SUMMARY {...}`` line is printed for ``canfar logs`` collection.
@@ -619,9 +620,24 @@ def scenario_hats() -> None:
     require_ok(proc, "local hats: input")
     require(parquet_rows(out("local-hats.parquet")) > 0, "local hats returned no rows")
 
+    # A published collection URL resolves to its tree without downloading it
+    # (2MASS is ~41 GB: the point here is resolution, not the transfer).
+    code = (
+        "from xmatcher.crossmatch import CrossMatch\n"
+        "print(CrossMatch().resolve_source('hats:https://data.lsdb.io/hats/two_mass/', {})"
+        ".access_identifier)\n"
+    )
+    proc = pixi_python(code, timeout=300)
+    require_ok(proc, "resolve LSDB collection URL")
+    resolved = proc.stdout.strip().splitlines()[-1]
+    require(
+        resolved.rstrip("/").endswith("/two_mass/two_mass"),
+        f"LSDB collection resolved to {resolved!r}",
+    )
+
     proc = xmatcher(
         "match",
-        "hats:https://data.lsdb.io/hats/two_mass/",
+        f"hats:{resolved}",
         str(right),
         "-r",
         "2.0",
@@ -629,7 +645,11 @@ def scenario_hats() -> None:
         str(out("remote-hats.parquet")),
         timeout=300,
     )
-    require(proc.returncode != 0, "remote LSDB HATS unexpectedly succeeded")
+    require(proc.returncode != 0, "a remote tree matched without being mirrored")
+    require(
+        "xmatcher sync" in (proc.stdout + proc.stderr),
+        "remote HATS error did not name the sync command",
+    )
     require("Traceback" not in (proc.stdout + proc.stderr), "remote HATS raised a traceback")
 
     proc = xmatcher(
@@ -644,6 +664,163 @@ def scenario_hats() -> None:
     )
     require(proc.returncode != 0, "unknown hats name unexpectedly succeeded")
     require("Traceback" not in (proc.stdout + proc.stderr), "unknown hats raised a traceback")
+
+
+def scenario_hats_sources() -> None:
+    """Registry name lookup, collection descent, mirroring and a live match.
+
+    The mirror used to fail on every LSDB tree: the collection URL has no
+    ``properties`` of its own, and the tree's Apache listing starts with a
+    ``/parent/dir/`` row that the walker descended into.  This scenario follows
+    the whole path on the smallest published tree (TNS, ~20 MB) so a
+    regression shows up as a failed check rather than a support question.
+    """
+    cache_env = {"XMATCHER_CACHE_ROOT": str(WORK / "hats-cache")}
+
+    def registry_listing() -> dict:
+        proc = xmatcher("list", "--hats", env=cache_env, timeout=300)
+        require_ok(proc, "list --hats")
+        require("two_mass" in proc.stdout, "registry listing lost two_mass")
+        require("hf://datasets/" in proc.stdout, "registry listing lost the hf:// entries")
+        counts = re.findall(r"(\d+) registered HATS catalogues, (\d+) readable here\.", proc.stdout)
+        require(bool(counts), "missing registry count line")
+        registered, readable = (int(value) for value in counts[0])
+        require(registered > 50, f"registry listing shrank to {registered} catalogues")
+        require(
+            readable == registered,
+            f"{registered - readable} registered catalogues are not readable here",
+        )
+        return {"registered": registered, "readable": readable}
+
+    def collection_descent() -> dict:
+        code = (
+            "from xmatcher.crossmatch import CrossMatch\n"
+            "print(CrossMatch().resolve_source('hats:gaia_dr3', {}).access_identifier)\n"
+        )
+        proc = pixi_python(code, timeout=300)
+        require_ok(proc, "resolve hats:gaia_dr3")
+        url = proc.stdout.strip().splitlines()[-1]
+        require(
+            url.rstrip("/").endswith("/gaia"),
+            f"collection descent picked {url!r}, not the gaia tree",
+        )
+        require("gaia_10arcs" not in url and "index" not in url, f"picked an auxiliary tree: {url}")
+        return {"url": url}
+
+    def dated_collection_is_not_guessed() -> dict:
+        proc = xmatcher("sync", "hats:tns", env=cache_env, timeout=300, retries=0)
+        require(proc.returncode != 0, "an ambiguous dated collection unexpectedly synced")
+        text = proc.stdout + proc.stderr
+        require("Traceback" not in text, "ambiguous collection raised a traceback")
+        require("pass one tree URL" in text, f"ambiguity was not explained: {text[-400:]}")
+        return {"exit": proc.returncode}
+
+    def mirror_and_match() -> dict:
+        code = (
+            "from xmatcher.mirror import TokenBucket, _http_listing\n"
+            "names, ok = _http_listing('https://data.lsdb.io/hats/tns/', TokenBucket(0))\n"
+            "dates = sorted({\n"
+            "    n.strip('/')\n"
+            "    for n in names\n"
+            "    if n.strip('/')[:4].isdigit() and not n.strip('/').endswith(('_10arcs', '_5arcs'))\n"
+            "})\n"
+            "print(dates[-1] if ok and dates else '')\n"
+        )
+        proc = pixi_python(code, timeout=300)
+        require_ok(proc, "list tns dates")
+        date = proc.stdout.strip().splitlines()[-1]
+        require(bool(date), "no dated TNS tree was listed")
+        require("_arcs" not in date, f"picked a margin tree: {date}")
+
+        url = f"hats:https://data.lsdb.io/hats/tns/{date}"
+        proc = xmatcher("sync", url, env=cache_env, timeout=900)
+        require_ok(proc, "sync live LSDB tree")
+
+        code = (
+            "import glob, polars as pl, sys\n"
+            "root = glob.glob(sys.argv[1] + '/hats-http-*')[0]\n"
+            "pixel = sorted(glob.glob(root + '/dataset/**/*.parquet', recursive=True))[0]\n"
+            "frame = pl.read_parquet(pixel)\n"
+            "row = frame.row(0, named=True)\n"
+            "ra, dec = float(row['ra']), float(row['declination'])\n"
+            "print(root)\n"
+            "pl.DataFrame({'ra': [ra + 0.5 / 3600], 'dec': [dec], 'id': [1]}).write_parquet(sys.argv[2])\n"
+        )
+        probe = out(f"tns-{date}-probe.parquet")
+        proc = pixi_python(code, str(WORK / "hats-cache" / date), str(probe), timeout=300)
+        require_ok(proc, "probe from mirrored tree")
+        root = proc.stdout.strip().splitlines()[0]
+
+        result = out(f"tns-{date}-match.parquet")
+        proc = xmatcher("match", root, str(probe), "-r", "2.0", "-o", str(result))
+        require_ok(proc, "match mirrored LSDB tree")
+        rows = parquet_rows(result)
+        require(rows == 1, f"live HATS match returned {rows} rows, expected 1")
+        require(parquet_max_sep(result) <= 2.0, "live HATS match exceeded its radius")
+        return {"date": date, "rows": rows}
+
+    def s3_access() -> dict:
+        """An S3-only registry name resolves, descends, and lists anonymously."""
+        code = (
+            "from xmatcher.crossmatch import CrossMatch\n"
+            "from xmatcher.mirror import _properties_dict, _tree_properties_rel\n"
+            "from xmatcher.s3 import S3Remote\n"
+            "url = CrossMatch().resolve_source('hats:euclid_q1_ipac', {}).access_identifier\n"
+            "reader = S3Remote(url)\n"
+            "props = _properties_dict(reader.read_bytes(_tree_properties_rel(reader)))\n"
+            "index = reader.index()\n"
+            "print(url)\n"
+            "print(props.get('hats_nrows', ''))\n"
+            "print(len(index))\n"
+        )
+        proc = pixi_python(code, timeout=900)
+        require_ok(proc, "resolve and list hats:euclid_q1_ipac")
+        lines = proc.stdout.strip().splitlines()[-3:]
+        require(len(lines) == 3, f"unexpected S3 probe output: {lines}")
+        url, rows, files = lines
+        require(url.startswith("s3://"), f"S3 registry name resolved to {url!r}")
+        require(
+            url.rstrip("/").endswith("euclid_q1_merged_objects-hats"),
+            f"S3 collection descent picked {url!r}",
+        )
+        require(int(rows) > 1_000_000, f"S3 properties reported {rows} rows")
+        require(int(files) > 100, f"S3 listing returned only {files} objects")
+        return {"url": url, "rows": int(rows), "files": int(files)}
+
+    def hf_access() -> dict:
+        """An hf://-only registry name resolves, descends, and lists anonymously."""
+        code = (
+            "from xmatcher.crossmatch import CrossMatch\n"
+            "from xmatcher.mirror import _hats_property_count, _tree_properties_rel\n"
+            "from xmatcher.hf import HFRemote\n"
+            "url = CrossMatch().resolve_source('hats:mmu_cfa_seccsn', {}).access_identifier\n"
+            "reader = HFRemote(url)\n"
+            "rows = _hats_property_count(reader.read_bytes(_tree_properties_rel(reader)))\n"
+            "index = reader.index()\n"
+            "print(url)\n"
+            "print(rows if rows is not None else '')\n"
+            "print(len(index))\n"
+        )
+        proc = pixi_python(code, timeout=600)
+        require_ok(proc, "resolve and list hats:mmu_cfa_seccsn")
+        lines = proc.stdout.strip().splitlines()[-3:]
+        require(len(lines) == 3, f"unexpected Hugging Face probe output: {lines}")
+        url, rows, files = lines
+        require(url.startswith("hf://datasets/"), f"hf:// registry name resolved to {url!r}")
+        require(
+            url.rstrip("/").endswith("mmu_cfa_seccsn"),
+            f"Hugging Face collection descent picked {url!r}",
+        )
+        require(int(rows) > 0, f"Hugging Face properties reported {rows} rows")
+        require(int(files) > 10, f"Hugging Face listing returned only {files} files")
+        return {"url": url, "rows": int(rows), "files": int(files)}
+
+    check("hats-registry-list", registry_listing)
+    check("hats-collection-descent", collection_descent)
+    check("hats-dated-collection-refused", dated_collection_is_not_guessed)
+    check("hats-s3-access", s3_access)
+    check("hats-hf-access", hf_access)
+    check("hats-live-mirror-match", mirror_and_match)
 
 
 def scenario_ray_probe() -> None:
@@ -678,18 +855,43 @@ def scenario_ray_probe() -> None:
 def scenario_ray() -> None:
     left = out("ray-left.parquet")
     right = out("ray-right.parquet")
+    # A sparse field: an 8 arcsec grid where every row has exactly one
+    # counterpart 0.5 arcsec away.  A dense field (spacing far below the search
+    # radius) legitimately expands into millions of tuples per hub row and is
+    # not what this scenario measures; it only measured --max-tuples pressure.
     code = (
         "import sys,polars as pl\n"
-        "n=20000\n"
-        "pl.DataFrame({'ra':[10.0+(i%200)*0.00001 for i in range(n)],"
-        "'dec':[5.0+(i//200)*0.00001 for i in range(n)],'id':list(range(n))}).write_parquet(sys.argv[1])\n"
-        "pl.DataFrame({'ra':[10.0+(i%200)*0.00001 for i in range(n)],"
-        "'dec':[5.0+(i//200)*0.00001 for i in range(n)],'id2':list(range(n))}).write_parquet(sys.argv[2])\n"
+        "rows,cols=30,20\n"
+        "step=8/3600.0\n"
+        "ra=[10.0+(i%cols)*step for i in range(rows*cols)]\n"
+        "dec=[5.0+(i//cols)*step for i in range(rows*cols)]\n"
+        "pl.DataFrame({'ra':ra,'dec':dec,'id':list(range(len(ra)))}).write_parquet(sys.argv[1])\n"
+        "pl.DataFrame({'ra':[r+0.5/3600 for r in ra],'dec':dec,"
+        "'id2':list(range(len(ra)))}).write_parquet(sys.argv[2])\n"
     )
     require_ok(pixi_python(code, str(left), str(right)), "ray inputs")
 
     def union() -> dict:
         path = out("ray-union.hats")
+        oracle = out("ray-oracle.parquet")
+        # Sequential full-outer union on the same inputs: the distributed
+        # engine must reproduce exactly these pairs and this row count.
+        require_ok(
+            xmatcher(
+                "match",
+                str(left),
+                str(right),
+                "-r",
+                "4.0",
+                "--union",
+                "--engine",
+                "fast",
+                "-o",
+                str(oracle),
+                timeout=600,
+            ),
+            "ray oracle",
+        )
         # Stream, never capture: Ray workers inherit the pipe descriptors, so
         # a timeout would otherwise wait forever for EOF on orphaned workers.
         try:
@@ -703,14 +905,14 @@ def scenario_ray() -> None:
                     str(left),
                     str(right),
                     "-r",
-                    "1.0",
+                    "4.0",
                     "--engine",
                     "ray-union",
                     "-o",
                     str(path),
                 ],
                 cwd=REPO,
-                timeout=300,
+                timeout=900,
                 env={"RAY_LOG_TO_STDERR": "1"},
             )
         except subprocess.TimeoutExpired:
@@ -720,15 +922,26 @@ def scenario_ray() -> None:
         require(code == 0, f"ray-union exited {code}")
         verify = (
             "import sys\n"
-            "import hats\n"
+            "from pathlib import Path\n"
+            "import polars as pl\n"
             "from xmatcher import hats_native\n"
-            "ds=hats.read_hats(sys.argv[1])\n"
-            "assert len(ds.partition_info.as_dataframe())>0\n"
-            "assert bool([p for _,_,p in hats_native.list_hats_pixels(sys.argv[1])])\n"
-            "print('ok')\n"
+            "pixels=list(hats_native.list_hats_pixels(Path(sys.argv[1])))\n"
+            "assert pixels, 'no HATS partitions written'\n"
+            "d=pl.concat([pl.read_parquet(p) for _,_,p in pixels], how='diagonal_relaxed')\n"
+            "o=pl.read_parquet(sys.argv[2])\n"
+            "assert d.height==o.height, (d.height, o.height)\n"
+            "def pairs(df):\n"
+            "    return {(a,b) for a,b in zip(df['id'].to_list(), df['id2'].to_list())\n"
+            "            if a is not None and b is not None}\n"
+            "dp, op = pairs(d), pairs(o)\n"
+            "assert dp==op, (len(dp), len(op), len(dp^op))\n"
+            "assert len(dp)>0\n"
+            "assert float(d['sep_arcsec'].max())<=4.0\n"
+            "print(f'rows={d.height} pairs={len(dp)}')\n"
         )
-        require_ok(pixi_python(verify, str(path)), "ray-union output")
-        return {"ok": True}
+        proc = pixi_python(verify, str(path), str(oracle))
+        require_ok(proc, "ray-union output")
+        return {"rows": proc.stdout.strip().splitlines()[-1]}
 
     def spill() -> dict:
         path = out("spill.parquet")
@@ -974,6 +1187,167 @@ def scenario_engines() -> None:
     require(len(set(counts.values())) == 1, f"engines disagree: {counts}")
 
 
+def scenario_skyerr_parity() -> None:
+    """`skyerr` pair sets must not depend on the engine.
+
+    PS1 and a few other catalogues carry corrupted per-row errors (hundreds of
+    arcsec).  STILTS ranks in error-normalised space, so without capping those
+    rows it lets far-away counterparts win ``best`` and then drops them by
+    radius, silently losing genuine matches.  Compare every engine on the same
+    cone: same row count and the same separation total.
+    """
+    for left, right, field, radius in (
+        ("gaia_dr3_cds", "ps1_dr1", "cosmos", 1.0),
+        ("nsc_dr2", "allwise", "nsc", 1.5),
+        ("des_dr2", "unwise_dr1", "des", 1.5),
+    ):
+
+        def run(a=left, b=right, f=field, r=radius) -> dict:
+            rows: dict[str, int] = {}
+            seps: dict[str, float] = {}
+            for engine in ("fast", "stilts", "astropy"):
+                path = out(f"skyerr-{a}-{b}-{engine}.parquet")
+                proc = xmatcher(
+                    "match",
+                    a,
+                    b,
+                    *cone_args(f, r),
+                    "--matcher",
+                    "skyerr",
+                    "--max-error",
+                    "3",
+                    "--engine",
+                    engine,
+                    "-o",
+                    str(path),
+                )
+                require_ok(proc, f"skyerr {engine}")
+                rows[engine] = parquet_rows(path)
+                seps[engine] = round(parquet_max_sep(path), 3)
+                require(rows[engine] > 0, f"skyerr {engine} returned no rows")
+                require(
+                    seps[engine] <= r + 0.05,
+                    f"skyerr {engine} exceeded radius: {seps[engine]}",
+                )
+            require(
+                len(set(rows.values())) == 1 and len(set(seps.values())) == 1,
+                f"skyerr engines disagree for {a} x {b}: rows={rows} max_sep={seps}",
+            )
+            return {"rows": rows["fast"], "max_sep": seps["fast"]}
+
+        check(f"skyerr-parity-{left}-{right}", run)
+
+
+def scenario_join_mix() -> None:
+    """Join types on one live pair must compose consistently."""
+    counts: dict[str, int] = {}
+
+    for join in ("1and2", "1or2", "all1", "all2", "1not2", "2not1"):
+
+        def run(kind=join) -> dict:
+            path = out(f"join-{kind}.parquet")
+            proc = xmatcher(
+                "match",
+                "gaia_dr3_cds",
+                "ps1_dr1",
+                *cone_args("cosmos", 1.0),
+                "--join",
+                kind,
+                "-o",
+                str(path),
+            )
+            require_ok(proc, f"join {kind}")
+            counts[kind] = parquet_rows(path)
+            return {"rows": counts[kind]}
+
+        check(f"join-{join}", run)
+
+    inner = counts["1and2"]
+    require(inner > 0, "inner join returned no rows")
+    require(
+        counts["1or2"] == inner + counts["1not2"] + counts["2not1"],
+        f"full outer != inner + anti joins: {counts}",
+    )
+    require(counts["all1"] == inner + counts["1not2"], f"left join mismatch: {counts}")
+    require(counts["all2"] == inner + counts["2not1"], f"right join mismatch: {counts}")
+    require(
+        counts["1or2"] >= counts["all1"] >= inner and counts["1or2"] >= counts["all2"] >= inner,
+        f"join nesting violated: {counts}",
+    )
+
+    def find_all() -> dict:
+        path = out("find-all.parquet")
+        proc = xmatcher(
+            "match",
+            "gaia_dr3_cds",
+            "ps1_dr1",
+            *cone_args("cosmos", 1.0, find="all"),
+            "-o",
+            str(path),
+        )
+        require_ok(proc, "find all")
+        rows = parquet_rows(path)
+        require(rows >= inner, f"find=all returned {rows} rows, best returned {inner}")
+        return {"rows": rows}
+
+    check("find-all-not-smaller", find_all)
+
+
+def scenario_wrap_mix() -> None:
+    """RA = 0/360 seam handling, locally and on a live all-sky pair."""
+
+    def local_seam() -> dict:
+        left = out("seam-left.parquet")
+        right = out("seam-right.parquet")
+        code = (
+            "import sys,polars as pl\n"
+            "seam=[359.99950,0.00050,359.99995]\n"
+            "pl.DataFrame({'ra':seam,'dec':[5.0,5.0,-5.0],'id':[0,1,2]}).write_parquet(sys.argv[1])\n"
+            "pl.DataFrame({'ra':[seam[0]+0.3/3600,seam[1]-0.3/3600,seam[2]+0.3/3600],"
+            "'dec':[5.0,5.0,-5.0],'id2':[0,1,2]}).write_parquet(sys.argv[2])\n"
+        )
+        require_ok(pixi_python(code, str(left), str(right)), "seam inputs")
+        path = out("seam-match.parquet")
+        proc = xmatcher("match", str(left), str(right), "-r", "1.0", "-o", str(path))
+        require_ok(proc, "seam match")
+        rows = parquet_rows(path)
+        require(rows == 3, f"seam match paired {rows}/3 rows")
+        require(parquet_max_sep(path) <= 1.0, "seam match exceeded radius")
+        return {"rows": rows}
+
+    def live_zero_and_360() -> dict:
+        counts = {}
+        for ra in ("0.0", "360.0"):
+            path = out(f"wrap-{ra}.parquet")
+            proc = xmatcher(
+                "match",
+                "gaia_dr3_cds",
+                "allwise",
+                "--ra",
+                ra,
+                "--dec",
+                "0.0",
+                "--radius-deg",
+                "0.05",
+                "-r",
+                "1.5",
+                "-o",
+                str(path),
+            )
+            require_ok(proc, f"wrap {ra}")
+            counts[ra] = parquet_rows(path)
+            require(parquet_max_sep(path) <= 1.5, f"wrap {ra} exceeded radius")
+        require(counts["0.0"] > 0, "wrap cone returned no rows")
+        require(
+            counts["0.0"] == counts["360.0"],
+            f"RA 0 and 360 disagree: {counts}",
+        )
+        return {"rows": counts["0.0"]}
+
+    check("wrap-local-seam", local_seam)
+    check("wrap-live-0-360", live_zero_and_360)
+
+
 def scenario_precomputed() -> None:
     """Match NOIRLab's pre-computed pair tables against a live catalogue."""
     for table, field in (("nsc_x_gaia", "nsc"), ("des_x_gaia", "des")):
@@ -1022,6 +1396,7 @@ SCENARIOS = {
     "matchers": scenario_matchers,
     "discovery": scenario_discovery,
     "hats": scenario_hats,
+    "hats-sources": scenario_hats_sources,
     "ray": scenario_ray,
     "ray-probe": scenario_ray_probe,
     "cds-mix": scenario_cds_mix,
@@ -1030,6 +1405,9 @@ SCENARIOS = {
     "formats": scenario_formats,
     "multi-3way": scenario_multi_3way,
     "engines": scenario_engines,
+    "skyerr-parity": scenario_skyerr_parity,
+    "join-mix": scenario_join_mix,
+    "wrap-mix": scenario_wrap_mix,
     "precomputed": scenario_precomputed,
 }
 
