@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `xmatcher list --aliases` prints alias-to-catalogue mappings, and
   `xmatcher describe` shows the alias used and the catalogue's release.
 - `docs/naming.md` and `docs/README.md`.
+- `scripts/canfar_headless_run.py` and `scripts/canfar_bootstrap.py` run the
+  scenario matrix (aliases, explicit identifiers, matchers, multi/union/fof,
+  discovery, HATS, Ray) in CANFAR headless sessions against live TAP services.
 
 ### Changed
 
@@ -47,6 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Removed the unsupported S3 storage-connector claim from the README.
 - `galex` resolved to the VizieR catalogue parent `II/335`; it now names the
   `II/335/galex_ais` table.
+- The GALEX primary key and two flux columns were misspelled (`obijd`,
+  `Ffux`, `Nfux`), so every GALEX TAP query failed in the service. They are now
+  `objid`, `Fflux`, and `Nflux`.
+- Pre-computed pair tables (`nsc_x_gaia`, `des_x_gaia`, `decals_x_gaia`,
+  `allwise_x_gaia`, `ukidss_x_gaia`) declare `default_pos_error_arcsec: 0.75`;
+  without per-pair errors, positional-error matching treated them as having no
+  uncertainty.
 - Alias resolution follows alias chains, so a user overlay written before a
   catalogue rename keeps working. Alias cycles and aliases that shadow a
   catalogue name are now `ConfigError`s instead of silent misresolution.
