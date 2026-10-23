@@ -10,107 +10,78 @@ High-performance, format-agnostic astronomical catalogue crossmatching and multi
 
 ---
 
-## Key Features
+## Highlights
 
-- **Format & Source Agnostic**: Direct support for Parquet, CSV, TSV, and FITS. Query and mirror remote TAP/VizieR services (`gaia`, `ps1`, `des`, `allwise`) or stream partitioned HATS trees from local disk, HTTP, S3 (`s3://`), and Hugging Face (`hf://`).
-- **Astrometric & Probabilistic Matchers**: Fixed-radius (`sky`), adaptive coordinate errors (`skyerr`), Gaussian error ellipses via Mahalanobis distance (`skyellipse`), proper-motion epoch propagation (`target_epoch`), Sutherland & Saunders Likelihood Ratio (`lr`), ML/GBDT classifiers, and Friends-of-Friends object clustering (`fof`).
-- **Flexible Relational Joins**: Inner (`1and2`), Left (`all1`), Right (`all2`), Full Outer (`1or2`, `all`), Anti-joins, or pure identifier joins (`--id-join`).
-- **Laptop to Distributed Cluster**: Fast multi-threaded local matching via SciPy cKDTree, bounded-memory disk spill for memory-constrained machines, and distributed full-sky HATS joins on Ray clusters (`engine="ray-union"` and `engine="ray-anchor"`).
+- ⚡ **Fast & Memory-Bounded**: Vectorized 3D unit-sphere KD-tree indexing in C++ via SciPy `cKDTree` and Polars, with bounded disk-spilling for memory-constrained systems.
+- 🔭 **Format & Survey Agnostic**: Match local Parquet, CSV, TSV, and FITS files directly against remote TAP/VizieR archives (`gaia`, `ps1`, `des`, `allwise`), or stream HATS trees from local storage, AWS S3 (`s3://`), and Hugging Face (`hf://`).
+- 📐 **Rigorous Astrometric & Probabilistic Scoring**: Fixed-radius (`sky`), per-source adaptive errors (`skyerr`), 2D Gaussian error ellipses via Mahalanobis distance (`skyellipse`), Sutherland & Saunders Likelihood Ratios (`lr`), and Budavári & Szalay Bayes factors (`nway_match`).
+- 🌐 **Laptop to Distributed Cluster**: Fast multi-threaded queries on a single workstation, scaling out to distributed full-sky unions and master catalogues on Ray clusters (`ray-union` and `ray-anchor`).
 
 ---
 
 ## Installation
 
-Requires Python 3.13+.
-
 ```bash
-# Standard installation (fast cKDTree, Polars, Astropy, PyVO)
+# Core package (cKDTree, Polars, Astropy, PyVO)
 pip install xmatcher
 
-# With all optional features (Ray distributed, HATS, CDS, ML, Torchfits)
+# With all features (Ray distributed, HATS, CDS, ML, Torchfits)
 pip install "xmatcher[all]"
 ```
 
-For development and contributors:
-
-```bash
-git clone https://github.com/astroai/xmatcher.git
-cd xmatcher
-pixi install
-```
-
-For individual optional dependencies, see the [Installation Guide](docs/usage.md#1-installation--environment-setup).
+For developer setup with Pixi, container configurations, and granular extras, see the [Installation Guide](docs/usage.md#1-installation--environment-setup).
 
 ---
 
-## Quickstart: CLI
+## 30-Second Quickstart
 
-Match two local files using a 1.5 arcsecond radius:
+### Command-Line Interface (CLI)
+
+Match two local catalogues using a 1.5 arcsecond radius:
 
 ```bash
-xmatcher match cat1.parquet cat2.csv -r 1.5 -o matched.parquet
+xmatcher match optical.parquet infrared.csv -r 1.5 -o matched.parquet
 ```
 
-Match a local target list against remote Gaia DR3 (fetches cone automatically):
+Match a local target list against remote Gaia DR3 (cone fetched automatically):
 
 ```bash
 xmatcher match targets.csv gaia -r 1.0 -o targets_gaia.parquet
 ```
 
-Full-outer union across multiple surveys into a partitioned HATS tree using Ray:
+> [!TIP]
+> Explore remote archives, HATS streaming, and batch workflows in the [CLI Reference](docs/cli.md).
 
-```bash
-xmatcher match gaia allwise twomass --union --engine ray-union -o /data/master.hats
-```
-
-See the [CLI Reference](docs/cli.md) for all subcommands (`match`, `list`, `describe`, `discover`, `search`, `adopt`, `sync`, `project-hats`, `completion`, `doctor`).
-
----
-
-## Quickstart: Python API
+### Python API
 
 ```python
-from xmatcher import CrossMatch, MatchRequest, MatchSpec
+from xmatcher import CrossMatch
 
 cm = CrossMatch()
 
-# Strongly-typed request interface
-req = MatchRequest(
-    cat1="optical.parquet",
-    cat2="infrared.csv",
-    spec=MatchSpec(radius_arcsec=1.5, matcher="sky", find="best"),
-    engine="fast",  # SciPy cKDTree on 3D unit sphere
-)
-matched_df = cm.crossmatch_request(req)
-
-# Multi-catalogue sequential intersection
-result_3way = cm.crossmatch_multi(
-    ["optical.parquet", "infrared.csv", "radio.fits"],
-    radius_arcsec=2.0,
-    join_type="1and2",
-)
-
-# Friends-of-Friends object bundles
-bundles = cm.fof_match(
-    ["survey_a.parquet", "survey_b.parquet", "survey_c.parquet"],
-    radius_arcsec=1.5,
-)
+# Match two catalogues into a Polars DataFrame
+df = cm.crossmatch("optical.parquet", "infrared.csv", radius_arcsec=1.5)
+print(f"Matched {len(df)} pairs.")
 ```
 
-See the [Python API Reference](docs/api.md) for full method signatures, parameter types, and engine details.
+> [!TIP]
+> Typed request objects (`MatchRequest`), multi-catalogue intersections, and probabilistic qualification are detailed in the [Python API Reference](docs/api.md).
 
 ---
 
 ## Documentation
 
-Comprehensive documentation is available in the [`docs/`](docs/) directory:
+Comprehensive documentation, architecture guides, and mathematical formulations are available in [`docs/`](docs/):
 
-- **[CLI Reference](docs/cli.md)** — Complete command syntax, subcommands, and flags.
-- **[Python API Reference](docs/api.md)** — Public API specifications, dataclasses, and exceptions.
-- **[User Guide & Cookbooks](docs/usage.md)** — Practical end-to-end workflows and memory controls.
-- **[Algorithms & Mathematics](docs/algorithms.md)** — Astrometric calculations, likelihood ratios, and probabilistic models.
-- **[Catalogue Naming](docs/naming.md)** — Survey registry naming conventions and identifier syntax.
-- **[Documentation Index](docs/README.md)** — Full suite including HATS sources, master data pipelines, and specifications.
+| Guide | Description |
+|---|---|
+| 📖 **[User Guide & Cookbooks](docs/usage.md)** | Practical end-to-end recipes, remote TAP querying, and memory budget controls. |
+| 💻 **[CLI Reference](docs/cli.md)** | Complete command syntax, subcommands, flags, and recipes. |
+| 🐍 **[Python API Reference](docs/api.md)** | Method signatures, dataclasses, join modes, and exception types. |
+| 📐 **[Algorithms & Mathematics](docs/algorithms.md)** | 3D unit-sphere geometry, Mahalanobis ellipses, Likelihood Ratios, and Bayesian models. |
+| 🏷️ **[Catalogue Naming](docs/naming.md)** | Registry naming conventions, canonical aliases, and remote identifiers. |
+| 🌐 **[Anchor Master Catalogues](docs/ray-anchor.md)** | Distributed one-row-per-anchor catalogues on Ray clusters with HATS partitioning. |
+| 🧭 **[Documentation Portal](docs/README.md)** | System architecture diagrams, data contracts, and release archive. |
 
 ---
 
