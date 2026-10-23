@@ -1,164 +1,116 @@
 # xmatcher
 
-`xmatcher` matches and joins astronomical catalogues from local files, HATS trees, and configured remote archives. Matching features depend on the selected engine and the metadata supplied for each catalogue; the guides document those limits and the memory trade-offs.
+[![PyPI version](https://img.shields.io/pypi/v/xmatcher.svg?color=blue)](https://pypi.org/project/xmatcher/)
+[![Python](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/astroai/xmatcher/actions/workflows/ci.yml/badge.svg)](https://github.com/astroai/xmatcher/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Pixi](https://img.shields.io/badge/pixi-package-purple)](https://pixi.sh)
 
-Version 0.6.0 is released. The
-[0.6.0 release notes](docs/release-0.6.0.md) list what changed and how it was
-verified. The
-[v0.5.0](https://github.com/astroai/xmatch/releases/tag/v0.5.0) GitHub release
-keeps the old `xmatch` name, and the
-[migration notes](docs/release-0.5.1.md) cover the 0.5.1 rename.
-
-```bash
-xmatcher match catalog1.parquet catalog2.csv -o matches.parquet -r 1.0
-```
-
-Inputs can be local Parquet, CSV, TSV, or FITS files, HATS directories, configured catalogue names/aliases, or explicit `vizier:<id>`, `tap:<endpoint>/<table>`, and `hats:<url>` identifiers. Coordinate names can be configured or detected. Proper-motion propagation uses declared epoch and motion metadata; mixed coordinate frames are rejected and generic catalogue discovery does not invent positional uncertainties.
+High-performance, format-agnostic astronomical catalogue crossmatching and multi-survey union toolkit. Built on Polars, PyArrow, and 3D unit-sphere KD-trees with native HATS and distributed Ray support.
 
 ---
 
-## 📚 Complete Documentation Suite
+## Key Features
 
-All detailed architectural references and user guides are organized in the [`docs/`](docs/) directory:
-
-- **[User Guide & Cookbooks (`docs/usage.md`)](docs/usage.md)**: Installation, local and remote matching, explicit memory controls, and distributed workflows with their limits.
-- **[Public API Reference (`docs/api.md`)](docs/api.md)**: Full Python API specifications for `CrossMatch`, `MatchRequest`, `MatchSpec`, observation/candidate release helpers, engines, storage abstractions, and exception hierarchies.
-- **[Crossmatch Algorithms & Math (`docs/algorithms.md`)](docs/algorithms.md)**: Matcher definitions, uncertainty assumptions, score semantics, and engine behavior.
-- **[Source & Measurement Releases (`docs/observations.md`)](docs/observations.md)**: Lazy, source-preserving measurement ledgers, photometric unit/limit normalization, property evidence, and checksummed Parquet releases.
-- **[Candidate & Association Pipeline (`docs/catalogue-pipeline.md`)](docs/catalogue-pipeline.md)**: End-to-end workflow from pinned survey observation and sparse-candidate releases to per-target association hypotheses.
-- **[Catalogue Naming (`docs/naming.md`)](docs/naming.md)**: Bare survey names, releases, provider suffixes, and the `vizier:` / `tap:` / `hats:` identifier grammar.
-- **[Gaia DR3 master data (`docs/gaia-master-data.md`)](docs/gaia-master-data.md)**: Survey inventory, staging order, quota model, and validation for the big Gaia-anchored run.
-- **[Association Contract v1 (`docs/association-v1.md`)](docs/association-v1.md)**: Audit-grade versioned association record specification, release directories, component sidecars, and member equivalence tracking.
-
-A [documentation index](docs/README.md) separates current guides from historical release and scaling records.
-
----
-
-## Capabilities
-
-- **Universal Multi-Format I/O**:
-  - Ingests and streams `.parquet`, `.csv`, `.tsv`, `.tab`, `.fits` (via high-speed Torchfits with Astropy fallback), and HATS.
-  - Remote storage connectors: POSIX filesystem, CANFAR VOSpace (`vos:`), HTTP/HTTPS, anonymous S3 (`s3://` HATS trees) and anonymous Hugging Face datasets (`hf://datasets/…`); public sources only, read-only, mirrored into the cache before matching.
-- **File I/O and explicit memory controls**:
-  - Parquet, CSV, TSV, FITS, and HATS readers with Parquet/CSV/TSV/FITS outputs.
-  - Output sinks can stream serialization. Most matching engines still materialize inputs and matches; local pairwise CSV/Parquet requests can opt into the spill path with `--memory-budget-bytes` and file output. See [memory limits](docs/usage.md#pairwise-spill-matching-on-one-machine).
-- **Astrometric and probabilistic matchers**:
-  - Simple radius (`sky`) and adaptive per-row astrometric uncertainties (`skyerr`).
-  - 2D Gaussian error ellipses via Mahalanobis distance (`skyellipse`).
-  - Proper-motion epoch propagation (`target_epoch`) when epoch and motion metadata are supplied, plus an explicit population drift model (`pm_prior`) for missing motion.
-  - Sutherland & Saunders (1992) Likelihood Ratio (`lr`) with magnitude background subtraction.
-  - Machine learning classifiers (`ml` Random Forest, `xgb` XGBoost/LightGBM) with self-match pseudo-labeling.
-  - AUF-inspired empirical separation/background scores (`auf`) and a flux-augmented heuristic (`macauff`). These are not full reproductions of the published methods and their scores are not calibrated probabilities.
-  - Bayesian positional qualification (`probabilistic=True`) or photometric qualification (`prior_columns`) with declared errors or explicit error floors, plus simultaneous $N$-way scores (`nway_match`). These scores use stated assumptions and are not population-calibrated probabilities.
-  - Friends-of-Friends transitive closure object bundles (`fof_match`).
-- **Complete Relational Joins**:
-  - Inner (`1and2`), Left (`all1`), Right (`all2`), Full Outer (`1or2`, `all`), and Anti-joins (`1not2`, `2not1`).
-  - Relational ID joins on survey identifiers (`--id-join`).
-  - Multi-catalogue sequential chains (`crossmatch_multi`).
-- **Local Mirroring & Offline Caching**:
-  - `xmatcher sync`: Mirror remote TAP and HATS surveys into a durable local HATS cache with keyset paging, rate limiting, and progress checkpoints.
-- **Distributed execution**:
-  - `engine="ray"` parallelizes pairwise HEALPix candidate searches. The coordinator still holds the input frames and final result in memory.
-  - `engine="ray-union"` mirrors inputs into HATS and writes a full-sky, full-outer HATS union. It supports `sky`, `skyerr`, and `skyellipse`; compressed interval planning handles mixed-order/RING layouts and uncertainty or epoch halos in distributed tasks. Planning may scan additional partitions. Output trees add non-null `_union_ra` and `_union_dec` routing columns and declare NESTED ordering.
-  - `engine="ray-anchor"` keeps one row per anchor source (normally Gaia DR3) and attaches the best counterpart from every survey plus `sep_second`, `n_within`, `crowded`, `pm_warn`, and `quality` fields. It is the Gaia-complete master workflow; see [docs/ray-anchor.md](docs/ray-anchor.md).
+- **Format & Source Agnostic**: Direct support for Parquet, CSV, TSV, and FITS. Query and mirror remote TAP/VizieR services (`gaia`, `ps1`, `des`, `allwise`) or stream partitioned HATS trees from local disk, HTTP, S3 (`s3://`), and Hugging Face (`hf://`).
+- **Astrometric & Probabilistic Matchers**: Fixed-radius (`sky`), adaptive coordinate errors (`skyerr`), Gaussian error ellipses via Mahalanobis distance (`skyellipse`), proper-motion epoch propagation (`target_epoch`), Sutherland & Saunders Likelihood Ratio (`lr`), ML/GBDT classifiers, and Friends-of-Friends object clustering (`fof`).
+- **Flexible Relational Joins**: Inner (`1and2`), Left (`all1`), Right (`all2`), Full Outer (`1or2`, `all`), Anti-joins, or pure identifier joins (`--id-join`).
+- **Laptop to Distributed Cluster**: Fast multi-threaded local matching via SciPy cKDTree, bounded-memory disk spill for memory-constrained machines, and distributed full-sky HATS joins on Ray clusters (`engine="ray-union"` and `engine="ray-anchor"`).
 
 ---
 
 ## Installation
 
-Requires Python $\ge 3.13$. The checked Pixi environment and local release gate use Python 3.13.
+Requires Python $\ge 3.13$.
 
-### Recommended: Pixi
+```bash
+# Standard installation (fast cKDTree, Polars, Astropy, PyVO)
+pip install xmatcher
+
+# With all optional features (Ray distributed, HATS, CDS, ML, Torchfits)
+pip install "xmatcher[all]"
+```
+
+For development and contributors:
 
 ```bash
 git clone https://github.com/astroai/xmatcher.git
 cd xmatcher
-
-# Install environment and dependencies
 pixi install
-
-# Run lint, formatting, bytecode, and offline test checks
-pixi run preflight-push
-pixi run ci-local
 ```
 
-### Standard: Pip
-
-```bash
-python -m pip install "xmatcher==0.6.0"
-
-# Optional integrations; use only the extras you need
-python -m pip install "xmatcher[cds,hats-ray,torchfits,ml]==0.6.0"
-```
-
-A source checkout uses the same extras from the tree:
-
-```bash
-git clone https://github.com/astroai/xmatcher.git
-cd xmatcher
-python -m pip install ".[cds,hats-ray,torchfits,ml]"
-```
-
-The tensor-native `torchsky` engine is not a package extra: no `torchsky`
-distribution is published on PyPI. To use it, install xmatcher alongside a
-compatible Torchsky checkout. The integration was tested with the sibling
-Torchsky 0.4 development source installed editable and Torchfits 1.0.0 from
-PyPI.
+For individual optional dependencies, see the [Installation Guide](docs/usage.md#1-installation--environment-setup).
 
 ---
 
-## Command Line Quick Reference
+## Quickstart: CLI
 
-| Task | Command |
-|---|---|
-| Match two local files | `xmatcher match cat1.parquet cat2.csv -o matches.parquet -r 1.5` |
-| Match against remote Gaia DR3 | `xmatcher match targets.csv gaia -o targets_gaia.parquet -r 1.0` |
-| Astrometric error ellipse match | `xmatcher match xray.fits optical.parquet --matcher skyellipse --max-error 3.0` |
-| Proper-motion drift prior match | `xmatcher match old_survey.csv gaia --target-epoch 2016.0 --pm-prior -r 2.0` |
-| Relational ID join | `xmatcher match cat1.parquet cat2.parquet --id-join --id1 objid --id2 objid` |
-| Multi-survey 3-way chain | `xmatcher match gaia wise.csv 2mass.parquet -r 1.5 -o 3way.parquet` |
-| Distributed HATS master union | `xmatcher match gaia allwise 2mass des --union --engine ray-union -o /data/master.hats` |
-| Gaia-anchored master (all Gaia rows) | `xmatcher match gaia_hats sdss_hats ps1_hats --engine ray-anchor -r 1.5 -o gaia_master.hats` |
-| Narrow a wide HATS tree | `xmatcher project-hats gaia_hats gaia_core.hats --columns Source,RA_ICRS,DE_ICRS,Plx,pmRA,pmDE` |
-| Mirror remote surveys to local cache | `xmatcher sync gaia allwise 2mass` |
-| Search remote TAP archives | `xmatcher search des` |
-| Discover archive schemas | `xmatcher discover noirlab --schema nsc_dr2.object` |
-| List short names and aliases | `xmatcher list --aliases` |
-| Explicit VizieR / TAP table | `xmatcher match targets.csv vizier:II/349/ps1 -r 1.0` |
-| Shell completion | `xmatcher completion bash` |
-| Check local config drift | `xmatcher doctor` |
+Match two local files using a 1.5 arcsecond radius:
+
+```bash
+xmatcher match cat1.parquet cat2.csv -r 1.5 -o matched.parquet
+```
+
+Match a local target list against remote Gaia DR3 (fetches cone automatically):
+
+```bash
+xmatcher match targets.csv gaia -r 1.0 -o targets_gaia.parquet
+```
+
+Full-outer union across multiple surveys into a partitioned HATS tree using Ray:
+
+```bash
+xmatcher match gaia allwise twomass --union --engine ray-union -o /data/master.hats
+```
+
+See the [CLI Reference](docs/cli.md) for all subcommands (`match`, `list`, `describe`, `discover`, `search`, `adopt`, `sync`, `project-hats`, `completion`, `doctor`).
 
 ---
 
-## Python API Quickstart
+## Quickstart: Python API
 
 ```python
 from xmatcher import CrossMatch, MatchRequest, MatchSpec
 
 cm = CrossMatch()
 
-# 1. Preferred typed request interface
+# Strongly-typed request interface
 req = MatchRequest(
     cat1="optical.parquet",
     cat2="infrared.csv",
     spec=MatchSpec(radius_arcsec=1.5, matcher="sky", find="best"),
-    engine="fast",  # SciPy cKDTree multi-threaded on 3D unit sphere
+    engine="fast",  # SciPy cKDTree on 3D unit sphere
 )
-result_df = cm.crossmatch_request(req)
+matched_df = cm.crossmatch_request(req)
 
-# 2. Multi-catalogue sequential intersection
+# Multi-catalogue sequential intersection
 result_3way = cm.crossmatch_multi(
     ["optical.parquet", "infrared.csv", "radio.fits"],
     radius_arcsec=2.0,
     join_type="1and2",
 )
 
-# 3. Friends-of-Friends object bundles
+# Friends-of-Friends object bundles
 bundles = cm.fof_match(
     ["survey_a.parquet", "survey_b.parquet", "survey_c.parquet"],
     radius_arcsec=1.5,
 )
 ```
+
+See the [Python API Reference](docs/api.md) for full method signatures, parameter types, and engine details.
+
+---
+
+## Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[CLI Reference](docs/cli.md)** — Complete command syntax, subcommands, and flags.
+- **[Python API Reference](docs/api.md)** — Public API specifications, dataclasses, and exceptions.
+- **[User Guide & Cookbooks](docs/usage.md)** — Practical end-to-end workflows and memory controls.
+- **[Algorithms & Mathematics](docs/algorithms.md)** — Astrometric calculations, likelihood ratios, and probabilistic models.
+- **[Catalogue Naming](docs/naming.md)** — Survey registry naming conventions and identifier syntax.
+- **[Documentation Index](docs/README.md)** — Full suite including HATS sources, master data pipelines, and specifications.
 
 ---
 

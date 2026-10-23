@@ -1,14 +1,14 @@
-# Gaia-anchored master catalogue (`ray-anchor`)
+# Anchor-Centric Crossmatching (`ray-anchor`)
 
 `engine="ray-anchor"` builds a master catalogue that is driven by one
-**anchor** catalogue, normally Gaia DR3. The output has exactly one row per
-anchor source, including anchor sources with no counterpart. Every survey is
-matched independently against the anchor; a survey cannot create or remove an
-anchor row.
+**anchor** catalogue (such as Gaia DR3 or a primary target list). The output has
+exactly one row per anchor source, including anchor sources with no counterpart.
+Every auxiliary catalogue is matched independently against the anchor; auxiliary
+surveys cannot create or remove an anchor row.
 
-This is the workflow for "all measurements of every Gaia source", not a
+This is the workflow for "all measurements of every anchor source", not a
 full-outer union. Use [`ray-union`](usage.md#distributed-full-sky-union-ray-union)
-when the master must retain sources that are absent from Gaia as well.
+when the master must retain sources that are absent from the anchor as well.
 
 ## Quick start
 

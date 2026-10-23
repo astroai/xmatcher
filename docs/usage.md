@@ -1,65 +1,64 @@
 # xmatcher User Guide & Cookbooks
 
 A practical, end-to-end user manual for astronomical catalogue crossmatching using `xmatcher`.
+For dedicated reference manuals, see the [CLI Reference](cli.md) and [Python API Reference](api.md).
 
 ---
 
 ## 1. Installation & Environment Setup
 
-`xmatcher` requires Python $\ge 3.13$. The checked Pixi environment uses Python 3.13; optional integrations are installed separately for pip users.
+`xmatcher` requires Python $\ge 3.13$.
 
-Version 0.5.1 is the PyPI release. The
-[v0.5.0](https://github.com/astroai/xmatch/releases/tag/v0.5.0) GitHub release
-keeps the old `xmatch` name. See the
-[migration notes](release-0.5.1.md).
+### Standard: Pip
 
-### Recommended: Pixi Workflow
+```bash
+# Core package (fast cKDTree, Polars, Astropy, PyVO)
+pip install xmatcher
 
-For reproducibility and automatic resolution of compiled C/Rust/Fortran dependencies (such as `cdshealpix`, `ray`, `numpy`):
+# All optional features (Ray distributed, HATS, CDS, ML, Torchfits)
+pip install "xmatcher[all]"
+```
+
+For source checkouts:
+
+```bash
+git clone https://github.com/astroai/xmatcher.git
+cd xmatcher
+pip install -e ".[all]"
+```
+
+### Reproducible Developer Workflow: Pixi
+
+For contributors or reproducibility with locked compiled dependencies (`cdshealpix`, `ray`, `numpy`):
 
 ```bash
 git clone https://github.com/astroai/xmatcher.git
 cd xmatcher
 
-# Install all environments and dependencies
+# Install locked development environment
 pixi install
 
-# Run lint, formatting, bytecode, and offline tests
+# Run lint, formatting, and offline test checks
+pixi run preflight-push
 pixi run ci-local
 ```
 
-### Pip
+### Granular Optional Dependency Extras
 
-```bash
-python -m pip install "xmatcher==0.5.1"
-python -m pip install "xmatcher[cds,hats-ray,torchfits,ml]==0.5.1"
-```
-
-A source checkout installs the same extras from the tree:
-
-```bash
-git clone https://github.com/astroai/xmatcher.git
-cd xmatcher
-python -m pip install ".[cds,hats-ray,torchfits,ml]"
-```
-
-#### Optional Dependency Extras
+If you only need specific optional backends rather than `[all]`:
 
 | Extra | Packages | Purpose |
 |---|---|---|
+| `[all]` | `astroquery`, `cdshealpix`, `hats`, `ray`, `torchfits`, `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | All optional features in one install. |
 | `[cds]` | `astroquery` | CDS VizieR and CDS XMatch remote service backends. |
 | `[zone]` | `cdshealpix` | HEALPix spatial zoning engine. |
-| `[hats]` | `hats`, `cdshealpix` | Hierarchical Adaptive Tiling Scheme (HATS) native reading and spatial partitioning. |
-| `[hats-ray]` | `hats`, `ray`, `cdshealpix` | Native HATS + Ray pixel matcher and `ray-union` full-sky union engine (no Dask). |
-| `[ray]` | `ray`, `cdshealpix` | Distributed parallel HEALPix pixel-batch matching across clusters and multi-core nodes. |
-| `[torchfits]` | `torchfits` | High-speed, Arrow/Polars-native local FITS table reader. |
-| `[ml]` | `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | Machine-learning (`matcher="ml"`) and gradient-boosted (`matcher="xgb"`) probabilistic matchers. |
+| `[hats]` | `hats`, `cdshealpix` | HATS native reading and spatial partitioning. |
+| `[hats-ray]` | `hats`, `ray`, `cdshealpix` | Native HATS + Ray pixel matcher and `ray-union` engine. |
+| `[ray]` | `ray`, `cdshealpix` | Distributed parallel HEALPix matching across Ray clusters. |
+| `[torchfits]` | `torchfits` | Fast, Arrow/Polars-native local FITS table reader. |
+| `[ml]` | `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | Machine-learning (`ml`) and gradient-boosted (`xgb`) matchers. |
 
-The tensor-native `torchsky` engine is not a pip extra because no `torchsky`
-distribution is published on PyPI. It requires a separately installed,
-compatible Torchsky checkout; the integration was tested with the sibling
-Torchsky 0.4 development source installed editable and Torchfits 1.0.0 from
-PyPI.
+The experimental tensor-native `torchsky` engine is not a PyPI package: it requires a compatible Torchsky checkout installed alongside xmatcher.
 
 ---
 
@@ -716,9 +715,7 @@ Narrow wide inputs first with `xmatcher project-hats <source> <out> --columns
 …`; it writes a new HATS tree with the same partition layout and only the
 requested columns, streaming an HTTPS tree without a full mirror. See
 [ray-anchor.md](ray-anchor.md) for the full schema, epoch/PM policy,
-projection workflow, and CANFAR local-product aliases, and
-[gaia-master-data.md](gaia-master-data.md) for the data inventory and the
-large-run wrapper.
+projection workflow, and CANFAR local-product aliases.
 
 ## 9. Friends-of-Friends output policy
 

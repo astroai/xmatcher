@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.6.0] — 2026-10-22
 
 The `v0.6.0` tag is the GitHub release. See the
-[release notes](docs/release-0.6.0.md).
+[release notes](docs/archive/release-0.6.0.md).
 
 ### Added
 
@@ -31,12 +31,8 @@ The `v0.6.0` tag is the GitHub release. See the
   `uhs_hats`, `splus5_hats`, `xp_hats`, and `dp2` driven by environment
   variables. `gaia_lsdb_hats` pins the 153-column LSDB Gaia DR3 tree as the
   compact anchor source.
-- `scripts/run_gaia_master.sh` wraps the public-survey anchor run with local
-  CANFAR products, preflight/dry-run modes, and validation;
-  `scripts/validate_anchor_output.py` streams a master and reports row counts,
-  null/duplicate IDs, and per-survey ambiguity coverage. The data inventory,
-  quota model, and staging order are in
-  [docs/gaia-master-data.md](docs/gaia-master-data.md).
+- `scripts/validate_anchor_output.py` streams a master and reports row counts,
+  null/duplicate IDs, and per-survey ambiguity coverage.
 - `docs/ray-anchor.md` documents the schema, epoch/PM policy, projection, and
   CANFAR local-product setup.
 - Explicit catalogue identifiers: `vizier:<id>`, `tap:<endpoint>/<table>`, and

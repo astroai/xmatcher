@@ -7,7 +7,7 @@
 
 This contract records evaluated source/candidate pairs. It does not define a
 permanent celestial-object identifier, claim that a selected candidate is true,
-or coalesce redshift evidence. Xmatcher owns candidate generation and association;
+or coalesce redshift evidence. `xmatcher` owns candidate generation and association;
 Zensus owns evidence conflict handling; applications own training-view reduction.
 
 Every record contains release-scoped opaque `evidence_id`, `source_id`, and
@@ -140,7 +140,7 @@ assertions when a catalogue is republished under a different
 parent member to one fully namespaced current member; the manifest binds the
 direct parent/current association releases, row count, and canonical byte
 checksum. Both sides must be unique, so catalogue splits, merges, or uncertain
-matches cannot be mislabeled as identity equivalence. Xmatcher never infers these
+matches cannot be mislabeled as identity equivalence. `xmatcher` never infers these
 rows from equal bare IDs.
 
 ```python

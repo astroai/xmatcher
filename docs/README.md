@@ -1,45 +1,49 @@
-# xmatcher documentation
+# xmatcher Documentation
 
-## Current guides
+Welcome to the `xmatcher` documentation. This index organizes user manuals, public Python and CLI references, algorithm specifications, and architecture guides.
 
-- [User guide and cookbooks](usage.md) — installation, local and remote
-  matching, CLI error models, memory controls, and distributed workflows.
-- [Public API reference](api.md) — `CrossMatch`, `MatchRequest`, `MatchSpec`,
-  engines, storage, releases, and exceptions.
-- [Algorithms and score semantics](algorithms.md) — matcher definitions,
-  uncertainty assumptions, and expected limits.
-- [Catalogue naming](naming.md) — bare-name grammar, `vizier:` / `tap:` /
-  `hats:` identifiers, and the applied key migration with kept aliases.
-- [HATS catalogue sources](hats-sources.md) — registry name lookup, verified
-  LSDB/IRSA trees with row counts, and what the mirror can and cannot read.
-- [Gaia-anchored master catalogue](ray-anchor.md) — one row per Gaia source,
-  best counterpart per survey, ambiguity fields, HATS projection, and CANFAR
-  local products.
-- [Gaia DR3 master data inventory](gaia-master-data.md) — survey sizes, staging
-  order, quota model, CANFAR local products, and validation for the big run.
-- [Source and measurement releases](observations.md) — lazy measurement
-  ledgers, photometric normalization, and checksummed releases.
-- [Catalogue-to-model pipeline](catalogue-pipeline.md) — pinned observations,
-  sparse candidate releases, and association hypotheses.
-- [Association contract v1](association-v1.md) — normative versioned record,
-  release directory, and component-sidecar specification.
-- [0.6.0 release notes](release-0.6.0.md) — named catalogues, HATS over S3 and
-  Hugging Face, the `skyerr` radius bound, and upgrade notes.
-- [0.5.1 migration notes](release-0.5.1.md) — the `xmatch` → `xmatcher` rename
-  and path/config changes.
+---
 
-## Reviews
+## Core Documentation & References
 
-- [Documentation, CLI, and naming audit (2026-10-21)](audit-2026-10-21.md) —
-  findings and fixes from that review; the naming migration it proposed is now
-  applied.
+- **[CLI Reference](cli.md)**
+  Complete manual for the `xmatcher` command-line interface: all subcommands (`match`, `list`, `describe`, `discover`, `search`, `adopt`, `sync`, `project-hats`, `completion`, `doctor`), flags, and recipes.
+- **[Public Python API Reference](api.md)**
+  Full API documentation for `CrossMatch`, `MatchRequest`, `MatchSpec`, engine choices, relational join modes, and exception types.
+- **[User Guide & Cookbooks](usage.md)**
+  End-to-end user manual covering installation, local and remote crossmatching, explicit memory budget controls, and distributed cluster execution.
+- **[Algorithms & Mathematical Models](algorithms.md)**
+  Mathematical formulations for angular separation, Gaussian error ellipses (Mahalanobis distance), Sutherland & Saunders Likelihood Ratio, proper-motion drift, and Bayesian posteriors.
 
-## Historical records
+---
 
-These document a specific frozen release or measurement session. They
-intentionally use the old `xmatch` package name and must not be read as current
-usage instructions.
+## Surveys & Catalogue Pipelines
 
-- [0.5.0 release notes](release-0.5.0.md)
-- [0.5.0 release audit (2026-10-06)](release-audit-2026-10-06.md)
-- [CANFAR scaling report (2026-10-07)](canfar-scaling-2026-10-07.md)
+- **[Catalogue Naming & Resolution](naming.md)**
+  Grammar for canonical survey names, aliases, and explicit identifiers (`vizier:<id>`, `tap:<endpoint>/<table>`, `hats:<url>`).
+- **[HATS Catalogue Sources](hats-sources.md)**
+  IVOA registry lookups, verified LSDB/IRSA datasets, and remote read capabilities across HTTP, S3, and Hugging Face.
+- **[Anchor-Centric Crossmatching (`ray-anchor`)](ray-anchor.md)**
+  One-row-per-anchor-source master catalog generator with multi-survey counterpart ranking, confusion metrics, and HATS partitioning.
+
+---
+
+## Data Contracts & Architecture
+
+- **[Source & Measurement Releases](observations.md)**
+  Lazy measurement ledgers, photometric unit and limit normalization, property evidence, and checksummed Parquet releases.
+- **[Catalogue-to-Model Pipeline](catalogue-pipeline.md)**
+  End-to-end data flow from survey observations to sparse candidate sets and target association hypotheses.
+- **[Association Contract v1](association-v1.md)**
+  Normative specification for versioned association tables, directory layouts, component sidecars, and member equivalence.
+
+---
+
+## Releases & Historical Archive
+
+- **[0.6.0 Release Notes](archive/release-0.6.0.md)** — Named catalogues, S3/HF HATS streaming, `skyerr` radius bounds, and upgrade guide.
+- **[0.5.1 Migration Notes](archive/release-0.5.1.md)** — Namespace migration from `xmatch` to `xmatcher`.
+- **[0.5.0 Release Notes](archive/release-0.5.0.md)** — Initial 0.5.0 release features.
+- **[Documentation & CLI Audit (2026-10-21)](archive/audit-2026-10-21.md)** — Verification findings and naming migration records.
+- **[0.5.0 Release Audit (2026-10-06)](archive/release-audit-2026-10-06.md)** — Pre-release verification logs.
+- **[CANFAR Scaling Report (2026-10-07)](archive/canfar-scaling-2026-10-07.md)** — Benchmark results and scaling curves.

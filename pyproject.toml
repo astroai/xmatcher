@@ -47,6 +47,18 @@ hats-ray = ["hats>=0.7", "ray>=2.50", "cdshealpix>=0.8"]
 ray = ["ray>=2.50", "cdshealpix>=0.8"]
 # Machine-learning and gradient-boosted probabilistic matchers.
 ml = ["scikit-learn", "xgboost", "lightgbm", "joblib"]
+# Convenience bundle containing all optional runtime features.
+all = [
+    "astroquery>=0.4.11",
+    "torchfits>=1.0.0rc4",
+    "cdshealpix>=0.8",
+    "hats>=0.7",
+    "ray>=2.50",
+    "scikit-learn",
+    "xgboost",
+    "lightgbm",
+    "joblib",
+]
 dev = [
     "pytest>=9.0",
     "ruff>=0.15",

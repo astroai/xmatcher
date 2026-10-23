@@ -22,7 +22,7 @@ registrations is readable by the mirror.
 Explicit identifiers (`vizier:<id>`, `tap:<endpoint>/<table>`, `hats:<url>`)
 resolve before any `TAP_SCHEMA` probe, and the naming grammar
 (`<survey>[_<release>][_<product>][_<provider>]`) is documented in
-[docs/naming.md](naming.md) with every former key kept as an alias.
+[docs/naming.md](../naming.md) with every former key kept as an alias.
 
 ### One row per Gaia source
 
@@ -51,10 +51,8 @@ overlaps its input or is already populated. Pinned aliases cover the CDS HATS
 products that are absent from the IVOA registry (`gaia_hats`, `sdss_hats`,
 `catwise_hats`, `vhs_hats`, `ps1_hats`, `galex_hats`, `splus_hats`), and
 `gaia_lsdb_hats` pins the 153-column LSDB Gaia DR3 tree as a smaller anchor.
-[ray-anchor.md](ray-anchor.md) documents the schema and limits;
-[gaia-master-data.md](gaia-master-data.md) is the data-side runbook, with
-`scripts/run_gaia_master.sh` and `scripts/validate_anchor_output.py` for a
-large run. Only `matcher="sky"` and the best counterpart are supported;
+[ray-anchor.md](../ray-anchor.md) documents the schema, counterpart ambiguity metrics,
+and limits. Only `matcher="sky"` and the best counterpart are supported;
 `ray-union` remains the engine for `skyerr`/`skyellipse` and for
 secondary-only sources.
 
@@ -75,7 +73,7 @@ A HATS tree can now be mirrored from three more places, all anonymously:
 Public sources only: a bucket that needs signed or requester-pays access, and a
 gated or private dataset, are reported as denied instead of being treated as an
 empty catalogue. Mirrors are always written to the local cache (or VOSpace),
-never back to the source. [docs/hats-sources.md](hats-sources.md) lists the
+never back to the source. [docs/hats-sources.md](../hats-sources.md) lists the
 verified trees with row counts, and the CSV partition tables and
 `Npix=N/part*.parquet` pixel directories those exports use are accepted
 without a hand-written `partition_info`.
@@ -141,7 +139,7 @@ row count and the knobs that fix it.
 - Live HATS registry: all 90 registrations resolve; all 41 `hf://` entries
   resolved name → collection → tree → `properties` in 58 s with no failures.
 - Live pinned trees: the seven CDS HATS endpoints answer their `properties`
-  with the row counts in [hats-sources.md](hats-sources.md), and
+  with the row counts in [hats-sources.md](../hats-sources.md), and
   `gaia_lsdb_hats` exposes all 153 columns (every `default_columns` entry,
   plus the ID, coordinate, epoch, proper-motion, parallax and radial-velocity
   columns) at 1,812,731,847 rows.
