@@ -213,7 +213,7 @@ def nway_match(
 ) -> pl.DataFrame | None
 ```
 
-Resolves and materializes the input frames, finds primary-to-each-secondary candidate pairs inside the spatial radius, then iterates the per-primary Cartesian product in chunks (optionally capped per source). Positional scores require declared errors or explicit per-catalogue error floors. Each `prior_columns` entry must exist in every catalogue and represent a comparable quantity; its midpoint-KDE ratio is an empirical heuristic. `engine="ray"` distributes candidate discovery, but inputs and resulting tuples are assembled on the coordinator. `p_match` uses equal prior odds and is not calibrated for population prevalence or local sky density. Positional covariance is reduced to an isotropic effective sigma; KDEs are fitted on an unconditional source sample capped at 50,000 values per requested column. See [score assumptions](algorithms.md#8-bayesian-pairwise-qualification-and-n-way-scores).
+Resolves and materializes the input frames, finds primary-to-each-secondary candidate pairs inside the spatial radius, then iterates the per-primary Cartesian product in chunks (optionally capped per source). Positional scores require declared errors or explicit per-catalogue error floors. Each `prior_columns` entry must exist in every catalogue and represent a comparable quantity; its midpoint-KDE ratio is an empirical heuristic. `engine="ray"` distributes candidate discovery, but inputs and resulting tuples are assembled on the coordinator. `p_match` uses equal prior odds and is not calibrated for population prevalence or local sky density. Positional covariance is reduced to an isotropic effective sigma; KDEs are fitted on an unconditional source sample capped at 50,000 values per requested column. See [score assumptions](algorithms.md#6-probabilistic--bayesian-matchers).
 
 ---
 
@@ -351,9 +351,13 @@ flowchart TD
 1. **Coordinate representation**: Astropy uses `SkyCoord`; the fast path constructs unit-sphere Cartesian arrays for SciPy's `cKDTree`. Costs depend on input and candidate counts.
 2. **Parallelism & Performance**: Runtime and threading depend on the selected query path and native libraries. No fixed speedup or memory-per-row estimate applies across input sizes and candidate densities.
 3. **Exact Spherical to Chord Distance Mapping**:
-   - The angular separation $\theta$ on the celestial sphere corresponds to the 3D Euclidean chord length $d$:
-     $$d = 2 \sin\left(\frac{\theta}{2}\right), \quad \theta = 2 \arcsin\left(\frac{d}{2}\right)$$
-   - The `fast` engine maps unit-sphere angular search radii to Euclidean chord radii; returned separations are great-circle angles.
+   The angular separation $\theta$ on the celestial sphere corresponds to the 3D Euclidean chord length $d$:
+
+$$
+d = 2 \sin\left(\frac{\theta}{2}\right), \qquad \theta = 2 \arcsin\left(\frac{d}{2}\right)
+$$
+
+   The `fast` engine maps unit-sphere angular search radii to Euclidean chord radii; returned separations are great-circle angles.
 4. **N-Dimensional Multimodal Ranking**:
    - When `extra_distance_cols` is configured, `fast` finds all spatial candidates with `cKDTree`, then ranks them using combined spatial distance and z-score normalized photometry or proper motions.
 

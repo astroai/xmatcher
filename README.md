@@ -21,7 +21,7 @@ High-performance, format-agnostic astronomical catalogue crossmatching and multi
 
 ## Installation
 
-Requires Python $\ge 3.13$.
+Requires Python 3.13+.
 
 ```bash
 # Standard installation (fast cKDTree, Polars, Astropy, PyVO)

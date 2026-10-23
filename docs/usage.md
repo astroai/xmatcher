@@ -1,13 +1,13 @@
 # xmatcher User Guide & Cookbooks
 
 A practical, end-to-end user manual for astronomical catalogue crossmatching using `xmatcher`.
-For dedicated reference manuals, see the [CLI Reference](cli.md) and [Python API Reference](api.md).
+For dedicated reference manuals, see the [CLI Reference](cli.md), [Python API Reference](api.md), and [Algorithms & Mathematics](algorithms.md).
 
 ---
 
 ## 1. Installation & Environment Setup
 
-`xmatcher` requires Python $\ge 3.13$.
+`xmatcher` requires Python 3.13+.
 
 ### Standard: Pip
 
@@ -241,7 +241,7 @@ motion margin.
 
 ### Pre-Computed Crossmatch Tables (Fast-Path)
 
-NOIRLab Data Lab provides pre-computed crossmatch tables (e.g., NSC $\times$ Gaia, DES $\times$ Gaia, AllWISE $\times$ Gaia). `xmatcher` can match directly against these pre-computed tables, downloading only the matched pairs:
+NOIRLab Data Lab provides pre-computed crossmatch tables (e.g., NSC × Gaia, DES × Gaia, AllWISE × Gaia). `xmatcher` can match directly against these pre-computed tables, downloading only the matched pairs:
 
 ```bash
 # Instant NSC × Gaia match without downloading full survey catalogues
@@ -358,7 +358,7 @@ reproducible runs that must fail loudly instead.
 
 ### A. Simple Positional Matching (`matcher="sky"`)
 
-Standard great-circle angular distance criterion: $\text{sep} \le \text{radius\_arcsec}$.
+Standard great-circle angular distance criterion: $\text{sep} \le \theta_{\text{radius}}$.
 
 ```python
 spec = MatchSpec(radius_arcsec=1.2, matcher="sky", find="best")
@@ -369,7 +369,9 @@ result = cm.crossmatch_request(MatchRequest(cat1="cat_a.parquet", cat2="cat_b.pa
 
 Adapts the match radius per row based on positional error columns:
 
-$$\text{sep} \le N_{\sigma} \cdot (\sigma_1 + \sigma_2)$$
+$$
+\text{sep} \le N_{\sigma} \cdot (\sigma_1 + \sigma_2)
+$$
 
 ```python
 # Supply per-side columns/units, or configure equivalent metadata in xmatcher.yaml.
@@ -388,9 +390,11 @@ result = cm.crossmatch_request(req)
 
 ### C. 2D Gaussian Error Ellipses (`matcher="skyellipse"`)
 
-Evaluates full 2D positional covariance matrices ($C = C_1 + C_2$) via the Mahalanobis distance:
+Evaluates full 2D positional covariance matrices ($\mathbf{C}_{\text{joint}} = \mathbf{C}_1 + \mathbf{C}_2$) via the Mahalanobis distance:
 
-$$d^2 = \Delta \mathbf{r}^T C^{-1} \Delta \mathbf{r} \le N_{\sigma}^2$$
+$$
+d_{\text{M}}^2 = \Delta \mathbf{r}^T \mathbf{C}_{\text{joint}}^{-1} \Delta \mathbf{r} \le N_{\sigma}^2
+$$
 
 ```python
 spec = MatchSpec(matcher="skyellipse", max_error=3.0, find="best")
@@ -443,7 +447,9 @@ When some rows lack measured motion and have a known epoch, the explicitly
 requested Wilson (2023)-inspired model adds an assumed drift uncertainty based on
 Galactic latitude:
 
-$$\sigma_\mu(b) = 3 + 7 \exp\left(-\frac{|b|}{20^\circ}\right) \quad [\text{mas/yr}], \quad \sigma_{\text{drift}} = \sigma_\mu \cdot \frac{|\Delta t|}{1000} \quad [\text{arcsec}]$$
+$$
+\sigma_\mu(b) = 3 + 7 \exp\left(-\frac{|b|}{20^\circ}\right) \quad [\text{mas/yr}], \qquad \sigma_{\text{drift}} = \sigma_\mu(b) \cdot \frac{|\Delta t|}{1000} \quad [\text{arcsec}]
+$$
 
 ```python
 spec = MatchSpec(
@@ -467,7 +473,9 @@ uncertainty-aware matching.
 
 Sutherland & Saunders (1992) method for cross-identifying surveys with disparate resolutions (e.g. radio to optical):
 
-$$LR = \frac{q(m) \cdot f(r)}{n(m)}, \quad R_j = \frac{LR_j}{\sum_i LR_i + (1 - Q)}$$
+$$
+LR = \frac{q(m) \, f(r)}{n(m)}, \qquad R_j = \frac{LR_j}{\sum_{k} LR_k + (1 - Q)}
+$$
 
 ```python
 spec = MatchSpec(
@@ -542,7 +550,7 @@ scored = cm.crossmatch_request(request)
 
 The score uses equal prior odds and an assumed uniform background inside the
 search disc; it is not calibrated to population prevalence or local sky density.
-See [Bayesian score assumptions](algorithms.md#8-bayesian-pairwise-qualification-and-n-way-scores).
+See [Bayesian score assumptions](algorithms.md#6-probabilistic--bayesian-matchers).
 
 ---
 
