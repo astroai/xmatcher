@@ -65,7 +65,7 @@ each upstream rebuild.
 | `desi_dr1_z_catal` | DESI DR1 redshift catalogue | `https://data.lsdb.io/hats/desi/desi_dr1_zcat/desi_dr1_zcat` | 28,425,963 | ~12 GiB |
 | `euclid_q1` | Euclid Q1 merged objects | `https://data.lsdb.io/hats/euclid_q1/euclid_q1_merFinalCatalog` | 29,767,806 | ~22 GiB |
 | `ztf_dr14_objects` | ZTF DR14 objects | `https://data.lsdb.io/hats/ztf_dr14/ztf_object` | — | — |
-| `skymapper_dr4` | SkyMapper DR4 | `https://data.lsdb.io/hats/skymapper_dr4/catalog/sky_mapper_dr4` | 724,329,344 | ~96 GiB |
+| `skymapper_dr4` | SkyMapper DR4 flat master (LIneA) | `https://linea.data.lsdb.io/hats/skymapper/catalog/sky_mapper_dr4` | 724,329,344 | ~96 GiB |
 | `tic_v8_2` | TESS Input Catalogue v8.2 | `https://data.lsdb.io/hats/tess/tic/tic` | 1,727,981,580 | ~397 GiB |
 | `vsx` | AAVSO VSX (dated collection) | `https://data.lsdb.io/hats/vsx/2026-10` | 10,304,730 | ~535 MiB |
 | `tns` | Transient Name Server (dated collection) | `https://data.lsdb.io/hats/tns/2026-10-22` | 210,788 | ~34 MiB |

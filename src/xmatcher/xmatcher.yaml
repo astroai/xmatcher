@@ -292,12 +292,15 @@ catalogues:
     default_pos_error_arcsec: 0.2
 
   skymapper_dr4_hats:
-    description: "SkyMapper DR4 via LSDB HATS (collection primary table skymapper_dr4_lightcurves; includes PSF photometry columns)"
+    # Flat master photometry on LIneA (~96 GiB, 724M rows, 356 pixels).
+    # Do NOT use data.lsdb.io/.../skymapper_dr4_lightcurves (~6.5 TiB nested
+    # epoch photometry) for the pensus UV–IR source catalog pin.
+    description: "SkyMapper DR4 flat source photometry via LIneA HATS (PSF u..z)"
     archive: hats
     service_id: hats_service
     release: "dr4"
-    access_identifier: "https://data.lsdb.io/hats/skymapper_dr4/skymapper_dr4_lightcurves"
-    estimated_size: 'huge'
+    access_identifier: "https://linea.data.lsdb.io/hats/skymapper/catalog/sky_mapper_dr4"
+    estimated_size: 'large'
     ra_column: "raj2000"
     dec_column: "dej2000"
     id_column: "object_id"

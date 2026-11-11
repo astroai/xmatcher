@@ -37,7 +37,8 @@ PRISTINE_EXISTING = Path(
 CODE = Path(__file__).resolve().parent
 GAIA_HATS = "https://data.lsdb.io/hats/gaia_dr3/gaia"
 TWOMASS_HATS = "https://data.lsdb.io/hats/two_mass/two_mass"
-SKYMAPPER_HATS = "https://data.lsdb.io/hats/skymapper_dr4/skymapper_dr4_lightcurves"
+# Flat LIneA master (~96 GiB). Not LSDB skymapper_dr4_lightcurves (~6.5 TiB).
+SKYMAPPER_HATS = "https://linea.data.lsdb.io/hats/skymapper/catalog/sky_mapper_dr4"
 
 
 def _log(msg: str) -> None:
