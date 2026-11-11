@@ -116,15 +116,34 @@ def bootstrap() -> dict:
 
 
 def _resolve_local_tree(alias: str) -> Path:
-    base = CACHE / alias
-    if (base / "properties").is_file():
-        return base
-    if base.is_dir():
-        for child in sorted(base.iterdir()):
-            if child.is_dir() and (
-                (child / "properties").is_file() or (child / "dataset").is_dir()
-            ):
-                return child
+    # URL syncs (e.g. LIneA GALEX) land under a host-derived folder name while
+    # SOURCE.json is written under the pensus alias (galex_linea → galex/).
+    candidates = [alias]
+    source = WORK / "inputs" / alias / "SOURCE.json"
+    if source.is_file():
+        try:
+            meta = json.loads(source.read_text())
+        except (OSError, json.JSONDecodeError):
+            meta = {}
+        hint = meta.get("cache_alias_hint")
+        if isinstance(hint, str) and hint.strip():
+            candidates.append(hint.strip())
+    if alias.endswith("_linea"):
+        candidates.append(alias[: -len("_linea")])
+    seen: set[str] = set()
+    for name in candidates:
+        if name in seen:
+            continue
+        seen.add(name)
+        base = CACHE / name
+        if (base / "properties").is_file():
+            return base
+        if base.is_dir():
+            for child in sorted(base.iterdir()):
+                if child.is_dir() and (
+                    (child / "properties").is_file() or (child / "dataset").is_dir()
+                ):
+                    return child
     raise FileNotFoundError(f"no local HATS tree for {alias} under {CACHE}")
 
 

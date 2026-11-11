@@ -25,7 +25,9 @@ are incremental:
 
 Rate limiting: one :class:`TokenBucket` per remote host, shared across worker
 threads.  HTTP 429/503 → wait ``Retry-After`` (or 1 s) + exponential backoff
-(cap 60 s, 3 retries). ``rate_limit_rps=0`` disables throttling.
+(cap 60 s, 3 retries). Truncated bodies (``http.client.IncompleteRead``) and
+transient ``URLError``/``OSError`` use the same backoff. ``rate_limit_rps=0``
+disables throttling.
 
 The local HATS copy mirrors the *original* catalogue untouched: TAP pages are
 kept under ``<cache>/<name>/raw/pages/`` (they double as the incremental
@@ -36,6 +38,7 @@ store), and the converted HATS catalogue lives under
 from __future__ import annotations
 
 import hashlib
+import http.client
 import io as _io
 import json
 import logging
@@ -260,7 +263,9 @@ def _http_request(
                     delay = 1.0
             else:
                 raise
-        except (urllib.error.URLError, OSError) as exc:
+        except (http.client.IncompleteRead, urllib.error.URLError, OSError) as exc:
+            # Truncated chunked/identity bodies are common on long HATS parquet
+            # GETs; IncompleteRead is an HTTPException, not a URLError/OSError.
             last_exc = exc
             delay = 1.0
         if attempt < _HTTP_RETRIES - 1:

@@ -15,6 +15,7 @@ Covers the ``xmatcher sync`` data plane behind :func:`xmatcher.mirror.sync_catal
 from __future__ import annotations
 
 import functools
+import http.client
 import shutil
 import threading
 import urllib.error
@@ -33,6 +34,34 @@ from xmatcher.storage import LocalStorage, Storage
 from .tap_fake import FakeTAPServer, make_rows
 
 PAGE = 100
+
+
+def test_http_request_retries_incomplete_read(monkeypatch) -> None:
+    """Truncated bodies must retry; IncompleteRead is not a URLError."""
+    calls = {"n": 0}
+
+    class Response:
+        headers: dict[str, str] = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self, size: int = -1) -> bytes:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise http.client.IncompleteRead(partial=b"abc", expected=10)
+            return b"payload"
+
+    monkeypatch.setattr(mirror.urllib.request, "urlopen", lambda *a, **k: Response())
+    monkeypatch.setattr(mirror.time, "sleep", lambda *_a, **_k: None)
+
+    body, size = mirror._http_request("https://example.test/part.parquet", mirror.TokenBucket(0))
+    assert body == b"payload"
+    assert size is None
+    assert calls["n"] == 2
 
 
 def test_http_probe_uses_range_get_when_head_is_not_allowed(monkeypatch) -> None:
