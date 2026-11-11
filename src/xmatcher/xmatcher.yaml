@@ -292,11 +292,11 @@ catalogues:
     default_pos_error_arcsec: 0.2
 
   skymapper_dr4_hats:
-    description: "SkyMapper DR4 via LSDB HATS"
+    description: "SkyMapper DR4 via LSDB HATS (collection primary table skymapper_dr4_lightcurves; includes PSF photometry columns)"
     archive: hats
     service_id: hats_service
     release: "dr4"
-    access_identifier: "https://data.lsdb.io/hats/skymapper_dr4/catalog/sky_mapper_dr4"
+    access_identifier: "https://data.lsdb.io/hats/skymapper_dr4/skymapper_dr4_lightcurves"
     estimated_size: 'huge'
     ra_column: "raj2000"
     dec_column: "dej2000"
