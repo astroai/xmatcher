@@ -149,7 +149,15 @@ def _healpix_neighbors(order: int, center_pix: int, *, radius_arcsec: float = 0.
     else:
         center = torch.tensor([pix], dtype=torch.int64)
         lon, lat = ts_healpix.pix2ang(nside, center, nest=True, lonlat=True)
-        pixrad = ts_healpix.max_pixrad(nside, degrees=False)
+        # torchsky ≥0.5 renamed healpy-style max_pixrad → max_pixel_radius on
+        # sphere.healpix (max_pixrad remains only on sphere.compat). Prefer the
+        # current name; fall back for older editable checkouts.
+        max_radius = getattr(ts_healpix, "max_pixel_radius", None) or getattr(
+            ts_healpix, "max_pixrad", None
+        )
+        if max_radius is None:
+            raise AttributeError("torchsky.sphere.healpix has no max_pixel_radius")
+        pixrad = max_radius(nside, degrees=False)
         radius_rad = min(
             math.pi, math.radians(max(float(radius_arcsec), 0.0) / 3600.0) + (2.0 * pixrad)
         )
