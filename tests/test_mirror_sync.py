@@ -36,6 +36,51 @@ from .tap_fake import FakeTAPServer, make_rows
 PAGE = 100
 
 
+def test_http_walk_hats_skips_missing_listed_metadata(monkeypatch) -> None:
+    """Collection pages may list hats.properties while only properties exists."""
+
+    def fake_listing(url: str, bucket):
+        root = url.rstrip("/")
+        if root.endswith("/dataset"):
+            return ["Norder=3/", "_common_metadata", "_metadata"], True
+        if root.endswith("/dataset/Norder=3"):
+            return ["Dir=0/"], True
+        if root.endswith("/dataset/Norder=3/Dir=0"):
+            return ["Npix=1.parquet"], True
+        return ["dataset/", "hats.properties", "partition_info.csv", "properties"], True
+
+    def fake_probe(url: str, bucket):
+        if url.rstrip("/").endswith("hats.properties"):
+            return False, None
+        if url.rstrip("/").endswith("properties"):
+            return True, 120
+        if url.rstrip("/").endswith("partition_info.csv"):
+            return True, 20
+        if url.rstrip("/").endswith(("_common_metadata", "_metadata")):
+            return True, 40
+        if url.rstrip("/").endswith(".parquet"):
+            return True, 1000
+        return False, None
+
+    monkeypatch.setattr(mirror, "_http_listing", fake_listing)
+    monkeypatch.setattr(mirror, "_http_probe", fake_probe)
+    monkeypatch.setattr(
+        mirror,
+        "_http_hats_properties",
+        lambda root, bucket: ({"rel": "properties", "size": 120}, 10),
+    )
+
+    files, complete = mirror._http_walk_hats(
+        "https://example.test/catalogue", mirror.TokenBucket(0)
+    )
+    assert complete
+    rels = {entry["rel"] for entry in files}
+    assert "hats.properties" not in rels
+    assert "properties" in rels
+    assert "partition_info.csv" in rels
+    assert any("Npix=1.parquet" in rel for rel in rels)
+
+
 def test_http_request_retries_incomplete_read(monkeypatch) -> None:
     """Truncated bodies must retry; IncompleteRead is not a URLError."""
     calls = {"n": 0}

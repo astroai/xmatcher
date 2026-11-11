@@ -667,6 +667,11 @@ def _http_walk_hats(root: str, bucket: TokenBucket) -> tuple[list[dict[str, Any]
         elif rel.lower().endswith(".parquet") or Path(rel).name in _HATS_METADATA_NAMES:
             found, size = _http_probe(f"{root}/{rel}", bucket)
             if not found:
+                # LSDB collection pages sometimes advertise hats.properties while
+                # only ``properties`` exists (e.g. Euclid Q1). Skip missing
+                # metadata names; pixel completeness is checked below.
+                if Path(rel).name in _HATS_METADATA_NAMES:
+                    continue
                 return out, False
             out.append({"rel": rel, "size": size})
 
@@ -685,6 +690,8 @@ def _http_walk_hats(root: str, bucket: TokenBucket) -> tuple[list[dict[str, Any]
             elif child.lower().endswith(".parquet") or child in _HATS_METADATA_NAMES:
                 found, size = _http_probe(f"{root}/{rel}", bucket)
                 if not found:
+                    if child in _HATS_METADATA_NAMES:
+                        continue
                     return out, False
                 out.append({"rel": rel, "size": size})
     properties_info = _http_hats_properties(root, bucket)
