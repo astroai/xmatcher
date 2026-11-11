@@ -154,7 +154,7 @@ def _cone_pixels(order: int, ra: float, dec: float, radius_deg: float) -> set[in
     radius = min(180.0, float(radius_deg) + 1.5 * pix_scale_deg) * u.deg
     lon = Longitude(ra * u.deg)
     lat = Latitude(dec * u.deg)
-    ipix, _, _, _ = chp.cone_search(lon, lat, radius, depth=depth, flat=True)
+    ipix, _depths, _fully = chp.cone_search(lon, lat, radius, depth=depth, flat=True)
     return {int(p) for p in np.atleast_1d(ipix).astype(int).ravel() if int(p) >= 0}
 
 
