@@ -63,38 +63,95 @@ def probe_http(url: str, timeout: float = 20.0) -> dict:
         return {"url": url, "ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
 
+def _deps_target() -> Path:
+    """Writable install root that survives PYTHONNOUSERSITE on Skaha images."""
+    explicit = os.environ.get("PENSUS_PYDEPS")
+    if explicit:
+        path = Path(explicit)
+    elif Path("/scratch").exists():
+        path = Path("/scratch/pensus-pydeps")
+    else:
+        path = WORK / "code" / "pydeps"
+    path.mkdir(parents=True, exist_ok=True)
+    if str(path) not in sys.path:
+        sys.path.insert(0, str(path))
+    os.environ["PYTHONPATH"] = str(path) + (
+        os.pathsep + os.environ["PYTHONPATH"] if os.environ.get("PYTHONPATH") else ""
+    )
+    return path
+
+
 def bootstrap_deps() -> dict:
-    """Install minimal runtime deps into the user site (base image lacks polars)."""
-    wanted = ["polars", "pyarrow", "hats", "cdshealpix", "numpy"]
+    """Install minimal runtime deps into a scratch/ARC target dir (not --user)."""
+    target = _deps_target()
+    wanted = ["polars", "pyarrow", "numpy"]
+    # hats/cdshealpix are optional for the offline spike; install separately if needed.
+    optional = ["hats", "cdshealpix"]
     missing: list[str] = []
     for name in wanted:
         try:
-            __import__(name if name != "cdshealpix" else "cdshealpix")
+            __import__(name)
         except ImportError:
             missing.append(name)
-    if not missing:
-        return {"installed": [], "already": wanted, "ok": True}
-    cmd = [sys.executable, "-m", "pip", "install", "--user", "--quiet", *missing]
-    _log("+ " + " ".join(cmd))
-    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    # Ensure user site is importable even if PYTHONNOUSERSITE was set.
-    import site
-
-    user_site = site.getusersitepackages()
-    if user_site not in sys.path:
-        sys.path.insert(0, user_site)
+    if missing:
+        cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--target",
+            str(target),
+            "--quiet",
+            *missing,
+        ]
+        _log("+ " + " ".join(cmd))
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        pip_rc = proc.returncode
+        pip_err = (proc.stderr or "")[-2000:]
+    else:
+        pip_rc = 0
+        pip_err = ""
+    # Refresh path in case pip wrote new eggs
+    if str(target) not in sys.path:
+        sys.path.insert(0, str(target))
     still: list[str] = []
-    for name in missing:
+    for name in wanted:
         try:
-            __import__(name if name != "cdshealpix" else "cdshealpix")
+            __import__(name)
         except ImportError:
             still.append(name)
+    opt_missing: list[str] = []
+    for name in optional:
+        mod = name
+        try:
+            __import__(mod)
+        except ImportError:
+            opt_missing.append(name)
+    if opt_missing and not still:
+        cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--target",
+            str(target),
+            "--quiet",
+            *opt_missing,
+        ]
+        _log("+ " + " ".join(cmd))
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        pip_err = (pip_err + "\n" + (proc.stderr or ""))[-2000:]
+        pip_rc = pip_rc or proc.returncode
     return {
+        "target": str(target),
         "requested": missing,
         "still_missing": still,
-        "returncode": proc.returncode,
-        "stderr_tail": (proc.stderr or "")[-1500:],
+        "optional_requested": opt_missing,
+        "returncode": pip_rc,
+        "stderr_tail": pip_err,
         "ok": not still,
+        "python": sys.executable,
+        "sys_path_head": sys.path[:5],
     }
 
 
@@ -342,6 +399,10 @@ def main(argv: list[str] | None = None) -> int:
         results["bootstrap"] = bootstrap_deps()
         if not results["bootstrap"].get("ok"):
             failures.append("bootstrap")
+            raise RuntimeError(
+                "bootstrap failed; still_missing="
+                + ",".join(results["bootstrap"].get("still_missing") or [])
+            )
 
         if mode in {"day0", "all"}:
             _log("== day0 ==")
