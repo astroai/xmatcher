@@ -32,9 +32,7 @@ def _bootstrap_path() -> None:
     for path in (deps, vendor, CODE):
         if path.exists() and str(path) not in sys.path:
             sys.path.insert(0, str(path))
-    os.environ["PYTHONPATH"] = os.pathsep.join(
-        str(p) for p in (deps, vendor, CODE) if p.exists()
-    )
+    os.environ["PYTHONPATH"] = os.pathsep.join(str(p) for p in (deps, vendor, CODE) if p.exists())
     os.environ["PENSUS_PYDEPS"] = str(deps)
     os.environ["XMATCHER_CACHE_ROOT"] = str(CACHE)
 
