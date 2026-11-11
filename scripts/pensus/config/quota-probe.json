@@ -1,0 +1,68 @@
+{
+  "arc_projects": {
+    "hats": {
+      "free_bytes": 342801868241,
+      "free_gib": 319.259,
+      "quota_bytes": 5000000000000,
+      "quota_tb_si": 5.0,
+      "quota_tib": 4.547,
+      "uri": "vos://cadc.nrc.ca~arc/projects/hats",
+      "used_bytes": 4657198131759,
+      "used_tb_si": 4.657,
+      "used_tib": 4.236,
+      "write_group": "hats"
+    },
+    "k-pop": {
+      "free_bytes": 12795858773949,
+      "free_gib": 11917.072,
+      "quota_bytes": 33000000000000,
+      "quota_tb_si": 33.0,
+      "quota_tib": 30.013,
+      "uri": "vos://cadc.nrc.ca~arc/projects/k-pop",
+      "used_bytes": 20204141226051,
+      "used_tb_si": 20.204,
+      "used_tib": 18.376,
+      "write_group": "k-pop"
+    }
+  },
+  "auth": {
+    "cert": "~/.ssl/cadcproxy.pem",
+    "subject_cn": "sfabbro_5aa",
+    "valid_until_utc": "2026-12-06T22:37:08Z"
+  },
+  "layout_created": {
+    "arc:/projects/hats/pensus": [
+      "views",
+      "sidecars",
+      "docs"
+    ],
+    "arc:/projects/k-pop/pensus": [
+      "staging",
+      "inputs",
+      "hats_build",
+      "tiles",
+      "drafts",
+      "logs",
+      "docs"
+    ]
+  },
+  "probed_at_utc": "2026-11-11T19:23:34.566944+00:00",
+  "risk": "hats free ~319 GiB is tight for public release promote; prefer keep drafts on k-pop and prune before promote",
+  "scratch": {
+    "note": "session-local /scratch on Skaha headless; not present on this agent VM; budget \u2264290 GiB"
+  },
+  "vault": {
+    "hats": {
+      "children": [
+        "UNIONS",
+        "xmatcher"
+      ],
+      "quota_property": null,
+      "uri": "vos:hats"
+    },
+    "k-pop": {
+      "status": "NodeNotFound on vault (project lives on ARC)",
+      "uri": "vos:k-pop"
+    }
+  }
+}

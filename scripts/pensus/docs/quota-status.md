@@ -1,22 +1,34 @@
 # Quota probe status (Day-0)
 
-## This agent VM
+Authenticated **2026-11-11 America/Vancouver** with `~/.ssl/cadcproxy.pem`
+(`CN=sfabbro_5aa`, valid through **2026-12-06 UTC**).
 
-- `/arc` and `/scratch` are **not mounted** (no local `df`/ACL).
-- Anonymous VOSpace: **`vos:hats`** exists (`groupread=hats`, `groupwrite=hats-rw`,
-  `ispublic=false`). No `quota` property; empty listing anonymously.
-- **`vos:k-pop` / `vos:kpop`**: NotFound anonymously (needs CANFAR auth / Skaha).
-- Personal `vos:sfabbro` quota is **not** the hats project quota.
+## ARC project quotas
 
-## Action on CANFAR
+| Project | Path | Quota | Used | Free |
+|---------|------|------:|-----:|-----:|
+| **hats** | `/arc/projects/hats` (`vos://…~arc/projects/hats`) | 5.000 TB | 4.657 TB | **~319 GiB** |
+| **k-pop** | `/arc/projects/k-pop` (`vos://…~arc/projects/k-pop`) | 33.000 TB | 20.204 TB | **~11.64 TiB** |
 
-```bash
-python scripts/pensus/quota_probe.py --json --write-ledger
-df -h /arc/projects/hats /arc/projects/k-pop /scratch
-# plus getfacl / project portal quotas
-```
+Write groups: `hats`, `k-pop`. Vault `vos:hats` has no quota property;
+`vos:k-pop` does not exist on vault (ARC only).
 
-Until then hats+k-pop quotas remain **TBD**. Dual budget templates:
+## Scratch
 
-- `scripts/pensus/config/disk-budget-kpop.toml`
-- `scripts/pensus/config/disk-budget-hats.toml`
+Skaha session `/scratch` only (not on this agent VM). Budget **≤290 GiB**;
+target peak ≤250 GiB.
+
+## Layout
+
+Created under ARC:
+
+- `k-pop/pensus/{staging,inputs,hats_build,tiles,drafts,logs,docs}`
+- `hats/pensus/{views,sidecars,docs}`
+
+Ledger copies: `…/pensus/docs/quota-probe.json` on both projects.
+
+## Ops note
+
+**hats free ~319 GiB is tight** for public promote. Keep work/drafts on k-pop;
+preflight free space before every release promote.
+Dual budget templates: `config/disk-budget-kpop.toml`, `config/disk-budget-hats.toml`.
