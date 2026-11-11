@@ -136,6 +136,44 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(results, indent=2, sort_keys=True))
         return 2
 
+    def _resolve_local_tree(alias: str) -> Path:
+        """Map a registry alias to its mirrored HATS directory under CACHE."""
+        # Preferred: xmatcher locate_mirrored (same version hash as sync).
+        try:
+            from xmatcher.crossmatch import CrossMatch
+            from xmatcher.mirror import locate_mirrored
+
+            cm = CrossMatch()
+            src = cm.resolve_source(alias)
+            root, rel = locate_mirrored(src, cache_root=str(CACHE))
+            path = Path(root) / rel if rel else Path(root)
+            if (path / "properties").is_file() or (path / "dataset").is_dir():
+                return path
+        except Exception as exc:  # noqa: BLE001
+            _log(f"locate_mirrored({alias}) failed: {type(exc).__name__}: {exc}")
+        # Fallback: first child of CACHE/alias with properties.
+        base = CACHE / alias
+        if (base / "properties").is_file():
+            return base
+        if base.is_dir():
+            for child in sorted(base.iterdir()):
+                if child.is_dir() and (
+                    (child / "properties").is_file() or (child / "dataset").is_dir()
+                ):
+                    return child
+        raise FileNotFoundError(f"no local HATS tree for {alias} under {CACHE}")
+
+    try:
+        spine_path = _resolve_local_tree(SPINE)
+    except Exception as exc:  # noqa: BLE001
+        results["ok"] = False
+        results["error"] = f"spine resolve failed: {type(exc).__name__}: {exc}"
+        results["finished_at_utc"] = datetime.now(UTC).isoformat()
+        _write_json(WORK / "logs" / run_id / "pinned-match-report.json", results)
+        print(json.dumps(results, indent=2, sort_keys=True))
+        return 2
+    results["spine_path"] = str(spine_path)
+
     overall_ok = True
     for survey in SURVEYS:
         out = out_dir / f"{SPINE}__{survey}.parquet"
@@ -143,16 +181,25 @@ def main(argv: list[str] | None = None) -> int:
         log_dir.mkdir(parents=True, exist_ok=True)
         stdout_path = log_dir / f"match-{survey}.stdout.log"
         stderr_path = log_dir / f"match-{survey}.stderr.log"
+        try:
+            survey_path = _resolve_local_tree(survey)
+        except Exception as exc:  # noqa: BLE001
+            overall_ok = False
+            results["steps"].append(
+                {
+                    "survey": survey,
+                    "ok": False,
+                    "error": f"resolve failed: {type(exc).__name__}: {exc}",
+                }
+            )
+            continue
         cmd = [
             sys.executable,
             "-m",
             "xmatcher",
             "match",
-            SPINE,
-            survey,
-            "--no-sync",
-            "--cache-root",
-            str(CACHE),
+            str(spine_path),
+            str(survey_path),
             "--engine",
             "fast",
             "--fallback-policy",
@@ -188,6 +235,7 @@ def main(argv: list[str] | None = None) -> int:
         results["steps"].append(
             {
                 "survey": survey,
+                "survey_path": str(survey_path),
                 "cmd": cmd,
                 "returncode": proc.returncode,
                 "elapsed_s": elapsed,
