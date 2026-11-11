@@ -208,6 +208,9 @@ def main(argv: list[str] | None = None) -> int:
 
     workers = os.environ.get("PENSUS_SYNC_THREADS", "8")
     min_free = os.environ.get("PENSUS_SYNC_MIN_FREE_GB", "50")
+    # LSDB CDN tolerates higher concurrency; default 1 rps makes ~20k-pixel
+    # trees (SkyMapper) look hung for hours during HEAD listing.
+    rate_limit = os.environ.get("PENSUS_SYNC_RATE_LIMIT", "0")
     overall_ok = True
 
     for alias in aliases:
@@ -225,6 +228,8 @@ def main(argv: list[str] | None = None) -> int:
             str(workers),
             "--min-free-gb",
             str(min_free),
+            "--rate-limit",
+            str(rate_limit),
             "-v",
         ]
         _log("+ " + " ".join(cmd))
