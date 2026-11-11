@@ -53,8 +53,7 @@ def bootstrap() -> dict:
         [str(p) for p in (target, VENDOR_SRC, CODE) if p.exists()]
         + ([os.environ["PYTHONPATH"]] if os.environ.get("PYTHONPATH") else [])
     )
-    missing = []
-    for mod, pip_name in [
+    wanted = [
         ("polars", "polars"),
         ("pyarrow", "pyarrow"),
         ("numpy", "numpy"),
@@ -62,7 +61,9 @@ def bootstrap() -> dict:
         ("astropy", "astropy"),
         ("scipy", "scipy"),
         ("pyvo", "pyvo"),
-    ]:
+    ]
+    missing = []
+    for mod, pip_name in wanted:
         try:
             __import__(mod)
         except ImportError:
@@ -75,6 +76,14 @@ def bootstrap() -> dict:
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
         pip_rc = proc.returncode
         pip_err = (proc.stderr or "")[-1500:]
+        if str(target) not in sys.path:
+            sys.path.insert(0, str(target))
+    still = []
+    for mod, _pip_name in wanted:
+        try:
+            __import__(mod)
+        except ImportError:
+            still.append(mod)
     try:
         import xmatcher  # noqa: F401
 
@@ -84,9 +93,10 @@ def bootstrap() -> dict:
         xm_ok = False
         xm_err = f"{type(exc).__name__}: {exc}"
     return {
-        "ok": xm_ok and not missing,
+        "ok": xm_ok and not still,
         "target": str(target),
-        "missing": missing,
+        "requested": missing,
+        "still_missing": still,
         "xmatcher_ok": xm_ok,
         "xmatcher_error": xm_err,
         "returncode": pip_rc,
