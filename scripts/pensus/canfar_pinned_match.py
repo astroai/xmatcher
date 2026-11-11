@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""CANFAR job: spine×survey match on pinned k-pop HATS trees (--no-sync).
+"""CANFAR job: cone extract + match on pinned k-pop HATS trees.
 
-Uses local mirrors under ``inputs/_cache`` for Gaia + 2MASS (+ optional
-SkyMapper). Intended after LSDB/LIneA pin syncs succeed.
+HATS native ``fast`` path materializes whole catalogues when left/right
+trees have different HEALPix orders (Gaia vs 2MASS). For go/no-go we
+extract only cone pixels to parquet, then match those local frames.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import os
 import subprocess
 import sys
@@ -19,7 +21,6 @@ WORK = Path(os.environ.get("PENSUS_WORK_ROOT", "/arc/projects/k-pop/pensus"))
 CODE = Path(os.environ.get("PENSUS_CODE_ROOT", str(WORK / "code")))
 VENDOR_SRC = Path(os.environ.get("PENSUS_XMATCHER_SRC", str(CODE / "vendor" / "xmatcher" / "src")))
 CACHE = Path(os.environ.get("XMATCHER_CACHE_ROOT", str(WORK / "inputs" / "_cache")))
-# Small extragalactic-ish cone for a go/no-go match on real pins.
 DEFAULT_RA = float(os.environ.get("PENSUS_MATCH_RA", "150.1"))
 DEFAULT_DEC = float(os.environ.get("PENSUS_MATCH_DEC", "2.2"))
 DEFAULT_RADIUS_DEG = float(os.environ.get("PENSUS_MATCH_RADIUS_DEG", "0.25"))
@@ -61,6 +62,7 @@ def bootstrap() -> dict:
         ("astropy", "astropy"),
         ("scipy", "scipy"),
         ("pyvo", "pyvo"),
+        ("cdshealpix", "cdshealpix"),
     ]
     missing = []
     for mod, pip_name in wanted:
@@ -71,7 +73,16 @@ def bootstrap() -> dict:
     pip_rc = 0
     pip_err = ""
     if missing:
-        cmd = [sys.executable, "-m", "pip", "install", "--target", str(target), "--quiet", *missing]
+        cmd = [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--target",
+            str(target),
+            "--quiet",
+            *missing,
+        ]
         _log("+ " + " ".join(cmd))
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
         pip_rc = proc.returncode
@@ -79,7 +90,7 @@ def bootstrap() -> dict:
         if str(target) not in sys.path:
             sys.path.insert(0, str(target))
     still = []
-    for mod, _pip_name in wanted:
+    for mod, _pip in wanted:
         try:
             __import__(mod)
         except ImportError:
@@ -104,11 +115,124 @@ def bootstrap() -> dict:
     }
 
 
+def _resolve_local_tree(alias: str) -> Path:
+    base = CACHE / alias
+    if (base / "properties").is_file():
+        return base
+    if base.is_dir():
+        for child in sorted(base.iterdir()):
+            if child.is_dir() and (
+                (child / "properties").is_file() or (child / "dataset").is_dir()
+            ):
+                return child
+    raise FileNotFoundError(f"no local HATS tree for {alias} under {CACHE}")
+
+
+def _props(root: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for name in ("properties", "hats.properties"):
+        path = root / name
+        if not path.is_file():
+            continue
+        for line in path.read_text().splitlines():
+            if "=" in line and not line.strip().startswith("#"):
+                key, val = line.split("=", 1)
+                out[key.strip()] = val.strip()
+        break
+    return out
+
+
+def _cone_pixels(order: int, ra: float, dec: float, radius_deg: float) -> set[int]:
+    import astropy.units as u
+    import cdshealpix as chp
+    import numpy as np
+    from astropy.coordinates import Latitude, Longitude
+
+    depth = int(order)
+    nside = 2**depth
+    pix_scale_deg = math.degrees(math.sqrt(4.0 * math.pi / (12.0 * nside * nside)))
+    radius = min(180.0, float(radius_deg) + 1.5 * pix_scale_deg) * u.deg
+    lon = Longitude(ra * u.deg)
+    lat = Latitude(dec * u.deg)
+    ipix, _, _, _ = chp.cone_search(lon, lat, radius, depth=depth, flat=True)
+    return {int(p) for p in np.atleast_1d(ipix).astype(int).ravel() if int(p) >= 0}
+
+
+def _list_pixel_files(root: Path) -> list[tuple[int, int, Path]]:
+    base = root / "dataset"
+    if not base.is_dir():
+        base = root
+    found: list[tuple[int, int, Path]] = []
+    for parquet in sorted(base.glob("Norder=*/Dir=*/Npix=*.parquet")):
+        try:
+            order = int(parquet.parent.parent.name.split("=")[1])
+            pix = int(parquet.stem.split("=")[1])
+        except Exception:
+            continue
+        found.append((order, pix, parquet))
+    return found
+
+
+def extract_cone(root: Path, out_parquet: Path, ra: float, dec: float, radius_deg: float) -> dict:
+    import polars as pl
+
+    props = _props(root)
+    ra_col = props.get("hats_col_ra") or "ra"
+    dec_col = props.get("hats_col_dec") or "dec"
+    pixels = _list_pixel_files(root)
+    if not pixels:
+        raise FileNotFoundError(f"no parquet pixels under {root}")
+    # Group by order; include any order whose pixel intersects the cone.
+    wanted: set[tuple[int, int]] = set()
+    for order in sorted({o for o, _, _ in pixels}):
+        for pix in _cone_pixels(order, ra, dec, radius_deg):
+            wanted.add((order, pix))
+    frames = []
+    used = []
+    for order, pix, path in pixels:
+        if (order, pix) not in wanted:
+            continue
+        df = pl.read_parquet(path)
+        if ra_col not in df.columns or dec_col not in df.columns:
+            # SkyMapper uses raj2000/dej2000 already in props.
+            raise KeyError(f"{path}: missing {ra_col}/{dec_col}; cols={df.columns[:12]}")
+        frames.append(df)
+        used.append({"order": order, "pixel": pix, "path": str(path), "rows": df.height})
+    if not frames:
+        raise RuntimeError(f"cone selected 0 pixels under {root}")
+    out = pl.concat(frames, how="diagonal_relaxed")
+    # Angular filter for safety
+    import numpy as np
+
+    ra_v = np.deg2rad(out[ra_col].to_numpy())
+    dec_v = np.deg2rad(out[dec_col].to_numpy())
+    cra, cdec = math.radians(ra), math.radians(dec)
+    cos_d = np.sin(cdec) * np.sin(dec_v) + np.cos(cdec) * np.cos(dec_v) * np.cos(ra_v - cra)
+    cos_d = np.clip(cos_d, -1.0, 1.0)
+    sep_deg = np.degrees(np.arccos(cos_d))
+    out = (
+        out.with_columns(pl.Series("_sep_deg", sep_deg))
+        .filter(pl.col("_sep_deg") <= radius_deg)
+        .drop("_sep_deg")
+    )
+    out_parquet.parent.mkdir(parents=True, exist_ok=True)
+    out.write_parquet(out_parquet)
+    return {
+        "rows": out.height,
+        "pixels_used": used,
+        "ra_col": ra_col,
+        "dec_col": dec_col,
+        "path": str(out_parquet),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     _ = argv
     run_id = os.environ.get("PENSUS_RUN_ID") or time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     os.environ.setdefault("PENSUS_RUN_ID", run_id)
     os.environ["XMATCHER_CACHE_ROOT"] = str(CACHE)
+    scratch = Path(os.environ.get("PENSUS_SCRATCH_ROOT", f"/scratch/pensus-match-{run_id}"))
+    scratch.mkdir(parents=True, exist_ok=True)
     out_dir = WORK / "tiles" / f"pinned-match-{run_id}"
     out_dir.mkdir(parents=True, exist_ok=True)
     results: dict = {
@@ -136,117 +260,93 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(results, indent=2, sort_keys=True))
         return 2
 
-    def _resolve_local_tree(alias: str) -> Path:
-        """Map a registry alias to its mirrored HATS directory under CACHE."""
-        # Preferred: xmatcher locate_mirrored (same version hash as sync).
-        try:
-            from xmatcher.crossmatch import CrossMatch
-            from xmatcher.mirror import locate_mirrored
-
-            cm = CrossMatch()
-            src = cm.resolve_source(alias)
-            root, rel = locate_mirrored(src, cache_root=str(CACHE))
-            path = Path(root) / rel if rel else Path(root)
-            if (path / "properties").is_file() or (path / "dataset").is_dir():
-                return path
-        except Exception as exc:  # noqa: BLE001
-            _log(f"locate_mirrored({alias}) failed: {type(exc).__name__}: {exc}")
-        # Fallback: first child of CACHE/alias with properties.
-        base = CACHE / alias
-        if (base / "properties").is_file():
-            return base
-        if base.is_dir():
-            for child in sorted(base.iterdir()):
-                if child.is_dir() and (
-                    (child / "properties").is_file() or (child / "dataset").is_dir()
-                ):
-                    return child
-        raise FileNotFoundError(f"no local HATS tree for {alias} under {CACHE}")
-
-    try:
-        spine_path = _resolve_local_tree(SPINE)
-    except Exception as exc:  # noqa: BLE001
-        results["ok"] = False
-        results["error"] = f"spine resolve failed: {type(exc).__name__}: {exc}"
-        results["finished_at_utc"] = datetime.now(UTC).isoformat()
-        _write_json(WORK / "logs" / run_id / "pinned-match-report.json", results)
-        print(json.dumps(results, indent=2, sort_keys=True))
-        return 2
+    spine_path = _resolve_local_tree(SPINE)
     results["spine_path"] = str(spine_path)
+    spine_extract = scratch / f"{SPINE}_cone.parquet"
+    _log(f"== extract spine {spine_path} ==")
+    results["spine_extract"] = extract_cone(
+        spine_path, spine_extract, DEFAULT_RA, DEFAULT_DEC, DEFAULT_RADIUS_DEG
+    )
+    _log(json.dumps({"spine_rows": results["spine_extract"]["rows"]}))
 
     overall_ok = True
     for survey in SURVEYS:
-        out = out_dir / f"{SPINE}__{survey}.parquet"
         log_dir = WORK / "logs" / run_id
         log_dir.mkdir(parents=True, exist_ok=True)
-        stdout_path = log_dir / f"match-{survey}.stdout.log"
-        stderr_path = log_dir / f"match-{survey}.stderr.log"
         try:
             survey_path = _resolve_local_tree(survey)
+            survey_extract = scratch / f"{survey}_cone.parquet"
+            _log(f"== extract {survey} ==")
+            extract_info = extract_cone(
+                survey_path, survey_extract, DEFAULT_RA, DEFAULT_DEC, DEFAULT_RADIUS_DEG
+            )
+            out = out_dir / f"{SPINE}__{survey}.parquet"
+            stdout_path = log_dir / f"match-{survey}.stdout.log"
+            stderr_path = log_dir / f"match-{survey}.stderr.log"
+            cmd = [
+                sys.executable,
+                "-m",
+                "xmatcher",
+                "match",
+                str(spine_extract),
+                str(survey_extract),
+                "--engine",
+                "fast",
+                "--fallback-policy",
+                "error",
+                "-r",
+                str(DEFAULT_RADIUS_ARCSEC),
+                "--ra1",
+                results["spine_extract"]["ra_col"],
+                "--dec1",
+                results["spine_extract"]["dec_col"],
+                "--ra2",
+                extract_info["ra_col"],
+                "--dec2",
+                extract_info["dec_col"],
+                "-o",
+                str(out),
+                "-v",
+            ]
+            _log("+ " + " ".join(cmd))
+            t0 = time.perf_counter()
+            with stdout_path.open("w") as out_f, stderr_path.open("w") as err_f:
+                proc = subprocess.run(cmd, stdout=out_f, stderr=err_f, text=True, check=False)
+            elapsed = round(time.perf_counter() - t0, 3)
+            step_ok = proc.returncode == 0 and out.is_file()
+            if not step_ok:
+                overall_ok = False
+            rows = None
+            if out.is_file():
+                import polars as pl
+
+                rows = pl.scan_parquet(out).select(pl.len()).collect().item()
+            results["steps"].append(
+                {
+                    "survey": survey,
+                    "survey_path": str(survey_path),
+                    "extract": extract_info,
+                    "cmd": cmd,
+                    "returncode": proc.returncode,
+                    "elapsed_s": elapsed,
+                    "ok": step_ok,
+                    "output": str(out),
+                    "rows": rows,
+                    "stdout_tail": stdout_path.read_text()[-1500:] if stdout_path.exists() else "",
+                    "stderr_tail": stderr_path.read_text()[-1500:] if stderr_path.exists() else "",
+                }
+            )
+            _log(json.dumps({"survey": survey, "ok": step_ok, "rows": rows, "elapsed_s": elapsed}))
         except Exception as exc:  # noqa: BLE001
             overall_ok = False
             results["steps"].append(
                 {
                     "survey": survey,
                     "ok": False,
-                    "error": f"resolve failed: {type(exc).__name__}: {exc}",
+                    "error": f"{type(exc).__name__}: {exc}",
                 }
             )
-            continue
-        cmd = [
-            sys.executable,
-            "-m",
-            "xmatcher",
-            "match",
-            str(spine_path),
-            str(survey_path),
-            "--engine",
-            "fast",
-            "--fallback-policy",
-            "error",
-            "-r",
-            str(DEFAULT_RADIUS_ARCSEC),
-            "--ra",
-            str(DEFAULT_RA),
-            "--dec",
-            str(DEFAULT_DEC),
-            "--radius-deg",
-            str(DEFAULT_RADIUS_DEG),
-            "-o",
-            str(out),
-            "-v",
-        ]
-        _log("+ " + " ".join(cmd))
-        t0 = time.perf_counter()
-        with stdout_path.open("w") as out_f, stderr_path.open("w") as err_f:
-            proc = subprocess.run(cmd, stdout=out_f, stderr=err_f, text=True, check=False)
-        elapsed = round(time.perf_counter() - t0, 3)
-        step_ok = proc.returncode == 0 and out.is_file()
-        if not step_ok:
-            overall_ok = False
-        rows = None
-        if out.is_file():
-            try:
-                import polars as pl
-
-                rows = pl.scan_parquet(out).select(pl.len()).collect().item()
-            except Exception as exc:  # noqa: BLE001
-                rows = f"count_failed:{type(exc).__name__}"
-        results["steps"].append(
-            {
-                "survey": survey,
-                "survey_path": str(survey_path),
-                "cmd": cmd,
-                "returncode": proc.returncode,
-                "elapsed_s": elapsed,
-                "ok": step_ok,
-                "output": str(out),
-                "rows": rows,
-                "stdout_tail": stdout_path.read_text()[-2000:] if stdout_path.exists() else "",
-                "stderr_tail": stderr_path.read_text()[-2000:] if stderr_path.exists() else "",
-            }
-        )
-        _log(json.dumps({"survey": survey, "ok": step_ok, "elapsed_s": elapsed, "rows": rows}))
+            _log(f"FAIL {survey}: {type(exc).__name__}: {exc}")
 
     results["ok"] = overall_ok
     results["finished_at_utc"] = datetime.now(UTC).isoformat()
