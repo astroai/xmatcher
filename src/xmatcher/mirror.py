@@ -251,7 +251,8 @@ def _http_request(
                 return body, size
         except urllib.error.HTTPError as exc:
             last_exc = exc
-            if exc.code in (429, 503):
+            # Retry rate-limits and transient 5xx (archive politeness + failover).
+            if exc.code in (429, 502, 503, 504):
                 retry_after = exc.headers.get("Retry-After")
                 try:
                     delay = float(retry_after) if retry_after else 1.0

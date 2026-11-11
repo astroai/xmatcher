@@ -2744,6 +2744,10 @@ def _torchsky_match(
             np.nan_to_num(lsig, nan=1e-12) + float(np.nanmax(np.nan_to_num(rsig, nan=0.0)))
         )
         radius = np.maximum(radius, 1e-12)
+        # Pre-query clamp: N-sigma may only narrow the hard radius ceiling.
+        # Without this, a corrupt σ can OOM the torchsky neighbour search.
+        if spec.radius_arcsec is not None:
+            radius = np.minimum(radius, float(spec.radius_arcsec))
         find = "all"
         radius_arg = _tensor(radius)
     else:
@@ -2895,6 +2899,9 @@ def _zone_match_healpix(
             )
             return empty
         search_radius = spec.max_error * (float(np.nanmax(lsig)) + float(np.nanmax(rsig)))
+        if spec.radius_arcsec is not None:
+            # Pre-query clamp: N-sigma may only narrow the hard radius ceiling.
+            search_radius = min(search_radius, float(spec.radius_arcsec))
         radius_deg = max(search_radius, 0.0) / 3600.0
         chord_max = _arcsec_to_chord(max(search_radius, 0.0))
     if radius_deg <= 0:

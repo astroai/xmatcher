@@ -1,0 +1,48 @@
+# Release-specific pensus overlay (thin layer on xmatcher registry aliases).
+version: "0.1-draft"
+code_home: "xmatcher/scripts/pensus"  # D-HOME: split if multi-module driver grows
+
+paths:
+  public: "/arc/projects/hats/pensus"
+  work: "/arc/projects/k-pop/pensus"
+  hats_surveys: "/arc/projects/hats"
+  scratch_max_gib: 290
+
+matching:
+  engine: fast
+  fallback_policy: error
+  topology: spine_x_survey_star
+  one_to_one: mutual_best
+  pair_policy: pair_policy.toml
+
+views:
+  v0.1:
+    surveys:
+      - gaia_dr3          # spine L1
+      - catwise2020_hats  # or local pin
+      - twomass_psc
+      - galex_guvcat      # attachment
+      - ps1               # L2 north (product choice in spec)
+      - skymapper_dr4_hats
+      - pristine_dr2_hats # ID-join only
+    sidecars:
+      - gaia_gspc
+      - gaia_xp
+      - pristine_feh
+  v0.2:
+    add:
+      - legacy_dr11       # optical backbone replace/promote
+      - uhs_dr3_hats
+      - vhs_dr5_hats
+      - allwise_w3w4      # attachment
+  later_public:
+      - splus_dr4         # not DR5
+      - euclid_dr1        # footprint-limited P2
+  access_gated:
+      - lsst_dp2
+      - unions
+      - pristine_dr3
+
+observation_releases: deferred_past_v0.1
+ray_union: deferred
+cds_fallback_trigger_days_before_pilot: 7

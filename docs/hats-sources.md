@@ -93,7 +93,7 @@ or pass `hats:<url>` directly.
 | `vhs_hats` | `https://vizcat.cds.unistra.fr/hats/vhs_dr5/main` | 1,374,207,485 | VHS DR5, per-band MJD |
 | `ps1_hats` | `https://vizcat.cds.unistra.fr/hats/ps1_dr2/main` | 1,868,236,315 | PS1 DR2, 67 columns |
 | `galex_hats` | `https://vizcat.cds.unistra.fr/hats/galex_gr67/main` | 82,992,086 | GALEX GR6/7 |
-| `splus_hats` | `https://vizcat.cds.unistra.fr/hats/splus_dr4/main` | 27,235,968 | S-PLUS DR4 public HATS; DR5 is not public |
+| `splus_hats` | `https://vizcat.cds.unistra.fr/hats/splus_dr4/main` | 27,235,968 | S-PLUS DR4 public HATS (CDS); registry alias `splus_dr5_hats` is a local-tree placeholder only — DR5 is not public |
 
 The anchor has an LSDB-pinned alias too: `gaia_lsdb_hats`
 (`https://data.lsdb.io/hats/gaia_dr3/gaia`, 1,812,731,847 rows, 153 columns,

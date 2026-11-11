@@ -447,7 +447,7 @@ catalogues:
     estimated_size: 'huge'
 
   splus_dr5_hats:
-    description: "S-PLUS DR5 local HATS tree (set XMATCHER_SPLUS_DR5_HATS)"
+    description: "S-PLUS DR5 local HATS placeholder only (DR5 not public; use CDS DR4 HATS). Set XMATCHER_SPLUS_DR5_HATS if a private tree exists."
     archive: hats
     service_id: hats_service
     release: "dr5"
@@ -457,6 +457,19 @@ catalogues:
     id_column: "id"
     epoch: 2019.0
     estimated_size: 'huge'
+
+  gaia_gspc_hats:
+    description: "Gaia DR3 GSPC/XP continuous spectrum product local HATS (ECSV→parquet→hats-import; set XMATCHER_GAIA_GSPC_HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "${XMATCHER_GAIA_GSPC_HATS}"
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "source_id"
+    epoch: 2016.0
+    estimated_size: 'huge'
+    default_columns: ["source_id", "ra", "dec"]
 
   gaia_xp_hats:
     description: "Gaia DR3 XP coefficients local HATS/Parquet tree (set XMATCHER_GAIA_XP_HATS)"

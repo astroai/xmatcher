@@ -1,0 +1,33 @@
+# pensus scripts (thin layer)
+
+Release-specific orchestration for the **pensus** UV–IR photometry union.
+Generic matching, HATS I/O, and association live in the `xmatcher` package;
+these scripts stay thin (D-HOME).
+
+## Path split
+
+| Path | Role |
+|------|------|
+| `/arc/projects/hats/pensus` | **Public release only** |
+| `/arc/projects/k-pop/pensus` | **All work** (staging, inputs, tiles, drafts) |
+| `/scratch/pensus/<run>` | Ephemeral ≤290 GiB |
+
+## Quick start (offline / CI)
+
+```bash
+WORKDIR=$(mktemp -d)
+python scripts/pensus/spike.py --work-root "$WORKDIR" --demo
+python scripts/pensus/campaigns/pilot.py --work-root "$WORKDIR" --demo
+python scripts/pensus/tile_audit.py --campaign pilot-v0 --work-root "$WORKDIR"
+```
+
+## Production (CANFAR)
+
+1. `quota_probe.py --write-ledger`
+2. `layout_init.py`
+3. Ingest pins (`ingest/*.py --print-commands`)
+4. `tile_submit.py` → headless `tile_run.py` (real trees; drop `--demo`)
+5. Promote checksummed drafts → `/arc/projects/hats/pensus`
+
+Matching: `engine=fast`, `fallback_policy=error` (`route_guard.py`).
+Docs: `docs/matching-policy.md`, `docs/product-spec.md`, `config/pair_policy.toml`.
