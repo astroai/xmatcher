@@ -49,7 +49,7 @@ def _budget_ok(est_gib: float | None) -> tuple[bool, dict]:
         free_gib = usage.free / (1024**3)
     except OSError:
         free_gib = None
-    info = {
+    info: dict[str, object] = {
         "est_gib": est_gib,
         "reserve_gib": reserve,
         "free_gib": None if free_gib is None else round(free_gib, 1),

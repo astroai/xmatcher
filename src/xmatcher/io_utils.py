@@ -19,6 +19,7 @@ Masked values become nulls automatically.
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -144,6 +145,7 @@ def _read_fits(path: Path) -> pl.DataFrame:
     when the optional ``torchfits`` extra is not installed.
     """
     last_err = None
+    torchfits_table: Any | None
     try:
         from torchfits import table as torchfits_table
     except ImportError:

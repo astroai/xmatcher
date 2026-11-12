@@ -21,6 +21,9 @@ python scripts/pensus/campaigns/pilot.py --work-root "$WORKDIR" --demo
 python scripts/pensus/tile_audit.py --campaign pilot-v0 --work-root "$WORKDIR"
 ```
 
+Before pushing script changes: `pixi run format` then `pixi run preflight-push`
+(or install the repo pre-push hook with `pixi run install-git-hooks`).
+
 ## Production (CANFAR)
 
 1. `quota_probe.py --write-ledger`
