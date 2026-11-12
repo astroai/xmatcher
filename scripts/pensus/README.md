@@ -32,5 +32,11 @@ Before pushing script changes: `pixi run format` then `pixi run preflight-push`
 4. `tile_submit.py` → headless `tile_run.py` (real trees; drop `--demo`)
 5. Promote checksummed drafts → `/arc/projects/hats/pensus`
 
+URL sync (`url_sync_launch.py`) size gates require an explicit project free
+estimate: set `PENSUS_SYNC_FREE_GIB` (from a VOS/quota probe) and/or
+`PENSUS_SYNC_MAX_GIB`. Do not use `df` on `/arc` — that is the shared Ceph
+pool, not the k-pop quota. Legacy DR10.1 (~4.7 TiB) stays paused until
+Sébastien decides free-space policy.
+
 Matching: `engine=fast`, `fallback_policy=error` (`route_guard.py`).
 Docs: `docs/matching-policy.md`, `docs/product-spec.md`, `config/pair_policy.toml`.

@@ -5,8 +5,13 @@ Env:
   PENSUS_SYNC_URL          remote HATS root (http(s) / s3:// / ...)
   PENSUS_SYNC_ALIAS        SOURCE.json alias under inputs/<alias>/
   PENSUS_SYNC_CACHE_HINT   optional _cache folder name for URL syncs
-  PENSUS_SYNC_EST_GIB      optional size gate (refuse if above budget)
-  PENSUS_SYNC_MAX_GIB      optional free-space budget cap (default 2048 reserved)
+  PENSUS_SYNC_EST_GIB      estimated pin size (GiB); required with a budget gate
+  PENSUS_SYNC_FREE_GIB     project free space (GiB) from a VOS/quota probe
+  PENSUS_SYNC_RESERVE_GIB  free-space floor (default 2048)
+  PENSUS_SYNC_MAX_GIB      hard cap on est_gib (optional)
+
+Do **not** trust ``shutil.disk_usage("/arc")`` for project budget: on Skaha that
+reports the shared Ceph pool (~10^5 GiB free), not the k-pop/hats quota.
 """
 
 from __future__ import annotations
@@ -38,31 +43,34 @@ def _bootstrap_path() -> None:
 
 
 def _budget_ok(est_gib: float | None) -> tuple[bool, dict]:
-    """Refuse starts that would eat the reserved free-space floor."""
-    reserve = float(os.environ.get("PENSUS_SYNC_RESERVE_GIB", "2048"))
-    # Prefer live df on /arc when present (Skaha); else trust EST vs reserve only.
-    free_gib = None
-    try:
-        import shutil
+    """Refuse starts that would eat the reserved free-space floor.
 
-        usage = shutil.disk_usage("/arc")
-        free_gib = usage.free / (1024**3)
-    except OSError:
-        free_gib = None
+    Project free space must be supplied explicitly via ``PENSUS_SYNC_FREE_GIB``
+    (from a VOS child-sum / quota probe). Shared-filesystem ``df`` on ``/arc`` is
+    intentionally ignored.
+    """
+    reserve = float(os.environ.get("PENSUS_SYNC_RESERVE_GIB", "2048"))
+    free_raw = os.environ.get("PENSUS_SYNC_FREE_GIB", "").strip()
+    free_gib = float(free_raw) if free_raw else None
+    max_raw = os.environ.get("PENSUS_SYNC_MAX_GIB", "").strip()
+    max_gib = float(max_raw) if max_raw else None
     info: dict[str, object] = {
         "est_gib": est_gib,
         "reserve_gib": reserve,
         "free_gib": None if free_gib is None else round(free_gib, 1),
+        "max_gib": max_gib,
+        "free_source": "PENSUS_SYNC_FREE_GIB" if free_gib is not None else None,
     }
     if est_gib is None:
         return True, info
+    if free_gib is None and max_gib is None:
+        info["reason"] = "set PENSUS_SYNC_FREE_GIB and/or PENSUS_SYNC_MAX_GIB (do not use /arc df)"
+        return False, info
     if free_gib is not None and est_gib > max(0.0, free_gib - reserve):
         info["reason"] = "est_gib exceeds free_gib - reserve"
         return False, info
-    max_gib = os.environ.get("PENSUS_SYNC_MAX_GIB")
-    if max_gib is not None and est_gib > float(max_gib):
+    if max_gib is not None and est_gib > max_gib:
         info["reason"] = "est_gib exceeds PENSUS_SYNC_MAX_GIB"
-        info["max_gib"] = float(max_gib)
         return False, info
     return True, info
 
