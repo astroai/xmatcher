@@ -10,6 +10,7 @@ publication. Mirrors into ``inputs/_cache`` (k-pop quota) and writes
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import shutil
@@ -102,13 +103,17 @@ def bootstrap_runtime() -> dict:
         pip_err = (proc.stderr or "")[-2000:]
         if str(target) not in sys.path:
             sys.path.insert(0, str(target))
+        # The target dir may already be on sys.path with a stale finder cache.
+        importlib.invalidate_caches()
 
     still: list[str] = []
+    import_errors: dict[str, str] = {}
     for mod in wanted:
         try:
             __import__(mod)
-        except ImportError:
+        except ImportError as exc:
             still.append(mod)
+            import_errors[mod] = f"{type(exc).__name__}: {exc}"
 
     xmatcher_ok = False
     xmatcher_err = ""
@@ -125,6 +130,7 @@ def bootstrap_runtime() -> dict:
         "vendor_exists": VENDOR_SRC.is_dir(),
         "requested": missing,
         "still_missing": still,
+        "import_errors": import_errors,
         "xmatcher_import_ok": xmatcher_ok,
         "xmatcher_error": xmatcher_err,
         "returncode": pip_rc,
