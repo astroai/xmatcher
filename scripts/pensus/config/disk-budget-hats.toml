@@ -13,4 +13,4 @@ preflight = "require free >= release size + 50 GiB before promote"
 
 [survey_promote]
 optional = true
-note = "Official survey pins under /arc/projects/hats/<survey> after k-pop hats_build validation"
+note = "Official survey pins under /arc/projects/hats/<survey>/<release> (e.g. euclid/q1, 2mass/psc) after k-pop hats_build validation"

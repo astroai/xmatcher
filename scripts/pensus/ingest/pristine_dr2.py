@@ -9,7 +9,7 @@ Typical CANFAR flow (scratch ≤ 290 GiB):
   1. Download/stage FITS or parquet into /scratch/pensus/<run>/pristine
   2. Stream convert with torchfits if FITS; else polars/pyarrow
   3. hats-import into /arc/projects/k-pop/pensus/hats_build/pristine_dr2
-  4. Optional promote to /arc/projects/hats/pristine_dr2 after checksum
+  4. Optional promote to /arc/projects/hats/pristine/dr2 after checksum
   5. Wipe scratch
 """
 
@@ -50,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
             "torchfits stream or polars → parquet partitions",
             "hats-import → k-pop hats_build/pristine_dr2",
             "set XMATCHER_PRISTINE_DR2_HATS to hats_build path",
-            "optional checksum promote → /arc/projects/hats/pristine_dr2",
+            "optional checksum promote → /arc/projects/hats/pristine/dr2",
             "wipe scratch",
         ],
     }

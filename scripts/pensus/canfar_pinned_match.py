@@ -125,6 +125,7 @@ def _resolve_local_tree(alias: str) -> Path:
     # URL syncs (e.g. LIneA GALEX) land under a host-derived folder name while
     # SOURCE.json is written under the pensus alias (galex_linea → galex/).
     candidates = [alias]
+    official: list[Path] = []
     source = WORK / "inputs" / alias / "SOURCE.json"
     if source.is_file():
         try:
@@ -134,6 +135,10 @@ def _resolve_local_tree(alias: str) -> Path:
         hint = meta.get("cache_alias_hint")
         if isinstance(hint, str) and hint.strip():
             candidates.append(hint.strip())
+        for key in ("promoted_hats_path", "hats_path"):
+            value = meta.get(key)
+            if isinstance(value, str) and value.strip():
+                official.append(Path(value.strip()))
     if alias.endswith("_linea"):
         candidates.append(alias[: -len("_linea")])
     seen: set[str] = set()
@@ -150,6 +155,10 @@ def _resolve_local_tree(alias: str) -> Path:
                     (child / "properties").is_file() or (child / "dataset").is_dir()
                 ):
                     return child
+    # Official /arc/projects/hats/<survey>/<release> copy, used once the k-pop cache is gone.
+    for root in official:
+        if (root / "properties").is_file() or (root / "hats.properties").is_file():
+            return root
     raise FileNotFoundError(f"no local HATS tree for {alias} under {CACHE}")
 
 
