@@ -8,6 +8,7 @@ extract only cone pixels to parquet, then match those local frames.
 
 from __future__ import annotations
 
+import importlib
 import json
 import math
 import os
@@ -89,12 +90,16 @@ def bootstrap() -> dict:
         pip_err = (proc.stderr or "")[-1500:]
         if str(target) not in sys.path:
             sys.path.insert(0, str(target))
+        # The target dir may already be on sys.path with a stale finder cache.
+        importlib.invalidate_caches()
     still = []
+    import_errors: dict[str, str] = {}
     for mod, _pip in wanted:
         try:
             __import__(mod)
-        except ImportError:
+        except ImportError as exc:
             still.append(mod)
+            import_errors[mod] = f"{type(exc).__name__}: {exc}"
     try:
         import xmatcher  # noqa: F401
 
@@ -108,6 +113,7 @@ def bootstrap() -> dict:
         "target": str(target),
         "requested": missing,
         "still_missing": still,
+        "import_errors": import_errors,
         "xmatcher_ok": xm_ok,
         "xmatcher_error": xm_err,
         "returncode": pip_rc,
