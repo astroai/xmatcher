@@ -36,6 +36,68 @@ from .tap_fake import FakeTAPServer, make_rows
 PAGE = 100
 
 
+def test_http_listing_uses_partition_info_csv_without_pixel_heads(monkeypatch) -> None:
+    """CSV-only trees (e.g. LIneA PS1 otmo) must not fall through to HTML walk."""
+
+    props = b"#HATS catalog\nhats_nrows=3\nhats_col_ra=ra\nhats_col_dec=dec\n"
+    csv = b"Norder,Npix\n5,0\n5,1\n5,10005\n"
+    requests: list[str] = []
+
+    def fake_request(url: str, bucket, **kwargs):
+        requests.append(url)
+        if url.endswith("partition_info.parquet") or url.endswith("dataset/partition_info.parquet"):
+            raise urllib.error.HTTPError(url, 404, "missing", hdrs=None, fp=None)
+        if url.endswith("partition_info.csv"):
+            return csv, len(csv)
+        raise AssertionError(f"unexpected GET {url}")
+
+    def fake_probe(url: str, bucket):
+        requests.append(f"HEAD {url}")
+        if url.rstrip("/").endswith("properties"):
+            return True, len(props)
+        if url.rstrip("/").endswith(
+            (
+                "dataset/_metadata",
+                "dataset/_common_metadata",
+                "partition_info.parquet",
+                "dataset/partition_info.parquet",
+            )
+        ):
+            return False, None
+        if "Npix=" in url and url.endswith(".parquet"):
+            raise AssertionError(f"pixel HEAD not expected for CSV listing: {url}")
+        return False, None
+
+    monkeypatch.setattr(mirror, "_http_request", fake_request)
+    monkeypatch.setattr(mirror, "_http_probe", fake_probe)
+    monkeypatch.setattr(
+        mirror,
+        "_http_hats_properties",
+        lambda root, bucket: ({"rel": "properties", "size": len(props)}, 3),
+    )
+
+    def _no_html_walk(*args, **kwargs):
+        raise AssertionError("HTML walk")
+
+    monkeypatch.setattr(mirror, "_http_walk_hats", _no_html_walk)
+
+    src = CatalogueSource(
+        name="ps1_otmo",
+        is_local=False,
+        access_method="hats",
+        access_identifier="https://example.test/otmo",
+    )
+    files = mirror._remote_hats_listing(src, mirror.TokenBucket(0))
+    rels = {entry["rel"] for entry in files}
+    assert "dataset/partition_info.csv" in rels or "partition_info.csv" in rels
+    assert "properties" in rels
+    assert "dataset/Norder=5/Dir=0/Npix=0.parquet" in rels
+    assert "dataset/Norder=5/Dir=10000/Npix=10005.parquet" in rels
+    assert not any(
+        url.startswith("HEAD ") and "Npix=" in url and url.endswith(".parquet") for url in requests
+    )
+
+
 def test_http_walk_hats_skips_missing_listed_metadata(monkeypatch) -> None:
     """Collection pages may list hats.properties while only properties exists."""
 
