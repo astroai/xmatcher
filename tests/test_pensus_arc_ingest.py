@@ -99,30 +99,36 @@ def test_xp_convert_keeps_archive_dtypes_exactly(tmp_path):
 
 
 def _ipac(
-    path: Path, cols: list[tuple[str, str, int]], rows: list[list[str]], nsrc: int | None = None
+    path: Path,
+    cols: list[tuple[str, str, int, str]],
+    rows: list[list[str]],
+    nsrc: int | None = None,
 ) -> None:
     def bar(vals):
-        return "|" + "|".join(v.rjust(w) for v, (_, _, w) in zip(vals, cols, strict=True)) + "|"
+        return "|" + "|".join(v.rjust(c[2]) for v, c in zip(vals, cols, strict=True)) + "|"
 
     lines = [
         f"\\Nsrc ={len(rows) if nsrc is None else nsrc}",
         bar([c[0] for c in cols]),
         bar([c[1] for c in cols]),
+        bar(["--" for _ in cols]),
+        bar([c[3] for c in cols]),
     ]
     lines += [
-        " " + " ".join(v.rjust(w) for v, (_, _, w) in zip(r, cols, strict=True)) + " " for r in rows
+        " " + " ".join(v.rjust(c[2]) for v, c in zip(r, cols, strict=True)) + " " for r in rows
     ]
     with gzip.open(path, "wt", encoding="latin1") as fh:
         fh.write("\n".join(lines) + "\n")
 
 
 CW_COLS = [
-    ("source_id", "char", 22),
-    ("ra", "double", 12),
-    ("dec", "double", 12),
-    ("w1mpro", "r", 8),
-    ("w1sky", "r", 10),
-    ("nb", "i", 4),
+    ("source_id", "char", 22, "--"),
+    ("ra", "double", 12, "--"),
+    ("dec", "double", 12, "--"),
+    ("w1mpro", "r", 8, "null"),
+    ("w1sky", "r", 10, "null"),
+    ("nb", "i", 4, "--"),
+    ("ka", "i", 2, "n"),
 ]
 
 
@@ -132,8 +138,8 @@ def test_catwise_convert_types_nulls_and_counts(tmp_path):
         src,
         CW_COLS,
         [
-            ["0990m167_b0-021311", "98.5882317", "-17.4157444", "15.499", "2.571", "2"],
-            ["0990m167_b0-111190", "98.8375806", "-17.4157122", "null", "-1603.125", "1"],
+            ["0990m167_b0-021311", "98.5882317", "-17.4157444", "15.499", "2.571", "2", "3"],
+            ["0990m167_b0-111190", "98.8375806", "-17.4157122", "null", "-1603.125", "1", "n"],
         ],
     )
     table, nsrc = catwise_convert.read_ipac(src)
@@ -144,16 +150,17 @@ def test_catwise_convert_types_nulls_and_counts(tmp_path):
     assert table.schema.field("w1sky").type == pa.float64()
     assert table["w1sky"].to_pylist() == [2.571, -1603.125]
     assert table["nb"].to_pylist() == [2, 1]
+    assert table["ka"].to_pylist() == [3, None]
     assert catwise_convert.main(str(src), str(tmp_path / "t.parquet")) == 0
 
 
 def test_catwise_convert_fails_closed(tmp_path):
     lossy = tmp_path / "lossy_cat_b0.tbl.gz"
-    _ipac(lossy, CW_COLS, [["a", "1.0", "2.0", "15.49912", "1.0", "1"]])
+    _ipac(lossy, CW_COLS, [["a", "1.0", "2.0", "15.49912", "1.0", "1", "0"]])
     with pytest.raises(ValueError, match="w1mpro has 7 significant digits"):
         catwise_convert.read_ipac(lossy)
     short = tmp_path / "short_cat_b0.tbl.gz"
-    _ipac(short, CW_COLS, [["a", "1.0", "2.0", "15.5", "1.0", "1"]], nsrc=2)
+    _ipac(short, CW_COLS, [["a", "1.0", "2.0", "15.5", "1.0", "1", "0"]], nsrc=2)
     assert catwise_convert.main(str(short), str(tmp_path / "s.parquet")) == 1
     assert not (tmp_path / "s.parquet").exists()
 

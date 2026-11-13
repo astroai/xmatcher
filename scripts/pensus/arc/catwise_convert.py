@@ -2,8 +2,8 @@
 
 Columns are fixed-width between the '|' delimiters of the IPAC header. `double` columns and
 FLOAT64_REALS are float64; other `r`/`real` columns are float32, which is exact because they publish
-at most 6 significant digits (FLT_DIG), checked on every file. Ints are int64; `null` and blank cells
-become nulls.
+at most 6 significant digits (FLT_DIG), checked on every file. Ints are int64; cells equal to the
+column's declared null token (fourth header row) or blank become nulls.
 Usage: catwise_convert.py <in.tbl.gz> <out.parquet> [expected_rows]
 """
 
@@ -81,13 +81,16 @@ def read_ipac(path: Path) -> tuple[pa.Table, int | None]:
     data = pa.array([ln for ln in lines[start:] if ln.strip()], pa.string())
     del text, lines
     names, types = header[0], header[1]
+    nulls = header[3] if len(header) > 3 else ""
     pipes = [i for i, ch in enumerate(names) if ch == "|"]
     cols, out_names = [], []
     for a, b in zip(pipes, pipes[1:], strict=False):
         name, typ = names[a + 1 : b].strip(), types[a + 1 : b].strip()
+        # The fourth header row declares each column's null token (e.g. 'n' for the 2-char ka/k1/k2/km).
+        token = nulls[a + 1 : b].strip() or "null"
         raw = pc.utf8_trim_whitespace(pc.utf8_slice_codeunits(data, a + 1, b + 1))
         raw = pc.if_else(
-            pc.or_(pc.equal(raw, "null"), pc.equal(raw, "")), pa.scalar(None, pa.string()), raw
+            pc.or_(pc.equal(raw, token), pc.equal(raw, "")), pa.scalar(None, pa.string()), raw
         )
         dtype = pa.float64() if name in FLOAT64_REALS else TYPES[typ]
         if dtype == pa.float32() and (n := _max_sig_digits(raw)) > FLT_DIG:
