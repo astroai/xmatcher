@@ -77,32 +77,35 @@ def main(root_arg: str, alias: str, expect_rows: int, expect_parts: int) -> int:
         n_part = 0
         for f in files:
             try:
-                t = pq.read_table(f)
+                # Every column is decoded, batch by batch, so wide partitions stay in bounded memory.
+                for batch in pq.ParquetFile(f).iter_batches(batch_size=262_144):
+                    n_part += batch.num_rows
+                    ra = batch.column(ra_col).to_numpy(zero_copy_only=False).astype(np.float64)
+                    dec = batch.column(dec_col).to_numpy(zero_copy_only=False).astype(np.float64)
+                    if not (np.isfinite(ra).all() and np.isfinite(dec).all()):
+                        bad.append(f"non-finite coords {order}/{pix}")
+                    if ((ra < 0) | (ra >= 360) | (dec < -90) | (dec > 90)).any():
+                        bad.append(f"coords out of range {order}/{pix}")
+                    if "_healpix_29" in batch.schema.names:
+                        hp = (
+                            batch.column("_healpix_29")
+                            .to_numpy(zero_copy_only=False)
+                            .astype(np.int64)
+                        )
+                    else:
+                        hp = lonlat_to_healpix(
+                            Longitude(ra * u.deg), Latitude(dec * u.deg), 29
+                        ).astype(np.int64)
+                    if not (hp >> (2 * (29 - order)) == pix).all():
+                        bad.append(f"rows outside pixel {order}/{pix}")
+                    cells7.update(np.unique(hp >> (2 * (29 - 7))).tolist())
+                    hp_checked += len(hp)
+                    cosd = np.sin(cdec * d2r) * np.sin(dec * d2r) + np.cos(cdec * d2r) * np.cos(
+                        dec * d2r
+                    ) * np.cos((ra - cra) * d2r)
+                    brute += int((np.degrees(np.arccos(np.clip(cosd, -1, 1))) <= rad).sum())
             except Exception as exc:
                 bad.append(f"unreadable {f}: {exc}")
-                continue
-            n_part += t.num_rows
-            ra = t.column(ra_col).to_numpy(zero_copy_only=False).astype(np.float64)
-            dec = t.column(dec_col).to_numpy(zero_copy_only=False).astype(np.float64)
-            if not (np.isfinite(ra).all() and np.isfinite(dec).all()):
-                bad.append(f"non-finite coords {order}/{pix}")
-            if ((ra < 0) | (ra >= 360) | (dec < -90) | (dec > 90)).any():
-                bad.append(f"coords out of range {order}/{pix}")
-            if "_healpix_29" in t.column_names:
-                hp = t.column("_healpix_29").to_numpy(zero_copy_only=False).astype(np.int64)
-            else:
-                hp = lonlat_to_healpix(Longitude(ra * u.deg), Latitude(dec * u.deg), 29).astype(
-                    np.int64
-                )
-            if not (hp >> (2 * (29 - order)) == pix).all():
-                bad.append(f"rows outside pixel {order}/{pix}")
-            cells7.update(np.unique(hp >> (2 * (29 - 7))).tolist())
-            hp_checked += len(hp)
-            del t
-            cosd = np.sin(cdec * d2r) * np.sin(dec * d2r) + np.cos(cdec * d2r) * np.cos(
-                dec * d2r
-            ) * np.cos((ra - cra) * d2r)
-            brute += int((np.degrees(np.arccos(np.clip(cosd, -1, 1))) <= rad).sum())
         if n_part == 0:
             bad.append(f"empty partition {order}/{pix}")
         total += n_part
