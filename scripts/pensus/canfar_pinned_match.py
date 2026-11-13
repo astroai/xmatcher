@@ -225,6 +225,9 @@ def extract_cone(root: Path, out_parquet: Path, ra: float, dec: float, radius_de
     for order in sorted({o for o, _, _ in pixels}):
         for pix in _cone_pixels(order, ra, dec, radius_deg):
             wanted.add((order, pix))
+    import numpy as np
+
+    cra, cdec = math.radians(ra), math.radians(dec)
     frames = []
     used = []
     for order, pix, path in pixels:
@@ -234,25 +237,17 @@ def extract_cone(root: Path, out_parquet: Path, ra: float, dec: float, radius_de
         if ra_col not in df.columns or dec_col not in df.columns:
             # SkyMapper uses raj2000/dej2000 already in props.
             raise KeyError(f"{path}: missing {ra_col}/{dec_col}; cols={df.columns[:12]}")
-        frames.append(df)
         used.append({"order": order, "pixel": pix, "path": str(path), "rows": df.height})
+        # Cut each file before concatenating so wide catalogues hold one file in memory, not the cone's pixels.
+        ra_v = np.deg2rad(df[ra_col].to_numpy())
+        dec_v = np.deg2rad(df[dec_col].to_numpy())
+        cos_d = np.sin(cdec) * np.sin(dec_v) + np.cos(cdec) * np.cos(dec_v) * np.cos(ra_v - cra)
+        sep_deg = np.degrees(np.arccos(np.clip(cos_d, -1.0, 1.0)))
+        frames.append(df.filter(pl.Series(sep_deg <= radius_deg)))
+        del df
     if not frames:
         raise RuntimeError(f"cone selected 0 pixels under {root}")
     out = pl.concat(frames, how="diagonal_relaxed")
-    # Angular filter for safety
-    import numpy as np
-
-    ra_v = np.deg2rad(out[ra_col].to_numpy())
-    dec_v = np.deg2rad(out[dec_col].to_numpy())
-    cra, cdec = math.radians(ra), math.radians(dec)
-    cos_d = np.sin(cdec) * np.sin(dec_v) + np.cos(cdec) * np.cos(dec_v) * np.cos(ra_v - cra)
-    cos_d = np.clip(cos_d, -1.0, 1.0)
-    sep_deg = np.degrees(np.arccos(cos_d))
-    out = (
-        out.with_columns(pl.Series("_sep_deg", sep_deg))
-        .filter(pl.col("_sep_deg") <= radius_deg)
-        .drop("_sep_deg")
-    )
     out_parquet.parent.mkdir(parents=True, exist_ok=True)
     out.write_parquet(out_parquet)
     return {

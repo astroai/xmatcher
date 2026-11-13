@@ -257,3 +257,47 @@ def test_xp_layout_fails_closed_on_unmatched_source(tmp_path):
     assert (stage / f"{names[-1]}.parquet").exists()
     assert _layout("finalize", gaia, stage, out, expected).returncode == 1
     assert not (out / "partition_info.csv").exists()
+
+
+def test_extract_cone_equals_bruteforce_across_partition_layouts(tmp_path):
+    u = pytest.importorskip("astropy.units")
+    coords = pytest.importorskip("astropy.coordinates")
+    healpix = pytest.importorskip("cdshealpix.nested")
+    pytest.importorskip("polars")
+    sys.path.insert(0, str(ARC.parent))
+    import canfar_pinned_match as pm
+
+    rng = np.random.default_rng(5)
+    n = 200_000
+    ra = rng.uniform(0, 360, n)
+    dec = np.degrees(np.arcsin(rng.uniform(-1, 1, n)))
+    hp29 = healpix.lonlat_to_healpix(
+        coords.Longitude(ra * u.deg), coords.Latitude(dec * u.deg), 29
+    ).astype(np.int64)
+    root = tmp_path / "cat"
+    pix2 = hp29 >> 54
+    for p in np.unique(pix2):
+        m = pix2 == p
+        t = pa.table({"ra": ra[m], "dec": dec[m], "_healpix_29": hp29[m], "x": rng.random(m.sum())})
+        d = root / "dataset" / "Norder=2" / "Dir=0"
+        if p % 2:
+            (d / f"Npix={p}").mkdir(parents=True, exist_ok=True)
+            half = t.num_rows // 2
+            pq.write_table(t.slice(0, half), d / f"Npix={p}" / "a.parquet")
+            pq.write_table(t.slice(half), d / f"Npix={p}" / "b.parquet")
+        else:
+            d.mkdir(parents=True, exist_ok=True)
+            pq.write_table(t, d / f"Npix={p}.parquet")
+    (root / "hats.properties").write_text("hats_col_ra=ra\nhats_col_dec=dec\n")
+    for cra, cdec, rad in ((10.0, -30.0, 4.0), (200.0, 60.0, 7.5), (61.2, -48.4, 2.0)):
+        info = pm.extract_cone(root, tmp_path / "cone.parquet", cra, cdec, rad)
+        got = pq.read_table(tmp_path / "cone.parquet")
+        r0, d0, r1, d1 = map(np.radians, (cra, cdec, ra, dec))
+        sep = np.degrees(
+            np.arccos(
+                np.clip(np.sin(d0) * np.sin(d1) + np.cos(d0) * np.cos(d1) * np.cos(r1 - r0), -1, 1)
+            )
+        )
+        want = set(hp29[sep <= rad].tolist())
+        assert info["rows"] == got.num_rows == len(want) > 0
+        assert set(got["_healpix_29"].to_pylist()) == want

@@ -64,7 +64,9 @@ def main(root_arg: str, alias: str, expect_rows: int, expect_parts: int) -> int:
     brute = 0
     cells7: set[int] = set()
     hp_checked = 0
-    for order, pix in parts:
+    for i, (order, pix) in enumerate(parts):
+        if i % 100 == 0:
+            print(f"scan {i}/{len(parts)} rows={total}", file=sys.stderr, flush=True)
         stem = root / "dataset" / f"Norder={order}" / f"Dir={pix // 10000 * 10000}" / f"Npix={pix}"
         files = (
             [stem.with_suffix(".parquet")]
@@ -116,6 +118,7 @@ def main(root_arg: str, alias: str, expect_rows: int, expect_parts: int) -> int:
     notes["rows"] = total
     notes["footprint_deg2_order7"] = round(len(cells7) * SKY_DEG2 / (12 * 4**7), 1)
 
+    print(f"scan done rows={total}; cone extract", file=sys.stderr, flush=True)
     out = Path(os.environ.get("QA_SCRATCH", "/scratch")) / "qa_cone.parquet"
     ext = pm.extract_cone(root, out, cra, cdec, rad)
     cone_rows = pq.read_metadata(out).num_rows
