@@ -43,7 +43,9 @@ print("updated", p)
 PY
 
 # Hide the k-pop copy from the resolver during QA so the pointer check exercises the hats path.
-HIDDEN="$SRC.promoting"
+# The resolver globs every child of _cache/<alias>, so the hidden copy must live outside it.
+HIDDEN="$KP/staging/_promoting/$ALIAS/$(basename "$SRC")"
+mkdir -p "$(dirname "$HIDDEN")"
 mv "$SRC" "$HIDDEN"
 if ! "$PY" "$CODE/qa_hats_release.py" "$DST" "$ALIAS" "$ROWS" "$PARTS"; then
   mv "$HIDDEN" "$SRC"; echo "FAIL deep QA; k-pop copy kept"; exit 1
