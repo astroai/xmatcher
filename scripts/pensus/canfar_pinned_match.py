@@ -197,13 +197,17 @@ def _list_pixel_files(root: Path) -> list[tuple[int, int, Path]]:
     if not base.is_dir():
         base = root
     found: list[tuple[int, int, Path]] = []
-    for parquet in sorted(base.glob("Norder=*/Dir=*/Npix=*.parquet")):
+    # A partition is either Npix=N.parquet or an Npix=N/ directory of parquet files (IRSA).
+    for entry in sorted(base.glob("Norder=*/Dir=*/Npix=*")):
         try:
-            order = int(parquet.parent.parent.name.split("=")[1])
-            pix = int(parquet.stem.split("=")[1])
+            order = int(entry.parent.parent.name.split("=")[1])
+            pix = int(entry.name.removesuffix(".parquet").split("=")[1])
         except Exception:
             continue
-        found.append((order, pix, parquet))
+        if entry.is_dir():
+            found.extend((order, pix, f) for f in sorted(entry.glob("*.parquet")))
+        elif entry.suffix == ".parquet":
+            found.append((order, pix, entry))
     return found
 
 
