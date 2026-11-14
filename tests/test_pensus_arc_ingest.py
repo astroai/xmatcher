@@ -18,7 +18,6 @@ ARC = Path(__file__).resolve().parents[1] / "scripts" / "pensus" / "arc"
 sys.path.insert(0, str(ARC))
 
 import catwise_convert  # noqa: E402
-import ls_convert  # noqa: E402
 import xp_convert  # noqa: E402
 
 XP_COLUMNS = [
@@ -371,6 +370,7 @@ def test_verify_catwise_hats_exact_conservation(tmp_path):
 def test_ls_convert_mirror_schema_and_fail_closed(tmp_path):
     torch = pytest.importorskip("torch")
     torchfits = pytest.importorskip("torchfits")
+    ls_convert = pytest.importorskip("ls_convert")
 
     rng = np.random.default_rng(3)
     n = 1000
