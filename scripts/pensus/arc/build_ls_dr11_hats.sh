@@ -48,8 +48,8 @@ TMP_SPACE_ROOT=${TMP_SPACE_ROOT:-$SPACE_ROOT}
 
 [[ -e "$DST" ]] && { echo "FAIL: $DST exists; refuse overwrite"; exit 1; }
 
-# Leftover / incomplete sweeps only; no-op when all 2126 markers are present.
-python3 "$CODE/ls_stage.py" 0 1 "$WORKERS" || { echo "FAIL: stage 1 incomplete"; exit 1; }
+# Stage-1 must already be complete (2126 markers). Do not import ls_stage here:
+# base:latest lacks torchfits, and re-staging is a separate campaign.
 python3 - "$STAGE" "$ROOT/manifest.json" "$SWEEPS" "$ROWS" <<'PY'
 import json, pathlib, sys
 stage, manifest_path = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
