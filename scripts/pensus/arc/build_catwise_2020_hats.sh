@@ -2,7 +2,7 @@
 set -euo pipefail
 # CatWISE2020 stage-1 Parquet (k-pop staging) -> HATS at /arc/projects/hats/catwise/2020.
 # Builds straight into hats (no k-pop copy), checks exact row conservation and deep QA, then
-# repoints inputs/catwise_2020_hats. The k-pop stage-1 Parquet is kept: deleting it needs approval.
+# repoints inputs/catwise_2020_hats, and deletes the k-pop stage-1 Parquet only after deep QA passes.
 # Run only after every catwise_stage1 session has exited; this first reruns stage 1 for leftover tiles.
 KP=/arc/projects/k-pop/pensus
 CODE=$KP/code
@@ -110,6 +110,18 @@ PY
 "$VENV/bin/python" -m pip install --quiet astropy cdshealpix pyyaml
 export PYTHONPATH="$CODE/vendor/xmatcher/src:$CODE"
 "$PY" "$CODE/verify_hats_tree.py" "$DST" || { echo "FAIL verify_hats_tree"; exit 1; }
-"$PY" "$CODE/qa_hats_release.py" "$DST" "$ALIAS" "$ROWS" "$PARTS" || { echo "FAIL deep QA"; exit 1; }
-echo "k-pop stage-1 Parquet kept at $STAGE ($STAGED bytes); delete only after approval"
+"$PY" "$CODE/qa_hats_release.py" "$DST" "$ALIAS" "$ROWS" "$PARTS" \
+  || { echo "FAIL deep QA; k-pop stage-1 Parquet kept at $STAGE"; exit 1; }
+
+# Deletion of the stage-1 Parquet approved 2026-11-13 once deep QA passes; markers and manifest stay.
+find "$STAGE" -name '*.parquet' -delete
+find "$STAGE" -mindepth 1 -type d -empty -delete
+"$PY" - "$KP/inputs/$ALIAS/SOURCE.json" "$STAGE" "$STAGED" <<'PY'
+import datetime, json, pathlib, sys
+p = pathlib.Path(sys.argv[1]); d = json.loads(p.read_text())
+d["kpop_removed"] = [f"{sys.argv[2]}/*/*.parquet"]; d["kpop_removed_bytes"] = int(sys.argv[3])
+d["kpop_removed_at_utc"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+p.write_text(json.dumps(d, indent=2, sort_keys=True) + "\n")
+PY
+echo "DELETED stage-1 Parquet under $STAGE bytes=$STAGED"
 echo "done $(date -Is)"

@@ -18,6 +18,7 @@ ARC = Path(__file__).resolve().parents[1] / "scripts" / "pensus" / "arc"
 sys.path.insert(0, str(ARC))
 
 import catwise_convert  # noqa: E402
+import ls_convert  # noqa: E402
 import xp_convert  # noqa: E402
 
 XP_COLUMNS = [
@@ -365,3 +366,45 @@ def test_verify_catwise_hats_exact_conservation(tmp_path):
     pq.write_table(_catwise_rows(rng, "00x0m061", 3), stage / "bad.parquet")
     malformed = _run_verify(hats(shuffled, "good2"), 1000, glob)
     assert malformed.returncode != 0 and "source_id outside" in malformed.stderr
+
+
+def test_ls_convert_mirror_schema_and_fail_closed(tmp_path):
+    torch = pytest.importorskip("torch")
+    torchfits = pytest.importorskip("torchfits")
+
+    rng = np.random.default_rng(3)
+    n = 1000
+    south = {
+        "OBJID": torch.arange(n, dtype=torch.int32),
+        "RA": torch.from_numpy(rng.uniform(0, 360, n)),
+        "DEC": torch.from_numpy(rng.uniform(-90, 90, n)),
+        "FLUX_G": torch.from_numpy(rng.random(n).astype(np.float32)),
+        "FLUX_I": torch.from_numpy(rng.random(n).astype(np.float32)),
+    }
+    north = {k: v for k, v in south.items() if k != "FLUX_I"}
+    torchfits.table.write(str(tmp_path / "s.fits"), south)
+    torchfits.table.write(str(tmp_path / "n.fits"), north)
+    s_schema = next(iter(torchfits.table.scan(str(tmp_path / "s.fits"), hdu=1))).schema
+    schema = ls_convert.mirror_schema(s_schema.remove_metadata())
+
+    assert ls_convert.convert(tmp_path / "s.fits", tmp_path / "s.parquet", "S", schema) == n
+    assert ls_convert.convert(tmp_path / "n.fits", tmp_path / "n.parquet", "N", schema) == n
+    s, nt = pq.read_table(tmp_path / "s.parquet"), pq.read_table(tmp_path / "n.parquet")
+    assert s.schema.equals(schema) and nt.schema.equals(schema)
+    for c in south:
+        np.testing.assert_array_equal(s[c].to_numpy(), south[c].numpy())
+    for c in north:
+        np.testing.assert_array_equal(nt[c].to_numpy(), north[c].numpy())
+    assert nt["FLUX_I"].null_count == n and s["FLUX_I"].null_count == 0
+    assert set(s["PHOTSYS"].to_pylist()) == {"S"} and set(nt["PHOTSYS"].to_pylist()) == {"N"}
+
+    with pytest.raises(ValueError, match="missing column FLUX_I"):
+        ls_convert.convert(tmp_path / "n.fits", tmp_path / "x.parquet", "S", schema)
+    no_g = {k: v for k, v in north.items() if k != "FLUX_G"}
+    torchfits.table.write(str(tmp_path / "bad.fits"), no_g)
+    with pytest.raises(ValueError, match="missing column FLUX_G"):
+        ls_convert.convert(tmp_path / "bad.fits", tmp_path / "x.parquet", "N", schema)
+    wrong = dict(south, OBJID=south["OBJID"].to(torch.int64))
+    torchfits.table.write(str(tmp_path / "wrong.fits"), wrong)
+    with pytest.raises(ValueError, match="OBJID"):
+        ls_convert.convert(tmp_path / "wrong.fits", tmp_path / "x.parquet", "S", schema)
