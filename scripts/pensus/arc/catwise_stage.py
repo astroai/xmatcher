@@ -2,13 +2,16 @@
 
 Resumable: a tile is done when stage1/_done/<tile>.json exists. Each tile's download must match the
 manifest byte size and its row count must equal the tile's \\Nsrc header (catwise_convert checks).
-Usage: catwise_stage.py <shard> <nshards> <workers>
+A second session may work the same shard with `reverse`: scratch and temp names are per host, and a
+tile both sessions convert ends up written twice with identical content.
+Usage: catwise_stage.py <shard> <nshards> <workers> [reverse]
 """
 
 from __future__ import annotations
 
 import concurrent.futures as cf
 import json
+import socket
 import subprocess
 import sys
 import time
@@ -21,7 +24,8 @@ URL = "https://portal.nersc.gov/project/cosmo/data/CatWISE/2020/"
 ROOT = Path("/arc/projects/k-pop/pensus/staging/catwise_2020")
 STAGE = ROOT / "stage1"
 DONE = STAGE / "_done"
-SCRATCH = Path("/scratch/catwise")
+HOST = socket.gethostname()
+SCRATCH = Path("/scratch") / f"catwise_{HOST}"
 CAP_BYTES = 1000 * 2**30
 
 
@@ -52,7 +56,7 @@ def one(rel: str, nbytes: int, nsrc: int) -> dict:
         raise RuntimeError(f"{rel}: rows {table.num_rows} header {header_nsrc} manifest {nsrc}")
     out = STAGE / Path(rel).parent / f"{tile}.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
-    tmp = out.with_suffix(".parquet.partial")
+    tmp = out.with_suffix(f".{HOST}.partial")
     catwise_convert.write(table, tmp)
     tmp.rename(out)
     rec = {
@@ -68,7 +72,7 @@ def one(rel: str, nbytes: int, nsrc: int) -> dict:
     return rec
 
 
-def main(shard: int, nshards: int, workers: int) -> int:
+def main(shard: int, nshards: int, workers: int, reverse: bool = False) -> int:
     DONE.mkdir(parents=True, exist_ok=True)
     SCRATCH.mkdir(parents=True, exist_ok=True)
     manifest = json.loads((ROOT / "manifest.json").read_text())
@@ -80,26 +84,34 @@ def main(shard: int, nshards: int, workers: int) -> int:
         for m in mine
         if not (DONE / f"{Path(m['file']).name.removesuffix('.tbl.gz')}.json").exists()
     ]
+    if reverse:
+        todo.reverse()
     print(f"shard {shard}/{nshards}: {len(mine)} tiles, {len(todo)} to do", flush=True)
     failed = 0
     with cf.ProcessPoolExecutor(workers) as ex:
         pending: set[cf.Future[dict]] = set()
         it = iter(todo)
+        staged, submitted = staged_bytes(), 0
         while True:
             while len(pending) < workers:
-                if staged_bytes() > CAP_BYTES:
+                if submitted % 200 == 199:
+                    staged = staged_bytes()
+                if staged > CAP_BYTES:
                     print("STOP: staging cap reached", flush=True)
                     break
                 m = next(it, None)
                 if m is None:
                     break
                 pending.add(ex.submit(one, m["file"], m["bytes"], m["nsrc"]))
+                submitted += 1
             if not pending:
                 break
             done, pending = cf.wait(pending, return_when=cf.FIRST_COMPLETED)
             for f in done:
                 try:
-                    print(json.dumps(f.result()), flush=True)
+                    rec = f.result()
+                    staged += rec["out_bytes"]
+                    print(json.dumps(rec), flush=True)
                 except Exception as exc:  # noqa: BLE001
                     failed += 1
                     print(f"FAIL {exc!r}", flush=True)
@@ -114,4 +126,6 @@ def main(shard: int, nshards: int, workers: int) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3])))
+    raise SystemExit(
+        main(int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), sys.argv[4:] == ["reverse"])
+    )
