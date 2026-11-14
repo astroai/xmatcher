@@ -14,7 +14,9 @@ from hats_import.pipeline import pipeline_with_client
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--inputs", nargs="+", required=True, help="files or globs")
-    p.add_argument("--reader", required=True, help="hats-import file_reader name (fits, csv, parquet)")
+    p.add_argument(
+        "--reader", required=True, help="hats-import file_reader name (fits, csv, parquet)"
+    )
     p.add_argument("--name", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--tmp", required=True)
