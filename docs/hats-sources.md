@@ -65,7 +65,7 @@ each upstream rebuild.
 | `desi_dr1_z_catal` | DESI DR1 redshift catalogue | `https://data.lsdb.io/hats/desi/desi_dr1_zcat/desi_dr1_zcat` | 28,425,963 | ~12 GiB |
 | `euclid_q1` | Euclid Q1 merged objects | `https://data.lsdb.io/hats/euclid_q1/euclid_q1_merFinalCatalog` | 29,767,806 | ~22 GiB |
 | `ztf_dr14_objects` | ZTF DR14 objects | `https://data.lsdb.io/hats/ztf_dr14/ztf_object` | — | — |
-| `skymapper_dr4` | SkyMapper DR4 | `https://data.lsdb.io/hats/skymapper_dr4/catalog/sky_mapper_dr4` | 724,329,344 | ~96 GiB |
+| `skymapper_dr4` | SkyMapper DR4 flat master (LIneA) | `https://linea.data.lsdb.io/hats/skymapper/catalog/sky_mapper_dr4` | 724,329,344 | ~96 GiB |
 | `tic_v8_2` | TESS Input Catalogue v8.2 | `https://data.lsdb.io/hats/tess/tic/tic` | 1,727,981,580 | ~397 GiB |
 | `vsx` | AAVSO VSX (dated collection) | `https://data.lsdb.io/hats/vsx/2026-10` | 10,304,730 | ~535 MiB |
 | `tns` | Transient Name Server (dated collection) | `https://data.lsdb.io/hats/tns/2026-10-22` | 210,788 | ~34 MiB |
@@ -93,7 +93,7 @@ or pass `hats:<url>` directly.
 | `vhs_hats` | `https://vizcat.cds.unistra.fr/hats/vhs_dr5/main` | 1,374,207,485 | VHS DR5, per-band MJD |
 | `ps1_hats` | `https://vizcat.cds.unistra.fr/hats/ps1_dr2/main` | 1,868,236,315 | PS1 DR2, 67 columns |
 | `galex_hats` | `https://vizcat.cds.unistra.fr/hats/galex_gr67/main` | 82,992,086 | GALEX GR6/7 |
-| `splus_hats` | `https://vizcat.cds.unistra.fr/hats/splus_dr4/main` | 27,235,968 | S-PLUS DR4 public HATS; DR5 is not public |
+| `splus_hats` | `https://vizcat.cds.unistra.fr/hats/splus_dr4/main` | 27,235,968 | S-PLUS DR4 public HATS (CDS); registry alias `splus_dr5_hats` is a local-tree placeholder only — DR5 is not public |
 
 The anchor has an LSDB-pinned alias too: `gaia_lsdb_hats`
 (`https://data.lsdb.io/hats/gaia_dr3/gaia`, 1,812,731,847 rows, 153 columns,

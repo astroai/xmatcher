@@ -412,6 +412,9 @@ def _prepare_inputs(
     max_left = lf1.select(pl.col(_LEFT_SIGMA).max()).collect(engine="streaming").item()
     max_right = lf2.select(pl.col(_RIGHT_SIGMA).max()).collect(engine="streaming").item()
     max_halo = spec.max_error * (float(max_left or 0.0) + float(max_right or 0.0))
+    # Hard ceiling: skyerr may only narrow the requested radius (matches fast/torchsky/zone).
+    if spec.radius_arcsec is not None:
+        max_halo = min(max_halo, float(spec.radius_arcsec))
     return spec, lf1, lf2, max_halo
 
 

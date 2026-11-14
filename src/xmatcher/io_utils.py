@@ -147,7 +147,9 @@ def _read_fits(path: Path) -> pl.DataFrame:
     try:
         from torchfits import table as torchfits_table
     except ImportError:
-        torchfits_table = None
+        # Local installs with typed torchfits stubs infer Module; CI without the
+        # package treats the import as Any. Keep None assignment explicit either way.
+        torchfits_table = None  # type: ignore[assignment]
 
     if torchfits_table is not None:
         for hdu in (1, 0):

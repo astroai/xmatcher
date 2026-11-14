@@ -1,0 +1,16 @@
+# Dual budget ledger: public hats trees only.
+
+[hats]
+root = "/arc/projects/hats"
+pensus_public = "/arc/projects/hats/pensus"
+policy = "immutable published views / sidecars / minimal docs"
+
+[pensus_public]
+views_reserve_gib = 4096
+sidecars_reserve_gib = 1024
+docs_reserve_gib = 1
+preflight = "require free >= release size + 50 GiB before promote"
+
+[survey_promote]
+optional = true
+note = "Official survey pins under /arc/projects/hats/<survey>/<release> (e.g. euclid/q1, 2mass/psc) after k-pop hats_build validation"

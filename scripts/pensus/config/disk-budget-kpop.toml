@@ -1,0 +1,21 @@
+# Dual budget ledger: k-pop work tree (staging, inputs, drafts, tiles, logs).
+# Public releases are tracked separately in disk-budget-hats.toml.
+
+[scratch]
+max_gib = 290
+target_peak_gib = 250
+policy = "ephemeral; wipe on success; never sole durable copy"
+
+[kpop]
+root = "/arc/projects/k-pop/pensus"
+staging_reserve_gib = 2048
+inputs_reserve_gib = 8192
+drafts_reserve_gib = 4096
+tiles_reserve_gib = 1024
+logs_reserve_gib = 64
+preflight = "require free >= sum(active job peaks) + 100 GiB"
+
+[rules]
+promote_to_hats_pensus = "checksummed finished views/sidecars/docs only"
+promote_to_hats_survey = "optional official survey tree after hats_build validation"
+no_write = ["/arc/projects/hats/pensus/staging", "/arc/projects/hats/pensus/inputs"]
