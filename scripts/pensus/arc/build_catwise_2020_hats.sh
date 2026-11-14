@@ -16,7 +16,9 @@ STAGE=$KP/staging/catwise_2020/stage1
 BUILD=/arc/projects/hats/catwise/_build
 DST=/arc/projects/hats/catwise/2020
 ALIAS=catwise_2020_hats
-TMP=/scratch/pensus/catwise_hats_tmp
+# hats-import intermediates must NOT live on node-local /scratch: CANFAR evicts the
+# pod when ephemeral local storage hits 300 Gi (seen on ktnf1y2f mid-Splitting).
+TMP=$KP/hats_build/catwise_2020_tmp
 VENV=/scratch/hatsenv
 WORKERS=${WORKERS:-$(( $(nproc) - 1 ))}
 
@@ -38,14 +40,17 @@ PY
 STAGED=$(du -sb --exclude=_done "$STAGE" | cut -f1)
 HATS_MAX=$(getfattr --only-values -n ceph.quota.max_bytes /arc/projects/hats)
 HATS_USED=$(getfattr --only-values -n ceph.dir.rbytes /arc/projects/hats)
-SCRATCH_FREE=$(df -B1 --output=avail /scratch | tail -1)
-echo "staged=$STAGED hats max_bytes=$HATS_MAX rbytes=$HATS_USED scratch_free=$SCRATCH_FREE"
+KPOP_MAX=$(getfattr --only-values -n ceph.quota.max_bytes /arc/projects/k-pop)
+KPOP_USED=$(getfattr --only-values -n ceph.dir.rbytes /arc/projects/k-pop)
+echo "staged=$STAGED hats max_bytes=$HATS_MAX rbytes=$HATS_USED k-pop free=$(( KPOP_MAX - KPOP_USED )) tmp=$TMP"
 # HATS output measured at 0.96x the stage-1 bytes (zstd-15 + byte_stream_split vs zstd-3); 10% headroom.
 NEED=$(( STAGED * 110 / 100 ))
 if [[ "$HATS_MAX" != 0 ]] && (( HATS_MAX - HATS_USED < NEED )); then
   echo "FAIL: hats free $(( HATS_MAX - HATS_USED )) < need $NEED"; exit 1
 fi
-(( SCRATCH_FREE > STAGED * 130 / 100 )) || { echo "FAIL: /scratch free $SCRATCH_FREE too small"; exit 1; }
+# Intermediates peak ~1.0–1.3× staged; keep 300 GiB k-pop floor after that.
+(( KPOP_MAX - KPOP_USED > STAGED * 130 / 100 + 300 * 2**30 )) \
+  || { echo "FAIL: k-pop free $(( KPOP_MAX - KPOP_USED )) too small for tmp on CephFS"; exit 1; }
 
 mkdir -p "$BUILD" "$TMP"
 python3 -m venv --system-site-packages "$VENV"
