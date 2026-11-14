@@ -408,3 +408,36 @@ def test_ls_convert_mirror_schema_and_fail_closed(tmp_path):
     torchfits.table.write(str(tmp_path / "wrong.fits"), wrong)
     with pytest.raises(ValueError, match="OBJID"):
         ls_convert.convert(tmp_path / "wrong.fits", tmp_path / "x.parquet", "S", schema)
+
+
+def test_verify_ls_dr11_integrity_key_packing():
+    verify_ls = pytest.importorskip("verify_ls_dr11_hats")
+
+    batch = pa.RecordBatch.from_pydict(
+        {
+            "RELEASE": pa.array([9011, 9011, 9010], type=pa.int16()),
+            "BRICKID": pa.array([100, 100, 200], type=pa.int32()),
+            "OBJID": pa.array([1, 2, 1], type=pa.int32()),
+            "PHOTSYS": ["S", "S", "N"],
+            "RA": [10.0, 11.0, 12.0],
+            "DEC": [-1.0, 0.0, 1.0],
+        }
+    )
+    k = verify_ls.keys(batch)
+    assert k.tolist() == [
+        (9011 * 10**12 + 100 * 10**6 + 1) * 2 + 1,
+        (9011 * 10**12 + 100 * 10**6 + 2) * 2 + 1,
+        (9010 * 10**12 + 200 * 10**6 + 1) * 2 + 0,
+    ]
+    bad = pa.RecordBatch.from_pydict(
+        {
+            "RELEASE": pa.array([9011], type=pa.int16()),
+            "BRICKID": pa.array([1], type=pa.int32()),
+            "OBJID": pa.array([1_000_000], type=pa.int32()),
+            "PHOTSYS": ["S"],
+            "RA": [0.0],
+            "DEC": [0.0],
+        }
+    )
+    with pytest.raises(ValueError, match="OBJID"):
+        verify_ls.keys(bad)
