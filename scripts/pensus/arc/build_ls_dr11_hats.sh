@@ -1,28 +1,50 @@
 #!/bin/bash
 set -euo pipefail
-# Legacy Surveys Tractor DR11 stage-1 Parquet (k-pop) -> HATS at /arc/projects/hats/legacysurvey/dr11.
-# Builds straight into hats (no k-pop HATS copy), checks exact row conservation and deep QA, then
-# repoints inputs/legacysurvey_dr11_hats, and deletes the k-pop stage-1 Parquet only after deep QA.
-# Do not launch until hats free >= ~1.05x staged (~1 TB today) or ceph.quota.max_bytes >= 25e12.
-# hats-import resume=True; TMP must be on CephFS (not /scratch) to avoid 300 Gi ephemeral eviction.
+# Legacy Surveys Tractor DR11 stage-1 Parquet (k-pop) -> HATS.
+#
+# Default final destination is /arc/projects/hats/legacysurvey/dr11. While hats
+# free is short, set TEMP_HOST to stage under another project, e.g.:
+#   TEMP_HOST=/arc/projects/skyai bash build_ls_dr11_hats.sh
+# which writes:
+#   DST=$TEMP_HOST/pensus/hats_staging/legacysurvey/dr11
+#   TMP=$TEMP_HOST/pensus/hats_build/ls_dr11_tmp
+# and records planned_hats_path=/arc/projects/hats/legacysurvey/dr11 in SOURCE.json.
+#
+# Fail-closed: stage1 totals, exact row conservation, verify_hats_tree, deep QA.
+# Deletes k-pop stage-1 Parquet only after deep QA. hats-import resume=True.
+# TMP must be on CephFS (not /scratch) to avoid 300 Gi ephemeral eviction.
 KP=/arc/projects/k-pop/pensus
 CODE=$KP/code
 LOG=$KP/logs/ls_dr11_build_$(date -u +%Y%m%dT%H%M%SZ).log
 exec > >(tee -a "$LOG") 2>&1
-echo "start $(date -Is) host=$(hostname) nproc=$(nproc)"
+echo "start $(date -Is) host=$(hostname) nproc=$(nproc) TEMP_HOST=${TEMP_HOST:-}"
 
 ROWS=3967618454
 SWEEPS=2126
 ROOT=$KP/staging/legacysurvey_dr11
 STAGE=$ROOT/stage1
-BUILD=/arc/projects/hats/legacysurvey/_build
-DST=/arc/projects/hats/legacysurvey/dr11
 ALIAS=legacysurvey_dr11_hats
-# hats-import intermediates must NOT live on node-local /scratch: CANFAR evicts the
-# pod when ephemeral local storage hits 300Gi (seen on CatWISE ktnf1y2f mid-Splitting).
-TMP=$KP/hats_build/ls_dr11_tmp
+PLANNED_HATS=/arc/projects/hats/legacysurvey/dr11
 VENV=/scratch/hatsenv
 WORKERS=${WORKERS:-$(( $(nproc) - 1 ))}
+
+if [[ -n "${TEMP_HOST:-}" ]]; then
+  BUILD=$TEMP_HOST/pensus/hats_staging/legacysurvey/_build
+  DST=$TEMP_HOST/pensus/hats_staging/legacysurvey/dr11
+  TMP=${TMP:-$TEMP_HOST/pensus/hats_build/ls_dr11_tmp}
+  SPACE_ROOT=$TEMP_HOST
+  TEMPORARY=true
+else
+  BUILD=/arc/projects/hats/legacysurvey/_build
+  DST=$PLANNED_HATS
+  TMP=${TMP:-$KP/hats_build/ls_dr11_tmp}
+  # Output gated on hats; TMP gated on the project that holds TMP (default k-pop).
+  SPACE_ROOT=/arc/projects/hats
+  # TMP default is under k-pop; derive /arc/projects/<name> from TMP path.
+  TMP_SPACE_ROOT=$(echo "$TMP" | cut -d/ -f1-4)
+  TEMPORARY=false
+fi
+TMP_SPACE_ROOT=${TMP_SPACE_ROOT:-$SPACE_ROOT}
 
 [[ -e "$DST" ]] && { echo "FAIL: $DST exists; refuse overwrite"; exit 1; }
 
@@ -49,20 +71,28 @@ if not (
 PY
 
 STAGED=$(du -sb --exclude=_done "$STAGE" | cut -f1)
-HATS_MAX=$(getfattr --only-values -n ceph.quota.max_bytes /arc/projects/hats)
-HATS_USED=$(getfattr --only-values -n ceph.dir.rbytes /arc/projects/hats)
-KPOP_MAX=$(getfattr --only-values -n ceph.quota.max_bytes /arc/projects/k-pop)
-KPOP_USED=$(getfattr --only-values -n ceph.dir.rbytes /arc/projects/k-pop)
-echo "staged=$STAGED hats max_bytes=$HATS_MAX rbytes=$HATS_USED k-pop free=$(( KPOP_MAX - KPOP_USED )) tmp=$TMP"
-# HATS output ~1.0x stage-1 bytes with headroom; require 10% above staged on hats.
+OUT_MAX=$(getfattr --only-values -n ceph.quota.max_bytes "$SPACE_ROOT")
+OUT_USED=$(getfattr --only-values -n ceph.dir.rbytes "$SPACE_ROOT")
+TMP_MAX=$(getfattr --only-values -n ceph.quota.max_bytes "$TMP_SPACE_ROOT")
+TMP_USED=$(getfattr --only-values -n ceph.dir.rbytes "$TMP_SPACE_ROOT")
+echo "staged=$STAGED out_root=$SPACE_ROOT max=$OUT_MAX used=$OUT_USED tmp_root=$TMP_SPACE_ROOT tmp=$TMP dst=$DST temporary=$TEMPORARY"
 NEED=$(( STAGED * 110 / 100 ))
-if [[ "$HATS_MAX" != 0 ]] && (( HATS_MAX - HATS_USED < NEED )); then
-  echo "FAIL: hats free $(( HATS_MAX - HATS_USED )) < need $NEED (wait for >=1TB free or max_bytes>=25e12)"
-  exit 1
+TMP_NEED=$(( STAGED * 130 / 100 + 300 * 2**30 ))
+# Same-volume peak: output + tmp + 300 GiB floor.
+if [[ "$SPACE_ROOT" == "$TMP_SPACE_ROOT" ]]; then
+  PEAK=$(( NEED + STAGED * 130 / 100 + 300 * 2**30 ))
+  if [[ "$OUT_MAX" != 0 ]] && (( OUT_MAX - OUT_USED < PEAK )); then
+    echo "FAIL: $SPACE_ROOT free $(( OUT_MAX - OUT_USED )) < peak need $PEAK (out+tmp+floor)"
+    exit 1
+  fi
+else
+  if [[ "$OUT_MAX" != 0 ]] && (( OUT_MAX - OUT_USED < NEED )); then
+    echo "FAIL: $SPACE_ROOT free $(( OUT_MAX - OUT_USED )) < need $NEED"; exit 1
+  fi
+  if [[ "$TMP_MAX" != 0 ]] && (( TMP_MAX - TMP_USED < TMP_NEED )); then
+    echo "FAIL: $TMP_SPACE_ROOT free $(( TMP_MAX - TMP_USED )) < tmp need $TMP_NEED"; exit 1
+  fi
 fi
-# Intermediates peak ~1.0–1.3× staged; keep 300 GiB k-pop floor after that.
-(( KPOP_MAX - KPOP_USED > STAGED * 130 / 100 + 300 * 2**30 )) \
-  || { echo "FAIL: k-pop free $(( KPOP_MAX - KPOP_USED )) too small for tmp on CephFS"; exit 1; }
 
 mkdir -p "$BUILD" "$TMP"
 python3 -m venv --system-site-packages "$VENV"
@@ -86,13 +116,14 @@ HI_VER=$("$PY" -c 'import importlib.metadata as m; print(m.version("hats-import"
 echo "built $DST bytes=$BYTES partitions=$PARTS"
 
 mkdir -p "$KP/inputs/$ALIAS"
-"$PY" - "$DST" "$KP/inputs/$ALIAS/SOURCE.json" "$HI_VER" "$BYTES" "$ROWS" "$SWEEPS" <<'PY'
+"$PY" - "$DST" "$KP/inputs/$ALIAS/SOURCE.json" "$HI_VER" "$BYTES" "$ROWS" "$SWEEPS" "$PLANNED_HATS" "$TEMPORARY" <<'PY'
 import datetime, json, pathlib, sys
-dst, pointer, hi_ver, nbytes, rows, sweeps = sys.argv[1:]
+dst, pointer, hi_ver, nbytes, rows, sweeps, planned, temporary = sys.argv[1:]
 now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 props = next(q for q in (pathlib.Path(dst, "hats.properties"), pathlib.Path(dst, "properties")) if q.exists())
 nrows = next(int(l.split("=", 1)[1]) for l in props.read_text().splitlines() if l.startswith("hats_nrows="))
 assert nrows == int(rows), (nrows, rows)
+temp = temporary.lower() == "true"
 prov = {
     "survey": "legacysurvey",
     "release": "dr11",
@@ -107,14 +138,18 @@ prov = {
     "hats_import_version": hi_ver,
     "built_at_utc": now,
     "bytes": int(nbytes),
+    "temporary_host": temp,
+    "planned_hats_path": planned,
 }
 pathlib.Path(dst, "PENSUS_BUILD.json").write_text(json.dumps(prov, indent=2, sort_keys=True) + "\n")
 pathlib.Path(pointer).write_text(json.dumps({
     "survey": "legacysurvey_dr11",
     "alias": pathlib.Path(pointer).parent.name,
     "hats_path": dst,
-    "promoted_hats_path": dst,
-    "official_mirror": True,
+    "temporary_hats_path": dst if temp else None,
+    "promoted_hats_path": planned if temp else dst,
+    "planned_hats_path": planned,
+    "official_mirror": not temp,
     "hats_layout": "survey/release",
     "exists": True,
     "nrows": nrows,
@@ -122,7 +157,7 @@ pathlib.Path(pointer).write_text(json.dumps({
     "properties_head": props.read_text().splitlines()[:16],
     "probed_at_utc": now,
 }, indent=2, sort_keys=True) + "\n")
-print("wrote", pointer, "nrows", nrows)
+print("wrote", pointer, "nrows", nrows, "temporary", temp, "planned", planned)
 PY
 
 "$VENV/bin/python" -m pip install --quiet astropy cdshealpix pyyaml
