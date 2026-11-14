@@ -301,3 +301,67 @@ def test_extract_cone_equals_bruteforce_across_partition_layouts(tmp_path):
         want = set(hp29[sep <= rad].tolist())
         assert info["rows"] == got.num_rows == len(want) > 0
         assert set(got["_healpix_29"].to_pylist()) == want
+
+
+def _catwise_rows(rng, tile: str, n: int) -> pa.Table:
+    return pa.table(
+        {
+            "source_id": [f"{tile}_b0-{i:06d}" for i in rng.permutation(n) + 1],
+            "ra": np.round(rng.uniform(0, 360, n), 7),
+            "dec": np.round(rng.uniform(-90, 90, n), 7).astype(np.float64),
+            "w1mpro": rng.random(n).astype(np.float32),
+        }
+    )
+
+
+def _run_verify(root: Path, rows: int, glob: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(ARC / "verify_catwise_hats.py"), str(root), str(rows), glob],
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_verify_catwise_hats_exact_conservation(tmp_path):
+    pytest.importorskip("polars")
+    rng = np.random.default_rng(11)
+    stage = tmp_path / "stage1" / "000"
+    stage.mkdir(parents=True)
+    tables = [
+        _catwise_rows(rng, t, n)
+        for t, n in (("0000m061", 500), ("3599p863", 300), ("0015p000", 200))
+    ]
+    for i, t in enumerate(tables):
+        pq.write_table(t, stage / f"t{i}.parquet")
+    allrows = pa.concat_tables(tables)
+    shuffled = allrows.take(rng.permutation(allrows.num_rows))
+    glob = str(tmp_path / "stage1" / "*" / "*.parquet")
+
+    def hats(table: pa.Table, name: str) -> Path:
+        root = tmp_path / name
+        for j, part in enumerate((table.slice(0, 400), table.slice(400))):
+            d = root / "dataset" / "Norder=1" / "Dir=0"
+            d.mkdir(parents=True, exist_ok=True)
+            pq.write_table(part, d / f"Npix={j}.parquet")
+        return root
+
+    good = _run_verify(hats(shuffled, "good"), 1000, glob)
+    assert good.returncode == 0, good.stdout + good.stderr
+    assert json.loads(good.stdout)["checks"]["output_ids_distinct"]
+
+    dup = pa.concat_tables([shuffled.slice(0, 999), shuffled.slice(0, 1)])
+    bad = _run_verify(hats(dup, "dup"), 1000, glob)
+    assert bad.returncode == 1
+    checks = json.loads(bad.stdout)["checks"]
+    assert not checks["output_ids_distinct"] and checks["rows"]
+
+    assert _run_verify(hats(shuffled.slice(1), "short"), 1000, glob).returncode == 1
+
+    moved = shuffled.set_column(
+        1, "ra", pa.array(np.round(shuffled["ra"].to_numpy() + 1e-7 * (np.arange(1000) == 3), 7))
+    )
+    assert not json.loads(_run_verify(hats(moved, "moved"), 1000, glob).stdout)["checks"]["ra_e7"]
+
+    pq.write_table(_catwise_rows(rng, "00x0m061", 3), stage / "bad.parquet")
+    malformed = _run_verify(hats(shuffled, "good2"), 1000, glob)
+    assert malformed.returncode != 0 and "source_id outside" in malformed.stderr

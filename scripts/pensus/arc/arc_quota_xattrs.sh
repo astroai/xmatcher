@@ -4,8 +4,7 @@ LOG=/arc/projects/k-pop/pensus/logs/arc_quota_xattrs_$(date -u +%Y%m%dT%H%M%SZ).
 exec > >(tee -a "$LOG") 2>&1
 echo "probe $(date -Is) host=$(hostname) kernel=$(uname -r)"
 mount | grep -E ' /arc( |/)' | sed 's/secret=[^,]*/secret=REDACTED/'
-echo "== getfattr -n ceph.quota.max_bytes -n ceph.dir.rbytes /arc/projects/hats"
-getfattr -n ceph.quota.max_bytes -n ceph.dir.rbytes /arc/projects/hats 2>&1; echo "exit=$?"
+ls -ld /arc/projects/HATS 2>&1
 for p in /arc/projects/hats /arc/projects/k-pop /arc/projects /arc; do
   echo "== $p"
   for a in ceph.quota.max_bytes ceph.quota.max_files ceph.quota ceph.dir.rbytes ceph.dir.rfiles ceph.dir.layout.pool; do
