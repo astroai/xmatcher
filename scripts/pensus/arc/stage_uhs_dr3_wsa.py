@@ -110,7 +110,7 @@ def main() -> None:
     ra0 = args.ra_start
     while ra0 < args.ra_stop - 1e-9:
         ra1 = min(ra0 + args.ra_step, args.ra_stop)
-        name = f"uhs_ra_{ra0:06.2f}_{ra1:06.2f}.csv.gz".replace(".", "p")
+        name = f"uhs_ra_{ra0:06.2f}_{ra1:06.2f}".replace(".", "p") + ".csv.gz"
         dest = strips / name
         meta = dest.with_suffix(".json")
         if dest.exists() and meta.exists():
@@ -174,3 +174,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
