@@ -17,7 +17,7 @@ KP=/arc/projects/k-pop/pensus
 CODE=$KP/code
 LOG=$KP/logs/ls_dr11_build_$(date -u +%Y%m%dT%H%M%SZ).log
 exec > >(tee -a "$LOG") 2>&1
-echo "start $(date -Is) host=$(hostname) nproc=$(nproc) TEMP_HOST=${TEMP_HOST:-}"
+echo "start $(date -Is) host=$(hostname) nproc=$(nproc) TEMP_HOST=${TEMP_HOST:-} WORKERS=${WORKERS:-} MEMORY_LIMIT=${MEMORY_LIMIT:-}"
 
 ROWS=3967618454
 SWEEPS=2126
@@ -27,6 +27,21 @@ ALIAS=legacysurvey_dr11_hats
 PLANNED_HATS=/arc/projects/hats/legacysurvey/dr11
 VENV=/scratch/hatsenv
 WORKERS=${WORKERS:-$(( $(nproc) - 1 ))}
+MEMORY_LIMIT=${MEMORY_LIMIT:-12GB}
+
+ceph_bytes() {
+  # $1=path $2=attr -> integer bytes (0 if unset)
+  python3 -c 'import os,subprocess,sys
+path,attr=sys.argv[1],sys.argv[2]
+try:
+  print(int(os.getxattr(path,attr)))
+except OSError:
+  try:
+    out=subprocess.check_output(["getfattr","--only-values","-n",attr,path],text=True).strip()
+    print(int(out) if out else 0)
+  except Exception:
+    print(0)' "$1" "$2"
+}
 
 if [[ -n "${TEMP_HOST:-}" ]]; then
   BUILD=$TEMP_HOST/pensus/hats_staging/legacysurvey/_build
@@ -71,11 +86,11 @@ if not (
 PY
 
 STAGED=$(du -sb --exclude=_done "$STAGE" | cut -f1)
-OUT_MAX=$(getfattr --only-values -n ceph.quota.max_bytes "$SPACE_ROOT")
-OUT_USED=$(getfattr --only-values -n ceph.dir.rbytes "$SPACE_ROOT")
-TMP_MAX=$(getfattr --only-values -n ceph.quota.max_bytes "$TMP_SPACE_ROOT")
-TMP_USED=$(getfattr --only-values -n ceph.dir.rbytes "$TMP_SPACE_ROOT")
-echo "staged=$STAGED out_root=$SPACE_ROOT max=$OUT_MAX used=$OUT_USED tmp_root=$TMP_SPACE_ROOT tmp=$TMP dst=$DST temporary=$TEMPORARY"
+OUT_MAX=$(ceph_bytes "$SPACE_ROOT" ceph.quota.max_bytes)
+OUT_USED=$(ceph_bytes "$SPACE_ROOT" ceph.dir.rbytes)
+TMP_MAX=$(ceph_bytes "$TMP_SPACE_ROOT" ceph.quota.max_bytes)
+TMP_USED=$(ceph_bytes "$TMP_SPACE_ROOT" ceph.dir.rbytes)
+echo "staged=$STAGED out_root=$SPACE_ROOT max=$OUT_MAX used=$OUT_USED tmp_root=$TMP_SPACE_ROOT tmp=$TMP dst=$DST temporary=$TEMPORARY workers=$WORKERS memory_limit=$MEMORY_LIMIT"
 NEED=$(( STAGED * 110 / 100 ))
 TMP_NEED=$(( STAGED * 130 / 100 + 300 * 2**30 ))
 # Same-volume peak: output + tmp + 300 GiB floor.
@@ -102,7 +117,8 @@ PY="$VENV/bin/python"
 
 "$PY" "$CODE/hats_import_run.py" \
   --inputs "$STAGE/S/*.parquet" "$STAGE/N/*.parquet" --reader parquet \
-  --name dr11 --out "$BUILD" --tmp "$TMP" --ra RA --dec DEC --sort BRICKID --workers "$WORKERS"
+  --name dr11 --out "$BUILD" --tmp "$TMP" --ra RA --dec DEC --sort BRICKID \
+  --workers "$WORKERS" --memory-limit "$MEMORY_LIMIT"
 
 "$PY" "$CODE/verify_ls_dr11_hats.py" "$BUILD/dr11" "$ROWS" "$STAGE/*/*.parquet" \
   || { echo "FAIL: row conservation; build left at $BUILD/dr11"; exit 1; }
