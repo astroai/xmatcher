@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Stage VHS DR5 from NOIRLab Data Lab TAP into CephFS CSV.gz RA strips."""
+
 from __future__ import annotations
 
 import argparse
 import gzip
-import io
 import json
 import pathlib
 import time
@@ -16,9 +16,8 @@ COLS = "sourceid, ra2000, dec2000, japermag3, japermag3err, hapermag3, hapermag3
 
 
 def fetch_csv(sql: str, maxrec: int = 2_000_000, timeout: int = 600) -> bytes:
-    url = (
-        f"{DL}?REQUEST=doQuery&LANG=ADQL&FORMAT=csv&MAXREC={maxrec}&QUERY="
-        + urllib.parse.quote(sql)
+    url = f"{DL}?REQUEST=doQuery&LANG=ADQL&FORMAT=csv&MAXREC={maxrec}&QUERY=" + urllib.parse.quote(
+        sql
     )
     with urllib.request.urlopen(url, timeout=timeout) as resp:
         return resp.read()
@@ -52,10 +51,7 @@ def main() -> None:
             manifest.append(info)
             ra0 = ra1
             continue
-        sql = (
-            f"SELECT {COLS} FROM vhs_dr5.vhs_cat_v3 "
-            f"WHERE ra2000 >= {ra0} AND ra2000 < {ra1}"
-        )
+        sql = f"SELECT {COLS} FROM vhs_dr5.vhs_cat_v3 WHERE ra2000 >= {ra0} AND ra2000 < {ra1}"
         print(f"query {ra0}-{ra1} ...", flush=True)
         t0 = time.time()
         raw = fetch_csv(sql)
