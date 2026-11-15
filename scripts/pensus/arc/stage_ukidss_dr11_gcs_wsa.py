@@ -85,10 +85,10 @@ def download(op: urllib.request.OpenerDirector, url: str, dest: pathlib.Path) ->
 def count_rows(path: pathlib.Path) -> int:
     n = 0
     with gzip.open(path, "rt", errors="replace") as fh:
-        header = next(fh, "")
-        if not header:
-            return 0
-        for _ in fh:
+        for line in fh:
+            s = line.strip()
+            if not s or s.startswith("#"):
+                continue
             n += 1
     return n
 
