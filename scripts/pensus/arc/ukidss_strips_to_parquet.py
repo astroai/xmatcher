@@ -66,7 +66,7 @@ def main() -> int:
     files = sorted(strips.glob("*.csv.gz"))
     total = 0
     n_out = 0
-    for i, src in enumerate(files):
+    for src in files:
         dest = out / (src.name.replace(".csv.gz", ".parquet"))
         if dest.exists():
             n = pq.read_metadata(dest).num_rows
