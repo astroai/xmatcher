@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Convert UKIDSS WSA CSV.gz RA strips to parquet shards (skip # comments / empty strips)."""
+"""Convert UKIDSS WSA CSV.gz RA strips to parquet shards.
+
+WSA CSV.gz files put the column header only on `# sourceID,...` comment lines;
+data rows follow without a non-comment header. Empty strips (comments only) → skip.
+"""
 
 from __future__ import annotations
 
@@ -14,36 +18,32 @@ import pyarrow.parquet as pq
 
 
 def convert_one(src: pathlib.Path, dest: pathlib.Path) -> int:
-    # Skip comment lines by finding the last header-like line before data.
-    with gzip.open(src, "rb") as fh:
-        raw = fh.read()
-    text = raw.decode("utf-8", "replace")
-    lines = text.splitlines(keepends=True)
-    header_idx = None
-    for i, line in enumerate(lines):
-        s = line.strip()
-        if not s or s.startswith("#"):
-            continue
-        if "sourceID" in s or "ra" in s.split(",")[0:3]:
-            header_idx = i
-            # keep scanning — last non-comment header wins if duplicated
-            continue
-        if header_idx is not None:
-            break
-    if header_idx is None:
+    header: str | None = None
+    data_lines: list[str] = []
+    with gzip.open(src, "rt", errors="replace") as fh:
+        for line in fh:
+            s = line.strip()
+            if not s:
+                continue
+            if s.startswith("#"):
+                body = s.lstrip("#").strip()
+                if body.lower().startswith("sourceid"):
+                    header = body
+                continue
+            data_lines.append(s)
+    if not header or not data_lines:
         return 0
-    cleaned = "".join(lines[header_idx:]).encode("utf-8")
-    if not cleaned.strip():
-        return 0
+    buf = (header + "\n" + "\n".join(data_lines) + "\n").encode("utf-8")
     table = pacsv.read_csv(
-        pa.py_buffer(cleaned),
+        pa.py_buffer(buf),
+        parse_options=pacsv.ParseOptions(newlines_in_values=False),
         convert_options=pacsv.ConvertOptions(
-            strings_can_be_null=True, null_values=["", "NULL", "null"]
+            strings_can_be_null=True,
+            null_values=["", "NULL", "null"],
         ),
     )
     if table.num_rows == 0:
         return 0
-    # Normalize column names
     names = [c.lower() for c in table.column_names]
     table = table.rename_columns(names)
     if "ra" not in names or "dec" not in names:
@@ -80,8 +80,7 @@ def main() -> int:
             continue
         total += n
         n_out += 1
-        if (i + 1) % 10 == 0 or n > 0:
-            print(f"wrote {dest.name} rows={n} cumulative={total}", flush=True)
+        print(f"wrote {dest.name} rows={n} cumulative={total}", flush=True)
     print(f"done parquet_files={n_out} rows={total} out={out}", flush=True)
     if total <= 0:
         return 2
@@ -89,5 +88,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    # avoid unused import lint when resume path unused in some analyzers
     sys.exit(main())

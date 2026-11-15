@@ -30,8 +30,8 @@ except OSError:
 }
 
 [[ -e "$DST" ]] && { echo "FAIL: $DST exists"; exit 1; }
-ROWS=$(python3 -c 'import json; print(json.load(open("'"$POINTER"'"))["nrows_staged"])')
-echo "expected_rows=$ROWS"
+STAGED_ROWS=$(python3 -c 'import json; print(json.load(open("'"$POINTER"'"))["nrows_staged"])')
+echo "staged_rows_claim=$STAGED_ROWS"
 MMAX=$(ceph_bytes /arc/projects/skyai ceph.quota.max_bytes)
 MUSED=$(ceph_bytes /arc/projects/skyai ceph.dir.rbytes)
 FREE=$((MMAX-MUSED))
@@ -46,13 +46,21 @@ python3 -m venv --system-site-packages /scratch/hatsenv
 PY=/scratch/hatsenv/bin/python
 
 "$PY" "$CODE/ukidss_strips_to_parquet.py" --strips "$STAGE/strips" --out "$PARQ"
-GOT=$("$PY" -c 'import pathlib,pyarrow.parquet as pq
+ROWS=$("$PY" -c 'import pathlib,pyarrow.parquet as pq
 n=0
 for p in pathlib.Path("'"$PARQ"'").glob("*.parquet"):
   n+=pq.read_metadata(p).num_rows
 print(n)')
-echo "parquet_rows=$GOT"
-[[ "$GOT" == "$ROWS" ]] || { echo "FAIL parquet rows $GOT != $ROWS"; exit 1; }
+echo "parquet_rows=$ROWS staged_claim=$STAGED_ROWS"
+# Staging row counts included a few WSA # comment lines per strip; allow ≤0.01% slack, require near-match.
+"$PY" -c 'import sys
+got, claim = int(sys.argv[1]), int(sys.argv[2])
+if got <= 0: raise SystemExit("FAIL zero parquet rows")
+# claim may be slightly high (comment lines) or equal
+if got > claim: raise SystemExit(f"FAIL parquet {got} > staged claim {claim}")
+if claim - got > max(2000, claim // 10000):
+    raise SystemExit(f"FAIL parquet {got} too far below staged claim {claim}")
+print("row_check_ok", got, claim)' "$ROWS" "$STAGED_ROWS"
 
 WORKERS=${WORKERS:-4}
 MEMORY_LIMIT=${MEMORY_LIMIT:-12GB}
