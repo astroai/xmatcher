@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Stage UHS DR3 seamless sources from WSA freeform SQL into CephFS CSV.gz strips."""
+
 from __future__ import annotations
 
 import argparse
@@ -166,7 +167,9 @@ def main() -> None:
     pathlib.Path(args.pointer).parent.mkdir(parents=True, exist_ok=True)
     pathlib.Path(args.pointer).write_text(json.dumps(pointer, indent=2, sort_keys=True) + "\n")
     (stage / "STAGE_MANIFEST.json").write_text(json.dumps(pointer, indent=2, sort_keys=True) + "\n")
-    print(f"done strips={len(manifest)} rows={total_rows} bytes={total_bytes} pointer={args.pointer}")
+    print(
+        f"done strips={len(manifest)} rows={total_rows} bytes={total_bytes} pointer={args.pointer}"
+    )
 
 
 if __name__ == "__main__":
