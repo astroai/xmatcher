@@ -37,7 +37,9 @@ def convert_one(src: pathlib.Path, dest: pathlib.Path) -> int:
         return 0
     table = pacsv.read_csv(
         pa.py_buffer(cleaned),
-        convert_options=pacsv.ConvertOptions(strings_can_be_null=True, null_values=["", "NULL", "null"]),
+        convert_options=pacsv.ConvertOptions(
+            strings_can_be_null=True, null_values=["", "NULL", "null"]
+        ),
     )
     if table.num_rows == 0:
         return 0

@@ -23,8 +23,7 @@ DATABASE = "VIKINGDR5"
 RELEASE_LABEL = "VIKINGv20181012"
 TABLE = "vikingSource"
 FORM = (
-    f"http://vsa.roe.ac.uk:8080/vdfs/VSQL_form.jsp"
-    f"?programmeID={PROGRAMME_ID}&database={DATABASE}"
+    f"http://vsa.roe.ac.uk:8080/vdfs/VSQL_form.jsp?programmeID={PROGRAMME_ID}&database={DATABASE}"
 )
 POST = "http://vsa.roe.ac.uk:8080/vdfs/WSASQL"
 COLS = (
