@@ -31,6 +31,10 @@ def convert_one(src: pathlib.Path, dest: pathlib.Path) -> int:
                 if body.lower().startswith("sourceid"):
                     header = body
                 continue
+            # VSA CSV often has an uncommented sourceID header row.
+            if header is None and s.lower().startswith("sourceid"):
+                header = s
+                continue
             data_lines.append(s)
     if not header or not data_lines:
         return 0
