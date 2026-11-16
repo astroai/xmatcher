@@ -200,6 +200,17 @@ def main() -> None:
         ra0 = ra1
         time.sleep(args.sleep)
 
+    # Include any prior strip sidecars (e.g. 0.5° pass before a finer resume).
+    by_file = {x["file"]: x for x in manifest}
+    for meta_path in sorted(strips.glob("*.csv.gz.json")):
+        try:
+            info = json.loads(meta_path.read_text())
+        except Exception:
+            continue
+        fname = info.get("file") or meta_path.name[: -len(".json")]
+        by_file.setdefault(fname, info)
+    manifest = sorted(by_file.values(), key=lambda x: (float(x.get("ra0", 0)), float(x.get("ra1", 0))))
+
     total_rows = sum(int(x["rows"]) for x in manifest)
     total_bytes = sum(int(x["bytes"]) for x in manifest)
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
