@@ -30,4 +30,6 @@ PY
 
 # Do not touch unions VHS/VVVX jobs; this only copies skyai -> hats.
 bash "$CODE/promote_hats_tree.sh" "$SRC" "$DST" "$ALIAS" "$ROWS" "$PARTS"
+# Public ACL again after promote/QA (idempotent).
+bash "$CODE/apply_hats_public_acl.sh" "$DST"
 echo "promote wrapper done $(date -Is)"

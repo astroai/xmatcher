@@ -15,11 +15,21 @@ manifest() { (cd "$1" && find . -type f ! -name 'PENSUS_*.json' ! -path './sync.
 test -f "$SRC/properties" -o -f "$SRC/hats.properties" || { echo "FAIL: no HATS root at $SRC"; exit 1; }
 [[ -e "$DST" && -n "$(ls -A "$DST" 2>/dev/null)" ]] && echo "note: $DST exists; rsync resumes into it"
 mkdir -p "$DST"
+# Public survey ACL before/during copy so inherited defaults cover new files.
+if [[ -x "$CODE/apply_hats_public_acl.sh" ]]; then
+  bash "$CODE/apply_hats_public_acl.sh" "$(dirname "$DST")" "$DST" || echo "WARN: pre-rsync ACL apply failed"
+else
+  echo "WARN: missing $CODE/apply_hats_public_acl.sh"
+fi
 rsync -a --exclude sync.json "$SRC/" "$DST/" || { echo "FAIL rsync"; exit 1; }
 manifest "$SRC" > /scratch/a.txt; manifest "$DST" > /scratch/b.txt
 cmp -s /scratch/a.txt /scratch/b.txt || { echo "FAIL manifest"; diff /scratch/a.txt /scratch/b.txt | head; exit 1; }
 BYTES=$(awk '{s+=$NF} END{print s+0}' /scratch/a.txt)
 echo "copied files=$(wc -l < /scratch/a.txt) bytes=$BYTES"
+# Re-apply after rsync: rsync -a preserves source modes; force public hats policy.
+if [[ -x "$CODE/apply_hats_public_acl.sh" ]]; then
+  bash "$CODE/apply_hats_public_acl.sh" "$DST" || { echo "FAIL post-rsync ACL"; exit 1; }
+fi
 
 VENV=/scratch/qaenv
 python3 -m venv --system-site-packages "$VENV"
