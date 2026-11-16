@@ -209,7 +209,9 @@ def main() -> None:
             continue
         fname = info.get("file") or meta_path.name[: -len(".json")]
         by_file.setdefault(fname, info)
-    manifest = sorted(by_file.values(), key=lambda x: (float(x.get("ra0", 0)), float(x.get("ra1", 0))))
+    manifest = sorted(
+        by_file.values(), key=lambda x: (float(x.get("ra0", 0)), float(x.get("ra1", 0)))
+    )
 
     total_rows = sum(int(x["rows"]) for x in manifest)
     total_bytes = sum(int(x["bytes"]) for x in manifest)
