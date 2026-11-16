@@ -12,8 +12,9 @@
 # Tolerates vanished files during concurrent rsync (ENOENT on setfacl -R).
 set -euo pipefail
 
-ACCESS_ACL='u::rwX,g::rwX,g:hats:rwX,g:hats-rw:rwX,o::rX'
-DEFAULT_ACL='u::rwX,g::rwX,g:hats:rwX,g:hats-rw:rwX,o::rX'
+# Explicit mask so named-group rwX is effective (otherwise mask can clamp to r-x).
+ACCESS_ACL='u::rwX,g::rwX,g:hats:rwX,g:hats-rw:rwX,m::rwX,o::rX'
+DEFAULT_ACL='u::rwX,g::rwX,g:hats:rwX,g:hats-rw:rwX,m::rwX,o::rX'
 
 if [[ $# -lt 1 ]]; then
   echo "usage: $0 <public-hats-path> [...]" >&2
