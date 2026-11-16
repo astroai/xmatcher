@@ -63,11 +63,23 @@ def main() -> int:
     strips = pathlib.Path(args.strips)
     out = pathlib.Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    files = sorted(strips.glob("*.csv.gz"))
+    # Prefer *.csv.gz; also accept mangled WSA names where ".csv.gz" became "pcsvpgz".
+    files = sorted(
+        {
+            *strips.glob("*.csv.gz"),
+            *(p for p in strips.glob("*pcsvpgz") if not p.name.endswith(".json")),
+        }
+    )
     total = 0
     n_out = 0
     for src in files:
-        dest = out / (src.name.replace(".csv.gz", ".parquet"))
+        if src.name.endswith(".csv.gz"):
+            stem = src.name[: -len(".csv.gz")]
+        elif src.name.endswith("pcsvpgz"):
+            stem = src.name[: -len("pcsvpgz")]
+        else:
+            continue
+        dest = out / f"{stem}.parquet"
         if dest.exists():
             n = pq.read_metadata(dest).num_rows
             total += n

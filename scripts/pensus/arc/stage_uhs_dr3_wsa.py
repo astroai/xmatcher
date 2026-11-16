@@ -110,9 +110,10 @@ def main() -> None:
     ra0 = args.ra_start
     while ra0 < args.ra_stop - 1e-9:
         ra1 = min(ra0 + args.ra_step, args.ra_stop)
+        # Replace dots only in the RA numeric fields — never in the ".csv.gz" suffix.
         name = f"uhs_ra_{ra0:06.2f}_{ra1:06.2f}".replace(".", "p") + ".csv.gz"
         dest = strips / name
-        meta = dest.with_suffix(".json")
+        meta = pathlib.Path(str(dest) + ".json")
         if dest.exists() and meta.exists():
             info = json.loads(meta.read_text())
             print(f"skip {name} rows={info.get('rows')}")
