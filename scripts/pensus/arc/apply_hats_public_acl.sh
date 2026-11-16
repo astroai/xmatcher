@@ -4,16 +4,58 @@
 # Policy (POSIX ACL on CephFS /arc):
 #   - public (other): read-only  -> o::rX
 #   - hats writers:   writable   -> g:hats:rwX and g:hats-rw:rwX
-#   - owner / owning group keep rwX; setgid on dirs preserved via g+s
+#   - owner / owning group keep rwX; setgid on dirs via g+s
 #
 # Usage: apply_hats_public_acl.sh <path> [<path> ...]
 # Only pass public survey trees. Do not run on private/non-public hats children.
+#
+# Tolerates vanished files during concurrent rsync (ENOENT on setfacl -R).
 set -euo pipefail
+
+ACCESS_ACL='u::rwX,g::rwX,g:hats:rwX,g:hats-rw:rwX,o::rX'
+DEFAULT_ACL='u::rwX,g::rwX,g:hats:rwX,g:hats-rw:rwX,o::rX'
 
 if [[ $# -lt 1 ]]; then
   echo "usage: $0 <public-hats-path> [...]" >&2
   exit 2
 fi
+
+apply_acl_resilient() {
+  local path=$1
+  local attempt rc=0
+  for attempt in 1 2 3; do
+    set +e
+    setfacl -R -m "$ACCESS_ACL" "$path"
+    rc=$?
+    set -e
+    if [[ $rc -eq 0 ]]; then
+      break
+    fi
+    echo "WARN: setfacl access attempt $attempt rc=$rc on $path (retry if concurrent writers)"
+    sleep 2
+  done
+  set +e
+  setfacl -R -d -m "$DEFAULT_ACL" "$path"
+  local drc=$?
+  set -e
+  if [[ $drc -ne 0 ]]; then
+    echo "WARN: setfacl default rc=$drc on $path"
+  fi
+  set +e
+  find "$path" -type d -exec chmod g+s {} +
+  set -e
+  # Root of tree must succeed; nested ENOENT during rsync is acceptable if root ACL is correct.
+  getfacl -p "$path" | head -30
+  if ! getfacl -p "$path" | grep -q 'group:hats:rwx'; then
+    echo "FAIL: $path missing group:hats:rwx after apply" >&2
+    return 1
+  fi
+  if ! getfacl -p "$path" | grep -q 'other::r-x'; then
+    echo "FAIL: $path missing other::r-x after apply" >&2
+    return 1
+  fi
+  return 0
+}
 
 apply_one() {
   local path=$1
@@ -30,15 +72,7 @@ apply_one() {
   esac
 
   echo "ACL public-ro + hats-rw -> $path"
-  # Access ACL on the tree (capital X: execute only where meaningful).
-  setfacl -R -m u::rwX,g::rwX,g:hats:rwX,g:hats-rw:rwX,o::rX "$path"
-  # Default ACL so new files/dirs inherit the same policy.
-  setfacl -R -d -m u::rwX,g::rwX,g:hats:rwX,g:hats-rw:rwX,o::rX "$path"
-  # Keep setgid on directories for group inheritance of owning gid.
-  find "$path" -type d -exec chmod g+s {} +
-
-  echo "--- getfacl -p $path (head) ---"
-  getfacl -p "$path" | head -30
+  apply_acl_resilient "$path"
 }
 
 for p in "$@"; do

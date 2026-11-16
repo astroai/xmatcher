@@ -16,7 +16,8 @@ test -f "$SRC/properties" -o -f "$SRC/hats.properties" || { echo "FAIL: no HATS 
 [[ -e "$DST" && -n "$(ls -A "$DST" 2>/dev/null)" ]] && echo "note: $DST exists; rsync resumes into it"
 mkdir -p "$DST"
 # Public survey ACL before/during copy so inherited defaults cover new files.
-if [[ -x "$CODE/apply_hats_public_acl.sh" ]]; then
+# Note: vos/vcp uploads often drop +x; always invoke via bash and test -f.
+if [[ -f "$CODE/apply_hats_public_acl.sh" ]]; then
   bash "$CODE/apply_hats_public_acl.sh" "$(dirname "$DST")" "$DST" || echo "WARN: pre-rsync ACL apply failed"
 else
   echo "WARN: missing $CODE/apply_hats_public_acl.sh"
@@ -27,7 +28,7 @@ cmp -s /scratch/a.txt /scratch/b.txt || { echo "FAIL manifest"; diff /scratch/a.
 BYTES=$(awk '{s+=$NF} END{print s+0}' /scratch/a.txt)
 echo "copied files=$(wc -l < /scratch/a.txt) bytes=$BYTES"
 # Re-apply after rsync: rsync -a preserves source modes; force public hats policy.
-if [[ -x "$CODE/apply_hats_public_acl.sh" ]]; then
+if [[ -f "$CODE/apply_hats_public_acl.sh" ]]; then
   bash "$CODE/apply_hats_public_acl.sh" "$DST" || { echo "FAIL post-rsync ACL"; exit 1; }
 fi
 
