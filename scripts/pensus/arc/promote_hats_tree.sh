@@ -53,9 +53,16 @@ p.write_text(json.dumps(d, indent=2, sort_keys=True) + "\n")
 print("updated", p)
 PY
 
-# Hide the k-pop copy from the resolver during QA so the pointer check exercises the hats path.
-# The resolver globs every child of _cache/<alias>, so the hidden copy must live outside it.
-HIDDEN="$KP/staging/_promoting/$ALIAS/$(basename "$SRC")"
+# Hide SRC during QA so the pointer check exercises the hats path.
+# Stay on the same project filesystem — never cross-copy temp-host trees into k-pop.
+SRC_PROJ=$(echo "$SRC" | cut -d/ -f4)  # e.g. skyai/mlao/unions/k-pop
+if [[ "$SRC_PROJ" == "k-pop" ]]; then
+  HIDDEN="$KP/staging/_promoting/$ALIAS/$(basename "$SRC")"
+else
+  HIDDEN="$(dirname "$SRC")/../_promoting/$(basename "$(dirname "$SRC")")/$(basename "$SRC")"
+  # normalize .. 
+  HIDDEN=$(python3 -c "import pathlib; print(pathlib.Path('$HIDDEN').resolve())")
+fi
 mkdir -p "$(dirname "$HIDDEN")"
 mv "$SRC" "$HIDDEN"
 if ! "$PY" "$CODE/qa_hats_release.py" "$DST" "$ALIAS" "$ROWS" "$PARTS"; then
