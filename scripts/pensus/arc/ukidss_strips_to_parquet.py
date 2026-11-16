@@ -13,6 +13,7 @@ import pathlib
 import sys
 
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
 
@@ -48,6 +49,14 @@ def convert_one(src: pathlib.Path, dest: pathlib.Path) -> int:
     table = table.rename_columns(names)
     if "ra" not in names or "dec" not in names:
         raise SystemExit(f"{src}: missing ra/dec columns {names}")
+    # WSA/VSA occasionally emit ra=360.0; wrap into [0, 360) for HATS/QA.
+    ra_col = table.column("ra")
+    wrapped = pc.if_else(
+        pc.is_null(ra_col),
+        ra_col,
+        pc.subtract(ra_col, pc.multiply(pc.floor(pc.divide(ra_col, 360.0)), 360.0)),
+    )
+    table = table.set_column(table.schema.get_field_index("ra"), "ra", wrapped.cast(ra_col.type))
     dest.parent.mkdir(parents=True, exist_ok=True)
     partial = dest.with_suffix(".parquet.partial")
     pq.write_table(table, partial, compression="zstd", compression_level=3)
