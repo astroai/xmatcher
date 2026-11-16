@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Stage VMC DR7 seamless sources from VSA freeform SQL into CephFS CSV.gz strips.
 
-Pin: VSA VMCDR7 (UI VMCv20250130), programmeID=140, table vmcSource.
+Pin: VSA VMCDR7 (UI VMCv20250130), programmeID=130, table vmcSource.
 Form path is /vdfs/ (not /wsa/) — same as VHS DR7.
 """
 
@@ -28,8 +28,7 @@ FORM = (
 POST = "http://vsa.roe.ac.uk:8080/vdfs/WSASQL"
 COLS = (
     "sourceID, ra, dec, mergedClass, "
-    "zAperMag3, zAperMag3Err, yAperMag3, yAperMag3Err, "
-    "jAperMag3, jAperMag3Err, hAperMag3, hAperMag3Err, "
+    "yAperMag3, yAperMag3Err, jAperMag3, jAperMag3Err, "
     "ksAperMag3, ksAperMag3Err, priOrSec, frameSetID"
 )
 
