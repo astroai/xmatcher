@@ -70,7 +70,7 @@ def run_query(op: urllib.request.OpenerDirector, sql: str, timeout: int = 3600) 
         "timeout": str(timeout),
     }
     body, boundary = multipart_encode(fields)
-    delays = (0, 5, 15, 45, 90)
+    delays = (0, 5, 15, 45, 90, 180)
     last_err: Exception | None = None
     for delay in delays:
         if delay:
@@ -89,7 +89,11 @@ def run_query(op: urllib.request.OpenerDirector, sql: str, timeout: int = 3600) 
                 text = buf.decode("latin-1", "replace")
                 if "SQL Error:" in text and "QUERY FINISHED" in text:
                     m = re.search(r"SQL Error:.*", text)
-                    raise RuntimeError(m.group(0) if m else text[-1000:])
+                    msg = m.group(0) if m else text[-1000:]
+                    # VSA buffer-pool OOM on dense plane strips — retryable.
+                    if "insufficient memory" in msg.lower() or "buffer pool" in msg.lower():
+                        raise TimeoutError(msg)
+                    raise RuntimeError(msg)
                 if "Error in run():" in text and "QUERY FINISHED" in text:
                     raise RuntimeError("VSA Error in run(); check archive/multipart")
                 m = re.search(r'href="(http://vsa\.roe\.ac\.uk/tmp/tmp_sql/[^"]+)"', text)
@@ -144,7 +148,7 @@ def main() -> None:
     ap.add_argument("--stage", required=True)
     ap.add_argument("--pointer", required=True)
     ap.add_argument("--planned-hats", default="/arc/projects/hats/vvvx/dr1")
-    ap.add_argument("--ra-step", type=float, default=0.5)
+    ap.add_argument("--ra-step", type=float, default=0.25)
     ap.add_argument("--ra-start", type=float, default=0.0)
     ap.add_argument("--ra-stop", type=float, default=360.0)
     ap.add_argument("--timeout", type=int, default=3600)

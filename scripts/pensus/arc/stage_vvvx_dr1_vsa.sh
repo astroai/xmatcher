@@ -30,10 +30,16 @@ echo "unions free=$free_bytes"
 (( free_bytes > 5000 * 2**30 )) || { echo FAIL unions free; exit 1; }
 
 mkdir -p "$STAGE" "$KP/inputs/vvvx_dr1_hats"
+# Resume after VSA buffer-pool failure near RA 150: keep existing 0.5° strips,
+# continue with finer 0.25° strips from RA_START (default 150).
+RA_START="${RA_START:-150.0}"
+RA_STEP="${RA_STEP:-0.25}"
 python3 "$CODE/stage_vvvx_dr1_vsa.py" \
   --stage "$STAGE" \
   --pointer "$KP/inputs/vvvx_dr1_hats/SOURCE.json" \
   --planned-hats /arc/projects/hats/vvvx/dr1 \
-  --ra-step 0.5 \
-  --timeout 3600
+  --ra-start "$RA_START" \
+  --ra-step "$RA_STEP" \
+  --timeout 3600 \
+  --sleep 5.0
 echo "done $(date -Is)"
