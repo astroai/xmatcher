@@ -347,9 +347,19 @@ class HFRemote:
         dest = Path(dest)
         dest.parent.mkdir(parents=True, exist_ok=True)
         partial = dest.with_name(f".{dest.name}.hfpart")
+        url = self.resolve_url(rel)
         try:
-            with self._open(self.resolve_url(rel)) as resp, partial.open("wb") as out:
+            with self._open(url) as resp, partial.open("wb") as out:
+                expected = resp.headers.get("Content-Length") if resp.headers else None
+                # http.client returns b"" instead of raising when a sized body
+                # ends early, so a dropped connection looks like a short file.
                 shutil.copyfileobj(resp, out, length=1 << 20)
+                received = out.tell()
+            if expected and str(expected).isdigit() and received != int(expected):
+                raise OSError(
+                    f"truncated Hugging Face download of {self.display(url)}: "
+                    f"received {received} of {expected} bytes"
+                )
             os.replace(partial, dest)
         finally:
             partial.unlink(missing_ok=True)

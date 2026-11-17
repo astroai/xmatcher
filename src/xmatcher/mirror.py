@@ -1205,6 +1205,14 @@ def _mirror_remote_hats(
                 if body is None:
                     raise CrossMatchError(f"empty body for {rel}")
                 local_tmp.write_bytes(body)
+            listed = entry.get("size")
+            received = local_tmp.stat().st_size
+            if isinstance(listed, int) and listed >= 0 and received != listed:
+                # A body without Content-Length that ends early, or a file
+                # replaced upstream after the listing, must not be published.
+                raise CrossMatchError(
+                    f"size mismatch for {rel}: listed {listed} bytes, received {received}"
+                )
             # LocalStorage publishes each file with os.replace. VOSpace lacks
             # that guarantee, so keep one prior file beside the staged update
             # for rollback if its upload fails.

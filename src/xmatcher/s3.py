@@ -322,7 +322,16 @@ class S3Remote:
         partial = dest.with_name(f".{dest.name}.s3part")
         try:
             with self._open(url) as resp, partial.open("wb") as out:
+                expected = resp.headers.get("Content-Length")
+                # http.client returns b"" instead of raising when a sized body
+                # ends early, so a dropped connection looks like a short file.
                 shutil.copyfileobj(resp, out, length=1 << 20)
+                received = out.tell()
+            if expected and str(expected).isdigit() and received != int(expected):
+                raise OSError(
+                    f"truncated S3 download of {self.display(url)}: "
+                    f"received {received} of {expected} bytes"
+                )
             os.replace(partial, dest)
         finally:
             partial.unlink(missing_ok=True)
