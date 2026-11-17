@@ -333,7 +333,7 @@ def _http_hats_properties(root: str, bucket: TokenBucket) -> tuple[dict[str, Any
             continue
         row_count = _hats_property_count(body)
         if row_count is not None:
-            return {"rel": rel, "size": size}, row_count
+            return {"rel": rel, "size": size, "sha256": hashlib.sha256(body).hexdigest()}, row_count
     return None
 
 
@@ -539,8 +539,14 @@ def _http_partition_files_from_info(
     row_count: int,
     bucket: TokenBucket,
     probe_pixels: bool,
+    generation: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Build an HTTP HATS file list from a parsed partition_info table."""
+    """Build an HTTP HATS file list from a parsed partition_info table.
+
+    Unprobed pixels have no size to compare on re-sync, so they carry
+    ``generation`` (a digest of the properties and partition table): the
+    manifest skips them while the tree they were fetched from is unchanged.
+    """
     info = _partition_info_with_file_locs(info, context=info_rel)
     _validate_hats_partition_info(info, row_count, info_rel)
     # Root-level CSV (common on LIneA) still stores pixels under dataset/.
@@ -607,7 +613,13 @@ def _http_partition_files_from_info(
             # CSV listings on large trees (e.g. PS1 otmo, ~27k pixels) would spend
             # hours on HEAD probes before any GET; trust the HATS path convention.
             candidate = candidates[-1] if not rel.endswith(".parquet") else rel
-            files.append({"rel": candidate, "size": _as_size(row.get("file_size"))})
+            files.append(
+                {
+                    "rel": candidate,
+                    "size": _as_size(row.get("file_size")),
+                    "generation": generation,
+                }
+            )
 
     files.append(properties)
     metadata_files = (
@@ -706,6 +718,9 @@ def _remote_hats_listing(
         if properties_info is None:
             continue
         properties, row_count = properties_info
+        generation = hashlib.sha256(
+            f"{properties['sha256']}:{hashlib.sha256(body).hexdigest()}".encode()
+        ).hexdigest()
         try:
             return _http_partition_files_from_info(
                 root=root,
@@ -716,6 +731,7 @@ def _remote_hats_listing(
                 row_count=row_count,
                 bucket=bucket,
                 probe_pixels=False,
+                generation=generation,
             )
         except (ImportError, OSError, ValueError):
             raise
@@ -1225,7 +1241,10 @@ def _mirror_remote_hats(
             stored = cache.size(cache_rel)
             stats.files_downloaded += 1
             stats.bytes_downloaded += max(0, stored) if stored >= 0 else 0
-            manifest.setdefault("files", {})[rel] = {"size": stored}
+            record: dict[str, Any] = {"size": stored}
+            if entry.get("generation"):
+                record["generation"] = entry["generation"]
+            manifest.setdefault("files", {})[rel] = record
             if progress_cb:
                 progress_cb(f"sync {src.name}: fetched {rel}")
         except Exception as exc:  # noqa: BLE001
@@ -1259,16 +1278,17 @@ def _mirror_remote_hats(
     metadata_todo: list[dict[str, Any]] = []
     for entry in remote:
         rel = entry["rel"]
-        old = manifest.get("files", {}).get(rel)
-        old_size = (old or {}).get("size")
+        old = manifest.get("files", {}).get(rel) or {}
+        old_size = old.get("size")
         new_size = entry.get("size")
-        if (
-            not force
-            and old is not None
-            and old_size is not None
-            and old_size >= 0
-            and old_size == new_size
-        ):
+        generation = entry.get("generation")
+        if new_size is None and generation is not None:
+            # Size-less listing (partition_info.csv): unchanged while the tree
+            # generation it was downloaded under is unchanged.
+            unchanged = old.get("generation") == generation
+        else:
+            unchanged = old_size == new_size
+        if not force and isinstance(old_size, int) and old_size >= 0 and unchanged:
             stats.files_skipped += 1
         elif Path(rel).name in _HATS_METADATA_NAMES:
             metadata_todo.append(entry)

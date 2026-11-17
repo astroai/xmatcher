@@ -15,6 +15,7 @@ Covers the ``xmatcher sync`` data plane behind :func:`xmatcher.mirror.sync_catal
 from __future__ import annotations
 
 import functools
+import hashlib
 import http.client
 import shutil
 import threading
@@ -73,7 +74,10 @@ def test_http_listing_uses_partition_info_csv_without_pixel_heads(monkeypatch) -
     monkeypatch.setattr(
         mirror,
         "_http_hats_properties",
-        lambda root, bucket: ({"rel": "properties", "size": len(props)}, 3),
+        lambda root, bucket: (
+            {"rel": "properties", "size": len(props), "sha256": hashlib.sha256(props).hexdigest()},
+            3,
+        ),
     )
 
     def _no_html_walk(*args, **kwargs):
@@ -96,6 +100,8 @@ def test_http_listing_uses_partition_info_csv_without_pixel_heads(monkeypatch) -
     assert not any(
         url.startswith("HEAD ") and "Npix=" in url and url.endswith(".parquet") for url in requests
     )
+    pixels = [entry for entry in files if "Npix=" in entry["rel"]]
+    assert all(entry["size"] is None and entry["generation"] for entry in pixels)
 
 
 def test_http_walk_hats_skips_missing_listed_metadata(monkeypatch) -> None:

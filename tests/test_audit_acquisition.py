@@ -7,14 +7,18 @@ stand in for the remote services.
 from __future__ import annotations
 
 import contextlib
+import functools
+import shutil
 import socket
 import threading
 from collections.abc import Iterator
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import polars as pl
 import pytest
 
-from xmatcher import mirror
+from xmatcher import hats_native, mirror
 from xmatcher.hf import HFRemote
 from xmatcher.s3 import S3Remote
 from xmatcher.sources import CatalogueSource
@@ -51,6 +55,42 @@ def short_body_server(advertised: int, sent: int) -> Iterator[str]:
         stop.set()
         server.close()
         thread.join(timeout=5)
+
+
+@contextlib.contextmanager
+def serve_directory(directory: Path) -> Iterator[str]:
+    """Serve ``directory`` over plain HTTP; yield its base URL."""
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), functools.partial(SimpleHTTPRequestHandler, directory=str(directory))
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def _frame(rows: int, offset: int = 0) -> pl.DataFrame:
+    return pl.DataFrame(
+        {
+            "id": [offset + i for i in range(rows)],
+            "ra": [10.0 + (i % 40) * 0.001 for i in range(rows)],
+            "dec": [-5.0 + (i % 30) * 0.001 for i in range(rows)],
+        }
+    )
+
+
+def _write_csv_only_tree(tree: Path, frame: pl.DataFrame) -> None:
+    """The LSDB gaia_dr3 layout: partition_info.csv only, no parquet table."""
+    shutil.rmtree(tree, ignore_errors=True)
+    mirror._write_hats_native(frame, tree, ra_column="ra", dec_column="dec", threshold=50)
+    (tree / "dataset" / "partition_info.parquet").unlink()
+    for name in ("dataset/partition_info.csv", "partition_info.csv"):
+        csv = tree / name
+        pl.read_csv(csv).select(["Norder", "Npix"]).write_csv(csv)
 
 
 # --------------------------------------------------------------------------- #
@@ -107,3 +147,40 @@ def test_mirror_rejects_a_download_shorter_than_the_listing(tmp_path: Path, monk
     prefix = cache / "short" / mirror._version_dir(src)
     assert not (prefix / "dataset/Norder=0/Dir=0/Npix=1.parquet").exists()
 
+
+# --------------------------------------------------------------------------- #
+# incremental sync of size-less (partition_info.csv) listings
+# --------------------------------------------------------------------------- #
+def test_csv_listed_tree_resync_skips_unchanged_pixels(tmp_path: Path) -> None:
+    """Pixels listed without sizes must not be re-downloaded on every sync."""
+    serve = tmp_path / "serve"
+    tree = serve / "cat"
+    _write_csv_only_tree(tree, _frame(120))
+    with serve_directory(serve) as base:
+        src = CatalogueSource(
+            name="csv-tree",
+            is_local=False,
+            access_method="hats",
+            access_identifier=f"{base}/cat",
+        )
+        cache = str(tmp_path / "cache")
+        first = mirror.sync_catalogue(src, cache_root=cache, rate_limit_rps=0.0)
+        assert first.failed == 0
+        pixels = len(list(tree.glob("dataset/Norder=*/Dir=*/Npix=*.parquet")))
+        assert pixels > 1
+
+        again = mirror.sync_catalogue(src, cache_root=cache, rate_limit_rps=0.0)
+        assert again.failed == 0
+        assert again.files_downloaded == 0
+        assert again.files_skipped == first.files_downloaded
+
+        # An upstream rebuild changes the properties; every pixel is refetched.
+        _write_csv_only_tree(tree, _frame(130, offset=1000))
+        rebuilt = mirror.sync_catalogue(src, cache_root=cache, rate_limit_rps=0.0)
+        assert rebuilt.failed == 0
+        assert rebuilt.files_downloaded >= pixels
+        root, rel = mirror.locate_mirrored(src, cache_root=cache)
+        rows = hats_native.load_hats_all(
+            CatalogueSource(name="m", is_local=True, path=Path(root) / rel)
+        )
+        assert int(rows["id"].min()) == 1000
