@@ -24,7 +24,17 @@ for cand in [
       import subprocess
       b = int(subprocess.check_output(["du", "-sb", cand], text=True).split()[0])
     print(f"xp_dest={cand} gib={b/2**30:.1f}")
-for a in ["jplus_dr3_hats", "vhs_dr7_hats", "vvvx_dr1_hats", "jpas_e2dr_hats"]:
+for a in [
+  "jplus_dr3_hats",
+  "vhs_dr7_hats",
+  "vvvx_dr1_hats",
+  "jpas_e2dr_hats",
+  "splus_dr4_hats",
+  "splus_dr5_hats",
+  "kids_dr5_hats",
+  "atlas_dr5_hats",
+  "gaia_dr3_xp_continuous_hats",
+]:
   p = f"/arc/projects/k-pop/pensus/inputs/{a}/SOURCE.json"
   try:
     d = json.load(open(p))
