@@ -72,9 +72,8 @@ def convert_one(src: pathlib.Path, dest: pathlib.Path) -> dict:
     # Wrap ra into [0, 360)
     tab["ra"] = np.mod(np.asarray(tab["ra"], dtype=np.float64), 360.0)
     id_col = pick(list(tab.colnames), ID_CANDIDATES)
-    if id_col and id_col != "id":
-        if "id" not in tab.colnames:
-            tab.rename_column(id_col, "id")
+    if id_col and id_col != "id" and "id" not in tab.colnames:
+        tab.rename_column(id_col, "id")
     arrow = table_to_arrow(tab)
     if "ra" not in arrow.column_names or "dec" not in arrow.column_names:
         raise RuntimeError(f"arrow missing ra/dec after convert {src.name}")
@@ -113,7 +112,11 @@ def main() -> int:
     if not files:
         raise SystemExit(f"no FITS tiles under {tiles_dir}")
     man = pathlib.Path(args.manifest) if args.manifest else out_dir / "CONVERT.jsonl"
-    done = {json.loads(ln)["src"] for ln in man.read_text().splitlines() if ln.strip()} if man.is_file() else set()
+    done = (
+        {json.loads(ln)["src"] for ln in man.read_text().splitlines() if ln.strip()}
+        if man.is_file()
+        else set()
+    )
     total = 0
     n = 0
     with man.open("a") as mf:
@@ -140,7 +143,9 @@ def main() -> int:
         "nrows": total,
         "out": str(out_dir),
     }
-    (out_dir / "CONVERT_SUMMARY.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
+    (out_dir / "CONVERT_SUMMARY.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n"
+    )
     print(json.dumps(summary, sort_keys=True), flush=True)
     return 0
 
