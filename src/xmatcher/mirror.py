@@ -11,8 +11,10 @@ are incremental:
 * **Remote HATS** — the manifest stores ``{rel: {size}}``; a file whose
   server-reported size matches is skipped (``--force`` / changed size
   refetches).  On HTTP the listing prefers ``partition_info.parquet``
-  (authoritative file list + sizes) and falls back to an HTML directory walk
-  (``http.server``-style listings) with per-file HEAD probes for sizes.
+  (authoritative file list + sizes), then ``partition_info.csv`` (Norder/Npix
+  → ``dataset/Norder=*/Dir=*/Npix=*.parquet``), and falls back to an HTML
+  directory walk (``http.server``-style listings) with per-file HEAD probes
+  for sizes.
 * **TAP full table** — keyset/``OFFSET`` pages (``--page-size``, default
   100 000).  Incremental key windows require a stable, unique, non-null
   ordering key. Re-sync uses ``COUNT(*)`` probes, which detect row-count
@@ -25,7 +27,9 @@ are incremental:
 
 Rate limiting: one :class:`TokenBucket` per remote host, shared across worker
 threads.  HTTP 429/503 → wait ``Retry-After`` (or 1 s) + exponential backoff
-(cap 60 s, 3 retries). ``rate_limit_rps=0`` disables throttling.
+(cap 60 s, 3 retries). Truncated bodies (``http.client.IncompleteRead``) and
+transient ``URLError``/``OSError`` use the same backoff. ``rate_limit_rps=0``
+disables throttling.
 
 The local HATS copy mirrors the *original* catalogue untouched: TAP pages are
 kept under ``<cache>/<name>/raw/pages/`` (they double as the incremental
@@ -36,6 +40,7 @@ store), and the converted HATS catalogue lives under
 from __future__ import annotations
 
 import hashlib
+import http.client
 import io as _io
 import json
 import logging
@@ -251,7 +256,8 @@ def _http_request(
                 return body, size
         except urllib.error.HTTPError as exc:
             last_exc = exc
-            if exc.code in (429, 503):
+            # Retry rate-limits and transient 5xx (archive politeness + failover).
+            if exc.code in (429, 502, 503, 504):
                 retry_after = exc.headers.get("Retry-After")
                 try:
                     delay = float(retry_after) if retry_after else 1.0
@@ -259,7 +265,9 @@ def _http_request(
                     delay = 1.0
             else:
                 raise
-        except (urllib.error.URLError, OSError) as exc:
+        except (http.client.IncompleteRead, urllib.error.URLError, OSError) as exc:
+            # Truncated chunked/identity bodies are common on long HATS parquet
+            # GETs; IncompleteRead is an HTTPException, not a URLError/OSError.
             last_exc = exc
             delay = 1.0
         if attempt < _HTTP_RETRIES - 1:
@@ -501,14 +509,144 @@ def _validate_hats_partition_info(info: pl.DataFrame, row_count: int, rel: str) 
 # --------------------------------------------------------------------------- #
 # remote HATS listing
 # --------------------------------------------------------------------------- #
+def _partition_info_with_file_locs(info: pl.DataFrame, *, context: str) -> pl.DataFrame:
+    """Ensure a partition table exposes ``file_loc`` (synthesize from Norder/Npix)."""
+    if "file_loc" in info.columns:
+        return info
+    column_names = {column.lower(): column for column in info.columns}
+    if "norder" not in column_names or "npix" not in column_names:
+        raise OSError(f"invalid HATS listing at {context}; preserving the existing mirror")
+    file_locs: list[str] = []
+    for row in info.rows(named=True):
+        try:
+            order = int(row[column_names["norder"]])
+            pix = int(row[column_names["npix"]])
+        except (TypeError, ValueError, KeyError) as exc:
+            raise OSError(
+                f"invalid pixel row in HATS listing at {context}; preserving the existing mirror"
+            ) from exc
+        file_locs.append(f"Norder={order}/Dir={(pix // 10000) * 10000}/Npix={pix}")
+    return info.with_columns(pl.Series("file_loc", file_locs))
+
+
+def _http_partition_files_from_info(
+    *,
+    root: str,
+    info: pl.DataFrame,
+    info_rel: str,
+    info_size: int | None,
+    properties: dict[str, Any],
+    row_count: int,
+    bucket: TokenBucket,
+    probe_pixels: bool,
+) -> list[dict[str, Any]]:
+    """Build an HTTP HATS file list from a parsed partition_info table."""
+    info = _partition_info_with_file_locs(info, context=info_rel)
+    _validate_hats_partition_info(info, row_count, info_rel)
+    # Root-level CSV (common on LIneA) still stores pixels under dataset/.
+    base = "dataset" if info_rel.startswith("dataset/") or info_rel.endswith(".csv") else ""
+    files: list[dict[str, Any]] = [{"rel": info_rel, "size": info_size}]
+    for row in info.rows(named=True):
+        raw_loc = row.get("file_loc")
+        if not isinstance(raw_loc, str) or not raw_loc.strip():
+            raise OSError(f"invalid file_loc in {info_rel}; preserving the existing mirror")
+        loc = raw_loc.strip().strip("/")
+        if any(part in (".", "..") for part in loc.split("/")):
+            raise OSError(f"unsafe file_loc in {info_rel}; preserving the existing mirror")
+        rel = f"{base}/{loc}" if base else loc
+        rel = rel.replace("//", "/")
+        nfiles = _as_size(row.get("Nfiles"))
+        if not rel.endswith(".parquet") and nfiles is not None and nfiles > 1:
+            names, complete = _http_listing(f"{root}/{rel}", bucket)
+            parts = [name.strip("/") for name in names if name.lower().endswith(".parquet")]
+            if not complete or len(parts) != nfiles:
+                raise OSError(
+                    f"partition {loc!r} advertised by {info_rel} is incomplete; "
+                    "preserving the existing mirror"
+                )
+            for part in parts:
+                if Path(part).name != part:
+                    raise OSError(f"unsafe partition filename in {info_rel}")
+                candidate = f"{rel}/{part}"
+                found, remote_size = _http_probe(f"{root}/{candidate}", bucket)
+                if not found:
+                    raise OSError(
+                        f"partition file {candidate!r} advertised by {info_rel} "
+                        "is unavailable; preserving the existing mirror"
+                    )
+                files.append(
+                    {
+                        "rel": candidate,
+                        "size": (
+                            remote_size
+                            if remote_size is not None
+                            else _as_size(row.get("file_size"))
+                        ),
+                    }
+                )
+            continue
+        candidates = (rel,) if rel.endswith(".parquet") else (rel, f"{rel}.parquet")
+        if probe_pixels:
+            for candidate in candidates:
+                found, remote_size = _http_probe(f"{root}/{candidate}", bucket)
+                if found:
+                    listed_size = _as_size(row.get("file_size"))
+                    files.append(
+                        {
+                            "rel": candidate,
+                            "size": remote_size if remote_size is not None else listed_size,
+                        }
+                    )
+                    break
+            else:
+                raise OSError(
+                    f"partition {loc!r} advertised by {info_rel} is unavailable; "
+                    "preserving the existing mirror"
+                )
+        else:
+            # CSV listings on large trees (e.g. PS1 otmo, ~27k pixels) would spend
+            # hours on HEAD probes before any GET; trust the HATS path convention.
+            candidate = candidates[-1] if not rel.endswith(".parquet") else rel
+            files.append({"rel": candidate, "size": _as_size(row.get("file_size"))})
+
+    files.append(properties)
+    metadata_files = (
+        "dataset/partition_info.parquet",
+        "partition_info.parquet",
+        "dataset/partition_info.csv",
+        "partition_info.csv",
+        "dataset/_common_metadata",
+        "dataset/_metadata",
+        "_common_metadata",
+        "_metadata",
+    )
+    known = {entry["rel"] for entry in files}
+    for extra in metadata_files:
+        if extra in known:
+            continue
+        found, size = _http_probe(f"{root}/{extra}", bucket)
+        if found:
+            files.append({"rel": extra, "size": size})
+    schema_files = {
+        "dataset/_common_metadata",
+        "dataset/_metadata",
+        "_common_metadata",
+        "_metadata",
+    }
+    if row_count == 0 and not any(entry["rel"] in schema_files for entry in files):
+        raise OSError(f"empty HATS catalogue {root} has no readable schema metadata")
+    return files
+
+
 def _remote_hats_listing(
     src: CatalogueSource, bucket: TokenBucket | None = None
 ) -> list[dict[str, Any]]:
     """List ``{rel, size}`` pairs for every HATS file on the remote source.
 
-    Prefers ``partition_info.parquet`` (authoritative list + sizes), then an
-    HTML walk (``http.server`` listings), then a tree-reader walk
-    (``vos:``, ``s3://``, ``hf://``).
+    Prefers ``partition_info.parquet`` (authoritative list + sizes), then
+    ``partition_info.csv`` (Norder/Npix → dataset pixel paths), then an HTML
+    walk (``http.server`` listings), then a tree-reader walk (``vos:``,
+    ``s3://``, ``hf://``).
     """
     ident = src.access_identifier or ""
     reader = _remote_reader(ident, bucket)
@@ -527,7 +665,7 @@ def _remote_hats_listing(
         if not body.startswith(b"PAR1"):
             # CDS (and some other on-the-fly HATS services) answer a missing
             # partition_info.parquet with a 200 HTML directory index.  That is
-            # not an authoritative table; fall through to the HTML walk.
+            # not an authoritative table; fall through to CSV / HTML walk.
             continue
         try:
             info = pl.read_parquet(_io.BytesIO(body))
@@ -537,95 +675,49 @@ def _remote_hats_listing(
             if properties_info is None:
                 continue
             properties, row_count = properties_info
-            _validate_hats_partition_info(info, row_count, info_rel)
-            base = "dataset" if info_rel.startswith("dataset/") else ""
-            files: list[dict[str, Any]] = [{"rel": info_rel, "size": info_size}]
-            for row in info.rows(named=True):
-                raw_loc = row.get("file_loc")
-                if not isinstance(raw_loc, str) or not raw_loc.strip():
-                    raise OSError(f"invalid file_loc in {info_rel}; preserving the existing mirror")
-                loc = raw_loc.strip().strip("/")
-                if any(part in (".", "..") for part in loc.split("/")):
-                    raise OSError(f"unsafe file_loc in {info_rel}; preserving the existing mirror")
-                rel = f"{base}/{loc}" if base else loc
-                rel = rel.replace("//", "/")
-                nfiles = _as_size(row.get("Nfiles"))
-                if not rel.endswith(".parquet") and nfiles is not None and nfiles > 1:
-                    names, complete = _http_listing(f"{root}/{rel}", bucket)
-                    parts = [name.strip("/") for name in names if name.lower().endswith(".parquet")]
-                    if not complete or len(parts) != nfiles:
-                        raise OSError(
-                            f"partition {loc!r} advertised by {info_rel} is incomplete; "
-                            "preserving the existing mirror"
-                        )
-                    for part in parts:
-                        if Path(part).name != part:
-                            raise OSError(f"unsafe partition filename in {info_rel}")
-                        candidate = f"{rel}/{part}"
-                        found, remote_size = _http_probe(f"{root}/{candidate}", bucket)
-                        if not found:
-                            raise OSError(
-                                f"partition file {candidate!r} advertised by {info_rel} "
-                                "is unavailable; preserving the existing mirror"
-                            )
-                        files.append(
-                            {
-                                "rel": candidate,
-                                "size": (
-                                    remote_size
-                                    if remote_size is not None
-                                    else _as_size(row.get("file_size"))
-                                ),
-                            }
-                        )
-                    continue
-                candidates = (rel,) if rel.endswith(".parquet") else (rel, f"{rel}.parquet")
-                for candidate in candidates:
-                    found, remote_size = _http_probe(f"{root}/{candidate}", bucket)
-                    if found:
-                        listed_size = _as_size(row.get("file_size"))
-                        files.append(
-                            {
-                                "rel": candidate,
-                                "size": remote_size if remote_size is not None else listed_size,
-                            }
-                        )
-                        break
-                else:
-                    raise OSError(
-                        f"partition {loc!r} advertised by {info_rel} is unavailable; "
-                        "preserving the existing mirror"
-                    )
-
-            files.append(properties)
-            metadata_files = (
-                "dataset/partition_info.parquet",
-                "partition_info.parquet",
-                "dataset/_common_metadata",
-                "dataset/_metadata",
-                "_common_metadata",
-                "_metadata",
+            return _http_partition_files_from_info(
+                root=root,
+                info=info,
+                info_rel=info_rel,
+                info_size=info_size,
+                properties=properties,
+                row_count=row_count,
+                bucket=bucket,
+                probe_pixels=True,
             )
-            known = {entry["rel"] for entry in files}
-            for extra in metadata_files:
-                if extra in known:
-                    continue
-                found, size = _http_probe(f"{root}/{extra}", bucket)
-                if found:
-                    files.append({"rel": extra, "size": size})
-            schema_files = {
-                "dataset/_common_metadata",
-                "dataset/_metadata",
-                "_common_metadata",
-                "_metadata",
-            }
-            if row_count == 0 and not any(entry["rel"] in schema_files for entry in files):
-                raise OSError(f"empty HATS catalogue {root} has no readable schema metadata")
-            return files
         except (ImportError, OSError, ValueError):
             # A parsed authoritative table with malformed or missing partitions
             # is incomplete. Falling back to a directory walk could then prune
             # files the table still advertises.
+            raise
+    for info_rel in ("dataset/partition_info.csv", "partition_info.csv"):
+        try:
+            body, info_size = _http_request(f"{root}/{info_rel}", bucket)
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+            continue
+        if not body or body.lstrip().startswith(b"<"):
+            # HTML directory index disguised as a 200 for a missing CSV.
+            continue
+        try:
+            info = pl.read_csv(_io.BytesIO(body))
+        except Exception:  # noqa: BLE001 - try the next listing source
+            continue
+        properties_info = _http_hats_properties(root, bucket)
+        if properties_info is None:
+            continue
+        properties, row_count = properties_info
+        try:
+            return _http_partition_files_from_info(
+                root=root,
+                info=info,
+                info_rel=info_rel,
+                info_size=info_size,
+                properties=properties,
+                row_count=row_count,
+                bucket=bucket,
+                probe_pixels=False,
+            )
+        except (ImportError, OSError, ValueError):
             raise
     files, complete = _http_walk_hats(root, bucket)
     if complete:
@@ -661,6 +753,11 @@ def _http_walk_hats(root: str, bucket: TokenBucket) -> tuple[list[dict[str, Any]
         elif rel.lower().endswith(".parquet") or Path(rel).name in _HATS_METADATA_NAMES:
             found, size = _http_probe(f"{root}/{rel}", bucket)
             if not found:
+                # LSDB collection pages sometimes advertise hats.properties while
+                # only ``properties`` exists (e.g. Euclid Q1). Skip missing
+                # metadata names; pixel completeness is checked below.
+                if Path(rel).name in _HATS_METADATA_NAMES:
+                    continue
                 return out, False
             out.append({"rel": rel, "size": size})
 
@@ -679,6 +776,8 @@ def _http_walk_hats(root: str, bucket: TokenBucket) -> tuple[list[dict[str, Any]
             elif child.lower().endswith(".parquet") or child in _HATS_METADATA_NAMES:
                 found, size = _http_probe(f"{root}/{rel}", bucket)
                 if not found:
+                    if child in _HATS_METADATA_NAMES:
+                        continue
                     return out, False
                 out.append({"rel": rel, "size": size})
     properties_info = _http_hats_properties(root, bucket)
@@ -819,23 +918,7 @@ def _storage_hats_listing(reader: Any, ident: str) -> list[dict[str, Any]]:
             f"could not confirm a complete HATS listing at {ident}; preserving the existing mirror"
         )
     assert info is not None
-    if "file_loc" not in info.columns:
-        column_names = {column.lower(): column for column in info.columns}
-        if "norder" not in column_names or "npix" not in column_names:
-            raise OSError(f"invalid HATS listing at {ident}; preserving the existing mirror")
-        file_locs = []
-        for row in info.rows(named=True):
-            try:
-                order = int(row[column_names["norder"]])
-                pix = int(row[column_names["npix"]])
-            except (TypeError, ValueError, KeyError) as exc:
-                raise OSError(
-                    f"invalid pixel row in HATS listing at {ident}; preserving the existing mirror"
-                ) from exc
-            file_locs.append(f"Norder={order}/Dir={(pix // 10000) * 10000}/Npix={pix}")
-        info = info.with_columns(pl.Series("file_loc", file_locs))
-    if "file_loc" not in info.columns:
-        raise OSError(f"invalid HATS listing at {ident}; preserving the existing mirror")
+    info = _partition_info_with_file_locs(info, context=ident)
     _validate_hats_partition_info(info, row_count, info_rel)
     base = "dataset" if info_rel.startswith("dataset/") or info_rel.endswith(".csv") else ""
     # S3 and Hugging Face report every object size in one paginated listing;

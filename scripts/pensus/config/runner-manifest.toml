@@ -1,0 +1,34 @@
+# CANFAR / Skaha runner manifest for pensus tile-parallel campaigns.
+# No Ray union / Ray cluster for pensus v1.
+
+[runtime]
+python = ">=3.13"
+xmatcher_ref = "main"
+hats = "latest"
+lsdb = "latest"
+hats_import = "latest"
+torchfits = ">=1.3.1"
+torchsky = ">=0.5"
+engine = "fast"
+fallback_policy = "error"
+forbid_engines = ["auto", "ray-union", "ray"]
+
+[session]
+scratch_root = "/scratch/pensus/${PENSUS_RUN_ID}"
+scratch_max_gib = 290
+work_root = "/arc/projects/k-pop/pensus"
+public_root = "/arc/projects/hats/pensus"
+sync = false  # production matching: pinned local trees with --no-sync
+
+[headless]
+submitter = "scripts/pensus/tile_submit.py"
+tile_function = "scripts/pensus/tile_run.py"
+markers = "/arc/projects/k-pop/pensus/tiles/${PENSUS_CAMPAIGN}/markers"
+image_hint = "astroai/base or session with pixi + hats-import"
+
+[archive_politeness]
+chunked_pulls = true
+per_host_rate_limit = true
+retry_http = [429, 502, 503, 504]
+range_requests = true
+failover = true

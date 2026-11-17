@@ -1,0 +1,57 @@
+# pensus pair_policy v0 — calibrate in pilot (S-PAIRCAL).
+# Topology: spine × survey star (not all-pairs). Engine: fast + fallback_policy=error.
+
+[topology]
+kind = "spine_x_survey_star"
+one_to_one = "mutual_best"
+global_assignment = "interior_components_only"
+
+[cascade]
+# Secondary-only sources re-spine at the first eligible level.
+L1 = "gaia_dr3"
+L2_north = "ps1"           # interim optical backbone N
+L2_south = "skymapper_dr4" # interim optical backbone S; Legacy in v0.2
+L3 = "catwise2020"
+nir_floor = ["twomass_psc"]
+# Attachments (multiplicity allowed; not spine identity):
+attachments = ["galex_guvcat", "allwise_w3w4"]
+
+[radii_arcsec]
+# Starting sky + pair radii; promote skyerr after pilot calibration.
+gaia_x_ps1 = 1.5
+gaia_x_skymapper = 1.5
+gaia_x_catwise = 2.0
+gaia_x_2mass = 2.0
+gaia_x_galex = 3.0
+ps1_x_catwise = 2.0
+skymapper_x_catwise = 2.0
+catwise_x_2mass = 2.0
+legacy_x_gaia = 1.5  # v0.2
+uhs_x_gaia = 2.0     # v0.2
+vhs_x_gaia = 2.0     # v0.2
+
+[margin]
+# margin ≥ 2 · r_max · L + max|μ| · Δt_max
+cascade_levels_L = 3
+r_max_arcsec = 3.0
+pm_halo_example = "Gaia–2MASS ~17 yr; 1 arcsec/yr → ~17 arcsec"
+formula = "2 * r_max_arcsec * cascade_levels_L + pm_halo_arcsec"
+
+[epoch]
+partner_epoch_pm = true
+no_pm_policy = "sigma_floor_or_larger_radius"
+notes = "Surveys without PM (VHS/GALEX/UHS floors) use larger sky radii; detail in S-EPOCH."
+
+[ownership]
+rule = "tile whose core contains the cascade-level spine member"
+tie_break = "lowest_healpix_pixel_id"
+
+[pristine]
+join = "id_join_on_gaia_source_id"
+positional_match = false
+
+[engines]
+match = "fast"
+fallback_policy = "error"
+forbid = ["auto", "ray-union"]
+oracles = ["stilts", "lsdb_margin"]

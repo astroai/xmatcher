@@ -8,6 +8,7 @@ lint = "ruff check ."
 format = "ruff format ."
 preflight-push = "ruff check . && ruff format --check . && mypy src/xmatcher tests scripts && python -m compileall -q src/xmatcher tests scripts"
 ci-local = { cmd = "python -m pytest -m 'not slow and not bench' -q --strict-markers", depends-on = ["preflight-push"] }
+install-git-hooks = "bash scripts/install-git-hooks.sh"
 test = "python -m pytest"
 
 [dependencies]

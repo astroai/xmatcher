@@ -292,12 +292,15 @@ catalogues:
     default_pos_error_arcsec: 0.2
 
   skymapper_dr4_hats:
-    description: "SkyMapper DR4 via LSDB HATS"
+    # Flat master photometry on LIneA (~96 GiB, 724M rows, 356 pixels).
+    # Do NOT use data.lsdb.io/.../skymapper_dr4_lightcurves (~6.5 TiB nested
+    # epoch photometry) for the pensus UV–IR source catalog pin.
+    description: "SkyMapper DR4 flat source photometry via LIneA HATS (PSF u..z)"
     archive: hats
     service_id: hats_service
     release: "dr4"
-    access_identifier: "https://data.lsdb.io/hats/skymapper_dr4/catalog/sky_mapper_dr4"
-    estimated_size: 'huge'
+    access_identifier: "https://linea.data.lsdb.io/hats/skymapper/catalog/sky_mapper_dr4"
+    estimated_size: 'large'
     ra_column: "raj2000"
     dec_column: "dej2000"
     id_column: "object_id"
@@ -447,7 +450,7 @@ catalogues:
     estimated_size: 'huge'
 
   splus_dr5_hats:
-    description: "S-PLUS DR5 local HATS tree (set XMATCHER_SPLUS_DR5_HATS)"
+    description: "S-PLUS DR5 local HATS placeholder only (DR5 not public; use CDS DR4 HATS). Set XMATCHER_SPLUS_DR5_HATS if a private tree exists."
     archive: hats
     service_id: hats_service
     release: "dr5"
@@ -457,6 +460,19 @@ catalogues:
     id_column: "id"
     epoch: 2019.0
     estimated_size: 'huge'
+
+  gaia_gspc_hats:
+    description: "Gaia DR3 GSPC/XP continuous spectrum product local HATS (ECSV→parquet→hats-import; set XMATCHER_GAIA_GSPC_HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "${XMATCHER_GAIA_GSPC_HATS}"
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "source_id"
+    epoch: 2016.0
+    estimated_size: 'huge'
+    default_columns: ["source_id", "ra", "dec"]
 
   gaia_xp_hats:
     description: "Gaia DR3 XP coefficients local HATS/Parquet tree (set XMATCHER_GAIA_XP_HATS)"

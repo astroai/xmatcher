@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Local pre-push gate: catch ruff format/lint and mypy before CI burns a cycle.
+# Install with: pixi run install-git-hooks
+#   (or: bash scripts/install-git-hooks.sh)
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+if command -v pixi >/dev/null 2>&1; then
+  echo "pre-push: pixi run preflight-push" >&2
+  exec pixi run preflight-push
+fi
+
+echo "pre-push: pixi missing; falling back to ruff format --check + ruff check" >&2
+if ! command -v ruff >/dev/null 2>&1; then
+  echo "pre-push: ruff not found; install pixi or ruff before pushing" >&2
+  exit 1
+fi
+ruff format --check .
+ruff check .

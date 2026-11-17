@@ -1828,6 +1828,95 @@ def construct_association_components(
     return sorted(components, key=lambda component: component.component_id)
 
 
+def construct_association_components_from_edge_shards(
+    edge_shard_paths: Iterable[str | os.PathLike[str]],
+    *,
+    association_release_id: str,
+    source_input_release_id: str,
+    candidate_input_release_id: str,
+    source_id_column: str = "source_id",
+    candidate_id_column: str = "candidate_id",
+    additional_members: Iterable[AssociationComponentMember] = (),
+) -> list[AssociationComponent]:
+    """Build tile-local components from parquet edge shards (survey-scale path).
+
+    The in-memory :func:`construct_association_components` path materialises the
+    full association release and is not viable at full-sky edge counts.  Pensus
+    tile campaigns emit mutual-best edge shards per tile; this helper unions
+    those shards under the same deterministic component-id contract without
+    requiring a monolithic association.v1 release on disk.
+
+    Each shard must be parquet with ``source_id_column`` and
+    ``candidate_id_column`` string (or castable) columns.
+    """
+    try:
+        import polars as pl
+    except ImportError as exc:  # pragma: no cover - polars is a hard dependency
+        raise RuntimeError("polars is required for sharded association construction") from exc
+
+    source_release = _text(source_input_release_id, "source_input_release_id")
+    candidate_release = _text(candidate_input_release_id, "candidate_input_release_id")
+    release_id = _text(association_release_id, "association_release_id")
+    src_col = _text(source_id_column, "source_id_column")
+    cand_col = _text(candidate_id_column, "candidate_id_column")
+
+    roots: dict[AssociationComponentMember, AssociationComponentMember] = {}
+
+    def find(member: AssociationComponentMember) -> AssociationComponentMember:
+        root = roots.setdefault(member, member)
+        while root != roots[root]:
+            root = roots[root]
+        while member != root:
+            member, roots[member] = roots[member], root
+        return root
+
+    def union(left: AssociationComponentMember, right: AssociationComponentMember) -> None:
+        left_root = find(left)
+        right_root = find(right)
+        if left_root != right_root:
+            left_key = (left_root.input_release_id, left_root.member_id)
+            right_key = (right_root.input_release_id, right_root.member_id)
+            if left_key < right_key:
+                roots[right_root] = left_root
+            else:
+                roots[left_root] = right_root
+
+    for member in additional_members:
+        if not isinstance(member, AssociationComponentMember):
+            raise ValueError("additional_members must contain AssociationComponentMember values")
+        find(member)
+
+    saw_shard = False
+    for path in edge_shard_paths:
+        saw_shard = True
+        shard = Path(path)
+        if not shard.is_file():
+            raise FileNotFoundError(f"edge shard not found: {shard}")
+        frame = pl.read_parquet(shard, columns=[src_col, cand_col])
+        if frame.is_empty():
+            continue
+        for source_id, candidate_id in frame.select(
+            pl.col(src_col).cast(pl.Utf8), pl.col(cand_col).cast(pl.Utf8)
+        ).iter_rows():
+            if not source_id or not candidate_id:
+                raise ValueError(f"empty endpoint id in edge shard {shard}")
+            union(
+                AssociationComponentMember(source_release, source_id),
+                AssociationComponentMember(candidate_release, candidate_id),
+            )
+    if not saw_shard and not additional_members:
+        return []
+
+    grouped: dict[AssociationComponentMember, list[AssociationComponentMember]] = {}
+    for member in roots:
+        grouped.setdefault(find(member), []).append(member)
+
+    components = [
+        AssociationComponent(release_id, tuple(members), ()) for members in grouped.values()
+    ]
+    return sorted(components, key=lambda component: component.component_id)
+
+
 def _component_delta_id(
     *,
     parent_association_release_id: str,

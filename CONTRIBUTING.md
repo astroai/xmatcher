@@ -25,6 +25,17 @@ unset PYTHONPATH
 
 ## Linting, Formatting, and Tests
 
+Install the checked-in pre-push hook once per clone so pushes fail locally on
+format/lint/mypy instead of in CI:
+
+```bash
+pixi run install-git-hooks
+```
+
+That sets `core.hooksPath` to `scripts/git-hooks/`, where `pre-push` runs
+`pixi run preflight-push`. Optional fuller gates remain in `.pre-commit-config.yaml`
+(`pre-commit install` if you use that toolchain).
+
 Run the fast preflight after a small change. It checks Ruff lint, formatting, Mypy, and bytecode compilation:
 
 ```bash
@@ -37,6 +48,9 @@ Auto-format and lint with Ruff:
 pixi run format
 pixi run lint
 ```
+
+Always run `pixi run format` (or `preflight-push`) before pushing pensus or other
+script changes; CI's format check rejects unformatted Python.
 
 Run the release gate before opening a pull request. It runs the preflight and all tests not marked `slow` or `bench`:
 
