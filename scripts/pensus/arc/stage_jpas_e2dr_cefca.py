@@ -56,8 +56,11 @@ def write_shard(
     shards: pathlib.Path, name: str, raw: str, extra: dict
 ) -> tuple[pathlib.Path, int, str]:
     marker = shards / f"{name}.done.json"
+    # Strip CEFCA #ADQL comment lines before parquet conversion (else pyarrow
+    # treats `#SELECT ...` as the header and corrupts column names).
+    cleaned = "\n".join(ln for ln in raw.splitlines() if ln and not ln.startswith("#"))
     csv_path = shards / f"{name}.csv"
-    csv_path.write_text(raw)
+    csv_path.write_text(cleaned + ("\n" if cleaned else ""))
     rows = max(0, len(csv_rows(raw)))
     try:
         import pyarrow.csv as pacsv
