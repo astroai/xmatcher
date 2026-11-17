@@ -133,7 +133,10 @@ def main() -> int:
             meta = {"src": str(src), "dest": str(dest), "nrows": -1, "skipped": True}
         else:
             meta = convert_one(src, dest)
-            rows += int(meta["nrows"])
+            n_rows = meta["nrows"]
+            if not isinstance(n_rows, int):
+                raise TypeError(f"nrows must be int, got {type(n_rows)!r}")
+            rows += n_rows
             if args.delete_raw:
                 src.unlink(missing_ok=True)
         done += 1
