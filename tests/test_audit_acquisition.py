@@ -184,3 +184,56 @@ def test_csv_listed_tree_resync_skips_unchanged_pixels(tmp_path: Path) -> None:
             CatalogueSource(name="m", is_local=True, path=Path(root) / rel)
         )
         assert int(rows["id"].min()) == 1000
+
+
+# --------------------------------------------------------------------------- #
+# collection resolution
+# --------------------------------------------------------------------------- #
+_TREE_PROPERTIES = b"#HATS catalog\nhats_nrows=3\nhats_col_ra=ra\n"
+
+
+def test_http_collection_landing_page_resolves_through_collection_properties(
+    tmp_path: Path,
+) -> None:
+    """LSDB collection roots are landing pages with absolute links only."""
+    serve = tmp_path / "serve"
+    collection = serve / "hats" / "gaia_dr3"
+    for tree in ("gaia", "gaia_10arcs", "gaia_5arcmin", "gaia_source_id"):
+        (collection / tree).mkdir(parents=True)
+        (collection / tree / "properties").write_bytes(_TREE_PROPERTIES)
+    (collection / "collection.properties").write_bytes(
+        b"#HATS Collection\nhats_primary_table_url=gaia\n"
+        b"all_margins=gaia_10arcs gaia_5arcmin\nall_indexes=source_id gaia_source_id\n"
+    )
+    with serve_directory(serve) as base:
+        links = "".join(
+            f'<a href="{base}/hats/gaia_dr3/{name}">{name}</a>'
+            for name in ("collection.properties", "gaia", "gaia_10arcs", "gaia_source_id")
+        )
+        (collection / "index.html").write_text(f"<html><body>{links}</body></html>")
+        resolved = mirror.resolve_hats_tree_root(
+            f"{base}/hats/gaia_dr3", bucket=mirror.TokenBucket(0)
+        )
+    assert resolved == f"{base}/hats/gaia_dr3/gaia"
+
+
+@pytest.mark.parametrize("primary", ["../escape", "https://elsewhere.test/tree", "a//b"])
+def test_unsafe_collection_primary_is_not_followed(primary: str) -> None:
+    class Reader:
+        def __init__(self, files: dict[str, bytes]) -> None:
+            self.files = files
+
+        def exists(self, rel: str) -> bool:
+            return rel in self.files
+
+        def read_bytes(self, rel: str) -> bytes:
+            return self.files[rel]
+
+        def child(self, name: str) -> Reader:
+            raise AssertionError(f"followed unsafe primary {name!r}")
+
+        def list(self, rel: str = "") -> list[str]:
+            return []
+
+    reader = Reader({"collection.properties": f"hats_primary_table_url={primary}\n".encode()})
+    assert mirror._resolve_reader_tree_root("s3://bucket/hats", reader) == "s3://bucket/hats"

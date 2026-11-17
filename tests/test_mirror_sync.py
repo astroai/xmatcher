@@ -1215,8 +1215,18 @@ def test_http_listing_drops_absolute_and_external_links(monkeypatch) -> None:
     assert names == ["Npix=1.parquet"]
 
 
+def _no_collection_properties(monkeypatch) -> None:
+    """Answer the collection.properties probe with 404 (offline listing tests)."""
+
+    def missing(url, bucket, **_kwargs):
+        raise urllib.error.HTTPError(url, 404, "missing", hdrs=None, fp=None)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(mirror, "_http_request", missing)
+
+
 def test_resolve_hats_tree_root_descends_a_collection_past_margin_and_index(monkeypatch) -> None:
     root = "https://example.test/hats/gaia_dr3"
+    _no_collection_properties(monkeypatch)
     trees = {
         f"{root}/gaia": True,
         f"{root}/gaia_10arcs": True,
@@ -1241,6 +1251,7 @@ def test_resolve_hats_tree_root_descends_a_collection_past_margin_and_index(monk
 
 def test_resolve_hats_tree_root_keeps_an_ambiguous_collection(monkeypatch) -> None:
     root = "https://example.test/hats/delve"
+    _no_collection_properties(monkeypatch)
     monkeypatch.setattr(
         mirror,
         "_http_hats_properties",

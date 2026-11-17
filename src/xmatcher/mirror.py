@@ -361,6 +361,22 @@ def _properties_dict(body: bytes) -> dict[str, str]:
     return props
 
 
+def _collection_primary(body: bytes, root: str) -> str | None:
+    """Relative primary-tree path named by a ``collection.properties`` body.
+
+    ``hats_primary_table_url`` is relative to the collection; an absolute URL
+    or a path that climbs out of the collection is refused rather than
+    followed.
+    """
+    primary = (_properties_dict(body).get("hats_primary_table_url") or "").strip().strip("/")
+    if not primary:
+        return None
+    if "://" in primary or any(part in ("", ".", "..") for part in primary.split("/")):
+        logger.warning("HATS collection %s names an unsafe primary table %r", root, primary)
+        return None
+    return primary
+
+
 def _resolve_reader_tree_root(url: str, reader: Any) -> str:
     """Descend a remote HATS *collection* root to the catalogue tree it holds.
 
@@ -377,8 +393,7 @@ def _resolve_reader_tree_root(url: str, reader: Any) -> str:
 
     primary = None
     if reader.exists(_COLLECTION_PROPERTIES):
-        props = _properties_dict(reader.read_bytes(_COLLECTION_PROPERTIES))
-        primary = (props.get("hats_primary_table_url") or "").strip().strip("/") or None
+        primary = _collection_primary(reader.read_bytes(_COLLECTION_PROPERTIES), root)
     if primary:
         candidate = f"{root}/{primary}"
         if _tree_properties_rel(reader.child(primary)) is not None:
@@ -418,9 +433,11 @@ def resolve_hats_tree_root(url: str, *, bucket: TokenBucket | None = None) -> st
     LSDB and the IVOA registry publish collection roots
     (``https://data.lsdb.io/hats/gaia_dr3/``) whose child directories are the
     HATS trees (``…/gaia_dr3/gaia/``).  xmatcher mirrors one tree, so a
-    collection URL is resolved once here.  The URL is returned unchanged when
-    it already is a tree, when the listing is unavailable, or when the
-    collection holds several catalogues — guessing between them would match
+    collection URL is resolved once here: the tree named by
+    ``collection.properties`` (``hats_primary_table_url``) wins, then a single
+    non-auxiliary child tree in the listing.  The URL is returned unchanged
+    when it already is a tree, when neither source names a tree, or when the
+    listing holds several catalogues — guessing between them would match
     the wrong sky, so the caller gets the normal "no HATS partitions" error
     instead.
     """
@@ -434,6 +451,27 @@ def resolve_hats_tree_root(url: str, *, bucket: TokenBucket | None = None) -> st
     bucket = bucket or TokenBucket(1.0)
     if _http_hats_properties(root, bucket) is not None:
         return url  # already a tree: keep the caller's exact URL
+
+    # collection.properties is authoritative, as on S3 and Hugging Face. LSDB
+    # serves collection roots as landing pages whose links are absolute, so
+    # the directory listing below finds no trees there.
+    try:
+        body, _ = _http_request(f"{root}/{_COLLECTION_PROPERTIES}", bucket)
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+        body = None
+    primary_rel = (
+        _collection_primary(body, root) if body and not body.lstrip().startswith(b"<") else None
+    )
+    if primary_rel:
+        candidate = f"{root}/{primary_rel}"
+        if _http_hats_properties(candidate, bucket) is not None:
+            logger.info("HATS collection %s resolves to its primary tree %s", root, candidate)
+            return candidate
+        logger.warning(
+            "HATS collection %s names a primary table %r without HATS properties",
+            root,
+            primary_rel,
+        )
 
     names, complete = _http_listing(f"{root}/", bucket)
     if not complete:
