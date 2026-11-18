@@ -1,7 +1,9 @@
 [workspace]
 name = "xmatcher"
 channels = ["conda-forge"]
-platforms = ["osx-arm64", "linux-64"]
+# macOS 14+: torchfits, a torchsky dependency (torchsky environment, same solve
+# group), publishes no older macOS wheels.
+platforms = [{ name = "osx-arm64-macos-14-0", platform = "osx-arm64", macos = "14.0" }, "linux-64"]
 
 [tasks]
 lint = "ruff check ."
@@ -12,7 +14,9 @@ install-git-hooks = "bash scripts/install-git-hooks.sh"
 test = "python -m pytest"
 
 [dependencies]
-python = ">=3.13"  # interpreter floor from requires-python, not a pin
+# The release runtime. An open bound re-solves to the newest CPython (3.15),
+# for which Ray publishes no wheels.
+python = "3.13.*"
 # numba (via hats) constrains numpy itself; no pin needed here
 numpy = "*"
 scipy = "*"
@@ -33,3 +37,24 @@ xmatcher = { path = ".", editable = true }
 hats = "*"
 ray = "*"
 cdshealpix = "*"
+
+# Public torchsky (>=0.5.0) and its PyTorch stack, for the torchsky engine,
+# epoch-propagation Jacobians and HEALPix coverings: `pixi run -e torchsky ci-local`.
+[feature.torchsky.dependencies]
+# conda-forge CPU PyTorch shares the environment's OpenMP runtime; the PyPI
+# wheel bundles its own libomp, which aborts the process on macOS (OMP #15),
+# and on Linux pulls the multi-GB CUDA toolkit.
+# cpu_generic, not cpu_mkl: the MKL build would switch the shared solve
+# group (and so the default environment) from OpenBLAS to MKL.
+pytorch = { version = "2.14.*", build = "cpu_generic*" }
+
+[feature.torchsky.pypi-dependencies]
+torchsky = ">=0.5.0"
+
+[feature.torchsky.activation.env]
+# Tests assert torchsky is importable instead of skipping its paths.
+XMATCHER_EXPECT_TORCHSKY = "1"
+
+[environments]
+default = { solve-group = "default" }
+torchsky = { features = ["torchsky"], solve-group = "default" }
