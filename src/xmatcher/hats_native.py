@@ -431,25 +431,13 @@ def hats_native_crossmatch(
     right_idx_str = {k: str(v) for k, v in right_index.items()}
 
     if eng == "ray":
-        import os
-
         try:
             import ray as ray_mod
 
+            from .ray_union import _init_ray
+
             if not ray_mod.is_initialized():
-                try:
-                    ray_mod.init(
-                        address=os.environ.get("RAY_ADDRESS") or None,
-                        ignore_reinit_error=True,
-                        logging_level=logging.WARNING,
-                    )
-                except ConnectionError:
-                    os.environ.pop("RAY_ADDRESS", None)
-                    ray_mod.init(
-                        address=None,
-                        ignore_reinit_error=True,
-                        logging_level=logging.WARNING,
-                    )
+                _init_ray(ray_mod, engine="ray", fallback_policy=spec.fallback_policy)
             remote_fn: Any = ray_mod.remote(_pixel_task_payload)
             futures = [
                 remote_fn.remote(

@@ -2471,8 +2471,10 @@ class CrossMatch:
             try:
                 import ray  # noqa: PLC0415
 
+                from .ray_union import _init_ray  # noqa: PLC0415
+
                 if not ray.is_initialized():
-                    ray.init(ignore_reinit_error=True, log_to_driver=False)
+                    _init_ray(ray, engine="ray", fallback_policy=fallback_policy)
 
                 @ray.remote
                 def _ray_nway_chunk(
