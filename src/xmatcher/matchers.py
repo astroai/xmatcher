@@ -821,6 +821,32 @@ def _best_per_primary(
     return left_idx[best], right_idx[best], seps[best]
 
 
+def _lowest_duplicate(right_idx: np.ndarray, r_ra: np.ndarray, r_dec: np.ndarray) -> np.ndarray:
+    """Replace each right index by the lowest right row at the identical position.
+
+    Nearest-neighbour queries (``cKDTree.query``, ``match_to_catalog_sky``)
+    return an arbitrary member of a set of exact-duplicate counterparts.
+    Duplicates are at the same distance, so mapping to the lowest row index
+    changes no separation and gives every engine the same ``find="best"``
+    tie-break as :func:`_best_per_primary` (lowest right index).
+    """
+    if right_idx.size == 0:
+        return right_idx
+    positions = pl.DataFrame({"ra": r_ra, "dec": r_dec})
+    dup_rows = np.flatnonzero(positions.is_duplicated().to_numpy())
+    if dup_rows.size == 0:
+        return right_idx
+    lowest = np.arange(len(r_ra), dtype=np.int64)
+    lowest[dup_rows] = (
+        positions[dup_rows]
+        .with_columns(row=pl.Series(dup_rows))
+        .select(pl.col("row").min().over("ra", "dec"))
+        .to_series()
+        .to_numpy()
+    )
+    return lowest[right_idx]
+
+
 def _skyerr_pair_filter(
     left_idx: np.ndarray,
     right_idx: np.ndarray,
@@ -1634,10 +1660,8 @@ def _scipy_match(
         # --- plain sky: spatial-nearest match ------------------------------
         dist, idx = tree.query(l_xyz, k=1, distance_upper_bound=chord_max, workers=workers)
         valid = np.isfinite(dist) & (idx < r_xyz.shape[0])
-        left_idx = np.nonzero(valid)[0]
-        right_idx = idx[valid].astype(np.int64)
-        sep = _chord_to_arcsec(dist[valid])
-        return left_idx, right_idx, sep
+        right_idx = _lowest_duplicate(idx[valid].astype(np.int64), r_ra, r_dec)
+        return np.flatnonzero(valid), right_idx, _chord_to_arcsec(dist[valid])
 
     # find == "all": per-left list of matched right indices.
     idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
@@ -1826,12 +1850,10 @@ def _likelihood_ratio_scoring(
     # --- select best per primary source if find="best" ---------------------
     if spec.find == "best":
         # For each primary source, find the candidate with max reliability.
-        # Ties go to smallest LR (then smallest sep).
-        # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-        order = np.lexsort((seps, lr, -reliability, inverse))
-        best_indices = _first_occurrence_indices(inverse[order])
-        best_positions = order[best_indices]
-        best_positions.sort()  # Preserve original row order implicitly done by boolean mask
+        # Ties go to smallest LR, then smallest sep, then lowest right index.
+        order = np.lexsort((right_idx, seps, lr, -reliability, inverse))
+        best_positions = order[_first_occurrence_indices(inverse[order])]
+        best_positions.sort()
         return (
             left_idx[best_positions],
             right_idx[best_positions],
@@ -2683,13 +2705,12 @@ def _pick_best_per_primary(
 
     Returns ``(left_idx, right_idx, seps, scores)`` filtered to one entry
     per unique primary source, keeping the candidate with the largest
-    *scores* value.
+    *scores* value; ties go to the smaller separation, then the lowest right
+    index.
     """
-    # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-    order = np.lexsort((-scores, left_idx))
-    best_indices = _first_occurrence_indices(left_idx[order])
-    best_positions = order[best_indices]
-    best_positions.sort()  # Preserve original row order implicitly done by boolean mask
+    order = np.lexsort((right_idx, seps, -scores, left_idx))
+    best_positions = order[_first_occurrence_indices(left_idx[order])]
+    best_positions.sort()
     return (
         left_idx[best_positions],
         right_idx[best_positions],
@@ -2704,14 +2725,12 @@ def _ml_fallback_best_by_sep(
     seps: np.ndarray,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Fallback: pick the spatially-nearest candidate per primary source."""
+    """Fallback: pick the spatially-nearest candidate (lowest right index on ties)."""
     if spec.find == "all":
         return left_idx, right_idx, seps, 1.0 / (1.0 + seps)
-    # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-    order = np.lexsort((seps, left_idx))
-    best_indices = _first_occurrence_indices(left_idx[order])
-    best_positions = order[best_indices]
-    best_positions.sort()  # Preserve original row order implicitly done by boolean mask
+    order = np.lexsort((right_idx, seps, left_idx))
+    best_positions = order[_first_occurrence_indices(left_idx[order])]
+    best_positions.sort()
 
     scores = 1.0 / (1.0 + seps[best_positions])
     return left_idx[best_positions], right_idx[best_positions], seps[best_positions], scores
@@ -3045,6 +3064,8 @@ def _zone_match_healpix(
     left_idx = np.concatenate(l_parts)
     right_idx = np.concatenate(r_parts).astype(np.int64, copy=False)
     seps = np.concatenate(sep_parts)
+    if not need_all_candidates:
+        right_idx = _lowest_duplicate(right_idx, r_ra, r_dec)
 
     # Sort deterministically by (left_idx, right_idx) to match _scipy_match order.
     order = np.lexsort((right_idx, left_idx))
@@ -3124,7 +3145,12 @@ def _astropy_match(
             idx, sep2d, _ = lcoord.match_to_catalog_sky(rcoord)
             seps = sep2d.arcsec
             within = seps <= spec.radius_arcsec
-            return np.nonzero(within)[0], idx[within], seps[within]
+            right_idx = _lowest_duplicate(
+                np.asarray(idx[within], dtype=np.int64),
+                right[right_src.ra_column].to_numpy(),
+                right[right_src.dec_column].to_numpy(),
+            )
+            return np.flatnonzero(within), right_idx, seps[within]
         left_idx, right_idx, sep2d, _ = search_around_sky(
             lcoord, rcoord, spec.radius_arcsec * u.arcsec
         )
@@ -3186,28 +3212,16 @@ def _astropy_match(
     if search_radius <= 0:
         return empty
     left_idx, right_idx, sep2d, _ = search_around_sky(lcoord, rcoord, search_radius * u.arcsec)
-    seps = sep2d.arcsec
-    limit = spec.max_error * (lsig[left_idx] + rsig[right_idx])
-    if spec.radius_arcsec is not None:
-        limit = np.minimum(limit, float(spec.radius_arcsec))
-    keep = np.isfinite(limit) & (seps <= limit)
-    left_idx, right_idx, seps, limit = (
-        left_idx[keep],
-        right_idx[keep],
-        seps[keep],
-        limit[keep],
+    return _skyerr_pair_filter(
+        left_idx,
+        right_idx,
+        sep2d.arcsec,
+        lsig,
+        rsig,
+        spec.max_error,
+        find=spec.find,
+        radius_arcsec=spec.radius_arcsec,
     )
-
-    if spec.find == "best" and len(left_idx) > 0:
-        score = np.divide(seps, limit, out=np.full_like(seps, np.inf), where=limit > 0)
-        order = np.lexsort((score, left_idx))
-
-        first_occurrence_idx = _first_occurrence_indices(left_idx[order])
-        sel = order[first_occurrence_idx]
-        sel.sort()
-
-        left_idx, right_idx, seps = left_idx[sel], right_idx[sel], seps[sel]
-    return left_idx, right_idx, seps
 
 
 # --------------------------------------------------------------------------- #
