@@ -14,6 +14,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+import polars as pl
+
 # Persisted v1 wire names stay fixed across the package rename to preserve IDs.
 ASSOCIATION_SCHEMA_VERSION = "xmatch.association.v1"
 ASSOCIATION_RELEASE_SCHEMA_VERSION = "xmatch.association.release.v1"
@@ -1713,6 +1715,49 @@ def _component_partition(
     return manifest, {key: tuple(value) for key, value in members.items()}, parents
 
 
+class _DisjointSets:
+    """Union-find over member keys with path compression and union by size.
+
+    Root choice is internal: callers canonicalise each group before hashing, so
+    the result does not depend on edge order.
+    """
+
+    def __init__(self) -> None:
+        self._parent: dict[tuple[str, str], tuple[str, str]] = {}
+        self._size: dict[tuple[str, str], int] = {}
+
+    def add(self, key: tuple[str, str]) -> None:
+        if key not in self._parent:
+            self._parent[key] = key
+            self._size[key] = 1
+
+    def find(self, key: tuple[str, str]) -> tuple[str, str]:
+        parent = self._parent
+        root = key
+        while parent[root] != root:
+            root = parent[root]
+        while key != root:
+            parent[key], key = root, parent[key]
+        return root
+
+    def union(self, left: tuple[str, str], right: tuple[str, str]) -> None:
+        self.add(left)
+        self.add(right)
+        left_root, right_root = self.find(left), self.find(right)
+        if left_root == right_root:
+            return
+        if self._size[left_root] < self._size[right_root]:
+            left_root, right_root = right_root, left_root
+        self._parent[right_root] = left_root
+        self._size[left_root] += self._size.pop(right_root)
+
+    def groups(self) -> Iterable[list[tuple[str, str]]]:
+        grouped: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        for key in self._parent:
+            grouped.setdefault(self.find(key), []).append(key)
+        return grouped.values()
+
+
 def construct_association_components(
     association_release_directory: str | os.PathLike[str],
     *,
@@ -1766,27 +1811,7 @@ def construct_association_components(
 
     # union-find retains O(nodes) state; survey-scale construction
     # should move this exact contract behind an external graph engine.
-    roots: dict[AssociationComponentMember, AssociationComponentMember] = {}
-
-    def find(member: AssociationComponentMember) -> AssociationComponentMember:
-        root = roots.setdefault(member, member)
-        while root != roots[root]:
-            root = roots[root]
-        while member != root:
-            member, roots[member] = roots[member], root
-        return root
-
-    def union(left: AssociationComponentMember, right: AssociationComponentMember) -> None:
-        left_root = find(left)
-        right_root = find(right)
-        if left_root != right_root:
-            left_key = (left_root.input_release_id, left_root.member_id)
-            right_key = (right_root.input_release_id, right_root.member_id)
-            if left_key < right_key:
-                roots[right_root] = left_root
-            else:
-                roots[left_root] = right_root
-
+    sets = _DisjointSets()
     for member in additional_members:
         if not isinstance(member, AssociationComponentMember):
             raise ValueError("additional_members must contain AssociationComponentMember values")
@@ -1794,37 +1819,24 @@ def construct_association_components(
             raise ValueError(
                 "additional member input release is absent from association provenance"
             )
-        find(member)
+        sets.add((member.input_release_id, member.member_id))
 
     for record in iter_association_release(association_release_directory):
-        if record.decision not in decisions:
-            continue
-        union(
-            AssociationComponentMember(endpoint_releases[0], record.source_id),
-            AssociationComponentMember(endpoint_releases[1], record.candidate_id),
-        )
+        if record.decision in decisions:
+            sets.union(
+                (endpoint_releases[0], record.source_id),
+                (endpoint_releases[1], record.candidate_id),
+            )
 
-    grouped: dict[AssociationComponentMember, list[AssociationComponentMember]] = {}
-    for member in roots:
-        grouped.setdefault(find(member), []).append(member)
-
-    components = [
-        AssociationComponent(
-            manifest.release_id,
-            tuple(members),
-            tuple(
-                sorted(
-                    {
-                        parent_by_member[parent_member]
-                        for member in members
-                        if (parent_member := current_to_parent.get(member, member))
-                        in parent_by_member
-                    }
-                )
-            ),
-        )
-        for members in grouped.values()
-    ]
+    components = []
+    for keys in sets.groups():
+        members = tuple(AssociationComponentMember(*key) for key in keys)
+        parents = {
+            parent_by_member[parent_member]
+            for member in members
+            if (parent_member := current_to_parent.get(member, member)) in parent_by_member
+        }
+        components.append(AssociationComponent(manifest.release_id, members, tuple(parents)))
     return sorted(components, key=lambda component: component.component_id)
 
 
@@ -1849,70 +1861,35 @@ def construct_association_components_from_edge_shards(
     Each shard must be parquet with ``source_id_column`` and
     ``candidate_id_column`` string (or castable) columns.
     """
-    try:
-        import polars as pl
-    except ImportError as exc:  # pragma: no cover - polars is a hard dependency
-        raise RuntimeError("polars is required for sharded association construction") from exc
-
     source_release = _text(source_input_release_id, "source_input_release_id")
     candidate_release = _text(candidate_input_release_id, "candidate_input_release_id")
     release_id = _text(association_release_id, "association_release_id")
     src_col = _text(source_id_column, "source_id_column")
     cand_col = _text(candidate_id_column, "candidate_id_column")
 
-    roots: dict[AssociationComponentMember, AssociationComponentMember] = {}
-
-    def find(member: AssociationComponentMember) -> AssociationComponentMember:
-        root = roots.setdefault(member, member)
-        while root != roots[root]:
-            root = roots[root]
-        while member != root:
-            member, roots[member] = roots[member], root
-        return root
-
-    def union(left: AssociationComponentMember, right: AssociationComponentMember) -> None:
-        left_root = find(left)
-        right_root = find(right)
-        if left_root != right_root:
-            left_key = (left_root.input_release_id, left_root.member_id)
-            right_key = (right_root.input_release_id, right_root.member_id)
-            if left_key < right_key:
-                roots[right_root] = left_root
-            else:
-                roots[left_root] = right_root
-
+    sets = _DisjointSets()
     for member in additional_members:
         if not isinstance(member, AssociationComponentMember):
             raise ValueError("additional_members must contain AssociationComponentMember values")
-        find(member)
+        sets.add((member.input_release_id, member.member_id))
 
-    saw_shard = False
     for path in edge_shard_paths:
-        saw_shard = True
         shard = Path(path)
         if not shard.is_file():
             raise FileNotFoundError(f"edge shard not found: {shard}")
         frame = pl.read_parquet(shard, columns=[src_col, cand_col])
-        if frame.is_empty():
-            continue
         for source_id, candidate_id in frame.select(
             pl.col(src_col).cast(pl.Utf8), pl.col(cand_col).cast(pl.Utf8)
         ).iter_rows():
             if not source_id or not candidate_id:
                 raise ValueError(f"empty endpoint id in edge shard {shard}")
-            union(
-                AssociationComponentMember(source_release, source_id),
-                AssociationComponentMember(candidate_release, candidate_id),
-            )
-    if not saw_shard and not additional_members:
-        return []
-
-    grouped: dict[AssociationComponentMember, list[AssociationComponentMember]] = {}
-    for member in roots:
-        grouped.setdefault(find(member), []).append(member)
+            sets.union((source_release, source_id), (candidate_release, candidate_id))
 
     components = [
-        AssociationComponent(release_id, tuple(members), ()) for members in grouped.values()
+        AssociationComponent(
+            release_id, tuple(AssociationComponentMember(*key) for key in keys), ()
+        )
+        for keys in sets.groups()
     ]
     return sorted(components, key=lambda component: component.component_id)
 
