@@ -71,10 +71,14 @@ def _text(value: Any, name: str) -> str:
 def _finite_number(value: Any, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} must be a finite number")
-    result = float(value)
+    try:
+        result = float(value)
+    except OverflowError as exc:
+        raise ValueError(f"{name} must be a finite number") from exc
     if not math.isfinite(result):
         raise ValueError(f"{name} must be a finite number")
-    return result
+    # -0.0 == 0.0 but serialises differently; keep one canonical spelling.
+    return result + 0.0
 
 
 def _exact_keys(data: Mapping[str, Any], expected: set[str], name: str) -> None:
@@ -109,6 +113,13 @@ def _content_id(value: str, schema_version: str, name: str) -> str:
 
 def _canonical_json(data: Mapping[str, Any]) -> bytes:
     return json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _require_canonical(line: bytes, data: Mapping[str, Any], name: str, line_number: int) -> None:
+    # The file checksum alone would accept any spelling of the same rows, giving
+    # one content two release IDs; only the canonical bytes are a release.
+    if line != _canonical_json(data) + b"\n":
+        raise ValueError(f"{name} line {line_number} is not canonical JSON")
 
 
 @dataclass(frozen=True)
@@ -458,6 +469,7 @@ def _validated_release_records(
             if not isinstance(data, Mapping):
                 raise ValueError(f"association record line {line_number} must be an object")
             record = AssociationRecord.from_mapping(data)
+            _require_canonical(line, record.to_dict(), "association record", line_number)
             if record.provenance != manifest.provenance:
                 raise ValueError(
                     f"association record line {line_number} provenance differs from the manifest"
@@ -867,6 +879,9 @@ def _validated_member_equivalences(
                     f"association member equivalence line {line_number} must be an object"
                 )
             equivalence = AssociationMemberEquivalence.from_mapping(data)
+            _require_canonical(
+                line, equivalence.to_dict(), "association member equivalence", line_number
+            )
             if (
                 equivalence.parent_association_release_id != manifest.parent_association_release_id
                 or equivalence.current_association_release_id
@@ -1419,6 +1434,9 @@ def _validated_component_memberships(
                     f"association component membership line {line_number} must be an object"
                 )
             membership = AssociationComponentMembership.from_mapping(data)
+            _require_canonical(
+                line, membership.to_dict(), "association component membership", line_number
+            )
             if membership.association_release_id != manifest.association_release_id:
                 raise ValueError(
                     f"association component membership line {line_number} release differs "
@@ -2348,6 +2366,7 @@ def _validated_component_deltas(
                     f"association component delta line {line_number} must be an object"
                 )
             delta = AssociationComponentDelta.from_mapping(data)
+            _require_canonical(line, delta.to_dict(), "association component delta", line_number)
             for field in (
                 "parent_association_release_id",
                 "parent_component_release_id",
