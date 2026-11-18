@@ -13,7 +13,7 @@ We recommend [Pixi](https://pixi.sh) for a reproducible environment with all com
 ```bash
 git clone https://github.com/astroai/xmatcher.git
 cd xmatcher
-pixi install
+pixi install --frozen
 ```
 
 On shared or NFS-mounted systems (such as CANFAR), isolate user site-packages before running Python or tests:
@@ -33,8 +33,10 @@ pixi run install-git-hooks
 ```
 
 That sets `core.hooksPath` to `scripts/git-hooks/`, where `pre-push` runs
-`pixi run preflight-push`. Optional fuller gates remain in `.pre-commit-config.yaml`
-(`pre-commit install` if you use that toolchain).
+`pixi run preflight-push`. That hook is the only installed one. The extra
+whitespace/YAML/codespell checks in `.pre-commit-config.yaml` are run on demand
+with `pre-commit run --all-files`; do not `pre-commit install`, which refuses to
+run while `core.hooksPath` is set.
 
 Run the fast preflight after a small change. It checks Ruff lint, formatting, Mypy, and bytecode compilation:
 
