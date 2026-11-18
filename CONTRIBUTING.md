@@ -33,7 +33,7 @@ pixi run install-git-hooks
 ```
 
 That sets `core.hooksPath` to `scripts/git-hooks/`, where `pre-push` runs
-`pixi run preflight-push`. That hook is the only installed one. The extra
+`pixi run --frozen preflight-push` (pixi is required). That hook is the only installed one. The extra
 whitespace/YAML/codespell checks in `.pre-commit-config.yaml` are run on demand
 with `pre-commit run --all-files`; do not `pre-commit install`, which refuses to
 run while `core.hooksPath` is set.

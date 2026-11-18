@@ -11,4 +11,4 @@ fi
 
 git -C "$ROOT" config core.hooksPath scripts/git-hooks
 echo "Configured core.hooksPath=scripts/git-hooks"
-echo "pre-push will run: pixi run preflight-push"
+echo "pre-push will run: pixi run --frozen preflight-push"
