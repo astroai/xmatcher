@@ -7,20 +7,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Fixed
+A release audit of correctness, HATS conformance, remote acquisition, the
+Ray engines and the collaborator install path. Every fix below has a
+regression test that fails without it.
 
-- CLI `--union` is a full outer join again; `--join` now defaults per
-  operation (`1and2` for matches, `1or2` with `--union`).
-- CLI rejects invalid `-r`, `--max-error`, `--lr-q`, `--batch-size`, region
-  values and partial `--ra/--dec/--radius-deg` regions as usage errors
-  (exit 2) instead of tracebacks or silently ignoring them.
-- STILTS engine no longer returns a null `sep_arcsec` when the two inputs'
-  coordinate columns differ only in case.
+### Changed (behaviour)
+
+- `radius_arcsec` is the hard separation ceiling for `skyellipse` on every
+  engine (fast, zone, astropy, ray, ray-union), as it already was for
+  `skyerr`; positional errors can only narrow a match. `ray-union` previously
+  used the radius as a floor for both error matchers.
+- Ray engines join `RAY_ADDRESS` when it is set and otherwise start a private
+  local cluster; they no longer attach to whatever cluster another process
+  on the host started.
+- `fof_match` keeps each non-float column's first value with its original
+  dtype (integer IDs are no longer averaged), averages float columns
+  ignoring NaN, and averages RA/Dec as unit vectors.
+- HATS collection roots (remote and local downloads) resolve to the tree
+  named by `hats_primary_table_url`; time-versioned collections (TNS, VSX)
+  follow their newest tree.
 - Server-side TAP self-joins and CDS XMatch return the shared schema
   (`sep_arcsec`, `_2` suffix on right-hand collisions).
-- Source archive no longer ships tests for the unreleased pensus scripts and
-  now ships the pre-push hook used by `pixi run install-git-hooks`; tag builds
-  attach release notes from `docs/archive/`.
+
+### Fixed
+
+#### Science correctness
+
+- `ray-union` (full outer join) silently dropped rows whose only lower-
+  catalogue mate had already been folded into an earlier row (an A–B–C chain
+  lost C). Resume chunks from earlier versions are not reused.
+- `fof_match` cast int64 IDs above 2**53 (Gaia `source_id`) to float64, dropped
+  columns of catalogues first seen after the 100th bundle, let a suffixed
+  name overwrite an existing column, and averaged RA linearly across 0/360.
+- The likelihood-ratio matcher (`matcher="lr"`) used the Rayleigh radial PDF
+  instead of the 2-D Gaussian surface density, so a coincident counterpart
+  scored below one 1.2" away.
+- `skyellipse` offsets near the poles: the offset is now the exact
+  great-circle separation on the pair's tangent plane with both covariances
+  rotated onto it (all engines, including ray-union).
+- `ray-anchor` flagged null/NaN anchor proper motion as stationary
+  (`pm_warn=False`) over any baseline.
+- The out-of-core spill path ranked capped `skyerr` candidates differently
+  from the in-memory engines.
+- Resume: `ray-anchor` reused stale partitions after a survey epoch or a
+  same-row-count partition changed; `ray-union` discarded every finished
+  chunk when only `--chunk-memory-gb`, `--task-rows` or `--hats-threshold`
+  was raised (as its own memory guard advises).
+
+#### HATS
+
+- Every tree xmatcher writes (`ray-union`, `ray-anchor`, `project-hats`,
+  `.hats` output, TAP mirrors) now passes `hats` strict validation:
+  `dataset/_metadata` lists every partition footer (it held only a schema,
+  so pyarrow read 0 rows from it), `dataset/` holds only Parquet, and
+  partitions share one schema.
+- `project-hats` of a tree with `Npix=N/` directories produced paths `hats`
+  could not open, and kept `hats_col_healpix` after dropping that column.
+- `ray-union` ignored `hats_col_ra`/`hats_col_dec`, failing on trees such as
+  PS1 (`raMean`) or ZTF (`objra`).
+- A local HATS collection (LSDB or Hugging Face download) was rejected.
+- `hats:gaia_dr3` no longer resolved: LSDB collection roots are now landing
+  pages, so HTTP resolution reads `collection.properties` first.
+
+#### Remote acquisition (`xmatcher sync`)
+
+- Trees listed only by `partition_info.csv` (LSDB Gaia DR3, ~712 GiB; PS1
+  otmo) were re-downloaded in full on every sync.
+- Truncated S3 and Hugging Face downloads were accepted as complete.
+- An interrupted sync lost all progress, and a half-finished re-sync was
+  served as complete; progress is now checkpointed and incomplete mirrors
+  are refused.
+- `hats:<tree>/` and `hats:<tree>` were mirrored twice.
+- An empty or failed IVOA registry refresh replaced the cached snapshot.
+- S3 500/502/504 responses were not retried.
+- `fresh_after` read UTC timestamps as local time; `ensure_mirrored` did not
+  forward `--min-free-gb`.
+
+#### CLI, packaging and CI
+
+- `--union` was an inner join (unmatched rows dropped); `--join` now defaults
+  per operation (`1and2` for matches, `1or2` with `--union`).
+- Invalid `-r`, `--max-error`, `--lr-q`, `--batch-size`, region values and
+  partial `--ra/--dec/--radius-deg` regions are usage errors (exit 2)
+  instead of tracebacks or being silently ignored.
+- The STILTS engine returned a null `sep_arcsec` when coordinate names
+  differed only in case.
+- The tag build would have failed: release notes are attached from
+  `docs/archive/`, and `check_release.py --tag` requires them.
+- The source archive shipped tests for unshipped scripts and missed the
+  pre-push hook; the hook now runs `pixi run --frozen preflight-push` and
+  requires pixi.
+- `preflight-push` failed on macOS (`os.getxattr` in a CANFAR-only script).
 
 ## [0.6.0] — 2026-10-22
 
