@@ -237,7 +237,7 @@ class S3Remote:
                         "the bucket or key needs credentials or requester-pays access, "
                         "which xmatcher does not send"
                     ) from exc
-                if exc.code not in (429, 503):
+                if exc.code not in (429, 500, 502, 503, 504):
                     exc.close()
                     raise OSError(
                         f"S3 request failed for {self.display(url)} (HTTP {exc.code} {exc.reason})"
