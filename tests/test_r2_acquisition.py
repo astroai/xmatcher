@@ -147,3 +147,40 @@ def test_local_storage_fsyncs_before_publishing(tmp_path, monkeypatch) -> None:
     cache.write_parquet(pl.DataFrame({"a": [1]}), "a/p.parquet")
     assert events == ["fsync", "replace"]
     assert cache.size("a/part.bin") == 100
+
+
+# --------------------------------------------------------------------------- #
+# streamed HTTP partition downloads
+# --------------------------------------------------------------------------- #
+def test_streamed_http_download_rejects_a_short_body(tmp_path, monkeypatch) -> None:
+    """A dropped connection mid-body must not publish a short partition."""
+    import http.client
+
+    attempts: list[int] = []
+
+    class Short(io.BytesIO):
+        headers = {"Content-Length": "100"}
+
+    def short(request, timeout=None):
+        attempts.append(1)
+        return Short(b"x" * 60)
+
+    monkeypatch.setattr(urllib.request, "urlopen", short)
+    monkeypatch.setattr(http_retry.time, "sleep", lambda _s: None)
+    dest = tmp_path / "Npix=1.parquet"
+    with pytest.raises(http.client.IncompleteRead):
+        mirror._http_request(
+            "https://example.test/Npix=1.parquet", mirror.TokenBucket(0), dest=dest
+        )
+    assert len(attempts) == mirror._HTTP_RETRIES
+
+
+def test_streamed_http_download_writes_the_body(tmp_path, monkeypatch) -> None:
+    class Full(io.BytesIO):
+        headers = {"Content-Length": "5"}
+
+    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout=None: Full(b"abcde"))
+    dest = tmp_path / "f"
+    body, size = mirror._http_request("https://example.test/f", mirror.TokenBucket(0), dest=dest)
+    assert body is None and size == 5
+    assert dest.read_bytes() == b"abcde"

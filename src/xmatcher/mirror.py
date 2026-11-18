@@ -235,10 +235,14 @@ def _http_request(
     *,
     head: bool = False,
     range_probe: bool = False,
+    dest: Path | None = None,
 ) -> tuple[bytes | None, int | None]:
     """GET (or HEAD) ``url`` under the token bucket with 429/5xx backoff.
 
-    Returns ``(body, content_length)`` (body ``None`` for HEAD).  Raises the
+    Returns ``(body, content_length)``; the body is ``None`` for HEAD and when
+    ``dest`` is given, in which case it is streamed to that file in 1 MiB
+    chunks (a multi-GiB partition never sits in memory) and a body shorter
+    than ``Content-Length`` is retried like a dropped connection.  Raises the
     underlying exception after retries are exhausted.
     """
     last_exc: Exception | None = None
@@ -256,6 +260,15 @@ def _http_request(
                     if match:
                         size = int(match.group(1))
                 if head:
+                    return None, size
+                if dest is not None:
+                    with open(dest, "wb") as out:
+                        # read(amt) returns b"" instead of raising when a sized
+                        # body ends early, so check the length explicitly.
+                        shutil.copyfileobj(resp, out, length=1 << 20)
+                        received = out.tell()
+                    if size is not None and received != size:
+                        raise http.client.IncompleteRead(b"", size - received)
                     return None, size
                 body = resp.read(1) if range_probe else resp.read()
                 return body, size
@@ -1275,10 +1288,7 @@ def _mirror_remote_hats(
                 # transfer through the tree reader to a temp file, then publish.
                 reader.stage_in(rel, local_tmp)
             else:
-                body, _ = _http_request(_remote_url(fetch, rel), bucket)
-                if body is None:
-                    raise CrossMatchError(f"empty body for {rel}")
-                local_tmp.write_bytes(body)
+                _http_request(_remote_url(fetch, rel), bucket, dest=local_tmp)
             # LocalStorage publishes each file with os.replace. VOSpace lacks
             # that guarantee, so keep one prior file beside the staged update
             # for rollback if its upload fails.

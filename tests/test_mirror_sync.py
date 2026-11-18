@@ -649,10 +649,10 @@ def test_hats_over_http_mirror(tmp_path: Path, monkeypatch, scenario: str) -> No
             if scenario == "failed_get":
                 real_request = mirror._http_request
 
-                def fail_partition_download(url, bucket, *, head=False):
+                def fail_partition_download(url, bucket, *, head=False, **kwargs):
                     if not head and "/Norder=" in url and url.endswith(".parquet"):
                         raise urllib.error.URLError("simulated partition download failure")
-                    return real_request(url, bucket, head=head)
+                    return real_request(url, bucket, head=head, **kwargs)
 
                 monkeypatch.setattr(mirror, "_http_request", fail_partition_download)
             else:
