@@ -78,9 +78,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_TASK_ROWS = 2_000_000
 DEFAULT_CHUNK_MEMORY_GB = 8.0
 DEFAULT_MAX_TUPLES = 10_000
-_BYTES_PER_ROW = (
-    64.0  # ponytail: advisory estimate, not a hard memory cap; size wide rows separately
-)
+# Planning estimate for the pool guard; _output_row_bytes sizes the emitted rows.
+_BYTES_PER_ROW = 64.0
 _HUB_BLOCK = 50_000  # centre rows per distance batch
 _STATE_NAME = "resume.state"
 _FIXED_COLS = {"sep_arcsec", "_src_cats", "_union_ra", "_union_dec"}
@@ -1992,7 +1991,7 @@ def ray_union_match(
             }
             for cat in plan.catalogues
         ],
-        # ponytail: local freshness uses stat, not a full O(bytes) digest;
+        # Local freshness uses stat, not a full O(bytes) digest;
         # nonlocal files require content hashes because their mtimes are unknown.
         "input_files": _input_fingerprint(plan.catalogues),
     }

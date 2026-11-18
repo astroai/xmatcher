@@ -109,7 +109,7 @@ def _get_ray_pixel_batch():
                 batch_xyz,
                 k=1,
                 distance_upper_bound=chord_max,
-                # ponytail: one CPU per Ray task; parallelize across pixels.
+                # one CPU per Ray task; parallelize across pixels.
                 workers=1,
             )
             valid = np.isfinite(dist) & (local_idx < margin_tree.n)

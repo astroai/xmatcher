@@ -50,20 +50,6 @@ def _hats_root(src: CatalogueSource) -> Path:
     root = Path(path).expanduser()
     if not root.exists():
         raise CrossMatchError(f"HATS path does not exist: {root}")
-    # Auto-resolve workspace root to canonical HATS release directory
-    if not (
-        (root / "properties").exists()
-        or (root / "hats.properties").exists()
-        or (root / "dataset").exists()
-    ):
-        for candidate in (
-            root / "data" / "merged" / "final",
-            root / "data" / "release" / "latest",
-        ):
-            if candidate.exists() and (
-                (candidate / "properties").exists() or (candidate / "dataset").exists()
-            ):
-                return candidate
     return root
 
 
@@ -87,8 +73,8 @@ def _ra_dec_columns(src: CatalogueSource, root: Path) -> tuple[str, str]:
     if ra and dec:
         return ra, dec
     props = _read_properties(root)
-    ra = ra or props.get("hats_col_ra") or props.get("ra_col") or "ra"
-    dec = dec or props.get("hats_col_dec") or props.get("dec_col") or "dec"
+    ra = ra or props.get("hats_col_ra") or "ra"
+    dec = dec or props.get("hats_col_dec") or "dec"
     return ra, dec
 
 
@@ -113,14 +99,6 @@ def list_hats_pixels(root: Path) -> list[tuple[int, int, Path]]:
             except Exception:
                 continue
             found.append((order, pix, npix_dir))
-    if not found:
-        for parquet in sorted(base.glob("Norder=*/Dir=*/Npix=*.parquet")):
-            try:
-                order = int(parquet.parent.parent.name.split("=")[1])
-                pix = int(parquet.stem.split("=")[1])
-            except Exception:
-                continue
-            found.append((order, pix, parquet))
     return found
 
 
@@ -274,7 +252,7 @@ def _match_frames(
         spec,
         engine=eng,
         right_suffix=right_suffix,
-        # ponytail: Ray allocates one CPU per pixel task; no nested tree pool.
+        # Ray allocates one CPU per pixel task; no nested tree pool.
         _tree_workers=1 if worker_task and engine == "ray" else -1,
     )
     return result.collect()
