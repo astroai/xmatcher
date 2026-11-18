@@ -1302,3 +1302,25 @@ def test_ray_union_output_is_a_strictly_valid_hats_catalogue(tmp_path: Path) -> 
     assert rows == _read_output(out).height
     assert pds.parquet_dataset(str(out / "dataset" / "_metadata")).count_rows() == rows
     assert pds.dataset(str(out / "dataset"), format="parquet").count_rows() == rows
+
+
+def test_ray_union_reads_coordinate_names_from_hats_properties(tmp_path: Path) -> None:
+    """A tree such as PS1 (raMean/decMean) names its coordinates in `properties`."""
+
+    def tree(path: Path, name: str, ra: list[float], ids: list[str]) -> CatalogueSource:
+        df = pl.DataFrame({"raMean": ra, "decMean": [0.0] * len(ra), "objID": ids})
+        (path / "dataset" / "Norder=0" / "Dir=0").mkdir(parents=True)
+        df.write_parquet(path / "dataset" / "Norder=0" / "Dir=0" / "Npix=4.parquet")
+        (path / "properties").write_text(
+            "dataproduct_type=object\nobs_collection=ps1-like\nhats_col_ra=raMean\n"
+            f"hats_col_dec=decMean\nhats_ordering=NESTED\nhats_nrows={df.height}\n"
+        )
+        return CatalogueSource(name=name, is_local=True, path=path)
+
+    a = tree(tmp_path / "a", "a", [10.0, 20.0], ["a0", "a1"])
+    b = tree(tmp_path / "b", "b", [10.0 + 0.5 / 3600, 30.0], ["b0", "b1"])
+    out = tmp_path / "union.hats"
+    ray_union.ray_union_match([a, b], sep_arcsec=1.0, output_file=str(out))
+
+    union = _read_output(out)
+    assert sorted(union["_src_cats"].to_list()) == ["1", "1+2", "2"]

@@ -511,8 +511,9 @@ def build_union_plan(
             else None
         )
 
-        ra_orig = src.ra_column or "ra"
-        dec_orig = src.dec_column or "dec"
+        # HATS trees name their coordinates (PS1 raMean, ZTF objra).
+        ra_orig = src.ra_column or props.get("hats_col_ra") or "ra"
+        dec_orig = src.dec_column or props.get("hats_col_dec") or "dec"
         ra_final = final_cols[cols.index(ra_orig)] if ra_orig in cols else ra_orig
         dec_final = final_cols[cols.index(dec_orig)] if dec_orig in cols else dec_orig
 
