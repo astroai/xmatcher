@@ -105,6 +105,30 @@ def test_edge_shards_keep_isolated_members_without_shards() -> None:
     assert [[member.member_id for member in c.members] for c in components] == [["solo"]]
 
 
+def test_edge_shards_reject_float_ids_and_spell_int64_exactly(tmp_path) -> None:
+    big = 2**53 + 1  # not representable as float64
+    exact = tmp_path / "int.parquet"
+    pl.DataFrame({"source_id": [big], "candidate_id": [7]}).write_parquet(exact)
+    components = construct_association_components_from_edge_shards(
+        [exact],
+        association_release_id=_RELEASE_ID,
+        source_input_release_id="cat:a",
+        candidate_input_release_id="cat:b",
+    )
+    assert {m.member_id for m in components[0].members} == {str(big), "7"}
+
+    # Before: a float column was cast to "9007199254740992.0"-style member IDs.
+    floats = tmp_path / "float.parquet"
+    pl.DataFrame({"source_id": [float(big)], "candidate_id": [7]}).write_parquet(floats)
+    with pytest.raises(ValueError, match="string or integer"):
+        construct_association_components_from_edge_shards(
+            [floats],
+            association_release_id=_RELEASE_ID,
+            source_input_release_id="cat:a",
+            candidate_input_release_id="cat:b",
+        )
+
+
 def _fixture_records() -> list[AssociationRecord]:
     payload = json.loads(
         files("xmatcher").joinpath("fixtures/association_v1.json").read_text(encoding="utf-8")

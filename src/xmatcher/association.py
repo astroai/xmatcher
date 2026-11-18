@@ -1880,16 +1880,18 @@ def construct_association_components_from_edge_shards(
     candidate_id_column: str = "candidate_id",
     additional_members: Iterable[AssociationComponentMember] = (),
 ) -> list[AssociationComponent]:
-    """Build tile-local components from parquet edge shards (survey-scale path).
+    """Build components from Parquet edge shards instead of an association release.
 
-    The in-memory :func:`construct_association_components` path materialises the
-    full association release and is not viable at full-sky edge counts.  Pensus
-    tile campaigns emit mutual-best edge shards per tile; this helper unions
-    those shards under the same deterministic component-id contract without
-    requiring a monolithic association.v1 release on disk.
+    Pensus tile campaigns emit mutual-best edges per tile without publishing a
+    monolithic association.v1 release; this unions those shards under the same
+    deterministic component-ID contract. Nothing is verified against a release
+    manifest: ``association_release_id`` is only the ID the components are
+    scoped to, and every edge is included. Union-find state is O(members), as
+    in :func:`construct_association_components`.
 
-    Each shard must be parquet with ``source_id_column`` and
-    ``candidate_id_column`` string (or castable) columns.
+    Each shard needs ``source_id_column`` and ``candidate_id_column`` holding
+    string or integer IDs; integers are spelled exactly (``str(int)``), and
+    float columns are rejected because they cannot carry int64 IDs exactly.
     """
     source_release = _text(source_input_release_id, "source_input_release_id")
     candidate_release = _text(candidate_input_release_id, "candidate_input_release_id")
@@ -1908,6 +1910,12 @@ def construct_association_components_from_edge_shards(
         if not shard.is_file():
             raise FileNotFoundError(f"edge shard not found: {shard}")
         frame = pl.read_parquet(shard, columns=[src_col, cand_col])
+        for column, dtype in frame.schema.items():
+            if dtype != pl.String and not dtype.is_integer():
+                raise ValueError(
+                    f"edge shard {shard} column {column!r} must hold string or integer IDs, "
+                    f"not {dtype}"
+                )
         for source_id, candidate_id in frame.select(
             pl.col(src_col).cast(pl.Utf8), pl.col(cand_col).cast(pl.Utf8)
         ).iter_rows():
