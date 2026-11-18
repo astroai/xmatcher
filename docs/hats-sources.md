@@ -41,12 +41,17 @@ HTTPS, VOSpace, S3 or Hugging Face:
 
 - A tree is used as given (it has `properties` / `hats.properties`).
 - A collection root (LSDB publishes one per catalogue, e.g.
-  `…/hats/gaia_dr3/`) is descended to its single primary tree, skipping the
-  auxiliary HEALPix margin trees (`*_5arcs`, `*_10arcs`) and id indexes
-  (`*_index`) that sit beside it. `…/hats/gaia_dr3/` therefore resolves to
-  `…/hats/gaia_dr3/gaia`.
-- A collection holding several real catalogues (for example the time-versioned
-  TNS and VSX collections) is **not** guessed: pass one dated tree URL.
+  `…/hats/gaia_dr3/`) resolves to the tree its `collection.properties` names
+  in `hats_primary_table_url`, on every transport (HTTPS, S3, Hugging Face).
+  `…/hats/gaia_dr3/` therefore resolves to `…/hats/gaia_dr3/gaia`. A primary
+  given as an absolute URL or one that leaves the collection (`..`, `//`) is
+  refused rather than followed.
+- Without `collection.properties`, a collection is descended to its single
+  primary tree, skipping the auxiliary HEALPix margin trees (`*_5arcs`,
+  `*_10arcs`) and id indexes (`*_index`) beside it. A collection holding
+  several real catalogues is not guessed: pass one tree URL.
+- Time-versioned collections (TNS, VSX) declare their newest dated tree as the
+  primary, so the collection root follows it. The resolved tree is logged.
 
 ## Verified sources
 
@@ -68,10 +73,13 @@ each upstream rebuild.
 | `skymapper_dr4` | SkyMapper DR4 flat master (LIneA) | `https://linea.data.lsdb.io/hats/skymapper/catalog/sky_mapper_dr4` | 724,329,344 | ~96 GiB |
 | `tic_v8_2` | TESS Input Catalogue v8.2 | `https://data.lsdb.io/hats/tess/tic/tic` | 1,727,981,580 | ~397 GiB |
 | `vsx` | AAVSO VSX (dated collection) | `https://data.lsdb.io/hats/vsx/2026-10` | 10,304,730 | ~535 MiB |
-| `tns` | Transient Name Server (dated collection) | `https://data.lsdb.io/hats/tns/2026-10-22` | 210,788 | ~34 MiB |
+| `tns` | Transient Name Server (dated collection) | `https://data.lsdb.io/hats/tns/<date>` | 210,788 | ~34 MiB |
 
-The last two are refreshed on a rolling basis; their collection roots hold one
-tree per date, so a reproducible run pins the dated tree URL.
+The last two are refreshed on a rolling basis (TNS daily, VSX monthly), and
+the publisher deletes superseded dated trees, so an old dated URL stops
+resolving. Their collection roots always resolve to the newest tree. For a
+reproducible run, keep the local mirror that `sync` wrote: its manifest
+records the exact tree it came from.
 
 `xmatcher list --hats` prints the live list. It currently holds 90 entries,
 most of them small survey or model catalogues hosted on LSDB, plus the
@@ -192,7 +200,7 @@ a large model catalogue.
 
 ```bash
 # Mirror a tree into the cache (incremental; safe to re-run).
-xmatcher sync hats:https://data.lsdb.io/hats/tns/2026-10-22
+xmatcher sync hats:https://data.lsdb.io/hats/tns
 
 # Local match against the directory `sync` reports (cache/<name>/<version>).
 xmatcher match <mirrored-directory> targets.parquet -r 1.0 -o out.parquet
