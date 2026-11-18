@@ -20,11 +20,14 @@ the matcher's right-side rename convention).
 
 Chunking: each chunk owns exactly one centre partition (the template of a
 HATS output partition).  Candidate rows of each catalogue with a larger
-index are the partitions intersecting a cone of radius ``2*(sep + delta)``
-degrees around the *centre partition pixel centre* (``sep`` converted
-to degrees and enlarged by measured errors/motion; ``delta`` = largest
-partition diagonal across all catalogues; the factor-2 margin keeps the
-covering conservative, so every mate row lies inside its chunk's pool).
+index are the partitions intersecting a cone of radius
+``2*delta + max(2, N-1)*sep`` degrees around the *centre partition pixel
+centre* (``sep`` converted to degrees and enlarged by measured
+errors/motion; ``delta`` = largest partition diagonal across all
+catalogues; ``N`` catalogues).  The margin keeps the covering
+conservative: every mate row lies inside its chunk's pool, and so does every
+row on the chain of lower-catalogue mates that decides whether a centre row
+leads its own row set.
 Every centre row belongs to exactly one chunk and its partners all live in
 that chunk's pool, so every row set is enumerated exactly once.  Partitions
 of catalogue *k* that no earlier catalogue's cone ever covers are emitted
@@ -593,7 +596,11 @@ def build_union_plan(
                 eff_arcsec, float(max_error) * math.sqrt(2.0 * (max_ra_var + max_dec_var))
             )
     sep_deg = eff_arcsec / 3600.0
-    cone_radius = min(180.0, 2.0 * (sep_deg + max_delta + max_motion_deg))
+    # A centre row of catalogue k decides ownership through a chain of at most
+    # k mates in lower catalogues (see _lower_position_rows), so the pool must
+    # reach k radii beyond the row, not one.
+    hops = max(2, len(catalogues) - 1)
+    cone_radius = min(180.0, 2.0 * (max_delta + max_motion_deg) + hops * sep_deg)
     depths = [max((p.order for p in c.partitions), default=0) for c in catalogues]
 
     chunks: list[ChunkPlan] = []
@@ -834,6 +841,117 @@ def _effective_pair_chord(
     return base_chord
 
 
+def _err_row(err: Any, matcher: str, row: int) -> Any:
+    """One row of a ``skyerr`` sigma array or ``skyellipse`` covariance tuple."""
+    if err is None:
+        return None
+    if matcher == "skyerr":
+        return float(err[row])
+    if matcher == "skyellipse":
+        return tuple(float(part[row]) for part in err)
+    return None
+
+
+def _pair_keep(
+    matcher: str,
+    max_error: float,
+    c_ra: float,
+    c_dec: float,
+    c_err: Any,
+    ra: np.ndarray,
+    dec: np.ndarray,
+    p_err: Any,
+    idx: np.ndarray,
+    seps: np.ndarray,
+) -> np.ndarray:
+    """Which spatial candidates ``idx`` (separations ``seps``) pass the pair criterion."""
+    if matcher == "skyerr" and c_err is not None and p_err is not None:
+        limit = float(max_error) * (c_err + np.asarray(p_err, dtype=float)[idx])
+        return np.isfinite(limit) & np.isfinite(seps) & (seps <= limit)
+    if matcher == "skyellipse" and c_err is not None and p_err is not None:
+        sra2_c, sde2_c, rho_c = c_err
+        sra2_p, sde2_p, rho_p = p_err
+        cos_dec = np.cos(np.radians(0.5 * (c_dec + dec[idx])))
+        delta_ra = ((c_ra - ra[idx] + 180.0) % 360.0 - 180.0) * 3600.0 * cos_dec
+        delta_dec = (c_dec - dec[idx]) * 3600.0
+        d2 = matchers._mahalanobis_pairwise(
+            delta_ra,
+            delta_dec,
+            np.full(idx.size, sra2_c),
+            np.full(idx.size, sde2_c),
+            np.full(idx.size, rho_c),
+            sra2_p[idx],
+            sde2_p[idx],
+            rho_p[idx],
+        )
+        return np.isfinite(d2) & (d2 <= float(max_error) ** 2)
+    return np.ones(idx.size, dtype=bool)
+
+
+def _lower_position_rows(
+    plan: UnionPlan,
+    centre_cat: int,
+    partner_globals: Sequence[int],
+    pools: Sequence[tuple[np.ndarray, np.ndarray]],
+    pool_errs: Sequence[Any],
+) -> list[np.ndarray | None]:
+    """Mark the pool rows of catalogues below the centre that lead a row set.
+
+    The sequential union positions a merged row at its lowest-indexed member,
+    so a row of catalogue ``j`` that matched a leading row of a lower catalogue
+    is folded into that row and no longer offers its own position.  A later
+    catalogue's row that only matches such a folded row is unmatched in the
+    sequential union and must lead its own row set; gating it on the folded
+    mate would drop it from the output entirely.
+
+    Catalogue 0 rows always lead.  A row of catalogue ``j`` leads iff it has
+    no mate among the leading rows of catalogues below ``j``.  The chunk cone
+    covers ``centre_cat`` such hops, so every status reached from a centre row
+    is decided from complete neighbourhoods.  Higher catalogues get ``None``.
+    """
+    from scipy.spatial import cKDTree  # noqa: PLC0415
+
+    masks: list[np.ndarray | None] = [None] * len(partner_globals)
+    lower = [kk for kk, k in enumerate(partner_globals) if k < centre_cat]
+    for kk in lower:
+        ra, dec = pools[kk]
+        lead = np.ones(len(ra), dtype=bool)
+        if not len(ra):
+            masks[kk] = lead
+            continue
+        xyz = matchers._radec_to_xyz(ra, dec)
+        for jj in lower:
+            if partner_globals[jj] >= partner_globals[kk]:
+                break
+            leaders = np.flatnonzero(masks[jj])
+            if not leaders.size:
+                continue
+            j_ra, j_dec = pools[jj]
+            j_xyz = matchers._radec_to_xyz(j_ra[leaders], j_dec[leaders])
+            chord = _effective_pair_chord(plan, pool_errs[kk], [pool_errs[jj]])
+            hits = cKDTree(j_xyz).query_ball_point(xyz, chord)
+            for i, hs in enumerate(hits):
+                if not hs or not lead[i]:
+                    continue
+                idx = leaders[np.asarray(hs, dtype=np.int64)]
+                seps = matchers._chord_to_arcsec(np.linalg.norm(j_xyz[hs] - xyz[i], axis=1))
+                if _pair_keep(
+                    plan.matcher,
+                    plan.max_error,
+                    float(ra[i]),
+                    float(dec[i]),
+                    _err_row(pool_errs[kk], plan.matcher, i),
+                    j_ra,
+                    j_dec,
+                    pool_errs[jj],
+                    idx,
+                    seps,
+                ).any():
+                    lead[i] = False
+        masks[kk] = lead
+    return masks
+
+
 def _gather_rows(frame: pl.DataFrame, idx: np.ndarray) -> pl.DataFrame:
     """Frame rows selected by ``idx`` (-1 → all-null row)."""
     if not len(idx):
@@ -895,6 +1013,7 @@ def _block_combos(
     pool_errs: Sequence[Any] | None = None,
     max_block_rows: int | None = None,
     block_label: str = "",
+    pool_leads: Sequence[np.ndarray | None] | None = None,
 ) -> tuple[dict[int, np.ndarray], np.ndarray, list[str], np.ndarray]:
     """Enumerate star-shaped row sets for one block of centre rows.
 
@@ -905,12 +1024,14 @@ def _block_combos(
       * srcs[i] — membership string like ``"1+3"``;
       * centre_ids — per-output-row centre row id (from ``centre_row``).
 
-    A row set's positions come from the lowest-indexed catalogue in the set,
-    so combos selecting a partner from a catalogue *lower*-indexed than the
-    centre are dropped (their canonical emission happens in that lower
-    centre's chunk), and the centre-only single is dropped for every row
-    that has ANY mate — the sequential-union oracle never keeps a singleton
-    for a matched row.  ``drop_singles`` (rest partitions) drops all
+    A row set's positions come from the lowest-indexed catalogue in the set.
+    A centre row with a mate that *leads* in a lower catalogue
+    (``pool_leads[k]``, see :func:`_lower_position_rows`; ``None`` = every
+    row leads) is emitted by that lower centre's chunk and skipped here.
+    Mates in lower catalogues that are already folded into a lower row never
+    join this row's sets, and the centre-only single is dropped for every
+    row that has a higher-indexed mate — the sequential-union oracle never
+    keeps a singleton for a matched row.  ``drop_singles`` (rest partitions) drops all
     centre-only combos: the rest task emits those rows instead.
 
     ``max_block_rows`` bounds the rows this block may emit (each row emits
@@ -950,61 +1071,47 @@ def _block_combos(
                 xyz_c = matchers._radec_to_xyz(ra[idx], dec[idx])
                 chord = np.linalg.norm(xyz_c - h_xyz[bi], axis=1)
                 seps_k = matchers._chord_to_arcsec(chord)
-                if (
-                    matcher == "skyerr"
-                    and centre_err is not None
-                    and pool_errs is not None
-                    and pool_errs[k] is not None
-                ):
-                    c_sig = float(centre_err[bi])
-                    p_sig = np.asarray(pool_errs[k], dtype=float)[idx]
-                    limit = float(max_error) * (c_sig + p_sig)
-                    keep_k = np.isfinite(limit) & np.isfinite(seps_k) & (seps_k <= limit)
-                    idx = idx[keep_k]
-                    seps_k = seps_k[keep_k]
-                elif (
-                    matcher == "skyellipse"
-                    and centre_err is not None
-                    and pool_errs is not None
-                    and pool_errs[k] is not None
-                ):
-                    sra2_c, sde2_c, rho_c = centre_err
-                    sra2_p, sde2_p, rho_p = pool_errs[k]
-                    mean_dec = 0.5 * (float(centre_dec[bi]) + dec[idx])
-                    cos_dec = np.cos(np.radians(mean_dec))
-                    delta_ra = (
-                        ((float(centre_ra[bi]) - ra[idx] + 180.0) % 360.0 - 180.0)
-                        * 3600.0
-                        * cos_dec
-                    )
-                    delta_dec = (float(centre_dec[bi]) - dec[idx]) * 3600.0
-                    d2 = matchers._mahalanobis_pairwise(
-                        delta_ra,
-                        delta_dec,
-                        np.full(idx.size, float(sra2_c[bi])),
-                        np.full(idx.size, float(sde2_c[bi])),
-                        np.full(idx.size, float(rho_c[bi])),
-                        sra2_p[idx],
-                        sde2_p[idx],
-                        rho_p[idx],
-                    )
-                    keep_k = np.isfinite(d2) & (d2 <= float(max_error) ** 2)
-                    idx = idx[keep_k]
-                    seps_k = seps_k[keep_k]
+                keep_k = _pair_keep(
+                    matcher,
+                    max_error,
+                    float(centre_ra[bi]),
+                    float(centre_dec[bi]),
+                    _err_row(centre_err, matcher, bi),
+                    ra,
+                    dec,
+                    pool_errs[k] if pool_errs is not None else None,
+                    idx,
+                    seps_k,
+                )
+                idx = idx[keep_k]
+                seps_k = seps_k[keep_k]
                 nbrs.append((idx, seps_k))
             else:
                 nbrs.append((idx, np.array([], dtype=float)))
 
         # ---- row-level ownership gate ----------------------------------------
-        # A centre row of a non-hub catalogue that also has a LOWER-indexed
-        # mate is owned by that lower centre (which feeds its higher pools):
-        # skip the row here entirely — otherwise its {j, k} row sets would
-        # also star from this chunk and the row would participate twice.
+        # A centre row of a non-hub catalogue with a mate that LEADS a lower
+        # row set is owned by that lower centre (which feeds its higher
+        # pools): skip the row here entirely — otherwise its {j, k} row sets
+        # would also star from this chunk and the row would participate
+        # twice.  A lower mate that is itself folded into an even lower row
+        # does not own it: the sequential union compares this row with the
+        # folded row's lowest-member position, so the row leads its own sets.
         # Rest rows provably have no lower-indexed mates (the cone-coverage
-        # proof), so this only gates non-rest centre chunks; hub chunks
-        # (centre_cat == 0) never gate.
-        if any(cat_labels[k] - 1 < centre_cat and nbrs[k][0].size for k in range(n_partner)):
+        # proof); hub chunks (centre_cat == 0) never gate.
+        lower = [k for k in range(n_partner) if cat_labels[k] - 1 < centre_cat]
+        if any(
+            nbrs[k][0].size
+            and (
+                pool_leads is None
+                or pool_leads[k] is None
+                or bool(np.asarray(pool_leads[k])[nbrs[k][0]].any())
+            )
+            for k in lower
+        ):
             continue
+        for k in lower:
+            nbrs[k] = (np.array([], dtype=np.int64), np.array([], dtype=float))
 
         # ---- combos: (candidate | null) per partner --------------------------
         lists: list[np.ndarray] = []
@@ -1049,8 +1156,6 @@ def _block_combos(
                         continue  # row has a mate: the oracle keeps no singleton
                     always.append(combo)  # unmatched centre-only rows survive
                     continue
-                if any(cat_labels[k] - 1 < centre_cat for k, c in enumerate(combo) if c >= 0):
-                    continue  # canonical emission lives in a lower-indexed centre
                 sep = sep_of(combo)
                 if sep is None:
                     continue
@@ -1205,6 +1310,7 @@ def _run_chunk(plan: UnionPlan, chunk: ChunkPlan) -> dict[str, Any]:
         labels.append(k + 1)
 
     sep_chord = _effective_pair_chord(plan, centre_err, pool_errs)
+    pool_leads = _lower_position_rows(plan, chunk.center, partner_globals, pools, pool_errs)
     drop_singles = (chunk.center, chunk.center_idx) in plan.rest_keys
     # The candidate-pool guard in build_union_plan caps inputs; a dense field
     # can still expand the OUTPUT far past memory (every hub row times
@@ -1243,6 +1349,7 @@ def _run_chunk(plan: UnionPlan, chunk: ChunkPlan) -> dict[str, Any]:
             pool_errs=pool_errs,
             max_block_rows=block_row_budget,
             block_label=f"chunk {chunk.key} rows {b0}-{b1}",
+            pool_leads=pool_leads,
         )
         if not len(seps):
             continue
@@ -1323,46 +1430,23 @@ def _run_rest(plan: UnionPlan, rest: RestPlan) -> dict[str, Any]:
             p_xyz = matchers._radec_to_xyz(ra, dec)
             tree = cKDTree(p_xyz)
             hits = tree.query_ball_point(h_xyz, sep_chord)
-            pe = pool_errs[pk]
             for i, hs in enumerate(hits):
-                if not hs:
+                if not hs or not keep[b0 + i]:
                     continue
-                if plan.matcher == "sky":
-                    keep[b0 + i] = False
-                elif plan.matcher == "skyerr" and centre_err is not None and pe is not None:
-                    idx = np.asarray(hs, dtype=np.int64)
-                    chord = np.linalg.norm(p_xyz[idx] - h_xyz[i], axis=1)
-                    seps_k = matchers._chord_to_arcsec(chord)
-                    limit = float(plan.max_error) * (
-                        float(centre_err[b0 + i]) + np.asarray(pe, dtype=float)[idx]
-                    )
-                    if np.any(np.isfinite(limit) & np.isfinite(seps_k) & (seps_k <= limit)):
-                        keep[b0 + i] = False
-                elif plan.matcher == "skyellipse" and centre_err is not None and pe is not None:
-                    idx = np.asarray(hs, dtype=np.int64)
-                    sra2_c, sde2_c, rho_c = centre_err
-                    sra2_p, sde2_p, rho_p = pe
-                    mean_dec = 0.5 * (float(dec_full[b0 + i]) + dec[idx])
-                    cos_dec = np.cos(np.radians(mean_dec))
-                    delta_ra = (
-                        ((float(ra_full[b0 + i]) - ra[idx] + 180.0) % 360.0 - 180.0)
-                        * 3600.0
-                        * cos_dec
-                    )
-                    delta_dec = (float(dec_full[b0 + i]) - dec[idx]) * 3600.0
-                    d2 = matchers._mahalanobis_pairwise(
-                        delta_ra,
-                        delta_dec,
-                        np.full(idx.size, float(sra2_c[b0 + i])),
-                        np.full(idx.size, float(sde2_c[b0 + i])),
-                        np.full(idx.size, float(rho_c[b0 + i])),
-                        sra2_p[idx],
-                        sde2_p[idx],
-                        rho_p[idx],
-                    )
-                    if np.any(np.isfinite(d2) & (d2 <= float(plan.max_error) ** 2)):
-                        keep[b0 + i] = False
-                else:
+                idx = np.asarray(hs, dtype=np.int64)
+                seps_k = matchers._chord_to_arcsec(np.linalg.norm(p_xyz[idx] - h_xyz[i], axis=1))
+                if _pair_keep(
+                    plan.matcher,
+                    plan.max_error,
+                    float(ra_full[b0 + i]),
+                    float(dec_full[b0 + i]),
+                    _err_row(centre_err, plan.matcher, b0 + i),
+                    ra,
+                    dec,
+                    pool_errs[pk],
+                    idx,
+                    seps_k,
+                ).any():
                     keep[b0 + i] = False
 
     kept_ids = np.flatnonzero(keep)
@@ -1858,7 +1942,7 @@ def ray_union_match(
         "task_rows": task_rows,
         "chunk_memory_gb": chunk_memory_gb,
         "max_tuples": max_tuples,
-        "plan_version": 3,
+        "plan_version": 4,
         "fallback_policy": fallback_policy,
         "inputs": [
             {**asdict(cat), "dtypes": {col: str(dtype) for col, dtype in cat.dtypes.items()}}

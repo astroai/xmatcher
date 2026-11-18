@@ -72,7 +72,8 @@ def _oracle_union3(
     * B rows that have NO A match star their own sets (``2`` / ``2+3``) —
       a B row with an A match is folded into A's sets and never appears
       again, exactly the engine's chunk-ownership rule.
-    * C rows with no A or B match are ``3`` singles.
+    * C rows with no match among the A rows or the *unfolded* B rows are
+      ``3`` singles (a folded B row offers its A position, not its own).
     """
     a_rows = a.to_dicts()
     b_rows = b.to_dicts()
@@ -108,9 +109,12 @@ def _oracle_union3(
             results.append(("2", (br["id"],), nan))
         for co, cs in cm:
             results.append(("2+3", (br["id"], co["id"]), cs))
+    leading_b = [br for br in b_rows if not any(_sep_arcsec(ar, br) <= sep_arcsec for ar in a_rows)]
     for cr in c_rows:
+        # A B row folded into an A set sits at the A position in the
+        # sequential union, so it cannot absorb a C row on its own.
         if any(_sep_arcsec(ar, cr) <= sep_arcsec for ar in a_rows) or any(
-            _sep_arcsec(br, cr) <= sep_arcsec for br in b_rows
+            _sep_arcsec(br, cr) <= sep_arcsec for br in leading_b
         ):
             continue
         results.append(("3", (cr["id"],), nan))
