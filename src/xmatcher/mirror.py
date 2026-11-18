@@ -39,6 +39,7 @@ store), and the converted HATS catalogue lives under
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 import http.client
 import io as _io
@@ -2246,7 +2247,7 @@ def sync_catalogue(
         fetched = manifest.get("fetched_at") if manifest else None
         if fetched and cache.exists(f"{prefix}/properties"):
             try:
-                fetched_ts = time.mktime(time.strptime(fetched, "%Y-%m-%dT%H:%M:%SZ"))
+                fetched_ts = float(calendar.timegm(time.strptime(fetched, "%Y-%m-%dT%H:%M:%SZ")))
             except (ValueError, OverflowError):
                 fetched_ts = 0.0
             age_days = (time.time() - fetched_ts) / 86400.0
@@ -2412,6 +2413,7 @@ def ensure_mirrored(
         hats_threshold=hats_threshold,
         estimated_size=estimated_size,
         fresh_after=fresh_after,
+        min_free_gb=min_free_gb,
     )
     if stats.failed:
         raise CrossMatchError(

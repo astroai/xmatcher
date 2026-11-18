@@ -11,6 +11,7 @@ import functools
 import shutil
 import socket
 import threading
+import time
 from collections.abc import Iterator
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -325,3 +326,51 @@ def test_locate_mirrored_refuses_a_partially_updated_tree(tmp_path: Path, monkey
             mirror.sync_catalogue(src, cache_root=cache, rate_limit_rps=0.0, workers=1)
     with pytest.raises(CrossMatchError, match="incomplete"):
         mirror.locate_mirrored(src, cache_root=cache)
+
+
+# --------------------------------------------------------------------------- #
+# freshness and free-space gates
+# --------------------------------------------------------------------------- #
+def _remote_src() -> CatalogueSource:
+    return CatalogueSource(
+        name="gated",
+        is_local=False,
+        access_method="hats",
+        access_identifier="https://example.test/tree",
+    )
+
+
+def test_fresh_after_reads_the_utc_timestamp_as_utc(tmp_path: Path, monkeypatch) -> None:
+    """A mirror completed just now is fresh in every local time zone."""
+    monkeypatch.setenv("TZ", "Asia/Tokyo")
+    time.tzset()
+    try:
+        src = _remote_src()
+        cache = LocalStorage(tmp_path)
+        prefix = f"gated/{mirror._version_dir(src)}"
+        (tmp_path / prefix).mkdir(parents=True)
+        (tmp_path / prefix / "properties").write_text("hats_nrows=1\n")
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        mirror._write_json(cache, f"{prefix}/{mirror._MANIFEST_NAME}", {"fetched_at": stamp})
+
+        def no_network(*_args, **_kwargs):
+            raise AssertionError("a fresh mirror must not be probed")
+
+        monkeypatch.setattr(mirror, "_sync_with_failover", no_network)
+        mirror.sync_catalogue(src, cache_root=str(tmp_path), fresh_after=0.25)
+    finally:
+        monkeypatch.delenv("TZ")
+        time.tzset()
+
+
+def test_ensure_mirrored_forwards_the_free_space_floor(tmp_path: Path, monkeypatch) -> None:
+    """--min-free-gb below the 10 GiB default must reach the sync gate too."""
+    monkeypatch.delenv("XMATCHER_MIN_FREE_GB", raising=False)
+
+    class Usage:
+        free = 5 * 1024**3
+
+    monkeypatch.setattr("xmatcher.storage.shutil.disk_usage", lambda _path: Usage())
+    monkeypatch.setattr(mirror, "_sync_with_failover", lambda *_a, **_k: None)
+    mirrored = mirror.ensure_mirrored(_remote_src(), cache_root=str(tmp_path), min_free_gb=1.0)
+    assert mirrored.hats_cache_root == str(tmp_path)
