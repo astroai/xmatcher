@@ -370,3 +370,29 @@ def test_trailing_slash_names_the_same_mirror(url: str) -> None:
         )
 
     assert mirror._version_dir(source(url + "/")) == mirror._version_dir(source(url))
+
+
+def test_local_match_uses_the_completed_mirror_of_a_remote_tree(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """After `xmatcher sync hats:<url>`, `hats:<url>` matches against the mirror."""
+    from xmatcher import CrossMatch
+
+    monkeypatch.setenv("XMATCHER_CACHE_ROOT", str(tmp_path / "cache"))
+    serve = tmp_path / "serve"
+    tree = _frame(40)
+    mirror._write_hats_native(tree, serve / "cat", ra_column="ra", dec_column="dec")
+    targets = tmp_path / "targets.parquet"
+    tree.head(5).with_columns(pl.col("dec") + 0.2 / 3600.0).write_parquet(targets)
+    with serve_directory(serve) as base:
+        cm = CrossMatch()
+        url = f"hats:{base}/cat"
+        with pytest.raises(CrossMatchError, match="must be mirrored"):
+            cm.crossmatch(targets, url, radius_arcsec=1.0)
+        stats = mirror.sync_catalogue(
+            cm.resolve_source(url, {}), cache_root=str(tmp_path / "cache"), rate_limit_rps=0.0
+        )
+        assert stats.failed == 0
+        out = cm.crossmatch(targets, url, radius_arcsec=1.0)
+    assert out.height == 5
+    assert out["sep_arcsec"].max() == pytest.approx(0.2, abs=1e-6)

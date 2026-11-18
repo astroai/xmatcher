@@ -28,11 +28,24 @@ def _hats_root(src: CatalogueSource) -> Path:
     if not path:
         raise CrossMatchError(f"No HATS path for '{src.name}'.")
     if is_remote_hats_uri(path):
-        raise CrossMatchError(
-            f"Remote HATS catalogue '{src.name}' ({path}) must be mirrored before a "
-            f"local match: run `xmatcher sync hats:{path}` and pass the mirrored "
-            "directory, or use engine='ray-union', which mirrors on demand."
-        )
+        # A completed `xmatcher sync` mirror stands in for the remote tree.
+        from .mirror import locate_mirrored  # noqa: PLC0415 - mirror imports this module
+        from .storage import default_cache_root  # noqa: PLC0415
+
+        try:
+            cache_root, rel = locate_mirrored(src, cache_root=default_cache_root())
+        except CrossMatchError as exc:
+            raise CrossMatchError(
+                f"Remote HATS catalogue '{src.name}' ({path}) must be mirrored before a "
+                f"local match: run `xmatcher sync hats:{path}`, or use "
+                f"engine='ray-union', which mirrors on demand. ({exc})"
+            ) from exc
+        if str(cache_root).startswith("vos:"):
+            raise CrossMatchError(
+                f"The mirror of '{src.name}' is on {cache_root}; a local match needs a "
+                "local cache root (or engine='ray-union', which stages vos: trees)."
+            )
+        return Path(cache_root) / rel
     root = Path(path).expanduser()
     if not root.exists():
         raise CrossMatchError(f"HATS path does not exist: {root}")

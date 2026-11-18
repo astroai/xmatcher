@@ -206,8 +206,9 @@ a large model catalogue.
 # Mirror a tree into the cache (incremental; safe to re-run).
 xmatcher sync hats:https://data.lsdb.io/hats/tns
 
-# Local match against the directory `sync` reports (cache/<name>/<version>).
-xmatcher match <mirrored-directory> targets.parquet -r 1.0 -o out.parquet
+# Local match: once synced, the same identifier reads the local mirror.
+# An interrupted or failed sync is refused rather than matched against.
+xmatcher match targets.parquet hats:https://data.lsdb.io/hats/tns -r 1.0 -o out.parquet
 
 # Distributed N-way union: remote HATS inputs are mirrored on demand.
 xmatcher match hats:gaia_dr3 hats:two_mass --engine ray-union -r 2.0 -o union.hats
