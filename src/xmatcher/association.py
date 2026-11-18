@@ -11,6 +11,7 @@ import tempfile
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import cached_property
 from pathlib import Path
 from typing import Any
 
@@ -223,7 +224,7 @@ class AssociationRecord:
             raise ValueError("evaluation_epoch_jyear=None requires the epoch_unknown flag")
         object.__setattr__(self, "flags", flags)
 
-    @property
+    @cached_property
     def association_id(self) -> str:
         identity = {
             "schema_version": ASSOCIATION_SCHEMA_VERSION,
@@ -664,7 +665,7 @@ class AssociationMemberEquivalence:
         if self.parent_member.input_release_id == self.current_member.input_release_id:
             raise ValueError("member equivalence requires an input-release namespace change")
 
-    @property
+    @cached_property
     def equivalence_id(self) -> str:
         return _member_equivalence_id(
             parent_association_release_id=self.parent_association_release_id,
@@ -1069,14 +1070,16 @@ def _current_to_parent_equivalences(
     parent_input_release_ids: tuple[str, ...],
     current_input_release_ids: tuple[str, ...],
 ) -> dict[AssociationComponentMember, AssociationComponentMember]:
-    manifest = verify_association_member_equivalence_release(directory)
+    path = Path(directory)
+    manifest = load_association_member_equivalence_release_manifest(path)
     if (
         manifest.parent_association_release_id != parent_association_release_id
         or manifest.current_association_release_id != current_association_release_id
     ):
         raise ValueError("member equivalence release does not match component endpoints")
     result: dict[AssociationComponentMember, AssociationComponentMember] = {}
-    for equivalence in iter_association_member_equivalence_release(directory):
+    # one validating pass: the generator raises at EOF on checksum/count errors
+    for equivalence in _validated_member_equivalences(path, manifest):
         if equivalence.parent_member.input_release_id not in parent_input_release_ids:
             raise ValueError("parent member input release is absent from parent provenance")
         if equivalence.current_member.input_release_id not in current_input_release_ids:
@@ -1150,7 +1153,7 @@ class AssociationComponent:
             raise ValueError("parent_component_ids must not contain duplicates")
         object.__setattr__(self, "parent_component_ids", parents)
 
-    @property
+    @cached_property
     def component_id(self) -> str:
         member_count, members_sha256 = _component_member_identity(self.members)
         return _component_id(
@@ -1522,9 +1525,10 @@ def _validated_component_memberships(
 def _verified_parent_component_ids(
     directory: str | os.PathLike[str],
 ) -> tuple[AssociationComponentReleaseManifest, set[str]]:
-    manifest = verify_association_component_release(directory)
+    path = Path(directory)
+    manifest = load_association_component_release_manifest(path)
     component_ids = {
-        membership.component_id for membership in iter_association_component_release(directory)
+        membership.component_id for membership in _validated_component_memberships(path, manifest)
     }
     return manifest, component_ids
 
@@ -1713,19 +1717,26 @@ def write_association_component_release(
 def _component_partition(
     directory: str | os.PathLike[str],
     *,
-    parent_component_directory: str | os.PathLike[str] | None = None,
+    parent_manifest: AssociationComponentReleaseManifest | None = None,
+    parent_component_ids: set[str] | None = None,
 ) -> tuple[
     AssociationComponentReleaseManifest,
     dict[str, tuple[AssociationComponentMember, ...]],
     dict[str, tuple[str, ...]],
 ]:
-    manifest = verify_association_component_release(
-        directory,
-        parent_component_directory=parent_component_directory,
-    )
+    """Read and verify a component release in one pass."""
+    path = Path(directory)
+    manifest = load_association_component_release_manifest(path)
+    if (
+        parent_manifest is not None
+        and manifest.parent_component_release_id != parent_manifest.component_release_id
+    ):
+        raise ValueError("parent component release does not match the manifest")
     members: dict[str, list[AssociationComponentMember]] = {}
     parents: dict[str, tuple[str, ...]] = {}
-    for membership in iter_association_component_release(directory):
+    for membership in _validated_component_memberships(
+        path, manifest, parent_component_ids=parent_component_ids
+    ):
         members.setdefault(membership.component_id, []).append(
             AssociationComponentMember(membership.input_release_id, membership.member_id)
         )
@@ -1793,7 +1804,7 @@ def construct_association_components(
     inventory members to retain isolated sources and sources whose edges were
     excluded by that policy; connectivity alone does not assert object identity.
     """
-    manifest = verify_association_release(association_release_directory)
+    manifest = load_association_release_manifest(association_release_directory)
     endpoint_releases = (
         _text(source_input_release_id, "source_input_release_id"),
         _text(candidate_input_release_id, "candidate_input_release_id"),
@@ -1839,7 +1850,8 @@ def construct_association_components(
             )
         sets.add((member.input_release_id, member.member_id))
 
-    for record in iter_association_release(association_release_directory):
+    # one validating pass: the generator raises at EOF on checksum/count errors
+    for record in _validated_release_records(Path(association_release_directory), manifest):
         if record.decision in decisions:
             sets.union(
                 (endpoint_releases[0], record.source_id),
@@ -2006,7 +2018,7 @@ class AssociationComponentDelta:
         ):
             raise ValueError("split component delta has invalid endpoint counts")
 
-    @property
+    @cached_property
     def delta_id(self) -> str:
         return _component_delta_id(
             parent_association_release_id=self.parent_association_release_id,
@@ -2086,7 +2098,8 @@ def _classified_component_deltas(
     parent_manifest, parent_components, _ = _component_partition(parent_component_directory)
     current_manifest, current_components, declared_parents = _component_partition(
         current_component_directory,
-        parent_component_directory=parent_component_directory,
+        parent_manifest=parent_manifest,
+        parent_component_ids=set(parent_components),
     )
     parent_by_member = {
         member: component_id
@@ -2414,28 +2427,31 @@ def verify_association_component_delta_release(
     path = Path(directory)
     manifest = load_association_component_delta_release_manifest(path)
     actual = list(_validated_component_deltas(path, manifest))
-    if parent_component_directory is not None:
-        parent_manifest = verify_association_component_release(parent_component_directory)
-        if (
-            manifest.parent_association_release_id != parent_manifest.association_release_id
-            or manifest.parent_component_release_id != parent_manifest.component_release_id
-        ):
-            raise ValueError("parent component release does not match the delta manifest")
-    if current_component_directory is not None:
-        current_manifest = verify_association_component_release(current_component_directory)
-        if (
-            manifest.current_association_release_id != current_manifest.association_release_id
-            or manifest.current_component_release_id != current_manifest.component_release_id
-        ):
-            raise ValueError("current component release does not match the delta manifest")
+    expected: list[AssociationComponentDelta] | None = None
     if parent_component_directory is not None and current_component_directory is not None:
-        expected = classify_association_component_deltas(
+        # classification reads and verifies both endpoints exactly once
+        parent_manifest, current_manifest, expected = _classified_component_deltas(
             parent_component_directory,
             current_component_directory,
             member_equivalence_directory=member_equivalence_directory,
         )
-        if actual != expected:
-            raise ValueError("component deltas do not match exact endpoint membership overlap")
+    else:
+        if parent_component_directory is not None:
+            parent_manifest = verify_association_component_release(parent_component_directory)
+        if current_component_directory is not None:
+            current_manifest = verify_association_component_release(current_component_directory)
+    if parent_component_directory is not None and (
+        manifest.parent_association_release_id != parent_manifest.association_release_id
+        or manifest.parent_component_release_id != parent_manifest.component_release_id
+    ):
+        raise ValueError("parent component release does not match the delta manifest")
+    if current_component_directory is not None and (
+        manifest.current_association_release_id != current_manifest.association_release_id
+        or manifest.current_component_release_id != current_manifest.component_release_id
+    ):
+        raise ValueError("current component release does not match the delta manifest")
+    if expected is not None and actual != expected:
+        raise ValueError("component deltas do not match exact endpoint membership overlap")
     return manifest
 
 
