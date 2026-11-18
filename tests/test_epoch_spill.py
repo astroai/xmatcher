@@ -137,7 +137,7 @@ def test_epoch_covariance_alignment_rejects_missing_invalid_or_unavailable_covar
             invalid.lazy(), _covariance_source(invalid), 2010.0, propagate_covariance=True
         ).collect()
     monkeypatch.setattr(astro_utils, "propagate_proper_motion_with_jacobian", lambda *args: None)
-    with pytest.raises(CrossMatchError, match="Torchsky"):
+    with pytest.raises(CrossMatchError, match=r"xmatcher\[torchsky\]"):
         _align_epoch(
             frame.lazy(), _covariance_source(frame), 2010.0, propagate_covariance=True
         ).collect()
@@ -391,16 +391,28 @@ def test_eager_epoch_skyerr_refuses_unknown_or_unsupported_science(kind):
     if kind == "unknown_motion":
         source.pm_ra_column = source.pm_dec_column = None
     elif kind == "missing_errors":
+        # The astrometric covariance also carries the positional errors.
         source.ra_err_column = source.dec_err_column = None
-    with pytest.raises(CrossMatchError):
+        source.astrometric_covariance_columns = None
+    # STILTS cannot honour epoch uncertainties; under "warn" it falls back to
+    # the fast engine, so only "error" refuses.
+    policy = "error" if kind == "stilts" else "warn"
+    with pytest.raises(CrossMatchError, match=EPOCH_REFUSALS[kind]):
         sky_match(
             source,
             source,
             frame.lazy(),
             frame.lazy(),
-            MatchSpec(matcher="skyerr", target_epoch=2010.0, fallback_policy="warn"),
+            MatchSpec(matcher="skyerr", target_epoch=2010.0, fallback_policy=policy),
             engine="stilts" if kind == "stilts" else "fast",
         )
+
+
+EPOCH_REFUSALS = {
+    "unknown_motion": "needs finite proper motion",
+    "missing_errors": "requires positional errors",
+    "stilts": "cannot honor target-epoch skyerr",
+}
 
 
 def test_epoch_alignment_preserves_empty_catalogue_without_imputing_motion():

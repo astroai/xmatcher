@@ -16,6 +16,7 @@ from typing import Any
 
 import polars as pl
 
+from . import _torchsky
 from .exceptions import CrossMatchError
 from .matchers import MatchSpec, sky_match
 from .sources import CatalogueSource, is_remote_hats_uri
@@ -153,13 +154,11 @@ def _healpix_neighbors(order: int, center_pix: int, *, radius_arcsec: float = 0.
     """Return nested HEALPix pixels covering a cap around ``center_pix``."""
     pix = int(center_pix)
     nside = 2 ** int(order)
-    try:
-        import torch
-        from torchsky.catalogs import cap_covering_pixels
-        from torchsky.sphere import healpix as ts_healpix
-    except ImportError:
-        pass
-    else:
+    ts_healpix = _torchsky.module("sphere.healpix")
+    if ts_healpix is not None:
+        import torch  # noqa: PLC0415 - a dependency of torchsky
+
+        cap_covering_pixels = _torchsky.require("catalogs", "HATS margins").cap_covering_pixels
         center = torch.tensor([pix], dtype=torch.int64)
         lon, lat = ts_healpix.pix2ang(nside, center, nest=True, lonlat=True)
         pixrad = ts_healpix.max_pixel_radius(nside, degrees=False)
@@ -413,32 +412,40 @@ def hats_native_crossmatch(
         right_all = (local_lf2 if local_lf2 is not None else src2.lazy()).collect()
         # Pruning drops left pixels with no right source nearby: only an inner
         # join may lose those rows, and the needed-pixel set is computed at a
-        # single order, so a mixed-order left tree is not pruned.
+        # single order, so a mixed-order left tree is not pruned.  (Target-epoch
+        # matches take the global path above, so positions here do not move.)
+        ts_hp = _torchsky.module("sphere.healpix")
         if (
-            spec.join_type == "1and2"
+            ts_hp is not None
+            and spec.join_type == "1and2"
             and right_all.height > 0
             and len({order for order, _, _ in left_pixels}) == 1
         ):
+            import torch  # noqa: PLC0415 - a dependency of torchsky
+
             order0 = left_pixels[0][0]
-            nside0 = 2 ** int(order0)
             ra2_c, dec2_c = _ra_dec_columns(src2, left_root)
             if ra2_c in right_all.columns and dec2_c in right_all.columns:
-                try:
-                    import torch
-                    from torchsky.sphere import healpix as ts_hp
-
-                    ra_t = torch.from_numpy(right_all[ra2_c].to_numpy())
-                    dec_t = torch.from_numpy(right_all[dec2_c].to_numpy())
-                    base_pixs = (
-                        ts_hp.ang2pix(nside0, ra_t, dec_t, nest=True, lonlat=True).unique().tolist()
+                coords = right_all.select(
+                    pl.col(ra2_c).cast(pl.Float64), pl.col(dec2_c).cast(pl.Float64)
+                ).filter(pl.col(ra2_c).is_finite() & pl.col(dec2_c).is_finite())
+                base_pixs = (
+                    ts_hp.ang2pix(
+                        2 ** int(order0),
+                        torch.from_numpy(coords[ra2_c].to_numpy(writable=True)),
+                        torch.from_numpy(coords[dec2_c].to_numpy(writable=True)),
+                        nest=True,
+                        lonlat=True,
                     )
-                    needed: set[int] = set()
-                    eff_r = float(spec.radius_arcsec)
-                    for bp in base_pixs:
-                        needed.update(_healpix_neighbors(order0, int(bp), radius_arcsec=eff_r))
-                    left_pixels = [p for p in left_pixels if p[1] in needed]
-                except Exception as _filt_exc:
-                    logger.debug("HATS spatial pruning skipped: %s", _filt_exc)
+                    .unique()
+                    .tolist()
+                )
+                needed: set[int] = set()
+                for bp in base_pixs:
+                    needed.update(
+                        _healpix_neighbors(order0, int(bp), radius_arcsec=float(spec.radius_arcsec))
+                    )
+                left_pixels = [p for p in left_pixels if p[1] in needed]
 
     results: list[pl.DataFrame] = []
     right_idx_str = {k: str(v) for k, v in right_index.items()}

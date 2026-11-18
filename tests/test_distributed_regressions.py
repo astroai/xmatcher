@@ -445,7 +445,9 @@ def test_native_hats_margin_honours_radii_larger_than_adjacent_pixels(monkeypatc
     import cdshealpix
     from astropy.coordinates import Latitude, Longitude
 
-    monkeypatch.setitem(sys.modules, "torchsky.catalogs", None)
+    from xmatcher import _torchsky
+
+    monkeypatch.setattr(_torchsky, "installed", lambda: False)  # the cdshealpix path
     # Previously the optional healpy path returned only immediate neighbours,
     # regardless of the requested match radius.
     monkeypatch.setitem(

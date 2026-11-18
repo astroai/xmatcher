@@ -49,6 +49,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import polars as pl
 
+from . import _torchsky
 from .exceptions import CrossMatchError
 from .sources import (
     ASTROMETRIC_COVARIANCE_KEYS,
@@ -1117,7 +1118,7 @@ def _apply_proper_motion(
                 if result is None:
                     message = (
                         "target-epoch skyellipse covariance propagation requires "
-                        "Torchsky propagate_space_motion_with_jacobian"
+                        "torchsky>=0.5.0 (pip install 'xmatcher[torchsky]')"
                     )
                     if fallback_policy == "error":
                         raise CrossMatchError(message)
@@ -1161,7 +1162,7 @@ def _apply_proper_motion(
                 if result is None:
                     message = (
                         "target-epoch skyellipse covariance propagation requires "
-                        "Torchsky propagate_proper_motion_with_jacobian"
+                        "torchsky>=0.5.0 (pip install 'xmatcher[torchsky]')"
                     )
                     if fallback_policy == "error":
                         raise CrossMatchError(message)
@@ -2742,11 +2743,7 @@ def _ml_fallback_best_by_sep(
 # Torchsky engine (optional tensor-native nearest-neighbour backend)
 # --------------------------------------------------------------------------- #
 def _load_torchsky_crossmatch():
-    try:
-        from torchsky.catalogs import crossmatch_sky
-    except ImportError as exc:
-        raise CrossMatchError("engine='torchsky' requires the optional torchsky package") from exc
-    return crossmatch_sky
+    return _torchsky.require("catalogs", "engine='torchsky'").crossmatch_sky
 
 
 def _torchsky_lonlat(df: pl.DataFrame, src: CatalogueSource):
@@ -2756,10 +2753,7 @@ def _torchsky_lonlat(df: pl.DataFrame, src: CatalogueSource):
     frame = str(getattr(src, "frame", None) or "icrs").strip().lower()
     if frame in {"icrs", "j2000", "j2000.0"}:
         return ra, dec
-    try:
-        from torchsky.wcs import convert_celestial
-    except ImportError as exc:
-        raise CrossMatchError("engine='torchsky' requires the optional torchsky package") from exc
+    convert_celestial = _torchsky.require("wcs", "engine='torchsky'").convert_celestial
     ra_t, dec_t = convert_celestial(ra, dec, from_frame=src.frame, to_frame="icrs")
 
     def _np(value):
@@ -2792,12 +2786,9 @@ def _torchsky_match(
     )
     if left.height == 0 or right.height == 0:
         return empty
-    try:
-        import torch
-    except ImportError as exc:
-        raise CrossMatchError("engine='torchsky' requires the optional torchsky package") from exc
-
     crossmatch_sky = _load_torchsky_crossmatch()
+    import torch  # noqa: PLC0415 - a dependency of torchsky
+
     left_ra, left_dec = _torchsky_lonlat(left, left_src)
     right_ra, right_dec = _torchsky_lonlat(right, right_src)
 

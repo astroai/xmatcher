@@ -12,6 +12,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from . import _torchsky
 from .exceptions import CrossMatchError
 
 logger = logging.getLogger(__name__)
@@ -193,11 +194,8 @@ def propagate_proper_motion(
 
 def _load_torchsky_propagate_proper_motion():
     """Return Torchsky's tensor-native PM primitive when the extra is installed."""
-    try:
-        from torchsky.wcs import propagate_proper_motion as torchsky_propagate
-    except ImportError:
-        return None
-    return torchsky_propagate
+    wcs = _torchsky.module("wcs")
+    return None if wcs is None else wcs.propagate_proper_motion
 
 
 def propagate_proper_motion_with_jacobian(
@@ -208,7 +206,7 @@ def propagate_proper_motion_with_jacobian(
     source_epoch: np.ndarray,
     target_epoch: float,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
-    """Return Torchsky angular positions and local 2x4 Jacobians if available."""
+    """Return Torchsky angular positions and local 2x4 Jacobians; ``None`` without Torchsky."""
     torchsky_propagate = _load_torchsky_propagate_proper_motion_with_jacobian()
     if torchsky_propagate is None:
         return None
@@ -224,12 +222,9 @@ def propagate_proper_motion_with_jacobian(
 
 
 def _load_torchsky_propagate_proper_motion_with_jacobian():
-    """Return Torchsky's angular-motion Jacobian primitive when available."""
-    try:
-        from torchsky.wcs import propagate_proper_motion_with_jacobian
-    except ImportError:
-        return None
-    return propagate_proper_motion_with_jacobian
+    """Return Torchsky's angular-motion Jacobian primitive when installed."""
+    wcs = _torchsky.module("wcs")
+    return None if wcs is None else wcs.propagate_proper_motion_with_jacobian
 
 
 def propagate_space_motion(
@@ -288,11 +283,8 @@ def propagate_space_motion(
 
 def _load_torchsky_propagate_space_motion():
     """Return Torchsky's complete space-motion primitive when installed."""
-    try:
-        from torchsky.wcs import propagate_space_motion as torchsky_propagate
-    except ImportError:
-        return None
-    return torchsky_propagate
+    wcs = _torchsky.module("wcs")
+    return None if wcs is None else wcs.propagate_space_motion
 
 
 def propagate_space_motion_with_jacobian(
@@ -307,9 +299,8 @@ def propagate_space_motion_with_jacobian(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
     """Return Torchsky-propagated positions and local 6D Jacobians.
 
-    ``None`` means the installed Torchsky does not yet provide the Jacobian
-    primitive. There is deliberately no Astropy finite-difference fallback on
-    this survey-scale path.
+    ``None`` means Torchsky is not installed. There is deliberately no Astropy
+    finite-difference fallback on this survey-scale path.
     """
     torchsky_propagate = _load_torchsky_propagate_space_motion_with_jacobian()
     if torchsky_propagate is None:
@@ -335,12 +326,9 @@ def propagate_space_motion_with_jacobian(
 
 
 def _load_torchsky_propagate_space_motion_with_jacobian():
-    """Return Torchsky's local phase-space Jacobian primitive when available."""
-    try:
-        from torchsky.wcs import propagate_space_motion_with_jacobian
-    except ImportError:
-        return None
-    return propagate_space_motion_with_jacobian
+    """Return Torchsky's local phase-space Jacobian primitive when installed."""
+    wcs = _torchsky.module("wcs")
+    return None if wcs is None else wcs.propagate_space_motion_with_jacobian
 
 
 def _as_numpy(value) -> np.ndarray:
