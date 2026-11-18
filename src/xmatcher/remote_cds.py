@@ -9,7 +9,7 @@ import polars as pl
 
 from .exceptions import CrossMatchError
 from .io_utils import astropy_table_to_polars
-from .matchers import MatchSpec
+from .matchers import _RIGHT_SUFFIX, SEP_COLUMN, MatchSpec
 from .sources import CatalogueSource
 
 logger = logging.getLogger(__name__)
@@ -159,5 +159,9 @@ def cds_xmatch_local_remote(
     # Join remote match columns back onto the full local rows via the surrogate id.
     matched = matched.with_columns(pl.col(key_col).cast(local[key_col].dtype))
     remote_only = matched.drop([c for c in (ra_col, dec_col) if c in matched.columns])
-    joined = local.join(remote_only, on=key_col, how="inner", suffix="_remote")
+    # Same schema as the local engines: CDS reports the separation as angDist.
+    remote_only = remote_only.rename({"angDist": SEP_COLUMN}, strict=False)
+    if SEP_COLUMN in remote_only.columns:
+        remote_only = remote_only.select(pl.exclude(SEP_COLUMN), pl.col(SEP_COLUMN))
+    joined = local.join(remote_only, on=key_col, how="inner", suffix=_RIGHT_SUFFIX)
     return joined.drop(key_col)
