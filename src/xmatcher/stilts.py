@@ -267,9 +267,21 @@ def stilts_sky_match(
         _run_stilts(base, "tmatch2", params, java_opts, tmpdir)
         result = astropy_table_to_polars(Table.read(out))
 
-        collide = set(left.columns) & set(right.columns)
-        r_ra = right_src.ra_column + (right_suffix if right_src.ra_column in collide else "")
-        r_dec = right_src.dec_column + (right_suffix if right_src.dec_column in collide else "")
+        # STILTS compares column names case-insensitively, so ``fixcols=dups``
+        # also suffixes ``RA`` against a left ``ra``.  Undo the suffix for
+        # those case-only clashes to keep the other engines' schema.
+        exact = set(left.columns) & set(right.columns)
+        left_folded = {name.casefold() for name in left.columns}
+        case_only = {
+            f"{name}{right_suffix}": name
+            for name in right.columns
+            if name not in exact and name.casefold() in left_folded
+        }
+        result = result.rename(
+            {suffixed: name for suffixed, name in case_only.items() if suffixed in result.columns}
+        )
+        r_ra = right_src.ra_column + (right_suffix if right_src.ra_column in exact else "")
+        r_dec = right_src.dec_column + (right_suffix if right_src.dec_column in exact else "")
         result = _add_true_separation(result, left_src.ra_column, left_src.dec_column, r_ra, r_dec)
         if spec.matcher == "skyerr" and spec.radius_arcsec is not None:
             # STILTS bins candidates; enforce the requested radius exactly.
