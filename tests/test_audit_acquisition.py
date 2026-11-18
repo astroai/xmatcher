@@ -90,10 +90,8 @@ def _write_csv_only_tree(tree: Path, frame: pl.DataFrame) -> None:
     """The LSDB gaia_dr3 layout: partition_info.csv only, no parquet table."""
     shutil.rmtree(tree, ignore_errors=True)
     mirror._write_hats_native(frame, tree, ra_column="ra", dec_column="dec", threshold=50)
-    (tree / "dataset" / "partition_info.parquet").unlink()
-    for name in ("dataset/partition_info.csv", "partition_info.csv"):
-        csv = tree / name
-        pl.read_csv(csv).select(["Norder", "Npix"]).write_csv(csv)
+    csv = tree / "partition_info.csv"
+    pl.read_csv(csv).select(["Norder", "Npix"]).write_csv(csv)
 
 
 # --------------------------------------------------------------------------- #

@@ -1786,9 +1786,10 @@ def _write_hats_native(
     """Convert ``frame`` into a valid HATS catalogue at ``out_dir``.
 
     Adaptive NESTED tiling: any cell holding more than ``threshold`` rows is
-    split until ``max_order``.  Layout matches the `hats` reader contract:
-    ``dataset/Norder=…/Dir=…/Npix=….parquet`` pixel files, a root
-    ``partition_info.csv`` (and parquet copy), and ``properties``.
+    split until ``max_order``.  The pixel files are written as
+    ``dataset/Norder=…/Dir=…/Npix=….parquet``; the metadata comes from
+    :func:`xmatcher.ray_union._write_hats_tree` (root ``properties`` and
+    ``partition_info.csv``, ``dataset/_metadata`` with every footer).
 
     cdshealpix computes every row's pixel per level (O(N·orders));
     fine for mirror-sized frames, replace with an index scan when a frame
@@ -1852,52 +1853,25 @@ def _write_hats_native(
             }
         )
 
-    total = frame.height
-    # An empty catalogue is legal (a region / query with no rows) and must
-    # still produce a readable HATS dir.  Building from ``info`` alone left the
-    # frame with no columns, so ``.select`` raised ColumnNotFoundError.
-    info_schema = {
-        "Norder": pl.Int64,
-        "Dir": pl.Int64,
-        "Npix": pl.Int64,
-        "Nfiles": pl.Int64,
-        "file_loc": pl.Utf8,
-        "file_size": pl.Int64,
-        "count": pl.Int64,
-    }
-    info_df = pl.DataFrame(info, schema=info_schema).select(list(info_schema))
-    # hats 0.7.x reads the root copy; the dataset copy is the classic spec.
-    info_df.write_csv(dataset / "partition_info.csv")
-    info_df.write_csv(out_dir / "partition_info.csv")
-    info_df.write_parquet(dataset / "partition_info.parquet")
-
     props = {
         "obs_collection": out_dir.name or "xmatcher",
         "dataproduct_type": "object",
-        "hats_nrows": str(total),
         "hats_col_ra": ra_column,
         "hats_col_dec": dec_column,
         "hats_epoch": "J2000",
         "hats_ordering": "NESTED",
         "hats_max_depth": str(max(segments, default=(0, 0, None))[0]),
     }
-    lines = "".join(f"{k}={v}\n" for k, v in sorted(props.items()))
-    (out_dir / "properties").write_text(lines)
-    (dataset / "properties").write_text(lines)
-    try:  # schema checkpoint for `hats.read_hats` (silences its warning)
-        import pyarrow as pa  # noqa: PLC0415
+    # One writer for every tree xmatcher produces, so `.hats` output and TAP
+    # mirrors pass `hats` strict validation like ray-anchor/project-hats trees.
+    from .ray_union import _write_hats_tree  # noqa: PLC0415 - ray_union imports Ray lazily
+
+    _write_hats_tree(out_dir, info, props)
+    if not info:
+        # No partitions: the input frame's own schema is still known.
         import pyarrow.parquet as pq  # noqa: PLC0415
 
-        if info:
-            schemas = [pq.read_schema(dataset / f"{e['file_loc']}.parquet") for e in info]
-            unified = pa.unify_schemas(schemas)
-        else:
-            # No partitions: the input frame's own schema is still known.
-            unified = frame.to_arrow().schema
-        pq.write_metadata(unified, dataset / "_common_metadata")
-        pq.write_metadata(unified, dataset / "_metadata")
-    except Exception:  # noqa: BLE001
-        logger.warning("skipping _metadata for %s (heterogeneous schemas)", out_dir)
+        pq.write_metadata(frame.to_arrow().schema, dataset / "_common_metadata")
 
 
 def _rebuild_tap_hats(

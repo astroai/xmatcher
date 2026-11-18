@@ -393,14 +393,14 @@ def test_hats_over_hf_mirrors_directory_partitions_and_reads_back(
 
     # The mmu_* layout: single-file pixels become `Npix=N/part0.snappy.parquet`,
     # and the CSV keeps only the pixel numbers (no file_loc, no Nfiles).
-    (tree / "dataset" / "partition_info.parquet").unlink()
+    # Moving the pixels would leave _metadata naming the old paths; drop it.
+    (tree / "dataset" / "_metadata").unlink()
     for pixel in sorted((tree / "dataset").glob("Norder=*/Dir=*/Npix=*.parquet")):
         target = pixel.with_suffix("") / "part0.snappy.parquet"
         target.parent.mkdir(parents=True, exist_ok=True)
         pixel.replace(target)
-    for name in ("dataset/partition_info.csv", "partition_info.csv"):
-        csv = tree / name
-        pl.read_csv(csv).select(["Norder", "Dir", "Npix", "count"]).write_csv(csv)
+    csv = tree / "partition_info.csv"
+    pl.read_csv(csv).select(["Norder", "Dir", "Npix", "count"]).write_csv(csv)
 
     files = _tree_files(tree)
     with fake_hub(files, page_size=2) as endpoint:

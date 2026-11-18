@@ -225,7 +225,6 @@ def test_csv_only_http_hats_fallback_mirrors_catalogue_metadata(
     serve_dir.mkdir()
     catalogue = serve_dir / "cat"
     mirror._write_hats_native(frame, catalogue, ra_column="ra", dec_column="dec")
-    (catalogue / "dataset" / "partition_info.parquet").unlink()
 
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0), functools.partial(SimpleHTTPRequestHandler, directory=str(serve_dir))
@@ -247,7 +246,7 @@ def test_csv_only_http_hats_fallback_mirrors_catalogue_metadata(
         assert stats.failed == 0
         local_root, local_rel = mirror.locate_mirrored(src, cache_root=cache)
         local_cat = Path(local_root) / local_rel
-        assert (local_cat / "dataset" / "partition_info.csv").is_file()
+        assert (local_cat / "partition_info.csv").is_file()
         assert (local_cat / "dataset" / "_common_metadata").is_file()
         loaded = hats_native.load_hats_all(
             CatalogueSource(name="cached", is_local=True, path=local_cat)
@@ -534,6 +533,11 @@ def test_hats_over_http_mirror(tmp_path: Path, monkeypatch, scenario: str) -> No
     mirror._write_hats_native(
         frame, serve_dir / "cat", ra_column="ra", dec_column="dec", threshold=threshold
     )
+    if scenario == "missing_partition":
+        # Publish a Parquet listing: its partitions are probed, so an advertised
+        # but unavailable one is caught before any download (CSV listings are not).
+        info = pl.read_csv(serve_dir / "cat" / "partition_info.csv")
+        info.write_parquet(serve_dir / "cat" / "dataset" / "partition_info.parquet")
     httpd = ThreadingHTTPServer(
         ("127.0.0.1", 0),
         functools.partial(SimpleHTTPRequestHandler, directory=str(serve_dir)),
@@ -690,13 +694,13 @@ def test_remote_hats_zero_row_partition_is_mirrored_with_schema(tmp_path: Path) 
     [(order, pixel, partition)] = hats_native.list_hats_pixels(catalogue)
     expected_pixel = (order, pixel)
     pl.read_parquet(partition).head(0).write_parquet(partition)
-    info_path = catalogue / "dataset" / "partition_info.parquet"
-    info = pl.read_parquet(info_path).with_columns(
+    info_path = catalogue / "partition_info.csv"
+    info = pl.read_csv(info_path).with_columns(
         pl.lit(0).alias("count"), pl.lit(partition.stat().st_size).alias("file_size")
     )
-    info.write_parquet(info_path)
-    for properties in (catalogue / "properties", catalogue / "dataset" / "properties"):
-        properties.write_text(properties.read_text().replace("hats_nrows=1", "hats_nrows=0"))
+    info.write_csv(info_path)
+    properties = catalogue / "properties"
+    properties.write_text(properties.read_text().replace("hats_nrows=1", "hats_nrows=0"))
 
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0), functools.partial(SimpleHTTPRequestHandler, directory=str(serve_dir))
@@ -748,8 +752,8 @@ def test_hats_over_vos_mirror(tmp_path: Path, monkeypatch) -> None:
     )
     # Exercise the valid CSV-only HATS export shape, where partition paths are
     # derived from Norder/Npix because file_loc and Parquet metadata are absent.
-    (vos_root / "cat" / "dataset" / "partition_info.parquet").unlink()
-    csv_info = vos_root / "cat" / "dataset" / "partition_info.csv"
+    (vos_root / "cat" / "dataset" / "_metadata").unlink()
+    csv_info = vos_root / "cat" / "partition_info.csv"
     pl.read_csv(csv_info).drop("file_loc").write_csv(csv_info)
 
     from xmatcher.storage import LocalStorage

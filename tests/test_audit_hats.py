@@ -326,3 +326,27 @@ def test_hats_native_left_join_keeps_rows_far_from_a_local_right(
 
     expected = left.height if join_type == "all1" else left.height - 1
     assert out["id"].n_unique() == expected
+
+
+def test_write_hats_output_is_a_strictly_valid_hats_catalogue(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`.hats` output and TAP mirrors (``mirror._write_hats_native``) use the shared writer."""
+    from xmatcher.io_utils import write_hats
+
+    frame = _sky(5000, seed=11)
+    out = tmp_path / "out.hats"
+    write_hats(frame, out, threshold=800)
+    _assert_conformant(out, frame.height, caplog)
+    assert not (out / "dataset" / "properties").exists()
+    assert not (out / "dataset" / "partition_info.csv").exists()
+
+
+def test_write_hats_of_an_empty_frame_keeps_its_schema(tmp_path: Path) -> None:
+    from xmatcher.io_utils import write_hats
+
+    frame = _sky(10, seed=3).head(0)
+    out = tmp_path / "empty.hats"
+    write_hats(frame, out)
+    assert pq.read_schema(out / "dataset" / "_common_metadata").names == frame.columns
+    assert "hats_nrows=0" in (out / "properties").read_text()
