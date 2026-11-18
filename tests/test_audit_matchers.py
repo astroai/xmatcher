@@ -14,6 +14,7 @@ import pytest
 from astropy.coordinates import SkyCoord, search_around_sky
 
 from xmatcher import bayes
+from xmatcher.crossmatch import CrossMatch
 from xmatcher.matchers import MatchSpec, sky_match
 from xmatcher.sources import CatalogueSource
 
@@ -119,3 +120,45 @@ def test_pairwise_p_match_closed_form():
     background = 1.0 / (math.pi * radius**2)
     expected = match / (match + background)
     np.testing.assert_allclose(bayes.compute_p_match(sep, sl, sr, radius), expected, rtol=1e-12)
+
+
+# ------------------------------------------------------------- friends of friends
+def test_fof_preserves_int64_ids_and_wraps_coordinate_means():
+    primary = pl.DataFrame({"id": [1, 2], "ra": [359.99995, 10.0], "dec": [0.0, 0.0]})
+    secondary = pl.DataFrame(
+        {
+            "source_id": [GAIA_ID, GAIA_ID + 1, GAIA_ID + 2],
+            "ra": [359.99998, 0.00004, 10.0],
+            "dec": [0.0, 0.0, 0.0],
+            "mag": [15.0, 16.0, float("nan")],
+        }
+    )
+    out = CrossMatch().fof_match([primary, secondary], radius_arcsec=1.0, engine="fast")
+    assert out.schema["source_id"] == pl.Int64
+    assert out["source_id"].to_list() == [GAIA_ID, GAIA_ID + 2]
+    # Two members either side of RA = 0: the mean stays at RA ~ 0, not 180.
+    assert out["ra_2"][0] == pytest.approx(0.00001, abs=1e-9)
+    assert out["mag"].to_list()[0] == pytest.approx(15.5)
+    assert out["mag"].to_list()[1] is None
+
+
+def test_fof_keeps_columns_of_catalogues_first_seen_after_many_bundles():
+    n = 150
+    first = pl.DataFrame({"ra": np.arange(n) * 0.01, "dec": np.zeros(n)})
+    second = first.clone()
+    third = pl.DataFrame({"ra": [(n - 1) * 0.01], "dec": [0.0], "flux": [5.0]})
+    out = CrossMatch().fof_match([first, second, third], radius_arcsec=1.0, engine="fast")
+    assert out.height == n
+    assert {"ra_3", "dec_3", "flux"} <= set(out.columns)
+    assert out["flux"].to_list() == [None] * (n - 1) + [5.0]
+    assert out["_src_cats"][-1] == "1+2+3"
+    assert out["n_cats"][-1] == 3
+
+
+def test_fof_suffixes_never_overwrite_existing_columns():
+    primary = pl.DataFrame({"ra": [1.0], "dec": [0.0], "mag": [11.0], "mag_2": [12.0]})
+    secondary = pl.DataFrame({"ra": [1.0], "dec": [0.0], "mag": [22.0]})
+    out = CrossMatch().fof_match([primary, secondary], radius_arcsec=1.0, engine="fast")
+    assert out["mag"].to_list() == [11.0]
+    assert out["mag_2"].to_list() == [12.0]
+    assert out["mag_2_2"].to_list() == [22.0]

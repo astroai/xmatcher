@@ -1139,9 +1139,12 @@ class CrossMatch:
             * ``bundle_id`` — unique integer per bundle.
             * ``n_cats`` — how many catalogues contributed to this bundle.
             * ``_src_cats`` — e.g. ``"1+2+3"``.
-            * Data columns from the primary catalogue are preserved where
-              possible; columns from other catalogues are averaged (numerics)
-              or first-value (strings).
+            * Data columns of the first primary row in the bundle, unchanged.
+            * Columns from other catalogues (collisions suffixed ``_<k>``):
+              float columns are NaN-ignoring means, the catalogue's RA/Dec
+              pair is a unit-vector mean, and every other column (integer
+              IDs, strings, booleans) is the first member's value with its
+              original dtype.
         """
         if len(catalogues) < 2:
             raise CrossMatchError(
@@ -1256,8 +1259,9 @@ class CrossMatch:
                 label=f"catalogue '{source.name}'",
             )
         # --- All cross-catalogue edges -----------------------------------
-        # Build a union-find structure across all rows.
         # Node IDs: [0..N0) for cat0, [N0..N0+N1) for cat1, etc.
+        from scipy.sparse import coo_matrix
+        from scipy.sparse.csgraph import connected_components
         from scipy.spatial import cKDTree
 
         offsets = [0]
@@ -1265,30 +1269,16 @@ class CrossMatch:
             offsets.append(offsets[-1] + f.height)
         total_nodes = offsets[-1]
 
-        # Union-find parent array.
-        parent = np.arange(total_nodes, dtype=np.int64)
-
-        def find(x):
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
-
-        def union(a, b):
-            ra, rb = find(a), find(b)
-            if ra != rb:
-                parent[max(ra, rb)] = min(ra, rb)
-
         # All cross-catalogue edges are needed for genuine transitive closure.
         p_ra_col = sources[0].ra_column or "ra"
         p_dec_col = sources[0].dec_column or "dec"
         chord_max = _arcsec_to_chord(radius_arcsec)
 
         engine_choice = (req.engine or "auto").lower()
-        n_edges = 0
+        edge_from: list[np.ndarray] = []
+        edge_to: list[np.ndarray] = []
         for i in range(n_total - 1):
             for j in range(i + 1, n_total):
-                offset_j = offsets[j]
                 if engine_choice == "ray":
                     from .ray_engine import ray_zone_match
 
@@ -1299,9 +1289,6 @@ class CrossMatch:
                         sources[j],
                         replace(req.spec, find="all"),
                     )
-                    for pi, nb in zip(l_idx.tolist(), r_idx.tolist(), strict=True):
-                        union(offsets[i] + int(pi), offset_j + int(nb))
-                        n_edges += 1
                 elif req.spec.matcher != "sky":
                     from . import matchers as _matchers
 
@@ -1312,138 +1299,140 @@ class CrossMatch:
                         sources[j],
                         replace(req.spec, find="all"),
                     )
-                    for pi, nb in zip(l_idx.tolist(), r_idx.tolist(), strict=True):
-                        union(offsets[i] + int(pi), offset_j + int(nb))
-                        n_edges += 1
                 else:
-                    p_ra = frames[i][sources[i].ra_column or "ra"].to_numpy().astype(float)
-                    p_dec = frames[i][sources[i].dec_column or "dec"].to_numpy().astype(float)
-                    p_xyz = _radec_to_xyz(p_ra, p_dec)
-                    s_ra = frames[j][sources[j].ra_column or "ra"].to_numpy().astype(float)
-                    s_dec = frames[j][sources[j].dec_column or "dec"].to_numpy().astype(float)
-                    if len(s_ra) == 0 or len(p_ra) == 0:
+                    if frames[i].height == 0 or frames[j].height == 0:
                         continue
-                    s_xyz = _radec_to_xyz(s_ra, s_dec)
-                    tree = cKDTree(s_xyz)
-                    idx_lists = tree.query_ball_point(p_xyz, r=chord_max, workers=-1)
-                    for pi, neighbors in enumerate(idx_lists):
-                        if not neighbors:
-                            continue
-                        node_p = offsets[i] + pi
-                        for nb in neighbors:
-                            union(node_p, offset_j + int(nb))
-                            n_edges += 1
+                    p_xyz = _radec_to_xyz(
+                        frames[i][sources[i].ra_column or "ra"].to_numpy().astype(float),
+                        frames[i][sources[i].dec_column or "dec"].to_numpy().astype(float),
+                    )
+                    s_xyz = _radec_to_xyz(
+                        frames[j][sources[j].ra_column or "ra"].to_numpy().astype(float),
+                        frames[j][sources[j].dec_column or "dec"].to_numpy().astype(float),
+                    )
+                    idx_lists = cKDTree(s_xyz).query_ball_point(p_xyz, r=chord_max, workers=-1)
+                    counts = np.fromiter((len(x) for x in idx_lists), dtype=np.int64)
+                    l_idx = np.repeat(np.arange(len(idx_lists), dtype=np.int64), counts)
+                    r_idx = np.fromiter(
+                        (nb for nbs in idx_lists for nb in nbs),
+                        dtype=np.int64,
+                        count=int(counts.sum()),
+                    )
+                edge_from.append(offsets[i] + np.asarray(l_idx, dtype=np.int64))
+                edge_to.append(offsets[j] + np.asarray(r_idx, dtype=np.int64))
 
         frames = [f.select(cols) for f, cols in zip(frames, orig_cols, strict=True)]
 
+        rows_from = np.concatenate(edge_from) if edge_from else np.zeros(0, dtype=np.int64)
+        rows_to = np.concatenate(edge_to) if edge_to else np.zeros(0, dtype=np.int64)
         logger.info(
             "FoF: %d edges across %d catalogues (%d total nodes).",
-            n_edges,
+            rows_from.size,
             n_total,
             total_nodes,
         )
 
-        if n_edges == 0:
-            # No cross-catalogue matches: every primary source is its own bundle.
-            primary_cols0 = list(frames[0].columns)
-            rows0: list = []
-            for pi in range(frames[0].height):
-                row0: dict = {"bundle_id": pi, "n_cats": 1, "_src_cats": "1"}
-                for c in primary_cols0:
-                    row0[c] = frames[0][c][pi]
-                rows0.append(row0)
-            result0 = pl.DataFrame(rows0)
-            if output_file:
-                io_utils.write_frame(
-                    result0,
-                    output_file,
-                    ra_column=p_ra_col,
-                    dec_column=p_dec_col,
-                    hats_threshold=hats_threshold,
-                )
-                return None
-            return result0
-
-        # --- Find connected components -------------------------------------
-        component = np.full(total_nodes, -1, dtype=np.int64)
-        comp_id = 0
-        for node in range(total_nodes):
-            root = find(node)
-            if component[root] < 0:
-                component[root] = comp_id
-                comp_id += 1
-        # Propagate component IDs to all nodes.
-        for node in range(total_nodes):
-            component[node] = component[find(node)]
-
-        n_bundles = comp_id
-        logger.info("FoF: %d connected components (bundles).", n_bundles)
+        # --- Connected components ------------------------------------------
+        # Labels are assigned in order of each component's lowest node, so the
+        # bundle_id of a component is fixed by its first primary row.
+        graph = coo_matrix(
+            (np.ones(rows_from.size, dtype=np.int8), (rows_from, rows_to)),
+            shape=(total_nodes, total_nodes),
+        )
+        n_components, component = connected_components(graph, directed=False)
+        logger.info("FoF: %d connected components (bundles).", n_components)
 
         # --- Build output: one row per bundle ------------------------------
-        # For each bundle, collect contributing rows from each catalogue.
-        # Output: bundle_id, n_cats, _src_cats, and merged data columns.
+        # Columns keep their catalogue dtypes: integer, string and other
+        # non-float columns take the first contributing row (an averaged or
+        # float64-cast int64 ID such as a Gaia source_id would be corrupted);
+        # float columns are NaN-ignoring means, and each catalogue's RA/Dec
+        # pair is a unit-vector mean so bundles across RA=0/360 stay put.
+        bundle = "_xmatcher_fof_bundle"
+        primary = frames[0].with_columns(
+            pl.Series(bundle, component[offsets[0] : offsets[1]], dtype=pl.Int64)
+        )
+        result = (
+            primary.group_by(bundle, maintain_order=True)
+            .agg(pl.all().first())
+            .with_columns(pl.lit("1").alias("_src_cats"), pl.lit(1, dtype=pl.Int64).alias("n_cats"))
+        )
 
-        # Gather primary catalogue columns as the output schema backbone.
-        primary_cols = list(frames[0].columns)
-        # Pre-build per-catalogue column lookup: cat_idx -> {orig_name: output_name}
-        all_cols_seen = set(primary_cols)
-        per_cat_cols: dict[int, dict[str, str]] = {}
+        taken = set(frames[0].columns) | {"bundle_id", "n_cats", "_src_cats", bundle}
         for j in range(1, n_total):
-            cat_map: dict[str, str] = {}
-            for c in frames[j].columns:
-                if c in all_cols_seen:
-                    suffixed = f"{c}_{j + 1}"
-                else:
-                    suffixed = c
-                cat_map[c] = suffixed
-                all_cols_seen.add(suffixed)
-            per_cat_cols[j] = cat_map
-
-        rows: list = []
-        for bid in range(n_bundles):
-            mask = component == bid
-            cat_members: list[str] = []
-            total_contributing = 0
-
-            # Build merged row values.
-            row: dict = {"bundle_id": bid, "n_cats": 0, "_src_cats": ""}
-
-            # --- Primary catalogue: skip components with no primary member ---
-            primary_mask = mask[offsets[0] : offsets[1]]
-            primary_indices = np.where(primary_mask)[0]
-            if len(primary_indices) == 0:
-                # Component has no primary-catalogue node — skip it.
-                # (Can happen when a secondary source is isolated — no edges
-                # to any primary source.)
-                continue
-            cat_members.append("1")
-            total_contributing += 1
-            # Take the first matched primary row.
-            pi = int(primary_indices[0])
-            for c in primary_cols:
-                row[c] = frames[0][c][pi]
-
-            # --- Secondary catalogues: aggregate contributions ---------------
-            for j in range(1, n_total):
-                j_mask = mask[offsets[j] : offsets[j + 1]]
-                j_indices = np.where(j_mask)[0]
-                if len(j_indices) == 0:
+            source = sources[j]
+            renames: dict[str, str] = {}
+            for column in frames[j].columns:
+                name = column
+                while name in taken:
+                    name += f"_{j + 1}"
+                renames[column] = name
+                taken.add(name)
+            members = frames[j].with_columns(
+                pl.Series(bundle, component[offsets[j] : offsets[j + 1]], dtype=pl.Int64)
+            )
+            coords = {source.ra_column or "ra", source.dec_column or "dec"}
+            if not coords <= set(members.columns):
+                coords = set()
+            aggregations = []
+            for column, dtype in frames[j].schema.items():
+                if column in coords:
                     continue
-                cat_members.append(str(j + 1))
-                total_contributing += 1
-                cat_map = per_cat_cols[j]
-                for orig_c, suf_name in cat_map.items():
-                    vals = frames[j][orig_c].to_numpy()[j_indices]
-                    if vals.dtype.kind in ("f", "i", "u"):
-                        row[suf_name] = float(np.nanmean(vals.astype(float)))
-                    else:
-                        row[suf_name] = vals[0]
+                expr = pl.col(column)
+                if dtype.is_float():
+                    expr = expr.fill_nan(None).mean().cast(dtype)
+                else:
+                    expr = expr.first()
+                aggregations.append(expr.alias(renames[column]))
+            if coords:
+                ra_name, dec_name = source.ra_column or "ra", source.dec_column or "dec"
+                ra_rad = pl.col(ra_name).cast(pl.Float64).radians()
+                dec_rad = pl.col(dec_name).cast(pl.Float64).radians()
+                aggregations.extend(
+                    (
+                        (dec_rad.cos() * ra_rad.cos()).mean().alias("_xmatcher_fof_x"),
+                        (dec_rad.cos() * ra_rad.sin()).mean().alias("_xmatcher_fof_y"),
+                        dec_rad.sin().mean().alias("_xmatcher_fof_z"),
+                    )
+                )
+            grouped = members.group_by(bundle, maintain_order=True).agg(aggregations)
+            if coords:
+                ra_dtype = frames[j].schema[ra_name]
+                dec_dtype = frames[j].schema[dec_name]
+                ra_out = (
+                    pl.arctan2(pl.col("_xmatcher_fof_y"), pl.col("_xmatcher_fof_x")).degrees()
+                    % 360.0
+                )
+                dec_out = pl.arctan2(
+                    pl.col("_xmatcher_fof_z"),
+                    (pl.col("_xmatcher_fof_x") ** 2 + pl.col("_xmatcher_fof_y") ** 2).sqrt(),
+                ).degrees()
+                grouped = grouped.with_columns(
+                    ra_out.cast(ra_dtype).alias(renames[ra_name]),
+                    dec_out.cast(dec_dtype).alias(renames[dec_name]),
+                ).drop("_xmatcher_fof_x", "_xmatcher_fof_y", "_xmatcher_fof_z")
+            grouped = grouped.select(bundle, *(renames[c] for c in frames[j].columns))
+            joined = result.join(
+                grouped.with_columns(pl.lit(True).alias("_xmatcher_fof_present")),
+                on=bundle,
+                how="left",
+            )
+            present = pl.col("_xmatcher_fof_present").fill_null(False)
+            result = joined.with_columns(
+                pl.when(present)
+                .then(pl.col("_src_cats") + f"+{j + 1}")
+                .otherwise(pl.col("_src_cats"))
+                .alias("_src_cats"),
+                (pl.col("n_cats") + present.cast(pl.Int64)).alias("n_cats"),
+            ).drop("_xmatcher_fof_present")
 
-            row["n_cats"] = total_contributing
-            row["_src_cats"] = "+".join(cat_members)
-            rows.append(row)
-
-        result = pl.DataFrame(rows)
+        result = (
+            result.sort(bundle)
+            .rename({bundle: "bundle_id"})
+            .select(
+                "bundle_id", "n_cats", "_src_cats", pl.exclude("bundle_id", "n_cats", "_src_cats")
+            )
+        )
 
         if output_file:
             io_utils.write_frame(
