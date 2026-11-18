@@ -109,10 +109,7 @@ class AnchorPlan:
     target_epoch: float | None = None
     anchor_epoch: float | None = None
     matcher: str = "sky"
-    pm_prior: bool = False
-    pm_prior_magnitude_column: str | None = None
     fallback_policy: str = "warn"
-    max_error: float = 1.0
     chunk_memory_gb: float = DEFAULT_CHUNK_MEMORY_GB
     task_rows: int = DEFAULT_TASK_ROWS
 
