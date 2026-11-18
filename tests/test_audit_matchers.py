@@ -149,7 +149,7 @@ def test_skyellipse_d2_across_the_pole_rotates_both_ellipses():
     assert d2[0] == pytest.approx(1.0 / 1.01, rel=1e-6)
 
 
-@pytest.mark.parametrize("engine", ["fast", "zone", "astropy"])
+@pytest.mark.parametrize("engine", ["fast", "zone", "astropy", "ray"])
 def test_skyellipse_accepts_close_pair_straddling_the_pole(engine):
     # 0.72" apart across the pole with 0.5" per-axis errors: d2 = 1.04.
     dec = 90.0 - 0.36 / 3600.0
@@ -166,7 +166,7 @@ def test_skyellipse_accepts_close_pair_straddling_the_pole(engine):
     assert out["sep_arcsec"].to_list() == pytest.approx([0.72])
 
 
-@pytest.mark.parametrize("engine", ["fast", "zone", "astropy"])
+@pytest.mark.parametrize("engine", ["fast", "zone", "astropy", "ray"])
 @pytest.mark.parametrize("matcher", ["skyerr", "skyellipse"])
 def test_error_matchers_never_exceed_radius_ceiling(engine, matcher):
     left = pl.DataFrame({"ra": [10.0], "dec": [0.0], "e_ra": [10.0], "e_dec": [10.0], "rho": [0.0]})

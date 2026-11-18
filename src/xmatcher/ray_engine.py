@@ -287,7 +287,7 @@ def ray_zone_match(
                 spec.matcher,
             )
             return empty
-        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error)
+        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error, spec.radius_arcsec)
         radius_deg = math.degrees(2.0 * math.asin(chord_max * 0.5)) if chord_max < 2.0 else 180.0
     else:
         lsig = _pos_sigma_arcsec(left, left_src)
@@ -299,6 +299,9 @@ def ray_zone_match(
             )
             return empty
         search_radius = spec.max_error * (float(np.nanmax(lsig)) + float(np.nanmax(rsig)))
+        if spec.radius_arcsec is not None:
+            # Pre-query clamp: N-sigma may only narrow the hard radius ceiling.
+            search_radius = min(search_radius, float(spec.radius_arcsec))
         radius_deg = max(search_radius, 0.0) / 3600.0
         chord_max = _arcsec_to_chord(max(search_radius, 0.0))
     if radius_deg <= 0 or chord_max <= 0:
@@ -436,6 +439,7 @@ def ray_zone_match(
             cov_r,
             spec.max_error,
             find="all" if spec.extra_distance_cols else spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
 
     if spec.matcher == "skyerr" and left_idx.size > 0:
