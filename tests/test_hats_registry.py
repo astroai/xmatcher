@@ -156,6 +156,24 @@ def test_resolve_falls_back_to_a_stale_snapshot_when_the_registry_fails(monkeypa
     assert hats_registry.resolve_hats_short_name("gaia_dr3").endswith("gaia_dr3")
 
 
+def test_an_empty_registry_answer_keeps_the_stale_snapshot(monkeypatch):
+    _write_snapshot(hats_registry.cache_file(), age_seconds=10 * 24 * 3600)
+    monkeypatch.setattr(hats_registry, "_registry_records", lambda: [])
+    assert hats_registry.resolve_hats_short_name("gaia_dr3").endswith("gaia_dr3")
+    snapshot = json.loads(hats_registry.cache_file().read_text())
+    assert len(snapshot["records"]) == len(RECORDS)
+
+
+def test_a_failed_refresh_falls_back_to_the_snapshot(monkeypatch):
+    _write_snapshot(hats_registry.cache_file())
+
+    def unreachable():
+        raise InputError("registry offline")
+
+    monkeypatch.setattr(hats_registry, "_registry_records", unreachable)
+    assert "gaia_dr3" in hats_registry.hats_catalogues(refresh=True)
+
+
 def test_refresh_rewrites_the_snapshot(monkeypatch):
     monkeypatch.setattr(hats_registry, "_registry_records", lambda: RECORDS)
     hats_registry.hats_catalogues(refresh=True)
