@@ -207,11 +207,13 @@ $$
 \theta \le \min\left(\theta_{\text{radius}}, \, N_\sigma \cdot \sigma_{\text{pair}}\right)
 $$
 
-For `find="best"`, candidates are ranked by their normalized separation tension:
+For `find="best"`, candidates are ranked by their separation relative to the admission limit:
 
 $$
-\text{rank} = \frac{\theta}{\sigma_{\text{pair}}}
+\text{rank} = \frac{\theta}{\min\left(\theta_{\text{radius}}, \, N_\sigma \cdot \sigma_{\text{pair}}\right)}
 $$
+
+This equals $\theta / (N_\sigma \sigma_{\text{pair}})$, the normalised separation tension, whenever the radius cap is not in effect.
 
 > [!CAUTION]
 > **Corrupted Error Protection**: The user's `radius_arcsec` acts as a strict ceiling. If a catalogue contains corrupt or unbounded error values (e.g. Pan-STARRS1 DR1 contains rows with `e_RAJ2000` exceeding hundreds of arcseconds), `xmatcher` ensures candidates outside the physical search aperture are never accepted.
@@ -341,7 +343,7 @@ Designed for cross-identifying catalogues with disparate spatial resolutions—s
 
 ```mermaid
 flowchart LR
-    A["Positional Offset r"] --> B["Rayleigh PDF<br/>f(r)"]
+    A["Positional Offset r"] --> B["2-D Gaussian density<br/>f(r)"]
     C["Candidate Mag m"] --> D["Counterpart PDF<br/>q(m)"]
     E["Optical Density"] --> F["Background PDF<br/>n(m)"]
     B --> G["Likelihood Ratio<br/>LR = q(m)·f(r) / n(m)"]
@@ -359,12 +361,14 @@ $$
 
 where:
 
-**Radial Positional Probability Density $f(r)$**:
-Modeled as a 2D circularly symmetric Gaussian on the tangent plane:
+**Positional Probability Density $f(r)$**:
+The surface density (per arcsec², the same units as $n(m)$) of a 2D circularly symmetric Gaussian on the tangent plane:
 
 $$
-f(r) = \frac{r}{\sigma_{\text{pos}}^2} \exp\left(-\frac{r^2}{2\sigma_{\text{pos}}^2}\right)
+f(r) = \frac{1}{2\pi\sigma^2} \exp\left(-\frac{r^2}{2\sigma^2}\right), \qquad \sigma^2 = \frac{\sigma_1^2 + \sigma_2^2}{2}
 $$
+
+$\sigma_1$ and $\sigma_2$ are the radial positional uncertainties defined for `skyerr` above, so $\sigma^2$ is the combined per-axis variance. $f$ peaks at zero offset; the Rayleigh radial distribution $r f(r) \cdot 2\pi$ is the density of $r$ itself and must not be used here, because $LR$ would then vanish for a coincident counterpart.
 
 **Background Surface Density $n(m)$**:
 Surface density of background objects per square arcsecond per magnitude bin:
@@ -535,13 +539,12 @@ graph TD
 
 ### Algorithmic Procedure
 1. **Edge Formation**: Construct an undirected graph $G = (V, E)$ where vertices $V$ are sources and edges $E$ connect any pair with $\theta \le \theta_{\text{radius}}$.
-2. **Disjoint-Set Union-Find**:
-   - Compute connected components using disjoint-set forests with **path compression** and **union by rank**.
-   - Amortized complexity is nearly linear: $O(|V| \cdot \alpha(|V|))$, where $\alpha$ is the inverse Ackermann function.
+2. **Connected Components**:
+   - Label the components of the sparse edge graph (`scipy.sparse.csgraph.connected_components`, $O(|V| + |E|)$).
+   - Components are numbered by their lowest node, so a bundle's id is fixed by its first primary row.
 3. **Bundle Aggregation**:
-   - Assign a persistent `bundle_id` to each connected component.
    - Retain components containing at least one source from the primary catalogue.
-   - Aggregate numerical attributes by mean and categorical attributes by priority order.
+   - Keep the first primary row's columns unchanged. For each other catalogue, average float columns (ignoring NaN), average RA/Dec as unit vectors, and take the first member's value, with its dtype, for every other column (so int64 IDs are never cast to float).
 
 ---
 

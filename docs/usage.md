@@ -732,10 +732,22 @@ then forms connected components. This lets an A–B and B–C chain place all
 three detections in one component even if A and C are farther apart than the
 link radius. Output is primary-anchored: only components containing a source
 from the first catalogue are emitted, and secondary-only components are
-omitted. Isolated first-catalogue rows are retained. Numeric attributes are
-aggregated by mean and nonnumeric attributes use the first value; inspect the
-source membership (`_src_cats`) before interpreting an aggregate as one
-measurement.
+omitted. Isolated first-catalogue rows are retained.
+
+Each output row carries the columns of the first first-catalogue row in its
+bundle, unchanged. Columns from the other catalogues are aggregated over the
+bundle's members from that catalogue:
+
+- float columns: mean, ignoring NaN;
+- the catalogue's RA/Dec pair: unit-vector mean, so bundles across RA=0/360
+  and near the poles stay where they are;
+- every other column (integer IDs such as a Gaia `source_id`, strings,
+  booleans): the first member's value, with its original dtype.
+
+A column name that collides with one already in the output gets a `_<k>`
+suffix (`k` is the catalogue's 1-based position), repeated until unique.
+Inspect the source membership (`_src_cats`) before interpreting an aggregate
+as one measurement.
 
 ## 10. Configuration health and shell completion
 

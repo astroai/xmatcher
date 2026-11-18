@@ -219,7 +219,7 @@ Resolves and materializes the input frames, finds primary-to-each-secondary cand
 
 ### `fof_match`
 
-Friends-of-Friends transitive closure algorithm. Groups detections across multiple surveys into connected components (bundles) via union-find graph clustering.
+Friends-of-Friends transitive closure algorithm. Groups detections across multiple surveys into connected components (bundles) of the sparse match graph.
 
 ```python
 def fof_match(
@@ -233,7 +233,7 @@ def fof_match(
 ) -> pl.DataFrame | None
 ```
 
-Searches cross-catalogue edges for every pair of catalogues before forming connected components. Only components containing a source from the first catalogue are emitted; isolated first-catalogue sources are retained, while secondary-only components are omitted. `engine="ray"` distributes pairwise edge discovery, but input frames and component output are still assembled on the coordinator. Numeric attributes are averaged, and nonnumeric attributes use the first value.
+Searches cross-catalogue edges for every pair of catalogues before forming connected components. Only components containing a source from the first catalogue are emitted; isolated first-catalogue sources are retained, while secondary-only components are omitted. `engine="ray"` distributes pairwise edge discovery, but input frames and component output are still assembled on the coordinator. Columns from the first catalogue come from the bundle's first primary row unchanged; other catalogues' float columns are NaN-ignoring means, their RA/Dec a unit-vector mean, and every other column (integer IDs, strings) the first member's value with its dtype kept. See [usage §9](usage.md#9-friends-of-friends-output-policy).
 
 **Output Columns**:
 - `bundle_id`: Unique integer assigned to the connected component.
