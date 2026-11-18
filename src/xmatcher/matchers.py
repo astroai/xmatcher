@@ -581,11 +581,13 @@ def _skyellipse_search_chord_max(
     cov_l: tuple[np.ndarray, np.ndarray, np.ndarray],
     cov_r: tuple[np.ndarray, np.ndarray, np.ndarray],
     max_error: float,
+    radius_arcsec: float | None = None,
 ) -> float:
     """Maximum chord distance for skyellipse spatial pre-filter.
 
     The largest eigenvalue of any combined covariance bounds the search radius.
-    We use the maximum across all rows as a conservative cKDTree bound.
+    We use the maximum across all rows as a conservative cKDTree bound, capped
+    at ``radius_arcsec`` (the hard separation ceiling) when one is given.
     """
     sra2_l, sde2_l, rho_l = cov_l
     sra2_r, sde2_r, rho_r = cov_r
@@ -598,6 +600,8 @@ def _skyellipse_search_chord_max(
     max_cov = math.sqrt(max(max_sra2, 0.0) * max(max_sde2, 0.0))
     max_eig = max_sra2 + max_sde2 + max_cov
     search_radius_arcsec = max_error * math.sqrt(max(max_eig, 0.0))
+    if radius_arcsec is not None:
+        search_radius_arcsec = min(search_radius_arcsec, float(radius_arcsec))
     return _arcsec_to_chord(search_radius_arcsec)
 
 
@@ -801,11 +805,15 @@ def _skyellipse_pair_filter(
     max_error: float,
     *,
     find: str,
+    radius_arcsec: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Apply the per-pair 2-D Mahalanobis d² <= max_error² criterion.
 
     Shared across the numerical engines so every engine evaluates
-    identical error-ellipse geometry and tie-breaking.
+    identical error-ellipse geometry and tie-breaking.  ``radius_arcsec`` is
+    the hard separation ceiling: as for ``skyerr``, the error criterion may
+    only narrow the requested radius, so one corrupt error ellipse cannot
+    accept an unrelated counterpart far outside it.
     """
     if left_idx.size == 0:
         return left_idx, right_idx, seps
@@ -826,6 +834,8 @@ def _skyellipse_pair_filter(
         rho_r[right_idx],
     )
     keep = np.isfinite(d2) & (d2 <= max_error**2)
+    if radius_arcsec is not None:
+        keep &= seps <= float(radius_arcsec)
     left_idx, right_idx, seps, d2 = (
         left_idx[keep],
         right_idx[keep],
@@ -1473,7 +1483,7 @@ def _scipy_match(
                 spec.matcher,
             )
             return empty
-        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error)
+        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error, spec.radius_arcsec)
     else:
         lsig = _pos_sigma_arcsec(left, left_src)
         rsig = _pos_sigma_arcsec(right, right_src)
@@ -1545,6 +1555,7 @@ def _scipy_match(
             cov_r,
             spec.max_error,
             find="all" if spec.extra_distance_cols else spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
         if spec.extra_distance_cols and spec.find == "best":
             return _rank_nd_candidates(
@@ -2890,7 +2901,7 @@ def _zone_match_healpix(
                 spec.matcher,
             )
             return empty
-        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error)
+        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error, spec.radius_arcsec)
         radius_deg = math.degrees(2.0 * math.asin(chord_max * 0.5)) if chord_max < 2.0 else 180.0
     else:
         lsig = _pos_sigma_arcsec(left, left_src)
@@ -3080,6 +3091,7 @@ def _zone_match_healpix(
             cov_r,
             spec.max_error,
             find="all" if spec.extra_distance_cols else spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
 
     # --- per-row skyerr N-sigma criterion -----------------------------------
@@ -3159,7 +3171,7 @@ def _astropy_match(
         # engines accept.  One shared bound keeps the engines on the same
         # *candidate* set; the d^2 filter below is the actual criterion.
         search_radius_arcsec = _chord_to_arcsec(
-            _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error)
+            _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error, spec.radius_arcsec)
         )
         if search_radius_arcsec <= 0:
             return empty
@@ -3180,6 +3192,7 @@ def _astropy_match(
             cov_r,
             spec.max_error,
             find=spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
 
     lsig = _pos_sigma_arcsec(left, left_src)

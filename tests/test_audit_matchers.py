@@ -77,6 +77,22 @@ def test_sky_match_agrees_with_astropy_search_around_sky(region, engine, find):
     np.testing.assert_allclose(matched["sep_arcsec"].to_numpy(), reference, rtol=0, atol=1e-9)
 
 
+@pytest.mark.parametrize("engine", ["fast", "zone", "astropy"])
+@pytest.mark.parametrize("matcher", ["skyerr", "skyellipse"])
+def test_error_matchers_never_exceed_radius_ceiling(engine, matcher):
+    left = pl.DataFrame({"ra": [10.0], "dec": [0.0], "e_ra": [10.0], "e_dec": [10.0], "rho": [0.0]})
+    right = left.with_columns((pl.col("ra") + 5.0 / 3600.0).alias("ra"))
+    out = sky_match(
+        _src("a", **ERRORS),
+        _src("b", **ERRORS),
+        left.lazy(),
+        right.lazy(),
+        MatchSpec(radius_arcsec=1.0, matcher=matcher, max_error=3.0),
+        engine=engine,
+    ).collect()
+    assert out.height == 0
+
+
 # ------------------------------------------------------------ likelihood ratio
 def test_likelihood_ratio_prefers_coincident_counterpart():
     rng = np.random.default_rng(0)
