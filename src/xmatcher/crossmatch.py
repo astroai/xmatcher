@@ -604,6 +604,12 @@ class CrossMatch:
         if path.is_file():
             return self._local_source(path.stem, path=path, overrides=overrides)
 
+        if text.startswith(("/", "./", "../", "~")) or (
+            path.suffix.lower() in io_utils.SUPPORTED_SUFFIXES
+        ):
+            # Clearly a path: catalogue-name suggestions would only mislead.
+            raise InputError(f"No such file or directory: '{text}'")
+
         # Prefer a configured catalogue when the user pastes an ACCESS id from
         # `xmatcher list` (e.g. II/349/ps1 → ps1), before falling back to ad-hoc TAP.
         by_access = self.find_catalogue_by_access_id(text)
