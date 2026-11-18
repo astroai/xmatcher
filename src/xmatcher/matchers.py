@@ -2004,6 +2004,37 @@ def _engineer_ml_features_and_labels(
 # --------------------------------------------------------------------------- #
 # Random Forest ML matcher (matcher="ml")
 # --------------------------------------------------------------------------- #
+def _pretrained_probabilities(model_path: str | None, X: np.ndarray, label: str):
+    """Match probabilities from a saved classifier, or ``None`` when there is none.
+
+    A model file that exists but cannot be loaded or applied is an error: it
+    is never silently replaced by an on-the-fly model (which would then be
+    saved over the user's file).
+    """
+    if model_path is None:
+        return None
+    from pathlib import Path
+
+    model_file = Path(model_path)
+    if not model_file.is_file():
+        return None
+    try:
+        import joblib
+
+        model = joblib.load(str(model_file))
+        probs = np.asarray(model.predict_proba(X)[:, 1], dtype=float)
+    except Exception as exc:
+        raise CrossMatchError(f"Cannot use the {label} model at '{model_file}': {exc}") from exc
+    logger.info(
+        "%s match (loaded model %s): %d candidates, median prob=%.3f.",
+        label,
+        model_file,
+        len(probs),
+        float(np.median(probs)),
+    )
+    return probs
+
+
 def _ml_rf_score(
     left: pl.DataFrame,
     right: pl.DataFrame,
@@ -2085,38 +2116,11 @@ def _ml_rf_score(
 
     model_path = spec.ml_model_path
 
-    if _HAS_SKLEARN and model_path is not None:
-        from pathlib import Path
-
-        model_file = Path(model_path)
-        if model_file.is_file():
-            # Load pre-trained model and skip training / pseudo-labels.
-            try:
-                import joblib
-
-                rf = joblib.load(str(model_file))
-                if not hasattr(rf, "predict_proba"):
-                    raise ValueError("Loaded object is not a classifier")
-                probs = rf.predict_proba(X[:n_pairs])[:, 1]
-                logger.info(
-                    "ML match (loaded model %s): %d candidates from %d sources, "
-                    "%d features, median prob=%.3f.",
-                    model_file,
-                    n_pairs,
-                    len(unique_left),
-                    n_features,
-                    float(np.median(probs)),
-                )
-                # Skip to best-per-primary selection.
-                if spec.find == "best":
-                    return _pick_best_per_primary(left_idx, right_idx, seps, probs)
-                return left_idx, right_idx, seps, probs
-            except Exception as exc:
-                logger.warning(
-                    "Failed to load ML model from '%s' (%s); will train a new one.",
-                    model_path,
-                    exc,
-                )
+    probs = _pretrained_probabilities(model_path, X[:n_pairs], "ML")
+    if probs is not None:
+        if spec.find == "best":
+            return _pick_best_per_primary(left_idx, right_idx, seps, probs)
+        return left_idx, right_idx, seps, probs
 
     if _HAS_SKLEARN:
         n_pos = int(np.sum(y_pseudo))
@@ -2252,38 +2256,12 @@ def _xgb_score(
         fallback_scores = np.clip(1.0 / (1.0 + seps), 0.0, 1.0)
         return left_idx, right_idx, seps, fallback_scores
 
-    # --- model load path (mirroring ml_model_path) -------------------------
+    probs = _pretrained_probabilities(spec.xgb_model_path, X[:n_pairs], "XGB")
+    if probs is not None:
+        if spec.find == "best":
+            return _pick_best_per_primary(left_idx, right_idx, seps, probs)
+        return left_idx, right_idx, seps, probs
     model_path = spec.xgb_model_path
-    if model_path is not None:
-        from pathlib import Path
-
-        model_file = Path(model_path)
-        if model_file.is_file():
-            try:
-                import joblib
-
-                clf = joblib.load(str(model_file))
-                if not hasattr(clf, "predict_proba"):
-                    raise ValueError("Loaded object is not a classifier")
-                probs = clf.predict_proba(X[:n_pairs])[:, 1]
-                logger.info(
-                    "XGB match (loaded model %s): %d candidates from %d sources, "
-                    "%d features, median prob=%.3f.",
-                    model_file,
-                    n_pairs,
-                    len(unique_left),
-                    n_features,
-                    float(np.median(probs)),
-                )
-                if spec.find == "best":
-                    return _pick_best_per_primary(left_idx, right_idx, seps, probs)
-                return left_idx, right_idx, seps, probs
-            except Exception as exc:
-                logger.warning(
-                    "Failed to load XGB model from '%s' (%s); will train a new one.",
-                    model_path,
-                    exc,
-                )
 
     # Try XGBoost → LightGBM → sklearn GradientBoosting.
     classifier = None
