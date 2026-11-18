@@ -2982,67 +2982,44 @@ def _zone_match_healpix(
     l_pix = _pixellate(hp, l_ra, l_dec, DEPTH, label=f"catalogue '{left_src.name}'")
     r_pix = _pixellate(hp, r_ra, r_dec, DEPTH, label=f"catalogue '{right_src.name}'")
 
-    # Cache per-pixel right xyz buffers and per-pixel cKDTree instances.
+    # Group right rows (and their unit vectors) by HEALPix pixel.
     r_sort_idx = np.argsort(r_pix, kind="stable")
     r_sorted_pix = r_pix[r_sort_idx]
     r_unique_indices = _first_occurrence_indices(r_sorted_pix)
-    unique_pix = r_sorted_pix[r_unique_indices]
-    r_splits = np.split(r_sort_idx, r_unique_indices[1:])
-    r_groups = {int(k): v for k, v in zip(unique_pix, r_splits, strict=False)}
-    tree_cache: dict[int, cKDTree] = {}
-    xyz_cache: dict[int, np.ndarray] = {}
-    for pix in unique_pix:
-        idx = r_groups[int(pix)]
-        xyz_cache[int(pix)] = _radec_to_xyz(r_ra[idx], r_dec[idx])
-        tree_cache[int(pix)] = cKDTree(xyz_cache[int(pix)])
+    r_groups = {
+        int(k): v
+        for k, v in zip(
+            r_sorted_pix[r_unique_indices], np.split(r_sort_idx, r_unique_indices[1:]), strict=True
+        )
+    }
+    xyz_by_pix = {pix: _radec_to_xyz(r_ra[idx], r_dec[idx]) for pix, idx in r_groups.items()}
 
     l_xyz = _radec_to_xyz(l_ra, l_dec)
 
-    # Group left points by HEALPix pixel so we can batch-query each right
-    # pixel's tree once (instead of spawning worker threads per point).
+    # Group left points by HEALPix pixel so each margin tree is queried once
+    # per left pixel (instead of spawning worker threads per point).
     l_sort_idx = np.argsort(l_pix, kind="stable")
     l_sorted_pix = l_pix[l_sort_idx]
     l_unique_indices = _first_occurrence_indices(l_sorted_pix)
-    l_unique_pix = l_sorted_pix[l_unique_indices]
-    l_splits = np.split(l_sort_idx, l_unique_indices[1:])
-    l_by_pix: dict[int, list] = {
-        int(k): v.tolist() for k, v in zip(l_unique_pix, l_splits, strict=False)
-    }
-
-    # Pre-compute per-right-pixel global-index arrays for fast margin merging.
-    r_global_by_pix: dict[int, np.ndarray] = {int(pix): r_groups[int(pix)] for pix in unique_pix}
-
-    # Sort left pixel groups largest-first so batches are balanced.
-    pixel_items = sorted(
-        l_by_pix.items(),
-        key=lambda kv: len(kv[1]),
-        reverse=True,
-    )
-    batch_size = spec.batch_size or len(pixel_items)
+    # Largest pixel groups first so batches are balanced.
+    pixel_groups = sorted(np.split(l_sort_idx, l_unique_indices[1:]), key=len, reverse=True)
+    batch_size = max(1, spec.batch_size or len(pixel_groups))
     need_all_candidates = (
         spec.find != "best" or spec.matcher != "sky" or bool(spec.extra_distance_cols)
     )
 
     l_parts, r_parts, sep_parts = [], [], []
-    for batch_start in range(0, len(pixel_items), max(1, batch_size)):
-        batch_pixels = pixel_items[batch_start : batch_start + max(1, batch_size)]
-        batch_l = []
-        batch_r = []
-        batch_s = []
-
-        for _l_pix_int, left_indices in batch_pixels:
-            indices_arr = np.asarray(left_indices, dtype=np.int64)
-            # Cone search once per pixel, inflated by the exact intra-batch angular
+    for batch_start in range(0, len(pixel_groups), batch_size):
+        for left_indices in pixel_groups[batch_start : batch_start + batch_size]:
+            # Cone search once per pixel, inflated by the exact intra-pixel angular
             # spread around the representative point so boundary pairs are never missed.
-            mid = len(left_indices) // 2
-            rep_i = left_indices[mid]
-            batch_xyz = l_xyz[indices_arr]  # (n_pix, 3)
-            rep_xyz = l_xyz[rep_i]
+            rep_i = left_indices[len(left_indices) // 2]
+            batch_xyz = l_xyz[left_indices]
             batch_spread_rad = float(
                 np.max(
                     2.0
                     * np.arcsin(
-                        np.clip(np.linalg.norm(batch_xyz - rep_xyz, axis=-1) * 0.5, 0.0, 1.0)
+                        np.clip(np.linalg.norm(batch_xyz - l_xyz[rep_i], axis=-1) * 0.5, 0.0, 1.0)
                     )
                 )
             )
@@ -3053,78 +3030,42 @@ def _zone_match_healpix(
                 min(math.pi, float(np.radians(radius_deg)) + batch_spread_rad),
                 DEPTH,
             )
-
-            # --- margin caching: merge all neighbouring right pixels into one
-            #     tree and query it once instead of querying each right pixel
-            #     individually.
-            margin_xyz_parts: list = []
-            margin_global_parts: list = []
-            for rpix in npix:
-                rpix_int = int(rpix)
-                if rpix_int not in r_global_by_pix:
-                    continue
-                margin_xyz_parts.append(xyz_cache[rpix_int])
-                margin_global_parts.append(r_global_by_pix[rpix_int])
-
-            if not margin_xyz_parts:
+            # Merge the neighbouring right pixels into one margin tree.
+            margin = [int(p) for p in npix if int(p) in r_groups]
+            if not margin:
                 continue
-
-            margin_xyz = np.vstack(margin_xyz_parts)
-            margin_global = np.concatenate(margin_global_parts)
+            margin_xyz = np.vstack([xyz_by_pix[p] for p in margin])
+            margin_global = np.concatenate([r_groups[p] for p in margin])
             margin_tree = cKDTree(margin_xyz)
 
             if not need_all_candidates:
-                # Plain radius + find="best" without extra_distance_cols: the
-                # spatial-nearest candidate is the answer.
+                # Plain radius + find="best": the spatial-nearest candidate.
                 dist, local_idx = margin_tree.query(
-                    batch_xyz,
-                    k=1,
-                    distance_upper_bound=chord_max,
-                    workers=-1,
+                    batch_xyz, k=1, distance_upper_bound=chord_max, workers=-1
                 )
                 valid = np.isfinite(dist) & (local_idx < margin_tree.n)
-                for valid_index in np.nonzero(valid)[0]:
-                    k_idx = left_indices[valid_index]
-                    global_r_index = int(margin_global[local_idx[valid_index]])
-                    sep_arcsec = float(_chord_to_arcsec(float(dist[valid_index])))
-                    batch_l.append(np.array([k_idx], dtype=np.int64))
-                    batch_r.append(np.array([global_r_index], dtype=np.int64))
-                    batch_s.append(np.array([sep_arcsec], dtype=float))
+                l_parts.append(left_indices[valid])
+                r_parts.append(margin_global[local_idx[valid]])
+                sep_parts.append(_chord_to_arcsec(dist[valid]))
             else:
-                idx_lists = margin_tree.query_ball_point(
-                    batch_xyz,
-                    r=chord_max,
-                    workers=-1,
-                )
-                local_l_indices, local_r_indices, seps = _flatten_candidates(
-                    idx_lists,
-                    batch_xyz,
-                    margin_xyz,
-                )
-                if local_l_indices.size:
-                    k_indices = np.asarray(left_indices, dtype=np.int64)[local_l_indices]
-                    global_r_indices = margin_global[local_r_indices].astype(np.int64)
-                    batch_l.append(k_indices)
-                    batch_r.append(global_r_indices)
-                    batch_s.append(np.asarray(seps, dtype=float))
-
-        # Flush batch to accumulator (out-of-core friendly — per-batch
-        # margin trees and numpy arrays can be GC'd after this point).
-        l_parts.extend(batch_l)
-        r_parts.extend(batch_r)
-        sep_parts.extend(batch_s)
-        if spec.batch_size and batch_start + max(1, batch_size) < len(pixel_items):
+                idx_lists = margin_tree.query_ball_point(batch_xyz, r=chord_max, workers=-1)
+                local_l, local_r, seps = _flatten_candidates(idx_lists, batch_xyz, margin_xyz)
+                if local_l.size:
+                    l_parts.append(left_indices[local_l])
+                    r_parts.append(margin_global[local_r])
+                    sep_parts.append(seps)
+        if spec.batch_size and batch_start + batch_size < len(pixel_groups):
             logger.debug(
                 "Batch %d/%d complete (%d matched pairs so far).",
-                batch_start // max(1, batch_size) + 1,
-                (len(pixel_items) + max(1, batch_size) - 1) // max(1, batch_size),
+                batch_start // batch_size + 1,
+                -(-len(pixel_groups) // batch_size),
                 sum(p.size for p in l_parts),
             )
 
     if not l_parts:
         return empty
     left_idx = np.concatenate(l_parts)
-    right_idx = np.concatenate(r_parts)
+    right_idx = np.concatenate(r_parts).astype(np.int64, copy=False)
     seps = np.concatenate(sep_parts)
 
     # Sort deterministically by (left_idx, right_idx) to match _scipy_match order.
