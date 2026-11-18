@@ -91,3 +91,57 @@ def test_local_vs_remote_forwards_operand_order_to_cds(monkeypatch):
     req = MatchRequest.from_params("viz", "loc", find="all")
     cm._local_vs_remote(_REMOTE, local, req)
     assert seen == {"local_first": False}
+
+
+@pytest.mark.parametrize(
+    "method", ["crossmatch", "crossmatch_multi", "union_match", "fof_match", "nway_match"]
+)
+def test_unknown_match_parameter_is_rejected(method):
+    from xmatcher import CrossMatch
+
+    frame = pl.DataFrame({"ra": [1.0], "dec": [2.0]})
+    cm = CrossMatch()
+    call = getattr(cm, method)
+    args = (frame, frame) if method == "crossmatch" else ([frame, frame],)
+    # `radius` used to be dropped silently, matching at the 1" default
+    with pytest.raises(TypeError, match="radius_arcsec"):
+        call(*args, radius=5.0)
+
+
+def test_unknown_crossmatch_constructor_option_is_rejected():
+    from xmatcher import CrossMatch
+
+    with pytest.raises(TypeError):
+        CrossMatch(n_workers=4)
+
+
+def test_ray_union_python_api_uses_the_shared_max_error_default(tmp_path, monkeypatch):
+    """ray-union used 1 sigma when max_error was omitted; every other engine uses 3."""
+    from xmatcher import CrossMatch, ray_union
+
+    seen = {}
+
+    def fake_union(sources, **kwargs):
+        seen.update(kwargs)
+
+    monkeypatch.setattr(ray_union, "ray_union_match", fake_union)
+    monkeypatch.setattr(ray_union, "last_plan", lambda: None)
+    paths = []
+    for name in ("a", "b"):
+        path = tmp_path / f"{name}.parquet"
+        pl.DataFrame({"ra": [1.0], "dec": [2.0], "e": [0.1]}).write_parquet(path)
+        paths.append(str(path))
+    CrossMatch().union_match(
+        paths,
+        output_file=str(tmp_path / "out.hats"),
+        engine="ray-union",
+        matcher="skyerr",
+        ra_err_column_1="e",
+        dec_err_column_1="e",
+        ra_err_column_2="e",
+        dec_err_column_2="e",
+        pos_err_units_1="arcsec",
+        pos_err_units_2="arcsec",
+        no_sync=True,
+    )
+    assert seen["max_error"] == MatchSpec().max_error == 3.0

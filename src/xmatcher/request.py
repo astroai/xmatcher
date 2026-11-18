@@ -21,6 +21,8 @@ dict twice.
 
 from __future__ import annotations
 
+import difflib
+import re
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,106 @@ import polars as pl
 from .matchers import MatchSpec
 
 FrameInput = str | Path | pl.DataFrame | pl.LazyFrame
+
+# Per-catalogue keyword parameters, spelled ``<key>_<n>`` for catalogue n.
+_SIDE_PARAM_KEYS = frozenset(
+    {
+        "ra_column",
+        "dec_column",
+        "id_column",
+        "frame",
+        "ra_err_column",
+        "dec_err_column",
+        "corr_column",
+        "astrometric_covariance_columns",
+        "pos_err_units",
+        "default_pos_error_arcsec",
+        "epoch",
+        "epoch_column",
+        "pm_ra_column",
+        "pm_dec_column",
+        "parallax_column",
+        "radial_velocity_column",
+    }
+)
+# Every other keyword the ``CrossMatch`` match methods read from ``**params``.
+_MATCH_PARAM_KEYS = frozenset(
+    {
+        # MatchSpec
+        "radius_arcsec",
+        "matcher",
+        "max_error",
+        "join_type",
+        "find",
+        "prior_columns",
+        "probabilistic",
+        "target_epoch",
+        "filter_expr",
+        "extra_distance_cols",
+        "batch_size",
+        "lr_magnitude_column",
+        "lr_q",
+        "ml_color_columns",
+        "ml_model_path",
+        "xgb_model_path",
+        "macauff_flux_columns",
+        "pm_prior",
+        "pm_prior_magnitude_column",
+        "fallback_policy",
+        # MatchRequest
+        "engine",
+        "id_join",
+        "columns_1",
+        "columns_2",
+        "endpoint",
+        "ra",
+        "dec",
+        "radius_deg",
+        "memory_budget_bytes",
+        "scratch_dir",
+        "partition_order",
+        "hats_threshold",
+        # ray-union / ray-anchor and their mirrors
+        "no_sync",
+        "force_sync",
+        "synclimit",
+        "threads",
+        "task_rows",
+        "cache_root",
+        "max_tuples",
+        "chunk_memory_gb",
+        "anchor_id_name",
+        "retries",
+        "fresh_after",
+        "min_free_gb",
+    }
+)
+_SIDE_PARAM_RE = re.compile(r"^(?P<key>[a-z_]+)_(?P<side>[1-9][0-9]*)$")
+
+
+def check_match_params(params: dict[str, Any], *, method: str, n_catalogues: int) -> None:
+    """Reject keyword parameters no match method reads.
+
+    ``**params`` would otherwise swallow a misspelling (``radius=5`` instead of
+    ``radius_arcsec=5``) and run with the default. Per-catalogue keys must name
+    an existing catalogue (``ra_column_3`` needs three inputs).
+    """
+    unknown = []
+    for key in params:
+        if key in _MATCH_PARAM_KEYS:
+            continue
+        side = _SIDE_PARAM_RE.match(key)
+        if side and side["key"] in _SIDE_PARAM_KEYS and int(side["side"]) <= n_catalogues:
+            continue
+        unknown.append(key)
+    if not unknown:
+        return
+    known = [*_MATCH_PARAM_KEYS, *(f"{k}_{n}" for k in _SIDE_PARAM_KEYS for n in (1, 2))]
+    details = []
+    for key in unknown:
+        close = difflib.get_close_matches(key, known, n=3)
+        details.append(f"{key!r} (did you mean {', '.join(close)}?)" if close else repr(key))
+    raise TypeError(f"{method}() got unexpected keyword argument(s): {'; '.join(details)}")
 
 
 @dataclass
