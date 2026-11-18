@@ -22,6 +22,7 @@ import argparse
 import difflib
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -639,6 +640,34 @@ def setup_logging(verbose: int) -> None:
     )
 
 
+def _bounded_float(low: float, high: float, *, low_open: bool = False) -> Callable[[str], float]:
+    """Argparse type: a finite float in ``[low, high]`` (``(low, high]`` if *low_open*)."""
+    interval = f"{'(' if low_open else '['}{low:g}, {high:g}]"
+
+    def parse(raw: str) -> float:
+        try:
+            value = float(raw)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid float value: {raw!r}") from exc
+        too_low = value <= low if low_open else value < low
+        if not math.isfinite(value) or too_low or value > high:
+            raise argparse.ArgumentTypeError(f"{raw!r} must be a finite number in {interval}")
+        return value
+
+    return parse
+
+
+def _positive_int(raw: str) -> int:
+    """Argparse type: an integer greater than zero."""
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid int value: {raw!r}") from exc
+    if value <= 0:
+        raise argparse.ArgumentTypeError(f"{raw!r} must be a positive integer")
+    return value
+
+
 def _parse_extra_distance_cols(raw):
     if not raw:
         return {}
@@ -829,7 +858,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_out.add_argument(
         "--batch-size",
         dest="batch_size",
-        type=int,
+        type=_positive_int,
         help="HEALPix pixel groups per zone batch; not a general memory cap.",
     )
     g_out.add_argument(
@@ -852,7 +881,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "-r",
         "--radius",
         dest="radius_arcsec",
-        type=float,
+        type=_bounded_float(0.0, 648_000.0, low_open=True),
         default=1.0,
         help="Match radius (arcsec) for the sky matcher.",
     )
@@ -907,7 +936,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_alg.add_argument(
         "--max-error",
         dest="max_error",
-        type=float,
+        type=_bounded_float(0.0, math.inf, low_open=True),
         default=3.0,
         help="N-sigma cap for skyerr; Mahalanobis d cap for skyellipse.",
     )
@@ -1065,7 +1094,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_pm.add_argument(
         "--target-epoch",
         dest="target_epoch",
-        type=float,
+        type=_bounded_float(-math.inf, math.inf),
         help="Julian-year epoch to propagate coordinates via proper motion.",
     )
     g_pm.add_argument(
@@ -1103,7 +1132,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_msm.add_argument(
         "--lr-q",
         dest="lr_q",
-        type=float,
+        type=_bounded_float(0.0, 1.0),
         default=0.8,
         help="Prior probability Q that a primary source has a counterpart (0-1).",
     )
@@ -1130,12 +1159,14 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     )
 
     g_reg = parser.add_argument_group("Region (remote downloads)")
-    g_reg.add_argument("--ra", type=float, help="Region center RA (deg).")
-    g_reg.add_argument("--dec", type=float, help="Region center Dec (deg).")
+    g_reg.add_argument(
+        "--ra", type=_bounded_float(-math.inf, math.inf), help="Region center RA (deg)."
+    )
+    g_reg.add_argument("--dec", type=_bounded_float(-90.0, 90.0), help="Region center Dec (deg).")
     g_reg.add_argument(
         "--radius-deg",
         dest="radius_deg",
-        type=float,
+        type=_bounded_float(0.0, 180.0, low_open=True),
         help="Region radius (deg) for remote cone downloads.",
     )
     g_reg.add_argument(
@@ -2365,6 +2396,9 @@ def _load_cli_crossmatch(config_file: str | Path | None, console: Console) -> Cr
 def _run_match_subcommand(argv: Sequence[str]) -> int:
     parser = _build_match_subparser()
     args = parser.parse_args(list(argv))
+    region = (args.ra, args.dec, args.radius_deg)
+    if any(value is not None for value in region) and None in region:
+        parser.error("--ra, --dec and --radius-deg must be given together")
     setup_logging(args.verbose)
     console = _make_console(no_color=bool(getattr(args, "no_color", False)))
     cm = _load_cli_crossmatch(args.config_file, console)

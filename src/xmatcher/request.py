@@ -193,6 +193,9 @@ class MatchRequest:
     """Signal that Tier-3 Bayesian qualification should be attempted."""
 
     def __post_init__(self) -> None:
+        region = (self.ra, self.dec, self.radius_deg)
+        if any(value is not None for value in region) and None in region:
+            raise ValueError("ra, dec and radius_deg must be given together")
         if not isinstance(self.probabilistic, bool):
             raise ValueError("probabilistic must be a boolean")
         if self.probabilistic or self.spec.probabilistic:
