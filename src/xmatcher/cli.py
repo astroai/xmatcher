@@ -723,7 +723,6 @@ def _build_params(args) -> dict:
         radius_arcsec=args.radius_arcsec,
         matcher=args.matcher or "sky",
         max_error=args.max_error,
-        join_type=args.join_type,
         find=args.find,
         engine=args.engine,
         id_join=args.id_join,
@@ -769,6 +768,10 @@ def _build_params(args) -> dict:
         min_free_gb=getattr(args, "min_free_gb", None),
         fallback_policy=getattr(args, "fallback_policy", None),
     )
+    # Without an explicit --join each operation keeps its own default
+    # (inner for pairwise/multi matches, full outer for --union).
+    if args.join_type is not None:
+        params["join_type"] = args.join_type
     # ``--side1/--side2`` are the more specific spelling of the per-side
     # column flags, so they win when both are supplied.
     params.update(side_overrides)
@@ -911,9 +914,9 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_alg.add_argument(
         "--join",
         dest="join_type",
-        default="1and2",
         choices=["1and2", "1or2", "all", "1not2", "2not1", "all1", "all2"],
-        help="Join type (1and2=inner, 1or2=full outer, all1=left, all2=right, 1not2/2not1=anti).",
+        help="Join type (1and2=inner, 1or2=full outer, all1=left, all2=right, 1not2/2not1=anti). "
+        "Default: 1and2, or 1or2 with --union.",
     )
     g_alg.add_argument(
         "--find",
