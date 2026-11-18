@@ -375,3 +375,57 @@ def test_cli_exposes_bounded_memory_controls():
     assert args.memory_budget_bytes == 8192
     assert args.scratch_dir == "/tmp/xmatcher"
     assert args.partition_order == "4"
+
+
+def test_spill_ranks_capped_skyerr_candidates_like_the_eager_path(tmp_path):
+    """With the radius cap active, best = min θ / min(N·σ_pair, R) on both paths.
+
+    c0 is 0.9" away with 10" errors (rank 0.9 / 1"); c1 is 0.5" away with
+    0.2" errors (rank 0.5 / 0.75").  Ranking by θ / (N·σ_pair) alone picks c0.
+    """
+    padding = "p" * 200
+    left = pl.DataFrame(
+        {
+            "id": [0],
+            "ra": [30.0],
+            "dec": [0.0],
+            "ra_err": [0.05],
+            "dec_err": [0.0],
+            "pad": [padding],
+        }
+    )
+    right = pl.DataFrame(
+        {
+            "id": [0, 1],
+            "ra": [30.0 + 0.9 / 3600.0, 30.0 + 0.5 / 3600.0],
+            "dec": [0.0, 0.0],
+            "ra_err": [10.0, 0.2],
+            "dec_err": [0.0, 0.0],
+            "pad": [padding, padding],
+        }
+    )
+    p1, p2 = tmp_path / "left.parquet", tmp_path / "right.parquet"
+    left.write_parquet(p1)
+    right.write_parquet(p2)
+    side = SideOverrides(ra_err_column="ra_err", dec_err_column="dec_err")
+    spec = MatchSpec(matcher="skyerr", max_error=3.0, find="best", radius_arcsec=1.0)
+    cm = CrossMatch()
+    expected = cm.crossmatch_request(
+        MatchRequest(p1, p2, spec=spec, side1=side, side2=side, engine="fast")
+    )
+    assert expected["id_2"].to_list() == [1]
+    output = tmp_path / "capped.parquet"
+    cm.crossmatch_request(
+        MatchRequest(
+            p1,
+            p2,
+            spec=spec,
+            side1=side,
+            side2=side,
+            engine="fast",
+            output_file=output,
+            memory_budget_bytes=1024,
+            partition_order=3,
+        )
+    )
+    assert pl.read_parquet(output)["id_2"].to_list() == [1]
