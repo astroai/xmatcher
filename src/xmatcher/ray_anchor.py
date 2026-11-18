@@ -489,6 +489,9 @@ def _read_frame(
         empty = pl.DataFrame(
             {"_ra": pl.Series([], dtype=pl.Float64), "_dec": pl.Series([], dtype=pl.Float64)}
         )
+        before = matchers._radec_to_xyz(
+            frame[cat.ra].cast(pl.Float64).to_numpy(), frame[cat.dec].cast(pl.Float64).to_numpy()
+        )
         frame, _ = matchers._apply_proper_motion(
             frame,
             empty,
@@ -498,6 +501,24 @@ def _read_frame(
             propagate_covariance=False,
             fallback_policy=plan.fallback_policy,
         )
+        after = matchers._radec_to_xyz(
+            frame[cat.ra].cast(pl.Float64).to_numpy(), frame[cat.dec].cast(pl.Float64).to_numpy()
+        )
+        moved = np.linalg.norm(after - before, axis=1)
+        moved_deg = matchers._chord_to_arcsec(float(np.nanmax(moved))) / 3600.0
+        # Survey candidates are chosen from the catalogue-epoch tiling with a
+        # cone of 2 * (radius + delta) around the anchor pixel centre; the
+        # margin beyond a stationary match is at least radius + delta, split
+        # between anchor and survey motion.  A larger move could pair rows the
+        # cone never read, so it is an error rather than a silent miss.
+        limit_deg = 0.5 * (plan.sep_arcsec / 3600.0 + plan.delta_deg)
+        if moved_deg > limit_deg:
+            raise CrossMatchError(
+                f"catalogue '{cat.name}': propagation to epoch {plan.target_epoch} moves a "
+                f"source by {moved_deg * 3600.0:.1f} arcsec, beyond the "
+                f"{limit_deg * 3600.0:.1f} arcsec candidate halo; check its proper-motion "
+                "columns and units, or match at the catalogue epoch"
+            )
     return frame
 
 
