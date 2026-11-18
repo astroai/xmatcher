@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CANFAR Headless Test Suite: Every Crossmatching Algorithm Supported by Torchsky 0.4.0
+"""CANFAR Headless Test Suite: Every Crossmatching Algorithm in Public Torchsky (>=0.5.0)
 
 Executes against the compact VizieR M67 catalog (J/A+A/484/609, 2,410 rows)
 crossmatched against the Zensus full-sky HATS release (/arc/projects/hats/zensus).
@@ -50,7 +50,7 @@ logger = logging.getLogger("torchsky_all_algorithms")
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Test all Torchsky 0.4.0 crossmatch algorithms against Zensus HATS"
+        description="Test all public Torchsky (>=0.5.0) crossmatch algorithms against Zensus HATS"
     )
     parser.add_argument(
         "--zensus-path",
@@ -101,7 +101,7 @@ def main():
             crossmatch_sky_streamed,
         )
 
-        summary["torchsky_version"] = getattr(torchsky, "__version__", "0.4.0")
+        summary["torchsky_version"] = torchsky.__version__
         logger.info("==================================================================")
         logger.info(
             "Testing ALL Torchsky Crossmatch Algorithms (Version %s, Device: %s)",
@@ -179,11 +179,10 @@ def main():
     target_pixs = (
         ts_healpix.ang2pix(nside, left_ra_t, left_dec_t, nest=True, lonlat=True).unique().tolist()
     )
-    all_needed_pixs = set()
-    for p in target_pixs:
-        all_needed_pixs.add(int(p))
-        neighs = ts_healpix.neighbors(nside, torch.tensor([p]), nest=True)
-        all_needed_pixs.update([int(x) for x in neighs[0].tolist() if int(x) >= 0])
+    # get_all_neighbours returns an (8, n) tensor; -1 marks a missing neighbour.
+    neighbours = ts_healpix.get_all_neighbours(nside, torch.tensor(target_pixs), nest=True)
+    all_needed_pixs = {int(p) for p in target_pixs}
+    all_needed_pixs.update(int(x) for x in neighbours.flatten().tolist() if int(x) >= 0)
 
     logger.info("Target HEALPix pixels covering M67 field: %s", sorted(all_needed_pixs))
     dataset_dir = zensus_path / "dataset" if (zensus_path / "dataset").exists() else zensus_path
