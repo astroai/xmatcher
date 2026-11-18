@@ -6,18 +6,19 @@ Sky-match engines (drop-in alternatives):
   default when a STILTS command is available.
 * ``astropy`` – ``match_to_catalog_sky`` / ``search_around_sky`` from astropy.
 * ``fast``   – Tier 1: ``scipy.spatial.cKDTree`` on 3D Cartesian unit-sphere
-  embeddings. Drop-in replacement for ``astropy`` in-memory; ~3-5x faster.
+  embeddings. Drop-in replacement for ``astropy`` in-memory; ~2x faster.
 * ``torchsky`` – optional tensor-native nearest-neighbour matching. Geometry
   only: ``matcher='sky'`` and ``matcher='skyerr'`` (per-row radii). Association
   policy (Bayes / LR / AUF / FoF) stays in this module.
-* ``zone``   – Tier 2: HEALPix-sharded cone match. Uses ``cdshealpix`` when
-  importable (sub-pixel zonning + per-pixel ``cKDTree`` queries) and falls
-  back to a single ``cKDTree`` query when ``cdshealpix`` is not available
-  (with a logged warning).
+* ``zone``   – Tier 2: HEALPix-sharded cone match: left rows grouped by
+  depth-5 pixel, each group queried against a ``cKDTree`` of the right rows
+  in its neighbouring pixels. Needs ``cdshealpix``; without it the ``fast``
+  engine runs (``fallback_policy='warn'``) or the match fails (``'error'``).
 
 All engines share an identical schema: source columns (left unchanged, right
 collisions get a ``_2`` suffix) plus a true great-circle ``sep_arcsec``
-column. ``id_join`` is a pure polars relational join and is engine-agnostic.
+column, and the same pairs: ``find="best"`` keeps the lowest right row index
+among equally good counterparts on every engine. ``id_join`` is a pure polars relational join and is engine-agnostic.
 
 Match criteria:
 
@@ -2743,24 +2744,6 @@ def _load_torchsky_crossmatch():
     return _torchsky.require("catalogs", "engine='torchsky'").crossmatch_sky
 
 
-def _torchsky_lonlat(df: pl.DataFrame, src: CatalogueSource):
-    """RA/Dec degrees, converted to ICRS when ``CatalogueSource.frame`` is set."""
-    ra = df[src.ra_column].to_numpy()
-    dec = df[src.dec_column].to_numpy()
-    frame = str(getattr(src, "frame", None) or "icrs").strip().lower()
-    if frame in {"icrs", "j2000", "j2000.0"}:
-        return ra, dec
-    convert_celestial = _torchsky.require("wcs", "engine='torchsky'").convert_celestial
-    ra_t, dec_t = convert_celestial(ra, dec, from_frame=src.frame, to_frame="icrs")
-
-    def _np(value):
-        if hasattr(value, "detach"):
-            value = value.detach().cpu().numpy()
-        return np.asarray(value)
-
-    return _np(ra_t), _np(dec_t)
-
-
 def _torchsky_match(
     left: pl.DataFrame,
     right: pl.DataFrame,
@@ -2768,9 +2751,11 @@ def _torchsky_match(
     right_src: CatalogueSource,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Run Torchsky's catalog matcher for ``sky`` and ``skyerr``."""
-    import numpy as np
+    """Run Torchsky's catalog matcher for ``sky`` and ``skyerr``.
 
+    Both sides share one frame (:func:`_validate_coordinate_frames`), so the
+    coordinates are matched as given, like every other engine.
+    """
     if spec.extra_distance_cols or spec.matcher not in {"sky", "skyerr"}:
         raise CrossMatchError(
             "engine='torchsky' currently supports only matcher='sky' or 'skyerr' "
@@ -2786,19 +2771,16 @@ def _torchsky_match(
     crossmatch_sky = _load_torchsky_crossmatch()
     import torch  # noqa: PLC0415 - a dependency of torchsky
 
-    left_ra, left_dec = _torchsky_lonlat(left, left_src)
-    right_ra, right_dec = _torchsky_lonlat(right, right_src)
-
     def _tensor(values):
         arr = np.asarray(values, dtype=np.float64)
         if not arr.flags.writeable or not arr.flags.c_contiguous:
             arr = np.array(arr, dtype=np.float64, copy=True, order="C")
         return torch.from_numpy(arr)
 
-    left_ra_t = _tensor(left_ra)
-    left_dec_t = _tensor(left_dec)
-    right_ra_t = _tensor(right_ra)
-    right_dec_t = _tensor(right_dec)
+    left_ra_t = _tensor(left[left_src.ra_column].to_numpy())
+    left_dec_t = _tensor(left[left_src.dec_column].to_numpy())
+    right_ra_t = _tensor(right[right_src.ra_column].to_numpy())
+    right_dec_t = _tensor(right[right_src.dec_column].to_numpy())
 
     lsig = rsig = None
     if spec.matcher == "skyerr":
@@ -2902,8 +2884,8 @@ def _zone_match(
     When ``cdshealpix`` is importable we shard both sides into HEALPix pixels
     (nside=32 by default), build a per-pixel cKDTree on the right, and only
     query neighbour pixels within the cone radius — classic HATS-style
-    partitioning. When ``cdshealpix`` is not importable we transparently
-    downgrade to :func:`_scipy_match` and log a warning.
+    partitioning. Without ``cdshealpix`` this runs :func:`_scipy_match` with a
+    warning (``fallback_policy='warn'``) or raises (``'error'``).
     """
     try:
         import cdshealpix as hp  # noqa: F401
@@ -3115,7 +3097,7 @@ def _zone_match_healpix(
 
 
 # --------------------------------------------------------------------------- #
-# astropy engine (existing implementation, unchanged)
+# astropy engine
 # --------------------------------------------------------------------------- #
 def _astropy_match(
     left: pl.DataFrame,
