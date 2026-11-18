@@ -60,7 +60,7 @@ import os
 import shutil
 import tempfile
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -1470,38 +1470,47 @@ def _run_rest(plan: UnionPlan, rest: RestPlan) -> dict[str, Any]:
     return {"key": f"rest-{rest.cat}-{rest.part_idx:05d}", "rows": table.height}
 
 
-def _rest_hub_keys(
-    frame: pl.DataFrame,
-    cat: CataloguePlan,
-    hub_parts: list[PartitionPlan],
-    max_hub_order: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Per-row ``(hub partition index, outside pixel)`` for rest rows.
+def _hub_router(
+    hub_parts: Sequence[PartitionPlan], max_hub_order: int
+) -> Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
+    """Return ``route(ra, dec) -> (hub partition index, outside pixel)``.
 
-    ``outside pixel`` = the row's pixel at ``max_hub_order`` when no hub
+    ``outside pixel`` is the row's pixel at ``max_hub_order`` when no hub
     partition contains it (``-1`` otherwise); hub index ``-1`` marks rows
-    outside the hub footprint.
-    """
-    import cdshealpix  # noqa: PLC0415
-    from astropy.coordinates import Latitude, Longitude  # noqa: PLC0415
+    outside the hub footprint.  The deepest containing partition wins.
 
-    ra = frame[cat.ra].cast(pl.Float64).to_numpy()
-    dec = frame[cat.dec].cast(pl.Float64).to_numpy()
-    if not len(ra):
-        return np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
-    npix = cdshealpix.nested.lonlat_to_healpix(
-        Longitude(ra, unit="deg"),
-        Latitude(dec, unit="deg"),
-        np.full(len(ra), max_hub_order, dtype=np.uint64),
-    )
-    hub_idx = np.full(len(ra), -1, dtype=np.int64)
-    for i, p in sorted(enumerate(hub_parts), key=lambda t: (-t[1].order, t[1].pix)):
-        shift = max_hub_order - p.order
-        anc = npix >> (2 * shift)
-        hit = (anc == p.pix) & (hub_idx < 0)
-        hub_idx[hit] = i
-    outside = np.where(hub_idx < 0, npix.astype(np.int64), -1)
-    return hub_idx, outside
+    One sorted pixel table per hub order, built once: testing every hub
+    partition against every row cost O(P x N) per chunk file, i.e.
+    O(P x total rows) for the assembly (~10^4 x 10^9 at full-sky scale).
+    """
+    tables = []
+    for order in sorted({p.order for p in hub_parts}, reverse=True):
+        members = [(i, p.pix) for i, p in enumerate(hub_parts) if p.order == order]
+        idx = np.asarray([i for i, _ in members], dtype=np.int64)
+        pix = np.asarray([px for _, px in members], dtype=np.int64)
+        sort = np.argsort(pix, kind="stable")
+        tables.append((2 * (max_hub_order - order), pix[sort], idx[sort]))
+
+    def route(ra: np.ndarray, dec: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        if not len(ra):
+            return np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
+        import cdshealpix  # noqa: PLC0415
+        from astropy.coordinates import Latitude, Longitude  # noqa: PLC0415
+
+        npix = cdshealpix.nested.lonlat_to_healpix(
+            Longitude(ra, unit="deg"),
+            Latitude(dec, unit="deg"),
+            np.full(len(ra), max_hub_order, dtype=np.uint64),
+        ).astype(np.int64)
+        hub_idx = np.full(len(ra), -1, dtype=np.int64)
+        for shift, pix, idx in tables:
+            anc = npix >> shift
+            pos = np.minimum(np.searchsorted(pix, anc), len(pix) - 1)
+            hit = (pix[pos] == anc) & (hub_idx < 0)
+            hub_idx[hit] = idx[pos[hit]]
+        return hub_idx, np.where(hub_idx < 0, npix, -1)
+
+    return route
 
 
 # --------------------------------------------------------------------------- #
@@ -1704,43 +1713,37 @@ def _write_hats_tree(
 
 
 def _assemble(plan: UnionPlan) -> dict[str, Any]:
-    """Turn the per-chunk parquets into a HATS catalogue at ``plan.out_dir``."""
+    """Turn the per-chunk parquets into a HATS catalogue at ``plan.out_dir``.
+
+    Two passes with linear I/O: every chunk file is split by output pixel into
+    staged pieces, then each output pixel is written once from its pieces,
+    already cast to the shared partition schema.  Merging piece by piece into
+    the destination re-read and rewrote it for every chunk that touched it
+    (quadratic in the chunks per pixel), and a separate harmonisation pass
+    rewrote most partitions again.
+
+    The chunk parquets are kept: they are the resume points.
+    """
     out = Path(plan.out_dir)
     dataset = out / "dataset"
     dataset.mkdir(parents=True, exist_ok=True)
-    # Insertion-ordered set: a list made the membership test below a linear
-    # scan, i.e. O(P^2) for a full-sky output (P ~ 10^5-10^6 pixels).
-    seen: dict[Path, None] = {}
+    staging = out / "chunks" / ".assemble"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
+    pieces: dict[tuple[int, int], list[Path]] = {}
 
-    def add_partition(part: PartitionPlan, src: Path) -> None:
-        relf = f"Norder={part.order}/Dir={_hats_dir(part.pix)}/Npix={part.pix}.parquet"
-        dest = dataset / relf
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest in seen:
-            # several chunks can carry rows of the same output pixel
-            # (one per input catalogue); merge them deterministically.
-            # ``vertical_relaxed``: a chunk that matched no row of a catalogue
-            # contributes all-null columns (Null dtype when the input schema was
-            # unreadable, e.g. a vos: cache root), and a strict vertical concat
-            # refuses to stack Null next to the typed column another chunk wrote.
-            merged = pl.concat(
-                [pl.read_parquet(dest), pl.read_parquet(src)], how="vertical_relaxed"
-            )
-            _atomic_write_parquet(merged, dest)
-        else:
-            # `src` is our own staging file (rest-routing tmp): the move is
-            # the rename, and it consumes the tmp -> no litter.
-            os.replace(src, dest)
-            seen[dest] = None
-        # NOTE: the source chunk parquet is deliberately NOT removed — they
-        # are the resume points (a rerun skips existing chunk files).
+    def stage(order: int, pix: int, frame: pl.DataFrame) -> None:
+        paths = pieces.setdefault((order, pix), [])
+        path = staging / f"{order}-{pix}-{len(paths):06d}.parquet"
+        frame.write_parquet(path)
+        paths.append(path)
 
     # Keep catalogue labels stable when the first input has no footprint.
     hub_parts = next(
         (cat.partitions for cat in plan.catalogues if cat.partitions), [PartitionPlan(0, 0, "")]
     )
     max_hub_order = max(p.order for p in hub_parts)
-    routing_cat = CataloguePlan("union", "", "", "_union_ra", "_union_dec")
+    route = _hub_router(hub_parts, max_hub_order)
     files = [out / "chunks" / f"{chunk.key}.parquet" for chunk in plan.chunks]
     files += [out / "chunks" / f"rest-{rest.cat}-{rest.part_idx:05d}.parquet" for rest in plan.rest]
     for src in files:
@@ -1751,77 +1754,81 @@ def _assemble(plan: UnionPlan) -> dict[str, Any]:
         # Route all chunks (including moved sources and secondary-only rows)
         # through the hub tiling; copying each input's tile creates overlapping
         # parent/child output pixels and null advertised coordinate columns.
-        hub_idx, outside_pix = _rest_hub_keys(frame, routing_cat, hub_parts, max_hub_order)
-        groups = frame.with_columns(pl.Series("_route", hub_idx)).partition_by(
-            "_route", as_dict=True
+        hub_idx, outside_pix = route(
+            frame["_union_ra"].cast(pl.Float64).to_numpy(),
+            frame["_union_dec"].cast(pl.Float64).to_numpy(),
         )
-        for key, sub in groups.items():
-            h = int(key[0])
-            if h < 0:
-                continue
-            tmp = out / "chunks" / f".{src.stem}-h{h}.tmp"
-            try:
-                sub.drop("_route").write_parquet(tmp)
-                add_partition(hub_parts[h], tmp)
-            finally:
-                tmp.unlink(missing_ok=True)
-        groups = frame.with_columns(pl.Series("_route", outside_pix)).partition_by(
-            "_route", as_dict=True
-        )
-        for key, sub in groups.items():
-            px = int(key[0])
-            if px < 0:
-                continue
-            tmp = out / "chunks" / f".{src.stem}-o{px}.tmp"
-            try:
-                sub.drop("_route").write_parquet(tmp)
-                add_partition(PartitionPlan(max_hub_order, px, ""), tmp)
-            finally:
-                tmp.unlink(missing_ok=True)
+        for key, sub in (
+            frame.with_columns(pl.Series("_hub", hub_idx))
+            .partition_by("_hub", as_dict=True)
+            .items()
+        ):
+            if int(key[0]) >= 0:
+                part = hub_parts[int(key[0])]
+                stage(part.order, part.pix, sub.drop("_hub"))
+        for key, sub in (
+            frame.with_columns(pl.Series("_out", outside_pix))
+            .partition_by("_out", as_dict=True)
+            .items()
+        ):
+            if int(key[0]) >= 0:
+                stage(max_hub_order, int(key[0]), sub.drop("_out"))
 
-    if not seen:
+    if not pieces:
         # A zero-row catalogue still carries a readable schema and HATS metadata.
-        tmp = out / "chunks" / ".empty.tmp"
-        tmp.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            _empty_union(plan).write_parquet(tmp)
-            add_partition(hub_parts[0], tmp)
-        finally:
-            tmp.unlink(missing_ok=True)
+        stage(hub_parts[0].order, hub_parts[0].pix, _empty_union(plan))
 
-    _harmonise_partitions(list(seen), plan)
+    schemas = {path: pl.read_parquet_schema(path) for paths in pieces.values() for path in paths}
+    target = _partition_schema(schemas.values(), plan)
     info: list[dict[str, Any]] = []
-    for dest in seen:
-        order = int(dest.parent.parent.name.removeprefix("Norder="))
-        pix = int(dest.name.removeprefix("Npix=").removesuffix(".parquet"))
+    for (order, pix), paths in sorted(pieces.items()):
+        loc = f"Norder={order}/Dir={_hats_dir(pix)}/Npix={pix}"
+        dest = dataset / f"{loc}.parquet"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if len(paths) == 1 and list(schemas[paths[0]].items()) == list(target.items()):
+            os.replace(paths[0], dest)
+            rows = _parquet_row_count(dest)
+        else:
+            # ``vertical_relaxed``: a chunk that matched no row of a catalogue
+            # contributes all-null columns (Null dtype when the input schema
+            # was unreadable, e.g. a vos: cache root).
+            frame = pl.concat([pl.read_parquet(p) for p in paths], how="vertical_relaxed")
+            frame = frame.select(
+                [
+                    pl.col(c).cast(dtype) if c in frame.columns else pl.lit(None, dtype).alias(c)
+                    for c, dtype in target.items()
+                ]
+            )
+            _atomic_write_parquet(frame, dest)
+            rows = frame.height
         info.append(
             {
                 "Norder": order,
-                "Dir": int(_hats_dir(pix)),
-                "Npix": int(pix),
+                "Dir": _hats_dir(pix),
+                "Npix": pix,
                 "Nfiles": 1,
-                "file_loc": f"Norder={order}/Dir={_hats_dir(pix)}/Npix={pix}",
+                "file_loc": loc,
                 "file_size": dest.stat().st_size,
-                "count": _parquet_row_count(dest),
+                "count": rows,
             }
         )
+    shutil.rmtree(staging)
     # the union's row count (set by the writer), never the hub's inherited one
     stats = _write_hats_tree(out, info, _read_hub_props(plan))
-    return {"chunks": len(seen), "rows": stats["rows"]}
+    return {"chunks": len(info), "rows": stats["rows"]}
 
 
-def _harmonise_partitions(paths: Sequence[Path], plan: UnionPlan) -> None:
-    """Give every output partition one schema, as a HATS catalogue requires.
+def _partition_schema(schemas: Iterable[pl.Schema], plan: UnionPlan) -> pl.Schema:
+    """The one schema every output partition gets, as a HATS catalogue requires.
 
-    Pixels merged with ``vertical_relaxed`` (or written by a chunk that saw no
-    row of a catalogue) can hold Null-typed or differently ordered columns.
-    Each column takes its planned dtype, or the first concrete dtype found on
-    disk when the plan could not read the input schema.
+    Pieces written by a chunk that saw no row of a catalogue can hold
+    Null-typed columns.  Each column takes its planned dtype, or the first
+    concrete dtype found on disk when the plan could not read the input
+    schema; planned columns come first, in plan order.
     """
     planned = _empty_union(plan).schema
-    schemas = {path: pl.read_parquet_schema(path) for path in paths}
     target: dict[str, pl.DataType] = {}
-    for schema in schemas.values():
+    for schema in schemas:
         for column, dtype in schema.items():
             planned_dtype = planned.get(column)
             if planned_dtype is not None and planned_dtype != pl.Null:
@@ -1829,19 +1836,7 @@ def _harmonise_partitions(paths: Sequence[Path], plan: UnionPlan) -> None:
             elif target.get(column, pl.Null) == pl.Null:
                 target[column] = dtype
     order = [c for c in planned if c in target] + [c for c in target if c not in planned]
-    for path, schema in schemas.items():
-        if list(schema) == order and all(schema[c] == target[c] for c in order):
-            continue
-        frame = pl.read_parquet(path)
-        frame = frame.select(
-            [
-                pl.col(c).cast(target[c])
-                if c in frame.columns
-                else pl.lit(None, target[c]).alias(c)
-                for c in order
-            ]
-        )
-        _atomic_write_parquet(frame, path)
+    return pl.Schema({c: target[c] for c in order})
 
 
 # --------------------------------------------------------------------------- #
