@@ -604,32 +604,32 @@ def _match_survey(
             survey_frame[survey.dec].cast(pl.Float64).to_numpy(),
         )
         tree = cKDTree(survey_xyz)
-        dist, idx = tree.query(anchor_xyz, k=2, distance_upper_bound=chord, workers=-1)
+        # ``query_ball_point`` counts a candidate exactly on the radius while
+        # ``query(distance_upper_bound=...)`` excludes it; widen the bound by
+        # one ulp, then rebuild from the ball hits any row whose two nearest
+        # still disagree with its count, so n_within, sep_arcsec and
+        # sep_second follow one inclusive radius rule.
+        dist, idx = tree.query(
+            anchor_xyz, k=2, distance_upper_bound=float(np.nextafter(chord, np.inf)), workers=-1
+        )
         counts = np.asarray(
             tree.query_ball_point(anchor_xyz, chord, workers=-1, return_length=True),
             dtype=np.int64,
         )
-        best_ok = dist[:, 0] <= chord
+        best_ok = np.isfinite(dist[:, 0])
+        second_ok = np.isfinite(dist[:, 1])
         best_idx = np.where(best_ok, idx[:, 0], -1).astype(np.int64)
         best_sep = np.where(best_ok, matchers._chord_to_arcsec(dist[:, 0]), np.nan)
-        second_ok = dist[:, 1] <= chord
         second_sep = np.where(second_ok, matchers._chord_to_arcsec(dist[:, 1]), np.nan)
-        # query_ball_point may see a candidate that the two-neighbour query
-        # omits at the exact boundary; a best index of -1 with count > 0 is
-        # inconsistent, so fall back to the nearest candidate explicitly.
-        missing = (counts > 0) & ~best_ok
-        if missing.any():
-            for row in np.flatnonzero(missing):
-                hit = np.asarray(tree.query_ball_point(anchor_xyz[row], chord), dtype=np.int64)
-                if hit.size:
-                    d = matchers._chord_to_arcsec(
-                        np.linalg.norm(survey_xyz[hit] - anchor_xyz[row], axis=1)
-                    )
-                    order = np.argsort(d, kind="stable")
-                    best_idx[row] = int(hit[order[0]])
-                    best_sep[row] = float(d[order[0]])
-                    if order.size > 1:
-                        second_sep[row] = float(d[order[1]])
+        disagree = np.minimum(counts, 2) != best_ok.astype(np.int64) + second_ok
+        for row in np.flatnonzero(disagree):
+            hit = np.asarray(tree.query_ball_point(anchor_xyz[row], chord), dtype=np.int64)
+            d = matchers._chord_to_arcsec(np.linalg.norm(survey_xyz[hit] - anchor_xyz[row], axis=1))
+            order = np.argsort(d, kind="stable")
+            counts[row] = hit.size
+            best_idx[row] = int(hit[order[0]]) if hit.size else -1
+            best_sep[row] = float(d[order[0]]) if hit.size else np.nan
+            second_sep[row] = float(d[order[1]]) if hit.size > 1 else np.nan
         best_rows = _gather_rows(survey_frame, best_idx)
 
     meta = pl.DataFrame(
@@ -744,7 +744,8 @@ def _fingerprint(plan: AnchorPlan) -> dict[str, Any]:
         }
 
     return {
-        "version": 2,
+        # 3: n_within/sep_arcsec/sep_second share one inclusive radius rule.
+        "version": 3,
         "anchor": cat_fp(plan.anchor),
         "surveys": [cat_fp(c) for c in plan.surveys],
         "tags": plan.survey_tags,
