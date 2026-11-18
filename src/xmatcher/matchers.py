@@ -1592,8 +1592,10 @@ def _likelihood_ratio_scoring(
     1. Estimate the background surface density n(m) from the secondary catalogue.
     2. Estimate the true-counterpart magnitude distribution q(m) by subtracting
        the expected background from the candidate magnitude distribution.
-    3. For each pair compute the Rayleigh positional PDF f(r) using the combined
-       per-row positional errors.
+    3. For each pair evaluate the positional error distribution f(r): the 2-D
+       isotropic Gaussian surface density (per arcsec²) of the offset, using
+       the combined per-axis variance of both sources.  It shares n(m)'s
+       per-area units, so LR is dimensionless and peaks at zero offset.
     4. Compute LR_i = q(m_i) * f(r_i) / n(m_i).
     5. Compute reliability R_j = LR_j / (Σ_i LR_i + (1 - Q)).
     6. If find="best", keep the highest-reliability candidate per primary source.
@@ -1625,7 +1627,7 @@ def _likelihood_ratio_scoring(
             np.ones(left_idx.size, dtype=float),
         )
 
-    # --- positional sigmas for the Rayleigh PDF f(r) ------------------------
+    # --- positional sigmas for the positional density f(r) -----------------
     lsig = _pos_sigma_arcsec(left, left_src)
     rsig = _pos_sigma_arcsec(right, right_src)
     if lsig is None:
@@ -1633,14 +1635,15 @@ def _likelihood_ratio_scoring(
     if rsig is None:
         rsig = np.full(right.height, 0.5, dtype=float)
 
-    sigma_l = lsig[left_idx]
-    sigma_r = rsig[right_idx]
-    sigma_combined = np.sqrt(sigma_l**2 + sigma_r**2)
-    sigma_combined = np.maximum(sigma_combined, 1e-6)
+    # `_pos_sigma_arcsec` is a radial RMS (σ_rad² = σ_ra*² + σ_dec²); the
+    # isotropic 2-D Gaussian needs the per-axis variance σ_rad² / 2.
+    axis_var = 0.5 * (lsig[left_idx] ** 2 + rsig[right_idx] ** 2)
+    axis_var = np.maximum(axis_var, 1e-12)
 
-    # f(r) = r / σ² * exp(-r² / (2σ²)) — the Rayleigh radial PDF.
-    sigma_sq = sigma_combined**2
-    f_r = (seps / sigma_sq) * np.exp(-(seps**2) / (2.0 * sigma_sq))
+    # Sutherland & Saunders (1992): f(r) = exp(-r²/2σ²) / (2πσ²), a surface
+    # density.  The Rayleigh radial PDF (an extra factor 2πr) would vanish at
+    # r = 0 and rank farther candidates above coincident ones.
+    f_r = np.exp(-(seps**2) / (2.0 * axis_var)) / (2.0 * math.pi * axis_var)
     f_r = np.maximum(f_r, 1e-300)
 
     # --- n(m): background surface density per unit area per magnitude --------

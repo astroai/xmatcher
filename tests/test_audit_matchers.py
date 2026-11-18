@@ -77,6 +77,43 @@ def test_sky_match_agrees_with_astropy_search_around_sky(region, engine, find):
     np.testing.assert_allclose(matched["sep_arcsec"].to_numpy(), reference, rtol=0, atol=1e-9)
 
 
+# ------------------------------------------------------------ likelihood ratio
+def test_likelihood_ratio_prefers_coincident_counterpart():
+    rng = np.random.default_rng(0)
+    n_bg = 2000
+    right = pl.DataFrame(
+        {
+            "ra": np.r_[10.0 + 0.02 / 3600.0, 10.0 + 1.2 / 3600.0, rng.uniform(9.5, 10.5, n_bg)],
+            "dec": np.r_[0.0, 0.0, rng.uniform(-0.5, 0.5, n_bg)],
+            "mag": np.r_[18.0, 18.0, rng.uniform(15.0, 22.0, n_bg)],
+        }
+    )
+    left = pl.DataFrame({"ra": [10.0], "dec": [0.0]})
+    out = sky_match(
+        _src("a", default_pos_error_arcsec=0.3),
+        _src("b", default_pos_error_arcsec=0.3),
+        left.lazy(),
+        right.lazy(),
+        MatchSpec(radius_arcsec=3.0, matcher="lr", lr_magnitude_column="mag", find="all"),
+        engine="fast",
+    ).collect()
+    by_sep = dict(zip(out["sep_arcsec"].round(6).to_list(), out["lr"].to_list(), strict=True))
+    # Same magnitude bin, so the LR ratio is the ratio of 2-D Gaussian
+    # surface densities with per-axis variance 0.3² + 0.3².
+    var = 0.3**2 + 0.3**2
+    expected_ratio = math.exp(-(0.02**2 - 1.2**2) / (2.0 * var))
+    assert by_sep[0.02] / by_sep[1.2] == pytest.approx(expected_ratio, rel=1e-9)
+    best = sky_match(
+        _src("a", default_pos_error_arcsec=0.3),
+        _src("b", default_pos_error_arcsec=0.3),
+        left.lazy(),
+        right.lazy(),
+        MatchSpec(radius_arcsec=3.0, matcher="lr", lr_magnitude_column="mag"),
+        engine="fast",
+    ).collect()
+    assert best["sep_arcsec"].to_list() == pytest.approx([0.02])
+
+
 # --------------------------------------------------------------- Bayes factors
 def test_nway_bayes_factor_closed_forms():
     rng = np.random.default_rng(3)
