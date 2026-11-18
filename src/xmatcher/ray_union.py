@@ -820,7 +820,12 @@ def _effective_pair_chord(
     centre_err: Any,
     pool_errs: Sequence[Any],
 ) -> float:
-    """Spatial upper-bound chord for cKDTree pre-filtering in chunk/rest workers."""
+    """Spatial upper-bound chord for cKDTree pre-filtering in chunk/rest workers.
+
+    ``sep_arcsec`` is the hard ceiling for every matcher, as in the serial
+    engines; positional errors can only narrow the search.  The chunk cone
+    (``max(2, N-1) * sep``) relies on that bound to hold every chain of mates.
+    """
     base_chord = matchers._arcsec_to_chord(float(plan.sep_arcsec))
     if plan.matcher == "skyerr" and centre_err is not None:
         c_max = float(np.nanmax(centre_err)) if len(centre_err) else 0.0
@@ -830,15 +835,16 @@ def _effective_pair_chord(
         )
         bound_arcsec = float(plan.max_error) * (c_max + p_max)
         if np.isfinite(bound_arcsec) and bound_arcsec > 0.0:
-            return max(base_chord, matchers._arcsec_to_chord(bound_arcsec))
+            return min(base_chord, matchers._arcsec_to_chord(bound_arcsec))
     elif plan.matcher == "skyellipse" and centre_err is not None:
-        chords = [base_chord]
-        for pe in pool_errs:
-            if pe is not None and len(pe[0]):
-                chords.append(
-                    matchers._skyellipse_search_chord_max(centre_err, pe, float(plan.max_error))
-                )
-        return max(chords)
+        chords = [
+            matchers._skyellipse_search_chord_max(
+                centre_err, pe, float(plan.max_error), float(plan.sep_arcsec)
+            )
+            for pe in pool_errs
+            if pe is not None and len(pe[0])
+        ]
+        return min(base_chord, max(chords)) if chords else base_chord
     return base_chord
 
 
@@ -870,20 +876,17 @@ def _pair_keep(
         limit = float(max_error) * (c_err + np.asarray(p_err, dtype=float)[idx])
         return np.isfinite(limit) & np.isfinite(seps) & (seps <= limit)
     if matcher == "skyellipse" and c_err is not None and p_err is not None:
-        sra2_c, sde2_c, rho_c = c_err
         sra2_p, sde2_p, rho_p = p_err
-        cos_dec = np.cos(np.radians(0.5 * (c_dec + dec[idx])))
-        delta_ra = ((c_ra - ra[idx] + 180.0) % 360.0 - 180.0) * 3600.0 * cos_dec
-        delta_dec = (c_dec - dec[idx]) * 3600.0
-        d2 = matchers._mahalanobis_pairwise(
-            delta_ra,
-            delta_dec,
-            np.full(idx.size, sra2_c),
-            np.full(idx.size, sde2_c),
-            np.full(idx.size, rho_c),
-            sra2_p[idx],
-            sde2_p[idx],
-            rho_p[idx],
+        n = idx.size
+        # Exact tangent-plane offset and rotated covariances: ΔRA·cos(mean Dec)
+        # is wrong near the poles, where a close pair can differ by 180° in RA.
+        d2 = matchers._skyellipse_d2(
+            np.full(n, c_ra),
+            np.full(n, c_dec),
+            ra[idx],
+            dec[idx],
+            tuple(np.full(n, part) for part in c_err),
+            (sra2_p[idx], sde2_p[idx], rho_p[idx]),
         )
         return np.isfinite(d2) & (d2 <= float(max_error) ** 2)
     return np.ones(idx.size, dtype=bool)

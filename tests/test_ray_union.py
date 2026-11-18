@@ -1324,3 +1324,34 @@ def test_ray_union_reads_coordinate_names_from_hats_properties(tmp_path: Path) -
 
     union = _read_output(out)
     assert sorted(union["_src_cats"].to_list()) == ["1", "1+2", "2"]
+
+
+@pytest.mark.parametrize("matcher", ["skyerr", "skyellipse"])
+def test_ray_union_error_matchers_never_exceed_the_radius(tmp_path: Path, matcher: str) -> None:
+    """sep_arcsec is the hard ceiling, as in the serial engines: 10" errors do
+    not merge a pair 5" apart at a 1" radius."""
+    row = {"id": ["a0"], "ra": [10.0], "dec": [0.0], "rae": [10.0], "dee": [10.0], "corr": [0.0]}
+    a = pl.DataFrame(row)
+    b = a.with_columns(pl.lit("b0").alias("id"), (pl.col("ra") + 5.0 / 3600.0).alias("ra"))
+    src_a = dataclasses_replace_err(_catalogue(tmp_path / "a", "a", a))
+    src_b = dataclasses_replace_err(_catalogue(tmp_path / "b", "b", b))
+    out = tmp_path / "out.hats"
+    ray_union.ray_union_match(
+        [src_a, src_b], sep_arcsec=1.0, output_file=str(out), matcher=matcher, max_error=3.0
+    )
+    assert sorted(_read_output(out)["_src_cats"].to_list()) == ["1", "2"]
+
+
+def test_ray_union_skyellipse_merges_a_close_pair_across_the_pole(tmp_path: Path) -> None:
+    """0.72" apart across the pole with 0.5" errors: d2 = 1.04 <= 1.5**2."""
+    dec = 90.0 - 0.36 / 3600.0
+    row = {"id": ["a0"], "ra": [0.0], "dec": [dec], "rae": [0.5], "dee": [0.5], "corr": [0.0]}
+    a = pl.DataFrame(row)
+    b = a.with_columns(pl.lit("b0").alias("id"), pl.lit(180.0).alias("ra"))
+    src_a = dataclasses_replace_err(_catalogue(tmp_path / "a", "a", a))
+    src_b = dataclasses_replace_err(_catalogue(tmp_path / "b", "b", b))
+    out = tmp_path / "out.hats"
+    ray_union.ray_union_match(
+        [src_a, src_b], sep_arcsec=5.0, output_file=str(out), matcher="skyellipse", max_error=1.5
+    )
+    assert _read_output(out)["_src_cats"].to_list() == ["1+2"]
