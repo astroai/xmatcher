@@ -1266,3 +1266,39 @@ def test_dense_union_fails_at_run_time_with_the_memory_knob(tmp_path: Path) -> N
     message = str(excinfo.value)
     assert "--chunk-memory-gb" in message
     assert "output rows" in message
+
+
+def test_ray_union_output_is_a_strictly_valid_hats_catalogue(tmp_path: Path) -> None:
+    """The union tree must pass `hats` strict validation and read back in full."""
+    import pyarrow.dataset as pds
+
+    hats = pytest.importorskip("hats")
+    from hats.io.validation import is_valid_catalog
+
+    rng = np.random.default_rng(7)
+    n = 400
+    ra = rng.uniform(0.0, 360.0, n)
+    dec = np.degrees(np.arcsin(rng.uniform(-1.0, 1.0, n)))
+    a = _catalogue(
+        tmp_path / "cata",
+        "cata",
+        pl.DataFrame({"ra": ra, "dec": dec, "id": [f"a{i}" for i in range(n)]}),
+    )
+    # Half of B sits on A, half far away; B also carries a column A lacks, so
+    # merged pixels exercise the Null-typed columns of unmatched chunks.
+    b_ra = np.concatenate([ra[: n // 2] + 1e-5, (ra[n // 2 :] + 90.0) % 360.0])
+    b = _catalogue(
+        tmp_path / "catb",
+        "catb",
+        pl.DataFrame(
+            {"ra": b_ra, "dec": dec, "id": [f"b{i}" for i in range(n)], "mag": rng.normal(20, 1, n)}
+        ),
+    )
+    out = tmp_path / "union.hats"
+    ray_union.ray_union_match([a, b], sep_arcsec=1.0, output_file=str(out), hats_threshold=50)
+
+    assert is_valid_catalog(out, strict=True)
+    rows = hats.read_hats(out).catalog_info.total_rows
+    assert rows == _read_output(out).height
+    assert pds.parquet_dataset(str(out / "dataset" / "_metadata")).count_rows() == rows
+    assert pds.dataset(str(out / "dataset"), format="parquet").count_rows() == rows

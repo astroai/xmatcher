@@ -39,8 +39,8 @@ capped by ``max_tuples``.
 
 Output: ``<out>/dataset/Norder=…/Dir=…/Npix=….parquet`` — one disjoint NESTED tiling
 based on the hub footprint, plus
-``dataset/partition_info.parquet``, ``properties`` and
-``_metadata``/``_common_metadata``, readable via standard HATS
+root ``properties`` and ``partition_info.csv``, and
+``dataset/_metadata``/``_common_metadata``, readable via standard HATS
 readers.  Chunk outputs go to ``<out>/chunks/<key>.parquet`` and are skipped
 on resume when present.
 
@@ -1786,47 +1786,59 @@ def _assemble(plan: UnionPlan) -> dict[str, Any]:
         finally:
             tmp.unlink(missing_ok=True)
 
-    if seen:
-        info: list[dict[str, Any]] = []
-        total_rows = 0
-        for dest in seen:
-            order = int(dest.parent.parent.name.removeprefix("Norder="))
-            pix = int(dest.name.removeprefix("Npix=").removesuffix(".parquet"))
-            count = _parquet_row_count(dest)
-            total_rows += count
-            info.append(
-                {
-                    "Norder": order,
-                    "Dir": int(_hats_dir(pix)),
-                    "Npix": int(pix),
-                    "Nfiles": 1,
-                    "file_loc": f"Norder={order}/Dir={_hats_dir(pix)}/Npix={pix}",
-                    "file_size": dest.stat().st_size,
-                    "count": count,
-                }
-            )
-        info_df = pl.DataFrame(info).sort(["Norder", "Npix", "file_loc"])
-        _atomic_write_parquet(info_df, dataset / "partition_info.parquet")
-        # hats 0.7.x reads the root copy; the dataset copy is the classic spec.
-        _atomic_write_csv(info_df, dataset / "partition_info.csv")
-        _atomic_write_csv(info_df, out / "partition_info.csv")
-        props = _read_hub_props(plan)
-        # the union's row count, never the hub's inherited hats_nrows
-        props["hats_nrows"] = str(total_rows)
-        props_text = _props_text(props)
-        _atomic_write_text(props_text, out / "properties")
-        _atomic_write_text(props_text, dataset / "properties")
-        try:
-            import pyarrow as pa  # noqa: PLC0415
-            import pyarrow.parquet as pq  # noqa: PLC0415
+    _harmonise_partitions(list(seen), plan)
+    info: list[dict[str, Any]] = []
+    for dest in seen:
+        order = int(dest.parent.parent.name.removeprefix("Norder="))
+        pix = int(dest.name.removeprefix("Npix=").removesuffix(".parquet"))
+        info.append(
+            {
+                "Norder": order,
+                "Dir": int(_hats_dir(pix)),
+                "Npix": int(pix),
+                "Nfiles": 1,
+                "file_loc": f"Norder={order}/Dir={_hats_dir(pix)}/Npix={pix}",
+                "file_size": dest.stat().st_size,
+                "count": _parquet_row_count(dest),
+            }
+        )
+    # the union's row count (set by the writer), never the hub's inherited one
+    stats = _write_hats_tree(out, info, _read_hub_props(plan))
+    return {"chunks": len(seen), "rows": stats["rows"]}
 
-            schemas = [pq.read_schema(f) for f in seen]
-            unified = pa.unify_schemas(list(schemas))
-            pq.write_metadata(unified, dataset / "_common_metadata")
-            pq.write_metadata(unified, dataset / "_metadata")
-        except Exception:  # noqa: BLE001
-            logger.warning("heterogeneous parquet schemas; skipping _metadata")
-    return {"chunks": len(seen), "rows": total_rows if seen else 0}
+
+def _harmonise_partitions(paths: Sequence[Path], plan: UnionPlan) -> None:
+    """Give every output partition one schema, as a HATS catalogue requires.
+
+    Pixels merged with ``vertical_relaxed`` (or written by a chunk that saw no
+    row of a catalogue) can hold Null-typed or differently ordered columns.
+    Each column takes its planned dtype, or the first concrete dtype found on
+    disk when the plan could not read the input schema.
+    """
+    planned = _empty_union(plan).schema
+    schemas = {path: pl.read_parquet_schema(path) for path in paths}
+    target: dict[str, pl.DataType] = {}
+    for schema in schemas.values():
+        for column, dtype in schema.items():
+            planned_dtype = planned.get(column)
+            if planned_dtype is not None and planned_dtype != pl.Null:
+                target[column] = planned_dtype
+            elif target.get(column, pl.Null) == pl.Null:
+                target[column] = dtype
+    order = [c for c in planned if c in target] + [c for c in target if c not in planned]
+    for path, schema in schemas.items():
+        if list(schema) == order and all(schema[c] == target[c] for c in order):
+            continue
+        frame = pl.read_parquet(path)
+        frame = frame.select(
+            [
+                pl.col(c).cast(target[c])
+                if c in frame.columns
+                else pl.lit(None, target[c]).alias(c)
+                for c in order
+            ]
+        )
+        _atomic_write_parquet(frame, path)
 
 
 # --------------------------------------------------------------------------- #
