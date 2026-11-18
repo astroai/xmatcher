@@ -1074,7 +1074,7 @@ def test_sync_hats_partial_transfer_fails_over(tmp_path: Path, monkeypatch) -> N
     """
     calls: list = []
 
-    def flaky(src, cache, *, bucket, force, workers, progress_cb, stats, endpoint):
+    def flaky(src, cache, *, bucket, force, workers, progress_cb, stats, min_free_gb, endpoint):
         calls.append(endpoint.access_identifier)
         if len(calls) == 1:
             stats.files_downloaded += 3

@@ -40,6 +40,7 @@ store), and the converted HATS catalogue lives under
 from __future__ import annotations
 
 import calendar
+import contextlib
 import hashlib
 import http.client
 import io as _io
@@ -56,7 +57,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -1236,6 +1237,7 @@ def _mirror_remote_hats(
     workers: int,
     progress_cb: Callable[[str], None] | None,
     stats: SyncStats,
+    min_free_gb: float,
     endpoint: CatalogueSource | None = None,
 ) -> None:
     """Mirror every remote HATS partition file into ``cache/<name>/<version>``.
@@ -1243,6 +1245,8 @@ def _mirror_remote_hats(
     ``endpoint`` (fallback copy) swaps the fetching URL while ``src`` keeps
     the cache identity (name + version dir), so a mirror served by a
     different copy still lands where ``locate_mirrored(src)`` looks.
+    Before any transfer, a local cache must hold the listed bytes still to
+    fetch plus ``min_free_gb`` GiB (see :func:`_assert_fits`).
     """
     fetch = endpoint or src
     version = _version_dir(src)
@@ -1372,6 +1376,7 @@ def _mirror_remote_hats(
             for entry in entries:
                 do_fetch(entry)
 
+    _assert_fits(cache, src, data_todo + metadata_todo, manifest.get("files", {}), min_free_gb)
     if progress_cb:
         progress_cb(f"sync {src.name}: {len(data_todo) + len(metadata_todo)} file(s) to fetch")
     try:
@@ -1427,6 +1432,71 @@ def _mirror_remote_hats(
         stats.files_skipped,
         stats.failed,
     )
+
+
+def _assert_fits(
+    cache: Storage,
+    src: CatalogueSource,
+    todo: list[dict[str, Any]],
+    previous: dict[str, Any],
+    min_free_gb: float,
+) -> None:
+    """Refuse a sync whose remaining downloads would cross the free-space floor.
+
+    The floor check in :func:`sync_catalogue` only sees the disk as it is; a
+    700 GiB tree on a disk with 50 GiB free would otherwise fill it days in.
+    Each listed file counts its growth over the copy it replaces.  Files the
+    listing gives no size for (``partition_info.csv`` trees without
+    ``file_size``) cannot be counted, so the estimate is a lower bound there.
+    A ``vos:`` cache has no visible quota and is not checked.
+    """
+    if not isinstance(cache, LocalStorage):
+        return
+    need = 0
+    for entry in todo:
+        size = entry.get("size")
+        if isinstance(size, int) and size > 0:
+            old = (previous.get(entry["rel"]) or {}).get("size")
+            need += size - old if isinstance(old, int) and 0 < old <= size else size
+    if not need:
+        return
+    free = shutil.disk_usage(cache.root).free
+    gib = 1024**3
+    if free - need < min_free_gb * gib:
+        raise CrossMatchError(
+            f"sync {src.name}: {need / gib:.1f} GiB still to download but {cache.root} has "
+            f"{free / gib:.1f} GiB free, which would leave less than the --min-free-gb "
+            f"floor of {min_free_gb:g} GiB; free space or point --cache-root elsewhere."
+        )
+
+
+@contextlib.contextmanager
+def _sync_lock(cache: Storage, src: CatalogueSource) -> Iterator[None]:
+    """Hold an exclusive per-tree lock for the whole sync of ``src``.
+
+    Two concurrent syncs of one tree (a cron job and a manual run, or two
+    sessions on a shared ``/arc`` cache) interleave partition writes and the
+    last ``sync.json`` write wins, so a mirror can be marked complete over
+    the other run's half-written files.  The lock is a ``flock`` on
+    ``<name>/.<version>.lock``, released by the kernel if the process dies.
+    VOSpace has no lock primitive, so ``vos:`` caches are not locked.
+    """
+    if not isinstance(cache, LocalStorage):
+        yield
+        return
+    import fcntl  # noqa: PLC0415 - POSIX only, like the supported platforms
+
+    path = cache.root / _safe_name(src.name) / f".{_version_dir(src)}.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise CrossMatchError(
+                f"Another 'xmatcher sync' of '{src.name}' is running against {cache.root} "
+                f"(lock {path}); wait for it to finish."
+            ) from None
+        yield
 
 
 def _remote_reader(
@@ -1981,6 +2051,7 @@ def _sync_with_failover(
     auth_session: Any,
     progress_cb: Callable[[str], None] | None,
     stats: SyncStats,
+    min_free_gb: float,
 ) -> None:
     """Mirror ``src``, retrying endpoint-class failures across its fallbacks.
 
@@ -2019,6 +2090,7 @@ def _sync_with_failover(
                     workers=workers,
                     progress_cb=progress_cb,
                     stats=stats,
+                    min_free_gb=min_free_gb,
                     endpoint=cand,
                 )
                 d_fail = stats.failed - fa0
@@ -2191,7 +2263,10 @@ def sync_catalogue(
     and trust the copy — the day-scale re-union pattern ("synced Monday,
     union Tuesday…") never re-pays the probe hours.  ``min_free_gb`` floors
     the free space on ``root`` before any fetch begins (default 10 GiB; env
-    ``XMATCHER_MIN_FREE_GB`` or config ``cache.min_free_gb`` override).
+    ``XMATCHER_MIN_FREE_GB`` or config ``cache.min_free_gb`` override), and
+    a remote HATS sync also refuses to start when the listed bytes still to
+    download would cross it.  A local cache is locked per tree for the whole
+    sync: a second concurrent sync of the same tree fails fast.
     """
     from .storage import assert_headroom, default_cache_root
 
@@ -2207,50 +2282,53 @@ def sync_catalogue(
 
     min_free = _min_free_gb(min_free_gb)
     assert_headroom(root, min_free, f"cache root '{root}'")
-
-    if fresh_after is not None and not force:
-        name = _safe_name(src.name)
-        prefix = f"{name}/{_version_dir(src)}"
-        manifest_rel = (
-            f"{prefix}/{_MANIFEST_NAME}"
-            if src.access_method == "hats"
-            else f"{name}/raw/{_MANIFEST_NAME}"
+    with _sync_lock(cache, src):
+        if fresh_after is not None and not force:
+            name = _safe_name(src.name)
+            prefix = f"{name}/{_version_dir(src)}"
+            manifest_rel = (
+                f"{prefix}/{_MANIFEST_NAME}"
+                if src.access_method == "hats"
+                else f"{name}/raw/{_MANIFEST_NAME}"
+            )
+            manifest = _read_json(cache, manifest_rel)
+            fetched = manifest.get("fetched_at") if manifest else None
+            if fetched and cache.exists(f"{prefix}/properties"):
+                try:
+                    fetched_ts = float(
+                        calendar.timegm(time.strptime(fetched, "%Y-%m-%dT%H:%M:%SZ"))
+                    )
+                except (ValueError, OverflowError):
+                    fetched_ts = 0.0
+                age_days = (time.time() - fetched_ts) / 86400.0
+                if 0.0 <= age_days < fresh_after:
+                    logger.info(
+                        "sync %s: mirror fetched %s (%.1f days ago, < fresh-after %.1f); "
+                        "skipping the change probe",
+                        src.name,
+                        fetched,
+                        age_days,
+                        fresh_after,
+                    )
+                    return stats
+        bucket = TokenBucket(rate_limit_rps) if rate_limit_rps else TokenBucket(0.0)
+        _sync_with_failover(
+            src,
+            cache,
+            bucket=bucket,
+            force=force,
+            workers=workers,
+            page_size=page_size,
+            hats_threshold=hats_threshold,
+            estimated_size=estimated_size or DEFAULT_ESTIMATED_SIZE,
+            auth_session=auth_session,
+            progress_cb=progress_cb,
+            stats=stats,
+            min_free_gb=min_free,
         )
-        manifest = _read_json(cache, manifest_rel)
-        fetched = manifest.get("fetched_at") if manifest else None
-        if fetched and cache.exists(f"{prefix}/properties"):
-            try:
-                fetched_ts = float(calendar.timegm(time.strptime(fetched, "%Y-%m-%dT%H:%M:%SZ")))
-            except (ValueError, OverflowError):
-                fetched_ts = 0.0
-            age_days = (time.time() - fetched_ts) / 86400.0
-            if 0.0 <= age_days < fresh_after:
-                logger.info(
-                    "sync %s: mirror fetched %s (%.1f days ago, < fresh-after %.1f); "
-                    "skipping the change probe",
-                    src.name,
-                    fetched,
-                    age_days,
-                    fresh_after,
-                )
-                return stats
-    bucket = TokenBucket(rate_limit_rps) if rate_limit_rps else TokenBucket(0.0)
-    _sync_with_failover(
-        src,
-        cache,
-        bucket=bucket,
-        force=force,
-        workers=workers,
-        page_size=page_size,
-        hats_threshold=hats_threshold,
-        estimated_size=estimated_size or DEFAULT_ESTIMATED_SIZE,
-        auth_session=auth_session,
-        progress_cb=progress_cb,
-        stats=stats,
-    )
-    if stats.failed == 0:
-        _replicate_to_roots(cache, src, list(replica_roots or []))
-    return stats
+        if stats.failed == 0:
+            _replicate_to_roots(cache, src, list(replica_roots or []))
+        return stats
 
 
 def locate_mirrored(

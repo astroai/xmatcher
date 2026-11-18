@@ -184,3 +184,83 @@ def test_streamed_http_download_writes_the_body(tmp_path, monkeypatch) -> None:
     body, size = mirror._http_request("https://example.test/f", mirror.TokenBucket(0), dest=dest)
     assert body is None and size == 5
     assert dest.read_bytes() == b"abcde"
+
+
+# --------------------------------------------------------------------------- #
+# concurrent syncs and remaining-bytes headroom
+# --------------------------------------------------------------------------- #
+def _remote_src(ident: str = "https://example.test/cat"):
+    from xmatcher.sources import CatalogueSource
+
+    return CatalogueSource(
+        name="remote-hats",
+        is_local=False,
+        access_method="hats",
+        access_identifier=ident,
+    )
+
+
+def test_a_second_concurrent_sync_of_one_tree_fails_fast(tmp_path, monkeypatch) -> None:
+    """Two syncs of one tree used to interleave; the last sync.json write won."""
+    import fcntl
+
+    from xmatcher.exceptions import CrossMatchError
+    from xmatcher.storage import LocalStorage
+
+    src = _remote_src()
+    cache_root = tmp_path / "cache"
+    ran: list[str] = []
+    monkeypatch.setattr(mirror, "_sync_with_failover", lambda *_a, **_k: ran.append("sync"))
+    lock = cache_root / "remote-hats" / f".{mirror._version_dir(src)}.lock"
+    lock.parent.mkdir(parents=True)
+    with open(lock, "a") as held:
+        fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)  # the other sync
+        with pytest.raises(CrossMatchError, match="Another 'xmatcher sync'"):
+            mirror.sync_catalogue(src, cache_root=str(cache_root), min_free_gb=0)
+    assert ran == []
+    # Released (as when the other process exits): the sync runs.
+    mirror.sync_catalogue(src, cache_root=str(cache_root), min_free_gb=0)
+    assert ran == ["sync"]
+    # A different tree is not blocked by this one's lock.
+    with mirror._sync_lock(LocalStorage(cache_root), src):
+        other = _remote_src("https://example.test/other")
+        mirror.sync_catalogue(other, cache_root=str(cache_root), min_free_gb=0)
+    assert ran == ["sync", "sync"]
+
+
+def test_sync_refuses_when_remaining_downloads_cross_the_floor(tmp_path, monkeypatch) -> None:
+    """The floor was checked once against today's free space, not the bytes to come."""
+    import collections
+
+    from xmatcher.exceptions import CrossMatchError
+
+    gib = 1024**3
+    usage = collections.namedtuple("usage", "total used free")
+    monkeypatch.setattr(mirror.shutil, "disk_usage", lambda _p: usage(100 * gib, 95 * gib, 5 * gib))
+    listing = [
+        {"rel": "properties", "size": 100},
+        {"rel": "dataset/Norder=1/Dir=0/Npix=1.parquet", "size": 3 * gib},
+        {"rel": "dataset/Norder=1/Dir=0/Npix=2.parquet", "size": 2 * gib},
+    ]
+    monkeypatch.setattr(mirror, "_remote_hats_listing", lambda *_a, **_k: listing)
+
+    def no_fetch(*_a, **_k):
+        raise AssertionError("nothing may be fetched")
+
+    monkeypatch.setattr(mirror, "_http_request", no_fetch)
+    with pytest.raises(CrossMatchError, match="5.0 GiB still to download"):
+        mirror.sync_catalogue(_remote_src(), cache_root=str(tmp_path / "cache"), min_free_gb=1)
+    # Within the floor, the same listing is fetched normally.
+    fetched: list[str] = []
+
+    def fetch(url, bucket, *, dest=None, **_k):
+        fetched.append(url)
+        dest.write_bytes(b"x")
+        return None, 1
+
+    monkeypatch.setattr(mirror, "_http_request", fetch)
+    monkeypatch.setattr(
+        mirror.shutil, "disk_usage", lambda _p: usage(100 * gib, 80 * gib, 20 * gib)
+    )
+    stats = mirror.sync_catalogue(_remote_src(), cache_root=str(tmp_path / "cache"), min_free_gb=1)
+    assert stats.files_downloaded == 3 and len(fetched) == 3

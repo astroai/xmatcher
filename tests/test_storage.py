@@ -302,6 +302,7 @@ def test_vos_backup_read_failure_preserves_existing_mirror_file(
         workers=1,
         progress_cb=None,
         stats=stats,
+        min_free_gb=0.0,
     )
 
     assert stats.failed == 1
