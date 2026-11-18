@@ -51,7 +51,6 @@ def test_project_hats_keeps_rows_and_selected_columns(wide_hats: Path, tmp_path:
     assert result["id"].to_list() == [1, 2, 3]
     assert "hats_nrows=3" in (out / "properties").read_text()
     assert (out / "partition_info.csv").is_file()
-    assert (out / "dataset" / "partition_info.parquet").is_file()
 
 
 def test_project_hats_rejects_missing_column(wide_hats: Path, tmp_path: Path) -> None:
@@ -233,8 +232,8 @@ def test_project_hats_local_and_https_trees_agree(wide_hats: Path, tmp_path: Pat
         assert_frame_equal(pl.read_parquet(local_file), pl.read_parquet(remote_file))
     assert _properties(local_out) == _properties(remote_out)
     assert_frame_equal(
-        pl.read_parquet(local_out / "dataset" / "partition_info.parquet"),
-        pl.read_parquet(remote_out / "dataset" / "partition_info.parquet"),
+        pl.read_csv(local_out / "partition_info.csv"),
+        pl.read_csv(remote_out / "partition_info.csv"),
     )
 
 
@@ -318,5 +317,5 @@ def test_project_hats_keeps_zero_row_partitions(wide_hats: Path, tmp_path: Path)
     project_hats(_source(wide_hats), out, ["id", "ra", "dec"], sync=False)
     projected = out / "dataset" / empty_rel
     assert projected.is_file()
-    info = pl.read_parquet(out / "dataset" / "partition_info.parquet")
+    info = pl.read_csv(out / "partition_info.csv")
     assert info.filter(pl.col("file_loc") == "Norder=1/Dir=0/Npix=1")["count"].to_list() == [0]
