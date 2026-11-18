@@ -149,15 +149,7 @@ def _healpix_neighbors(order: int, center_pix: int, *, radius_arcsec: float = 0.
     else:
         center = torch.tensor([pix], dtype=torch.int64)
         lon, lat = ts_healpix.pix2ang(nside, center, nest=True, lonlat=True)
-        # torchsky ≥0.5 renamed healpy-style max_pixrad → max_pixel_radius on
-        # sphere.healpix (max_pixrad remains only on sphere.compat). Prefer the
-        # current name; fall back for older editable checkouts.
-        max_radius = getattr(ts_healpix, "max_pixel_radius", None) or getattr(
-            ts_healpix, "max_pixrad", None
-        )
-        if max_radius is None:
-            raise AttributeError("torchsky.sphere.healpix has no max_pixel_radius")
-        pixrad = max_radius(nside, degrees=False)
+        pixrad = ts_healpix.max_pixel_radius(nside, degrees=False)
         radius_rad = min(
             math.pi, math.radians(max(float(radius_arcsec), 0.0) / 3600.0) + (2.0 * pixrad)
         )
@@ -406,7 +398,14 @@ def hats_native_crossmatch(
                 right_empty_schema = dict(sample_df.schema)
     else:
         right_all = (local_lf2 if local_lf2 is not None else src2.lazy()).collect()
-        if right_all.height > 0 and left_pixels:
+        # Pruning drops left pixels with no right source nearby: only an inner
+        # join may lose those rows, and the needed-pixel set is computed at a
+        # single order, so a mixed-order left tree is not pruned.
+        if (
+            spec.join_type == "1and2"
+            and right_all.height > 0
+            and len({order for order, _, _ in left_pixels}) == 1
+        ):
             order0 = left_pixels[0][0]
             nside0 = 2 ** int(order0)
             ra2_c, dec2_c = _ra_dec_columns(src2, left_root)
