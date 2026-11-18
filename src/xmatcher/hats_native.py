@@ -451,6 +451,7 @@ def hats_native_crossmatch(
     right_idx_str = {k: str(v) for k, v in right_index.items()}
 
     if eng == "ray":
+        owns_ray = False
         try:
             import ray as ray_mod
 
@@ -458,6 +459,7 @@ def hats_native_crossmatch(
 
             if not ray_mod.is_initialized():
                 _init_ray(ray_mod, engine="ray", fallback_policy=spec.fallback_policy)
+                owns_ray = True
             remote_fn: Any = ray_mod.remote(_pixel_task_payload)
             futures = [
                 remote_fn.remote(
@@ -488,6 +490,10 @@ def hats_native_crossmatch(
                     f"HATS native Ray execution failed under fallback_policy='error': {exc}"
                 ) from exc
             logger.warning("HATS native Ray unavailable (%s); serial pixel tasks", exc)
+        finally:
+            if owns_ray:
+                # Stop only the cluster this call started.
+                ray_mod.shutdown()
 
     for order, pix, path in left_pixels:
         part = _pixel_task_payload(

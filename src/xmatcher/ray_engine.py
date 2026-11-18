@@ -212,22 +212,7 @@ def ray_zone_match(
 
     Parameters are identical to :func:`xmatcher.matchers._scipy_match`.
     """
-    import math
-
-    from .matchers import (
-        _arcsec_to_chord,
-        _cone_search_pixels,
-        _pixellate,
-        _pos_covariance,
-        _pos_sigma_arcsec,
-        _radec_to_xyz,
-        _rank_nd_candidates,
-        _scipy_match,
-        _skyellipse_pair_filter,
-        _skyellipse_search_chord_max,
-        _skyerr_pair_filter,
-        _zone_match,
-    )
+    from .matchers import _zone_match
 
     if not ray_available():
         if spec.fallback_policy == "error":
@@ -237,7 +222,8 @@ def ray_zone_match(
 
     import ray
 
-    if not ray.is_initialized():
+    owns_ray = not ray.is_initialized()
+    if owns_ray:
         # Join the cluster in $RAY_ADDRESS when one is running (CANFAR:
         # a ray-manager session — see scripts/canfar-ray-job.sh); with the env
         # unset start a private local cluster ("local", not Ray's default
@@ -257,6 +243,33 @@ def ray_zone_match(
                 ) from exc
             logger.warning("Ray init failed (%s); using single-machine zone engine.", exc)
             return _zone_match(left, right, left_src, right_src, spec)
+
+    try:
+        return _ray_zone_dispatch(ray, left, right, left_src, right_src, spec)
+    finally:
+        if owns_ray:
+            # A cluster this call started is this call's to stop; a caller's
+            # session, or the RAY_ADDRESS cluster it joined, keeps running.
+            ray.shutdown()
+
+
+def _ray_zone_dispatch(ray, left, right, left_src, right_src, spec):
+    """Fan the pixel batches of :func:`ray_zone_match` out on a running Ray."""
+    import math
+
+    from .matchers import (
+        _arcsec_to_chord,
+        _cone_search_pixels,
+        _pixellate,
+        _pos_covariance,
+        _pos_sigma_arcsec,
+        _radec_to_xyz,
+        _rank_nd_candidates,
+        _scipy_match,
+        _skyellipse_pair_filter,
+        _skyellipse_search_chord_max,
+        _skyerr_pair_filter,
+    )
 
     empty = (np.array([], int), np.array([], int), np.array([], float))
     if left.height == 0 or right.height == 0:
