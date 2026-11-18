@@ -6,8 +6,8 @@ catalogue parquet reads/writes and per-worker staging funnel through it, so
 a Ray task reading "the same catalogue file" transparently hits the durable
 root or a worker's fast scratch copy.
 
-``LocalStorage`` is a plain pathlib-backed dir with atomic-ish writes
-(tmp + ``os.replace``). ``VOSpaceStorage`` shells the ``vos`` CLI
+``LocalStorage`` is a plain pathlib-backed dir whose writes are durable and
+atomic (same-directory temp file, ``fsync``, ``os.replace``). ``VOSpaceStorage`` shells the ``vos`` CLI
 (``vls``/``vcp``/``vput``/``vmkdir``), falls back to the python ``vos``
 package when the binary is missing, and raises :class:`ConfigError` when
 neither is available. The python client path has been exercised against live
@@ -93,6 +93,19 @@ def _safe_rel(rel: str) -> str:
     return rel
 
 
+def _fsync(path: Path) -> None:
+    """Flush ``path``'s data to stable storage before it is renamed into place.
+
+    ``os.replace`` alone is atomic only in the namespace: after a power loss or
+    node crash the new name can point at a zero-length or partly written file.
+    """
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def _tmp_path(target: Path) -> Path:
     """Create a unique same-directory temporary file for atomic replacement."""
     for _ in range(100):
@@ -155,6 +168,7 @@ class LocalStorage(Storage):
         tmp = _tmp_path(target)
         try:
             df.write_parquet(tmp)
+            _fsync(tmp)
             os.replace(tmp, target)
         except BaseException:
             tmp.unlink(missing_ok=True)
@@ -175,6 +189,7 @@ class LocalStorage(Storage):
         tmp = _tmp_path(target)
         try:
             shutil.copy2(local, tmp)
+            _fsync(tmp)
             os.replace(tmp, target)
         except BaseException:
             tmp.unlink(missing_ok=True)
@@ -537,9 +552,15 @@ def assert_headroom(path: str | Path, min_free_gb: float, label: str) -> None:
     Runs before any day-scale mirror/union starts so a multi-day run cannot
     die at 95% into a full disk. ``label`` names the mount in the error.
     The directory is created if missing (every caller writes into it next).
+    A ``vos:`` root is not a local filesystem: its quota is not visible to
+    ``statvfs``, so it is not checked (and no local ``vos:`` directory is
+    created).
     """
     from .exceptions import CrossMatchError
 
+    if str(path).startswith("vos:"):
+        logger.debug("%s is a VOSpace root; its free space cannot be checked", label)
+        return
     os.makedirs(str(path), exist_ok=True)
     free_gib = shutil.disk_usage(str(path)).free / 1024**3
     if free_gib < min_free_gb:

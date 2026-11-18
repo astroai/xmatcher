@@ -96,3 +96,54 @@ def test_hf_uri_revision_is_parsed_not_part_of_the_repo() -> None:
     assert remote.display(remote.resolve_url("x")) == "hf://datasets/owner/name@v1.0/hats/x"
     # An explicit revision argument still wins over the URI.
     assert HFRemote("hf://datasets/owner/name@v1.0", revision="dev").revision == "dev"
+
+
+# --------------------------------------------------------------------------- #
+# storage
+# --------------------------------------------------------------------------- #
+def test_headroom_on_a_vos_root_neither_creates_a_local_dir_nor_checks_local_disk(
+    tmp_path, monkeypatch
+) -> None:
+    """``vos:`` used to be makedirs'd in the cwd and checked against local disk."""
+    from xmatcher import storage
+
+    monkeypatch.chdir(tmp_path)
+
+    def no_statvfs(path):
+        raise AssertionError(f"local disk_usage probed for {path}")
+
+    monkeypatch.setattr(storage.shutil, "disk_usage", no_statvfs)
+    storage.assert_headroom("vos:cadc/projects/hats", 1e9, "cache root")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_local_storage_fsyncs_before_publishing(tmp_path, monkeypatch) -> None:
+    """A rename without fsync can publish an empty file after a crash."""
+    import os
+
+    import polars as pl
+
+    from xmatcher import storage
+
+    events: list[str] = []
+    real_fsync, real_replace = os.fsync, os.replace
+
+    def fsync(fd):
+        events.append("fsync")
+        real_fsync(fd)
+
+    def replace(src, dst):
+        events.append("replace")
+        real_replace(src, dst)
+
+    monkeypatch.setattr(storage.os, "fsync", fsync)
+    monkeypatch.setattr(storage.os, "replace", replace)
+    cache = storage.LocalStorage(tmp_path / "cache")
+    local = tmp_path / "part.bin"
+    local.write_bytes(b"x" * 100)
+    cache.stage_out(local, "a/part.bin")
+    assert events == ["fsync", "replace"]
+    events.clear()
+    cache.write_parquet(pl.DataFrame({"a": [1]}), "a/p.parquet")
+    assert events == ["fsync", "replace"]
+    assert cache.size("a/part.bin") == 100
