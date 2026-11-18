@@ -67,6 +67,7 @@ import polars as pl
 from . import io_utils
 from .exceptions import CrossMatchError, TapError
 from .hf import HFRemote, is_hf_uri
+from .http_retry import DEFAULT_DELAY_S, backoff_sleep, retry_after_seconds
 from .remote_tap import _quote_id, _select_columns, _table_ref
 from .s3 import S3Remote, is_s3_uri, split_s3_uri
 from .sources import CatalogueSource, is_remote_hats_uri
@@ -92,7 +93,6 @@ _HTTP_RETRIES = 3
 # A remote HATS sync rewrites its manifest at least this often (seconds), so an
 # interrupted or killed multi-day sync resumes instead of starting over.
 _MANIFEST_CHECKPOINT_S = 30.0
-_HTTP_BACKOFF_CAP_S = 60.0
 _DEFAULT_MIN_FREE_GB = 10.0
 # Auxiliary HATS trees published beside a catalogue: HEALPix margin caches and
 # id indexes.  They are real HATS trees but not the survey catalogue.
@@ -236,7 +236,7 @@ def _http_request(
     head: bool = False,
     range_probe: bool = False,
 ) -> tuple[bytes | None, int | None]:
-    """GET (or HEAD) ``url`` under the token bucket with 429/503 backoff.
+    """GET (or HEAD) ``url`` under the token bucket with 429/5xx backoff.
 
     Returns ``(body, content_length)`` (body ``None`` for HEAD).  Raises the
     underlying exception after retries are exhausted.
@@ -263,20 +263,16 @@ def _http_request(
             last_exc = exc
             # Retry rate-limits and transient 5xx (archive politeness + failover).
             if exc.code in (429, 502, 503, 504):
-                retry_after = exc.headers.get("Retry-After")
-                try:
-                    delay = float(retry_after) if retry_after else 1.0
-                except ValueError:
-                    delay = 1.0
+                delay = retry_after_seconds(exc.headers.get("Retry-After") if exc.headers else None)
             else:
                 raise
         except (http.client.IncompleteRead, urllib.error.URLError, OSError) as exc:
             # Truncated chunked/identity bodies are common on long HATS parquet
             # GETs; IncompleteRead is an HTTPException, not a URLError/OSError.
             last_exc = exc
-            delay = 1.0
+            delay = DEFAULT_DELAY_S
         if attempt < _HTTP_RETRIES - 1:
-            time.sleep(min(delay * (2**attempt) + 0.1, _HTTP_BACKOFF_CAP_S))
+            backoff_sleep(delay, attempt)
     assert last_exc is not None
     raise last_exc
 
