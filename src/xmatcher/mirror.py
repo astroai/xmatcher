@@ -198,7 +198,8 @@ def _version_dir(src: CatalogueSource) -> str:
         host = urllib.parse.urlparse(src.tap_url or "").netloc or "tap"
         table = (src.access_identifier or "table").replace("/", ".")
         return f"tap-{_safe_name(host)}-{_safe_name(table)}-{_sha1_str(f'{src.tap_url}/{src.access_identifier}', 8)}"
-    ident = src.access_identifier or ""
+    # A trailing slash names the same tree; it must not mirror it a second time.
+    ident = (src.access_identifier or "").rstrip("/")
     if is_s3_uri(ident):
         scheme = "s3"
     elif is_hf_uri(ident):

@@ -353,3 +353,22 @@ def test_ensure_mirrored_forwards_the_free_space_floor(tmp_path: Path, monkeypat
     monkeypatch.setattr(mirror, "_sync_with_failover", lambda *_a, **_k: None)
     mirrored = mirror.ensure_mirrored(_remote_src(), cache_root=str(tmp_path), min_free_gb=1.0)
     assert mirrored.hats_cache_root == str(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://data.lsdb.io/hats/two_mass/two_mass",
+        "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+        "hf://datasets/UniverseTBD/mmu_cfa_seccsn/mmu_cfa_seccsn",
+    ],
+)
+def test_trailing_slash_names_the_same_mirror(url: str) -> None:
+    """``hats:<tree>/`` and ``hats:<tree>`` must share one cache directory."""
+
+    def source(ident: str) -> CatalogueSource:
+        return CatalogueSource(
+            name="tree", is_local=False, access_method="hats", access_identifier=ident
+        )
+
+    assert mirror._version_dir(source(url + "/")) == mirror._version_dir(source(url))
