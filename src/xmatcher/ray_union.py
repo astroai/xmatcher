@@ -1878,6 +1878,29 @@ def _input_fingerprint(catalogues: Sequence[CataloguePlan]) -> list[dict[str, An
     return files
 
 
+def _init_ray(ray: Any, *, engine: str, fallback_policy: str) -> None:
+    """Join ``RAY_ADDRESS`` when set (CANFAR ray-manager), else start a private cluster.
+
+    ``address="auto"`` (Ray's default discovery) attaches to whatever cluster
+    another process on this host started last; the run then shares its CPUs
+    and dies when that unrelated cluster stops.
+    """
+    address = os.environ.get("RAY_ADDRESS")
+    if address:
+        try:
+            ray.init(address=address, ignore_reinit_error=True)
+            return
+        except ConnectionError as exc:
+            if fallback_policy == "error":
+                raise CrossMatchError(
+                    f"engine='{engine}' could not connect to RAY_ADDRESS under "
+                    "fallback_policy='error'"
+                ) from exc
+            logger.warning("Cannot connect to RAY_ADDRESS; starting a local Ray cluster.")
+    # Explicit 'local' bypasses RAY_ADDRESS without changing caller env.
+    ray.init(address="local", ignore_reinit_error=True)
+
+
 def ray_union_match(
     sources: Sequence[CatalogueSource],
     *,
@@ -2000,23 +2023,9 @@ def ray_union_match(
 
     import ray  # noqa: PLC0415
 
-    # join a running head (CANFAR: `ray start --head` + RAY_ADDRESS); on a
-    # laptop with no cluster, "auto" raises and we fall back to a fresh local
-    # cluster (Ray 2.x does not auto-start one for address="auto").
     owns_ray = not ray.is_initialized()
     if owns_ray:
-        address = os.environ.get("RAY_ADDRESS")
-        try:
-            ray.init(address=address or "auto", ignore_reinit_error=True)
-        except ConnectionError as exc:
-            if address and fallback_policy == "error":
-                raise CrossMatchError(
-                    "engine='ray-union' could not connect to RAY_ADDRESS under fallback_policy='error'"
-                ) from exc
-            if address:
-                logger.warning("Cannot connect to RAY_ADDRESS; starting a local Ray cluster.")
-            # Explicit 'local' bypasses RAY_ADDRESS without changing caller env.
-            ray.init(address="local", ignore_reinit_error=True)
+        _init_ray(ray, engine="ray-union", fallback_policy=fallback_policy)
     try:
         plan_ref = ray.put(plan)
         chunk_fn = _chunk_task_factory()

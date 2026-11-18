@@ -915,8 +915,9 @@ def test_union_ring_input_converted(tmp_path: Path) -> None:
     assert b_pix == expected_nested, (b_pix, expected_nested)
 
 
-def test_ray_init_falls_back_local_on_connection_error(tmp_path: Path, monkeypatch) -> None:
-    """RAY_ADDRESS unset + 'auto' unreachable -> a fresh local cluster."""
+def test_ray_init_without_address_starts_private_local_cluster(tmp_path: Path, monkeypatch) -> None:
+    """RAY_ADDRESS unset -> a private local cluster, never 'auto' discovery
+    (which attaches to an unrelated cluster another process started)."""
     import ray
 
     monkeypatch.delenv("RAY_ADDRESS", raising=False)
@@ -925,9 +926,7 @@ def test_ray_init_falls_back_local_on_connection_error(tmp_path: Path, monkeypat
 
     def fake_init(**kw) -> object:
         calls.append(kw)
-        if kw.get("address") == "auto":
-            raise ConnectionError("no running cluster")
-        return real_init(**kw)
+        return real_init(**kw, num_cpus=2, include_dashboard=False)
 
     monkeypatch.setattr(ray, "init", fake_init)
     try:
@@ -945,8 +944,7 @@ def test_ray_init_falls_back_local_on_connection_error(tmp_path: Path, monkeypat
             hats_threshold=1_000_000,
             max_tuples=100_000,
         )
-        assert calls[0]["address"] == "auto"
-        assert [call["address"] for call in calls] == ["auto", "local"]
+        assert [call["address"] for call in calls] == ["local"]
         result = _read_output(out)
         assert result.select("id", "id_2").rows() == [("a0", "b0")]
     finally:

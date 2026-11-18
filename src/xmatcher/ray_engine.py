@@ -239,12 +239,14 @@ def ray_zone_match(
 
     if not ray.is_initialized():
         # Join the cluster in $RAY_ADDRESS when one is running (CANFAR:
-        # a ray-manager session — see scripts/canfar-ray-job.sh); with the env unset this
-        # starts a fresh local cluster. An explicit address must never be
-        # silently replaced by a local cluster under strict fallback policy.
+        # a ray-manager session — see scripts/canfar-ray-job.sh); with the env
+        # unset start a private local cluster ("local", not Ray's default
+        # discovery, which would attach to another process's cluster on this
+        # host). An explicit address must never be silently replaced by a
+        # local cluster under strict fallback policy.
         try:
             ray.init(
-                address=os.environ.get("RAY_ADDRESS") or None,
+                address=os.environ.get("RAY_ADDRESS") or "local",
                 ignore_reinit_error=True,
                 logging_level=logging.WARNING,
             )

@@ -37,7 +37,6 @@ import importlib
 import json
 import logging
 import math
-import os
 import re
 import shutil
 import time
@@ -64,6 +63,7 @@ from .ray_union import (
     _footer_row_count,
     _gather_rows,
     _hats_dir,
+    _init_ray,
     _input_fingerprint,
     _list_partitions,
     _partition_index,
@@ -868,18 +868,7 @@ def ray_anchor_match(
     else:
         owns_ray = not ray.is_initialized()
         if owns_ray:
-            address = os.environ.get("RAY_ADDRESS")
-            try:
-                ray.init(address=address or "auto", ignore_reinit_error=True)
-            except ConnectionError as exc:
-                if address and fallback_policy == "error":
-                    raise CrossMatchError(
-                        "engine='ray-anchor' could not connect to RAY_ADDRESS under "
-                        "fallback_policy='error'"
-                    ) from exc
-                if address:
-                    logger.warning("Cannot connect to RAY_ADDRESS; starting local Ray.")
-                ray.init(address="local", ignore_reinit_error=True)
+            _init_ray(ray, engine="ray-anchor", fallback_policy=fallback_policy)
         try:
             plan_ref = ray.put(plan)
             task = _anchor_task_factory()
