@@ -5,6 +5,23 @@ All notable changes to `xmatcher` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- CLI `--union` is a full outer join again; `--join` now defaults per
+  operation (`1and2` for matches, `1or2` with `--union`).
+- CLI rejects invalid `-r`, `--max-error`, `--lr-q`, `--batch-size`, region
+  values and partial `--ra/--dec/--radius-deg` regions as usage errors
+  (exit 2) instead of tracebacks or silently ignoring them.
+- STILTS engine no longer returns a null `sep_arcsec` when the two inputs'
+  coordinate columns differ only in case.
+- Server-side TAP self-joins and CDS XMatch return the shared schema
+  (`sep_arcsec`, `_2` suffix on right-hand collisions).
+- Source archive no longer ships tests for the unreleased pensus scripts and
+  now ships the pre-push hook used by `pixi run install-git-hooks`; tag builds
+  attach release notes from `docs/archive/`.
+
 ## [0.6.0] — 2026-10-22
 
 The `v0.6.0` tag is the GitHub release. See the
