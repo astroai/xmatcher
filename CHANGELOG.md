@@ -11,7 +11,22 @@ A release audit of correctness, HATS conformance, remote acquisition, the
 Ray engines and the collaborator install path. Every fix below has a
 regression test that fails without it.
 
+### Added
+
+- `xmatcher[torchsky]` extra (`torchsky>=0.5.0`, the public PyPI release) and a
+  `torchsky` pixi environment with conda-forge CPU PyTorch. CI runs the full
+  offline gate in it, and releases require it. The torchsky engine, epoch
+  Jacobians and torchsky HEALPix paths are tested against Astropy, brute force
+  and the default engines there instead of being skipped.
+
 ### Changed (behaviour)
+
+- An installed torchsky older than 0.5.0 (or one that fails to import) is an
+  error naming the upgrade, instead of crashing mid-match with
+  `AttributeError` (old torchsky) or being silently ignored.
+- The dev environment is pinned to Python 3.13 again and the lock refreshed on
+  both platforms (polars 2.1, numpy 2.5, pyarrow 26, ray 2.60, hats 0.11.2);
+  macOS 14+ is required, as torchfits publishes no older macOS wheels.
 
 - `radius_arcsec` is the hard separation ceiling for `skyellipse` on every
   engine (fast, zone, astropy, ray, ray-union), as it already was for
@@ -98,6 +113,18 @@ regression test that fails without it.
   pre-push hook; the hook now runs `pixi run --frozen preflight-push` and
   requires pixi.
 - `preflight-push` failed on macOS (`os.getxattr` in a CANFAR-only script).
+
+#### Torchsky
+
+- Two epoch-refusal tests passed only because torchsky was absent; with it
+  installed they exposed wrong expectations (fixed) rather than code defects.
+- HATS pruning (torchsky path) swallowed every exception; it now filters
+  non-finite coordinates and lets real errors surface, and no longer makes
+  PyTorch warn about read-only arrays.
+- The CANFAR torchsky runner installed a torchsky 0.4.0 tarball and stub
+  `torchfits` modules; it now installs `xmatcher[torchsky]` from PyPI with CPU
+  PyTorch. Its suite called `healpix.neighbors`, which torchsky 0.5.0 renamed
+  `get_all_neighbours`.
 
 ## [0.6.0] — 2026-10-22
 

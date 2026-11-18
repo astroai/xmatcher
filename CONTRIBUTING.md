@@ -70,6 +70,12 @@ pixi run test tests/test_matchers.py -q
 pixi run test
 ```
 
+Torchsky paths (the `torchsky` engine, target-epoch covariance Jacobians, torchsky HEALPix coverings) are skipped in the default environment. When you touch them, run the same gate in the `torchsky` environment, as CI does:
+
+```bash
+pixi run -e torchsky ci-local
+```
+
 The offline `ci-local` gate does not establish that optional integrations, remote services, credentials, or every Python version work. Run the relevant integration checks separately when changing those paths. The checked Pixi environment uses Python 3.13.
 
 ## Pull Requests

@@ -324,7 +324,7 @@ is `--fallback-policy error`.
 | **`ray-anchor`** | Ray + HATS | One row per anchor partition, resumable | Candidate survey partitions per anchor partition; task guards | `sky` only; best counterpart per survey plus `sep_second`, `n_within`, `crowded`, `pm_warn`, `quality`. |
 | **`astropy`** | Astropy `SkyCoord` | Astropy sky-coordinate queries | Depends on input and candidate counts | Alternative local geometry backend. |
 | **`stilts`** | STILTS `tmatch2` | External Java subprocess | Managed by JVM | Requires Java and a working `stilts` executable; matcher support depends on requested options. |
-| **`torchsky`** | PyTorch / Torchsky | Tensor-based candidate search | Depends on tensors and returned candidates | Requires a separately installed compatible Torchsky checkout; no PyPI distribution is available. Tested with the sibling 0.4 development source installed editable. |
+| **`torchsky`** | PyTorch / Torchsky | Tensor-based candidate search | Depends on tensors and returned candidates | `sky` and `skyerr` only. Requires `xmatcher[torchsky]` (torchsky>=0.5.0); results agree with `fast` and Astropy (tested in CI). |
 
 ---
 
