@@ -35,10 +35,14 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import polars as pl
 
+    from .crossmatch import CrossMatch
+
 import yaml
 
+# Keep this import block free of polars/numpy/astropy: `xmatcher --help` and
+# usage errors must not pay for the match stack. Heavy modules are imported
+# where a command needs them.
 from . import __version__
-from .crossmatch import CrossMatch
 from .discovery import (
     catalogue_entry_from_schema,
     discover_tables,
@@ -47,7 +51,6 @@ from .discovery import (
     get_table_schema,
 )
 from .exceptions import ConfigError, CrossMatchError
-from .storage import default_output_root
 from .user_config import append_catalogue_to_user_config, format_catalogue_yaml, user_config_path
 
 logger = logging.getLogger(__name__)
@@ -2272,6 +2275,8 @@ def _resolve_output_path(output_file: str | None) -> str | None:
     """
     if not output_file:
         return output_file
+    from .storage import default_output_root  # noqa: PLC0415 - keeps --help light
+
     out_root = default_output_root()
     if (
         not out_root
@@ -2387,6 +2392,8 @@ def _guarded(
 
 
 def _load_cli_crossmatch(config_file: str | Path | None, console: Console) -> CrossMatch | None:
+    from .crossmatch import CrossMatch  # noqa: PLC0415 - keeps --help light
+
     try:
         return CrossMatch(config_file=config_file)
     except ConfigError as exc:
@@ -2529,6 +2536,8 @@ def _run_completion(argv: Sequence[str]) -> int:
     args = parser.parse_args(list(argv))
     setup_logging(args.verbose)
     console = _make_console(no_color=bool(getattr(args, "no_color", False)))
+    from .crossmatch import CrossMatch  # noqa: PLC0415 - keeps --help light
+
     cm: CrossMatch | None = None
     try:
         cm = CrossMatch(config_file=args.config_file)
@@ -3027,6 +3036,8 @@ def _run_doctor(argv: Sequence[str]) -> int:
     # config differ?" and the answer is "there is no user config".
     user_path: Path | None = None
     user_cfg: dict[str, Any] = {}
+    from .crossmatch import CrossMatch  # noqa: PLC0415 - keeps --help light
+
     try:
         cm = CrossMatch(config_file=args.config_file)
         user_path = cm.config_file

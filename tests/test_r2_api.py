@@ -145,3 +145,21 @@ def test_ray_union_python_api_uses_the_shared_max_error_default(tmp_path, monkey
         no_sync=True,
     )
     assert seen["max_error"] == MatchSpec().max_error == 3.0
+
+
+def test_cli_help_does_not_import_the_match_stack():
+    """`xmatcher --help` and usage errors must stay fast for collaborators."""
+    import subprocess
+
+    code = """
+import sys
+from xmatcher.cli import main
+try:
+    main(["--help"])
+except SystemExit:
+    pass
+heavy = {"polars", "numpy", "astropy", "pyarrow", "ray", "torch", "hats"}
+print(sorted(heavy & {m.split(".")[0] for m in sys.modules}), file=sys.stderr)
+"""
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stderr.strip().splitlines()[-1] == "[]"
