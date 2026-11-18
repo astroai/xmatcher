@@ -15,7 +15,7 @@ from astropy.coordinates import SkyCoord, search_around_sky
 
 from xmatcher import bayes
 from xmatcher.crossmatch import CrossMatch
-from xmatcher.matchers import MatchSpec, sky_match
+from xmatcher.matchers import MatchSpec, _skyellipse_d2, sky_match
 from xmatcher.sources import CatalogueSource
 
 ERRORS = {"ra_err_column": "e_ra", "dec_err_column": "e_dec", "corr_column": "rho"}
@@ -77,6 +77,95 @@ def test_sky_match_agrees_with_astropy_search_around_sky(region, engine, find):
     np.testing.assert_allclose(matched["sep_arcsec"].to_numpy(), reference, rtol=0, atol=1e-9)
 
 
+# ------------------------------------------------------------------ skyellipse
+def _reference_d2(ra1, dec1, ra2, dec2, cov1, cov2):
+    """d² on the second source's tangent plane, from astropy offsets and PAs."""
+    c1 = SkyCoord(ra1 * u.deg, dec1 * u.deg)
+    c2 = SkyCoord(ra2 * u.deg, dec2 * u.deg)
+    d_east, d_north = c2.spherical_offsets_to(c1)
+    delta = -np.stack([d_east.arcsec, d_north.arcsec], axis=-1)  # source 1 minus source 2
+    # Parallel transport along the geodesic: the frame of source 1 is rotated by
+    # gamma relative to the frame of source 2 (position angles east of north).
+    pa_12 = c1.position_angle(c2).rad
+    pa_21 = c2.position_angle(c1).rad
+    gamma = (pa_21 + math.pi) - pa_12
+
+    def matrix(cov):
+        sxx, syy, rho = cov
+        sxy = rho * np.sqrt(sxx * syy)
+        return np.stack([np.stack([sxx, sxy], -1), np.stack([sxy, syy], -1)], -2)
+
+    # A direction at position angle phi in frame 1 has angle phi + gamma in
+    # frame 2. With (east, north) = (sin phi, cos phi) components that is
+    # R = [[cos g, sin g], [-sin g, cos g]].
+    cos_g, sin_g = np.cos(gamma), np.sin(gamma)
+    rot = np.stack([np.stack([cos_g, sin_g], -1), np.stack([-sin_g, cos_g], -1)], -2)
+    c1_in_2 = rot @ matrix(cov1) @ np.swapaxes(rot, -1, -2)
+    total = c1_in_2 + matrix(cov2)
+    return np.einsum("ni,nij,nj->n", delta, np.linalg.inv(total), delta)
+
+
+def _random_pairs(rng, n, dec_low, dec_high):
+    ra1 = rng.uniform(0.0, 360.0, n)
+    dec1 = rng.uniform(dec_low, dec_high, n)
+    offset = rng.uniform(0.0, 3.0, n) / 3600.0
+    pa = rng.uniform(0.0, 2 * math.pi, n)
+    c2 = SkyCoord(ra1 * u.deg, dec1 * u.deg).directional_offset_by(pa * u.rad, offset * u.deg)
+    cov = []
+    for _ in range(2):
+        cov.append(
+            (
+                rng.uniform(0.05, 1.0, n) ** 2,
+                rng.uniform(0.05, 1.0, n) ** 2,
+                rng.uniform(-0.9, 0.9, n),
+            )
+        )
+    return ra1, dec1, c2.ra.deg, c2.dec.deg, cov[0], cov[1]
+
+
+@pytest.mark.parametrize(("dec_low", "dec_high"), [(-60.0, 60.0), (89.999, 90.0), (-90.0, -89.999)])
+def test_skyellipse_d2_matches_astropy_tangent_plane_reference(dec_low, dec_high):
+    rng = np.random.default_rng(7)
+    ra1, dec1, ra2, dec2, cov1, cov2 = _random_pairs(rng, 500, dec_low, dec_high)
+    got = _skyellipse_d2(ra1, dec1, ra2, dec2, cov1, cov2)
+    expected = _reference_d2(ra1, dec1, ra2, dec2, cov1, cov2)
+    np.testing.assert_allclose(got, expected, rtol=1e-5)
+
+
+def test_skyellipse_d2_across_the_pole_rotates_both_ellipses():
+    # Left at RA 0 and right at RA 90, both eps from the pole: separation
+    # sqrt(2)*eps = 1". Each ellipse is elongated along its own east axis,
+    # which point in perpendicular directions; on the midpoint plane the
+    # combined covariance is 1.01 * I, so d2 = 1 / 1.01.
+    eps = 1.0 / math.sqrt(2.0) / 3600.0
+    d2 = _skyellipse_d2(
+        np.array([0.0]),
+        np.array([90.0 - eps]),
+        np.array([90.0]),
+        np.array([90.0 - eps]),
+        (np.array([1.0]), np.array([0.01]), np.array([0.0])),
+        (np.array([1.0]), np.array([0.01]), np.array([0.0])),
+    )
+    assert d2[0] == pytest.approx(1.0 / 1.01, rel=1e-6)
+
+
+@pytest.mark.parametrize("engine", ["fast", "zone", "astropy"])
+def test_skyellipse_accepts_close_pair_straddling_the_pole(engine):
+    # 0.72" apart across the pole with 0.5" per-axis errors: d2 = 1.04.
+    dec = 90.0 - 0.36 / 3600.0
+    left = pl.DataFrame({"ra": [0.0], "dec": [dec], "e_ra": [0.5], "e_dec": [0.5], "rho": [0.0]})
+    right = left.with_columns(pl.lit(180.0).alias("ra"))
+    out = sky_match(
+        _src("a", **ERRORS),
+        _src("b", **ERRORS),
+        left.lazy(),
+        right.lazy(),
+        MatchSpec(radius_arcsec=5.0, matcher="skyellipse", max_error=1.5),
+        engine=engine,
+    ).collect()
+    assert out["sep_arcsec"].to_list() == pytest.approx([0.72])
+
+
 @pytest.mark.parametrize("engine", ["fast", "zone", "astropy"])
 @pytest.mark.parametrize("matcher", ["skyerr", "skyellipse"])
 def test_error_matchers_never_exceed_radius_ceiling(engine, matcher):
@@ -91,6 +180,58 @@ def test_error_matchers_never_exceed_radius_ceiling(engine, matcher):
         engine=engine,
     ).collect()
     assert out.height == 0
+
+
+@pytest.mark.parametrize("engine", ["fast", "zone", "astropy"])
+def test_skyellipse_pair_set_matches_reference_d2(engine):
+    rng = np.random.default_rng(11)
+    n = 400
+    ra1, dec1, ra2, dec2, cov1, cov2 = _random_pairs(rng, n, 30.0, 30.5)
+    max_error = 2.0
+    left = pl.DataFrame(
+        {
+            "ra": ra1,
+            "dec": dec1,
+            "e_ra": np.sqrt(cov1[0]),
+            "e_dec": np.sqrt(cov1[1]),
+            "rho": cov1[2],
+        }
+    )
+    right = pl.DataFrame(
+        {
+            "ra": ra2,
+            "dec": dec2,
+            "e_ra": np.sqrt(cov2[0]),
+            "e_dec": np.sqrt(cov2[1]),
+            "rho": cov2[2],
+        }
+    )
+    c1 = SkyCoord(ra1 * u.deg, dec1 * u.deg)
+    c2 = SkyCoord(ra2 * u.deg, dec2 * u.deg)
+    radius = 30.0
+    i1, i2, _, _ = search_around_sky(c1, c2, radius * u.arcsec)
+    d2 = _reference_d2(
+        ra1[i1],
+        dec1[i1],
+        ra2[i2],
+        dec2[i2],
+        tuple(values[i1] for values in cov1),
+        tuple(values[i2] for values in cov2),
+    )
+    # Ignore pairs within float noise of the threshold.
+    assert not np.any(np.abs(d2 - max_error**2) < 1e-6)
+    expected = {(a, b) for a, b, d in zip(i1, i2, d2, strict=True) if d <= max_error**2}
+    out = sky_match(
+        _src("a", **ERRORS),
+        _src("b", **ERRORS),
+        left.with_row_index("i").lazy(),
+        right.with_row_index("j").lazy(),
+        MatchSpec(radius_arcsec=radius, matcher="skyellipse", max_error=max_error, find="all"),
+        engine=engine,
+    ).collect()
+    got = set(zip(out["i"].to_list(), out["j"].to_list(), strict=True))
+    assert got == expected
+    assert len(expected) > 100
 
 
 # ------------------------------------------------------------ likelihood ratio

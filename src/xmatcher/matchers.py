@@ -640,6 +640,80 @@ def _mahalanobis_pairwise(
     return np.where((det > 1e-30) & np.isfinite(d2), d2, np.inf)
 
 
+def _local_basis(ra_deg: np.ndarray, dec_deg: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Unit east and north vectors (shape ``(n, 3)``) of the local tangent plane."""
+    ra = np.radians(np.asarray(ra_deg, dtype=float))
+    dec = np.radians(np.asarray(dec_deg, dtype=float))
+    sin_ra, cos_ra = np.sin(ra), np.cos(ra)
+    sin_dec, cos_dec = np.sin(dec), np.cos(dec)
+    east = np.stack((-sin_ra, cos_ra, np.zeros_like(ra)), axis=-1)
+    north = np.stack((-sin_dec * cos_ra, -sin_dec * sin_ra, cos_dec), axis=-1)
+    return east, north
+
+
+def _skyellipse_d2(
+    l_ra: np.ndarray,
+    l_dec: np.ndarray,
+    r_ra: np.ndarray,
+    r_dec: np.ndarray,
+    cov_l: tuple[np.ndarray, ...],
+    cov_r: tuple[np.ndarray, ...],
+) -> np.ndarray:
+    """Pairwise Mahalanobis d² of aligned pair arrays, valid all over the sphere.
+
+    ``cov_*`` are per-pair ``(sigma_sq_ra, sigma_sq_dec, rho)`` in arcsec² on
+    each source's own (east, north) axes.  The offset is the exact
+    great-circle separation resolved on the tangent plane at the pair's
+    midpoint, and each covariance is rotated from its source's axes onto that
+    plane.  ``ΔRA·cos(mean Dec)`` is wrong near the poles, where the RA
+    difference of a close pair approaches 180° and the two sources' east axes
+    are no longer parallel.
+    """
+    l_xyz = _radec_to_xyz(l_ra, l_dec)
+    r_xyz = _radec_to_xyz(r_ra, r_dec)
+    mid = l_xyz + r_xyz
+    norm = np.linalg.norm(mid, axis=-1, keepdims=True)
+    mid = np.where(norm > 0.0, mid / np.where(norm > 0.0, norm, 1.0), l_xyz)
+    mid_ra = np.degrees(np.arctan2(mid[:, 1], mid[:, 0]))
+    mid_dec = np.degrees(np.arcsin(np.clip(mid[:, 2], -1.0, 1.0)))
+    east_m, north_m = _local_basis(mid_ra, mid_dec)
+
+    # (r_l - r_r) is orthogonal to the midpoint, so its projection has the
+    # chord length; rescale it to the great-circle arc.
+    delta = l_xyz - r_xyz
+    chord = np.linalg.norm(delta, axis=-1)
+    arc = 2.0 * np.arcsin(np.clip(0.5 * chord, 0.0, 1.0))
+    scale = np.divide(arc, chord, out=np.ones_like(chord), where=chord > 0.0)
+    scale *= math.degrees(1.0) * 3600.0
+    delta_east = np.einsum("ij,ij->i", delta, east_m) * scale
+    delta_north = np.einsum("ij,ij->i", delta, north_m) * scale
+
+    def rotated(
+        ra: np.ndarray, dec: np.ndarray, cov: tuple[np.ndarray, ...]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        sra2, sde2, rho = (np.asarray(values, dtype=float) for values in cov)
+        east_s, north_s = _local_basis(ra, dec)
+        # Rows of M express the midpoint axes in the source's (east, north).
+        m11 = np.einsum("ij,ij->i", east_m, east_s)
+        m12 = np.einsum("ij,ij->i", east_m, north_s)
+        m21 = np.einsum("ij,ij->i", north_m, east_s)
+        m22 = np.einsum("ij,ij->i", north_m, north_s)
+        cross = rho * np.sqrt(sra2 * sde2)
+        xx = m11 * m11 * sra2 + 2.0 * m11 * m12 * cross + m12 * m12 * sde2
+        yy = m21 * m21 * sra2 + 2.0 * m21 * m22 * cross + m22 * m22 * sde2
+        xy = m11 * m21 * sra2 + (m11 * m22 + m12 * m21) * cross + m12 * m22 * sde2
+        denominator = np.sqrt(xx * yy)
+        rho_m = np.divide(xy, denominator, out=np.zeros_like(xy), where=denominator > 0.0)
+        return xx, yy, rho_m
+
+    return _mahalanobis_pairwise(
+        delta_east,
+        delta_north,
+        *rotated(l_ra, l_dec, cov_l),
+        *rotated(r_ra, r_dec, cov_r),
+    )
+
+
 # --------------------------------------------------------------------------- #
 # 3D Cartesian unit-sphere helpers (Tier 1 and Tier 2 share these)
 # --------------------------------------------------------------------------- #
@@ -817,21 +891,13 @@ def _skyellipse_pair_filter(
     """
     if left_idx.size == 0:
         return left_idx, right_idx, seps
-    sra2_l, sde2_l, rho_l = cov_l
-    sra2_r, sde2_r, rho_r = cov_r
-    mean_dec = 0.5 * (l_dec[left_idx] + r_dec[right_idx])
-    cos_dec = np.cos(np.radians(mean_dec))
-    delta_ra = ((l_ra[left_idx] - r_ra[right_idx] + 180.0) % 360.0 - 180.0) * 3600.0 * cos_dec
-    delta_dec = (l_dec[left_idx] - r_dec[right_idx]) * 3600.0
-    d2 = _mahalanobis_pairwise(
-        delta_ra,
-        delta_dec,
-        sra2_l[left_idx],
-        sde2_l[left_idx],
-        rho_l[left_idx],
-        sra2_r[right_idx],
-        sde2_r[right_idx],
-        rho_r[right_idx],
+    d2 = _skyellipse_d2(
+        l_ra[left_idx],
+        l_dec[left_idx],
+        r_ra[right_idx],
+        r_dec[right_idx],
+        tuple(values[left_idx] for values in cov_l),
+        tuple(values[right_idx] for values in cov_r),
     )
     keep = np.isfinite(d2) & (d2 <= max_error**2)
     if radius_arcsec is not None:
