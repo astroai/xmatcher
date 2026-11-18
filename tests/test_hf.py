@@ -217,12 +217,13 @@ def test_scheme_helpers_agree_on_hugging_face_identifiers() -> None:
 
 
 def test_split_hf_uri_normalizes_the_dataset_path() -> None:
-    assert split_hf_uri("hf://datasets/owner/name") == ("owner/name", "")
+    assert split_hf_uri("hf://datasets/owner/name") == ("owner/name", "", "main")
     assert split_hf_uri("hf://datasets/owner/name/hats/cat/") == (
         "owner/name",
         "hats/cat",
+        "main",
     )
-    assert split_hf_uri("hf://datasets//owner//name//hats") == ("owner/name", "hats")
+    assert split_hf_uri("hf://datasets//owner//name//hats") == ("owner/name", "hats", "main")
 
 
 @pytest.mark.parametrize(
@@ -232,6 +233,8 @@ def test_split_hf_uri_normalizes_the_dataset_path() -> None:
         "hf://datasets/owner",
         "hf://datasets/owner/name/../other",
         "hf://datasets/owner/name/./cat",
+        "hf://datasets/owner/name@",
+        "hf://datasets/owner/@v1",
         "s3://bucket/key",
     ],
 )

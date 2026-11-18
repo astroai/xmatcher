@@ -68,3 +68,31 @@ def test_http_date_retry_after_is_honoured(monkeypatch, reader: str) -> None:
         HFRemote("hf://datasets/o/n")._open("https://huggingface.co/x").close()
     assert len(sleeps) == 1
     assert 25.0 < sleeps[0] <= 31.0
+
+
+# --------------------------------------------------------------------------- #
+# hf:// revisions
+# --------------------------------------------------------------------------- #
+def test_hf_uri_revision_is_parsed_not_part_of_the_repo() -> None:
+    """``name@rev`` used to become repo ``owner/name@rev`` and 404 on the Hub."""
+    from xmatcher.hf import split_hf_uri
+
+    assert split_hf_uri("hf://datasets/owner/name@v1.0/hats") == ("owner/name", "hats", "v1.0")
+    assert split_hf_uri("hf://datasets/owner/name@refs%2Fpr%2F3") == (
+        "owner/name",
+        "",
+        "refs/pr/3",
+    )
+    remote = HFRemote("hf://datasets/owner/name@v1.0/hats", endpoint="https://hub.test")
+    assert remote.repo == "owner/name"
+    assert remote.revision == "v1.0"
+    assert remote.resolve_url("properties") == (
+        "https://hub.test/datasets/owner/name/resolve/v1.0/hats/properties"
+    )
+    assert "/tree/v1.0/hats?" in remote._tree_url(recursive=True)
+    child = remote.child("cat")
+    assert child.revision == "v1.0"
+    assert child.resolve_url("properties").endswith("/resolve/v1.0/hats/cat/properties")
+    assert remote.display(remote.resolve_url("x")) == "hf://datasets/owner/name@v1.0/hats/x"
+    # An explicit revision argument still wins over the URI.
+    assert HFRemote("hf://datasets/owner/name@v1.0", revision="dev").revision == "dev"

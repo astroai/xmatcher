@@ -52,12 +52,17 @@ _TIMEOUT_S = 120
 
 
 def is_hf_uri(text: object) -> bool:
-    """True for ``hf://datasets/<owner>/<name>[/<path>]``."""
+    """True for ``hf://datasets/<owner>/<name>[@<revision>][/<path>]``."""
     return isinstance(text, str) and text.startswith(_PREFIX)
 
 
-def split_hf_uri(uri: str) -> tuple[str, str]:
-    """Split ``hf://datasets/owner/name/some/path`` into ``(repo, "some/path")``."""
+def split_hf_uri(uri: str) -> tuple[str, str, str]:
+    """Split ``hf://datasets/owner/name[@revision]/some/path``.
+
+    Returns ``(repo, "some/path", revision)``; the revision defaults to
+    :data:`DEFAULT_REVISION`.  As in ``huggingface_hub``, a revision holding a
+    slash is written URL-encoded (``name@refs%2Fpr%2F1``).
+    """
     if not is_hf_uri(uri):
         raise ValueError(f"not an hf:// URI: {uri!r}")
     rest = uri[len(_PREFIX) :]
@@ -69,9 +74,14 @@ def split_hf_uri(uri: str) -> tuple[str, str]:
     parts = [part for part in tail.split("/") if part]
     if len(parts) < 2:
         raise ValueError(f"hf:// URI needs an <owner>/<name> dataset: {uri!r}")
-    if any(part in (".", "..") for part in parts):
+    name, at, revision = parts[1].partition("@")
+    revision = urllib.parse.unquote(revision).strip()
+    if not name or (at and not revision):
+        raise ValueError(f"hf:// URI has an empty dataset name or revision: {uri!r}")
+    parts[1] = name
+    if any(part in (".", "..") or "@" in part for part in parts):
         raise ValueError(f"hf:// URI has an unsafe path: {uri!r}")
-    return "/".join(parts[:2]), "/".join(parts[2:])
+    return "/".join(parts[:2]), "/".join(parts[2:]), revision or DEFAULT_REVISION
 
 
 def parse_hf_tree(body: bytes) -> list[dict[str, Any]]:
@@ -139,18 +149,23 @@ class HFRemote:
         uri: str,
         *,
         endpoint: str | None = None,
-        revision: str = DEFAULT_REVISION,
+        revision: str | None = None,
         limiter: Any = None,
     ) -> None:
-        repo, path = split_hf_uri(uri)
+        repo, path, uri_revision = split_hf_uri(uri)
         self.repo = repo
         self._repo_q = urllib.parse.quote(repo, safe="/")
         self.path = path
-        self.revision = (revision or DEFAULT_REVISION).strip() or DEFAULT_REVISION
+        self.revision = (revision or "").strip() or uri_revision
         selected = endpoint if endpoint is not None else os.environ.get(ENDPOINT_ENV, "")
         self.endpoint = (selected or DEFAULT_ENDPOINT).rstrip("/")
         self._limiter = limiter
-        self.uri = f"hf://datasets/{repo}" + (f"/{path}" if path else "")
+        pinned = (
+            ""
+            if self.revision == DEFAULT_REVISION
+            else "@" + urllib.parse.quote(self.revision, safe="")
+        )
+        self.uri = f"hf://datasets/{repo}{pinned}" + (f"/{path}" if path else "")
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return f"HFRemote({self.uri!r})"
@@ -201,12 +216,13 @@ class HFRemote:
         """``hf://…`` form of a request URL, for error messages."""
         api = f"{self.endpoint}/api/datasets/{self.repo}/tree/"
         resolve = f"{self.endpoint}/datasets/{self.repo}/resolve/"
+        root = self.uri[: len(self.uri) - len(self.path)].rstrip("/") if self.path else self.uri
         for prefix in (api, resolve):
             if url.startswith(prefix):
                 rest = url[len(prefix) :].split("?", 1)[0]
                 parts = rest.split("/", 1)
                 key = self._unquote(parts[1]) if len(parts) > 1 else ""
-                return f"hf://datasets/{self.repo}" + (f"/{key}" if key else "")
+                return root + (f"/{key}" if key else "")
         return url
 
     @staticmethod
