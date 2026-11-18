@@ -42,7 +42,7 @@ import re
 import shutil
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +64,7 @@ from .ray_union import (
     _footer_row_count,
     _gather_rows,
     _hats_dir,
+    _input_fingerprint,
     _list_partitions,
     _partition_index,
     _pixel_diagonal_deg,
@@ -526,10 +527,13 @@ def _pm_warn(anchor_frame: pl.DataFrame, plan: AnchorPlan, survey: CataloguePlan
         and pmra_col in anchor_frame.columns
         and pmde_col in anchor_frame.columns
     ):
-        pmra = anchor_frame[pmra_col].cast(pl.Float64).fill_null(0.0).to_numpy()
-        pmde = anchor_frame[pmde_col].cast(pl.Float64).fill_null(0.0).to_numpy()
+        pmra = anchor_frame[pmra_col].cast(pl.Float64).fill_null(np.nan).to_numpy()
+        pmde = anchor_frame[pmde_col].cast(pl.Float64).fill_null(np.nan).to_numpy()
         drift_arcsec = np.hypot(pmra, pmde) * dt / 1000.0
-        return drift_arcsec > 0.5 * plan.sep_arcsec
+        usable = np.isfinite(drift_arcsec)
+        # Rows without usable motion (Gaia two-parameter solutions) get the
+        # same long-baseline flag as an anchor with no motion columns.
+        return np.where(usable, drift_arcsec > 0.5 * plan.sep_arcsec, dt > 5.0)
     # No usable anchor PM: flag long baselines rather than pretending the
     # source is stationary.
     warn[:] = dt > 5.0
@@ -728,18 +732,29 @@ def _fingerprint(plan: AnchorPlan) -> dict[str, Any]:
             "cols": cat.cols,
             "final_cols": cat.final_cols,
             "dtypes": {k: str(v) for k, v in cat.dtypes.items()},
-            "partitions": [asdict(p) for p in cat.partitions],
+            "partitions": [[p.order, p.pix, p.rel] for p in cat.partitions],
+            # Epoch and motion metadata drive propagation and pm_warn.
+            "epoch": cat.epoch,
+            "epoch_column": cat.epoch_column,
+            "pm_ra_column": cat.pm_ra_column,
+            "pm_dec_column": cat.pm_dec_column,
+            "parallax_column": cat.parallax_column,
+            "radial_velocity_column": cat.radial_velocity_column,
+            "frame": cat.frame,
         }
 
     return {
-        "version": 1,
+        "version": 2,
         "anchor": cat_fp(plan.anchor),
         "surveys": [cat_fp(c) for c in plan.surveys],
         "tags": plan.survey_tags,
         "sep_arcsec": plan.sep_arcsec,
         "target_epoch": plan.target_epoch,
+        "anchor_epoch": plan.anchor_epoch,
+        "fallback_policy": plan.fallback_policy,
         "anchor_id": plan.anchor_id,
         "out_columns": plan.out_columns,
+        "input_files": _input_fingerprint([plan.anchor, *plan.surveys]),
     }
 
 

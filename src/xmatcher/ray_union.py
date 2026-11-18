@@ -1856,10 +1856,10 @@ def _append_event(out: Path, event: str, **fields: Any) -> None:
         pass
 
 
-def _input_fingerprint(plan: UnionPlan) -> list[dict[str, Any]]:
+def _input_fingerprint(catalogues: Sequence[CataloguePlan]) -> list[dict[str, Any]]:
     """Local stat freshness; content digests for roots without reliable mtimes."""
     files = []
-    for cat in plan.catalogues:
+    for cat in catalogues:
         storage = open_storage(cat.root)
         for part in cat.partitions:
             entry: dict[str, Any] = {"root": cat.root, "rel": part.rel}
@@ -1937,20 +1937,25 @@ def ray_union_match(
     )
     _LAST_PLAN = plan
     fingerprint: dict[str, Any] = {
+        # Only what changes the output: --task-rows, --chunk-memory-gb and
+        # --hats-threshold are sizing guards, and the run-time guard asks the
+        # user to raise --chunk-memory-gb, which must not discard finished
+        # chunks.  est_rows depends on --hats-threshold for remote roots.
         "sep_arcsec": sep_arcsec,
-        "hats_threshold": int(hats_threshold),
-        "task_rows": task_rows,
-        "chunk_memory_gb": chunk_memory_gb,
         "max_tuples": max_tuples,
         "plan_version": 4,
         "fallback_policy": fallback_policy,
         "inputs": [
-            {**asdict(cat), "dtypes": {col: str(dtype) for col, dtype in cat.dtypes.items()}}
+            {
+                **asdict(cat),
+                "partitions": [[p.order, p.pix, p.rel] for p in cat.partitions],
+                "dtypes": {col: str(dtype) for col, dtype in cat.dtypes.items()},
+            }
             for cat in plan.catalogues
         ],
         # ponytail: local freshness uses stat, not a full O(bytes) digest;
         # nonlocal files require content hashes because their mtimes are unknown.
-        "input_files": _input_fingerprint(plan),
+        "input_files": _input_fingerprint(plan.catalogues),
     }
     if matcher != "sky":
         fingerprint["matcher"] = matcher

@@ -4,14 +4,20 @@ from __future__ import annotations
 
 import importlib.util
 import math
+import shutil
+import sys
 from collections import Counter
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import polars as pl
 import pytest
 
 from xmatcher import ray_union
+from xmatcher.mirror import _write_hats_native
+from xmatcher.ray_anchor import ray_anchor_match
+from xmatcher.sources import CatalogueSource
 
 from .test_ray_union import _catalogue, _pixeled_catalogue, _read_output, _sep_arcsec
 
@@ -123,3 +129,110 @@ def test_union_four_catalogues_match_sequential_oracle(tmp_path: Path, small_ray
     for k, frame in enumerate(frames):
         column = "id" if k == 0 else f"id_{k + 1}"
         assert set(frame["id"]) <= set(df[column].drop_nulls())
+
+
+# --------------------------------------------------------------------------- #
+# ray-anchor (serial path: the per-partition loop is identical under Ray)
+# --------------------------------------------------------------------------- #
+def _anchor_inputs(tmp_path: Path) -> None:
+    anchor = pl.DataFrame(
+        {
+            "source_id": [1, 2, 3],
+            "ra": [10.0, 20.0, 30.0],
+            "dec": [0.0, 2.0, -2.0],
+            "pmra": [1.0, None, float("nan")],
+            "pmdec": [0.0, None, 0.0],
+        }
+    )
+    survey = pl.DataFrame({"sid": [9, 8], "ra": [10.0, 20.0], "dec": [0.0, 2.0]})
+    _write_hats_native(anchor, tmp_path / "anchor", ra_column="ra", dec_column="dec")
+    _write_hats_native(survey, tmp_path / "survey", ra_column="ra", dec_column="dec")
+
+
+def _run_anchor(tmp_path: Path, out: Path, *, survey_epoch: float | None) -> pl.DataFrame:
+    common: dict[str, Any] = {
+        "is_local": True,
+        "access_method": "hats",
+        "ra_column": "ra",
+        "dec_column": "dec",
+    }
+    ray_anchor_match(
+        CatalogueSource(
+            name="anchor",
+            path=tmp_path / "anchor",
+            id_column="source_id",
+            epoch=2016.0,
+            pm_ra_column="pmra",
+            pm_dec_column="pmdec",
+            **common,
+        ),
+        [
+            CatalogueSource(
+                name="survey",
+                path=tmp_path / "survey",
+                id_column="sid",
+                epoch=survey_epoch,
+                **common,
+            )
+        ],
+        sep_arcsec=1.5,
+        output_file=str(out),
+    )
+    files = sorted((out / "dataset").glob("Norder=*/*/*.parquet"))
+    return pl.concat([pl.read_parquet(f) for f in files]).sort("source_id")
+
+
+def test_anchor_pm_warn_flags_rows_without_usable_motion(tmp_path: Path, monkeypatch) -> None:
+    """A null/NaN anchor proper motion over a 16-year baseline is unknown
+    motion, not zero motion: it must be flagged like an anchor without PM."""
+    monkeypatch.setitem(sys.modules, "ray", None)
+    _anchor_inputs(tmp_path)
+    result = _run_anchor(tmp_path, tmp_path / "out", survey_epoch=2000.0)
+    # 1 mas/yr * 16 yr = 16 mas: no warning; null and NaN motion: warning.
+    assert result["survey_pm_warn"].to_list() == [False, True, True]
+
+
+def test_anchor_resume_fingerprint_tracks_epochs_and_input_content(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Changing a survey epoch or rewriting an input partition (same row
+    count) changes the output, so finished partitions must not be reused."""
+    monkeypatch.setitem(sys.modules, "ray", None)
+    _anchor_inputs(tmp_path)
+    out = tmp_path / "out"
+    first = _run_anchor(tmp_path, out, survey_epoch=None)
+    assert first["survey_pm_warn"].to_list() == [False, False, False]
+
+    second = _run_anchor(tmp_path, out, survey_epoch=2000.0)
+    assert second["survey_pm_warn"].to_list() == [False, True, True]
+
+    shutil.rmtree(tmp_path / "survey")
+    moved = pl.DataFrame({"sid": [9, 8], "ra": [10.0, 20.0005], "dec": [0.0, 2.0]})
+    _write_hats_native(moved, tmp_path / "survey", ra_column="ra", dec_column="dec")
+    third = _run_anchor(tmp_path, out, survey_epoch=2000.0)
+    assert third["sid_survey"].to_list() == [9, None, None]
+
+
+@needs_ray
+def test_union_resume_survives_raising_sizing_knobs(tmp_path: Path, small_ray) -> None:
+    """The run-time guard tells the user to raise --chunk-memory-gb; doing so
+    (or changing --task-rows/--hats-threshold) does not change the output and
+    must not wipe the finished chunks of a day-scale run."""
+    frames = [
+        pl.DataFrame({"ra": [10.0, 10.1], "dec": [0.0, 0.0], "id": [f"{n}0", f"{n}1"]})
+        for n in "AB"
+    ]
+    srcs = [_catalogue(tmp_path / n, n, f) for n, f in zip("ab", frames, strict=True)]
+    out = tmp_path / "out"
+    ray_union.ray_union_match(srcs, sep_arcsec=1.0, output_file=str(out))
+    stamps = {p.name: p.stat().st_mtime_ns for p in (out / "chunks").glob("*.parquet")}
+    assert stamps
+    ray_union.ray_union_match(
+        srcs,
+        sep_arcsec=1.0,
+        output_file=str(out),
+        chunk_memory_gb=16.0,
+        task_rows=4_000_000,
+        hats_threshold=50_000,
+    )
+    assert {p.name: p.stat().st_mtime_ns for p in (out / "chunks").glob("*.parquet")} == stamps

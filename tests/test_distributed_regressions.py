@@ -605,9 +605,9 @@ def test_nonlocal_partition_fingerprint_detects_same_size_edits(tmp_path, monkey
     )
     plan = ray_union.UnionPlan([cat], 1.0, 0.0, 10, [], str(tmp_path / "out"))
     monkeypatch.setattr(ray_union, "open_storage", lambda root: Remote())
-    first = ray_union._input_fingerprint(plan)
+    first = ray_union._input_fingerprint(plan.catalogues)
     file.write_bytes(b"other")
-    assert ray_union._input_fingerprint(plan) != first
+    assert ray_union._input_fingerprint(plan.catalogues) != first
 
 
 def test_tap_same_service_best_uses_canonical_matcher(monkeypatch):
