@@ -52,6 +52,10 @@ HTTPS, VOSpace, S3 or Hugging Face:
   several real catalogues is not guessed: pass one tree URL.
 - Time-versioned collections (TNS, VSX) declare their newest dated tree as the
   primary, so the collection root follows it. The resolved tree is logged.
+- A downloaded collection on local disk (an LSDB or Hugging Face download,
+  with `collection.properties` beside the tree and its margin caches) resolves
+  the same way, so `xmatcher match ./gaia_dr3 targets.parquet` uses
+  `./gaia_dr3/gaia`.
 
 ## Verified sources
 

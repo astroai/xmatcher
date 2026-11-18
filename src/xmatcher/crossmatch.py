@@ -575,7 +575,7 @@ class CrossMatch:
                 )
             if is_remote_hats_uri(target):
                 return self._remote_hats_source(target, overrides)
-            local = Path(target).expanduser()
+            local = io_utils.resolve_local_hats_root(Path(target).expanduser())
             if local.is_dir() and io_utils.is_hats_dir(local):
                 return self._hats_source(local, overrides)
             # A bare name is resolved through the IVOA HATS registry (cached),
@@ -598,7 +598,7 @@ class CrossMatch:
             # mirrored on demand by the ray-union pipeline and `xmatcher sync`.
             return self._remote_hats_source(text, overrides)
 
-        path = Path(text)
+        path = io_utils.resolve_local_hats_root(Path(text))
         if io_utils.is_hats_dir(path):
             return self._hats_source(path, overrides)
         if path.is_file():

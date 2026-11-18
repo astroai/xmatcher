@@ -43,6 +43,30 @@ def is_hats_dir(path: str | Path) -> bool:
     return any((p / marker).exists() for marker in _HATS_MARKERS)
 
 
+def resolve_local_hats_root(path: str | Path) -> Path:
+    """Descend a local HATS *collection* to the catalogue tree it names.
+
+    An LSDB or Hugging Face download is a collection: ``collection.properties``
+    beside the catalogue, its margin caches (``*_10arcs``) and id indexes.
+    ``hats_primary_table_url`` names the catalogue, as for remote collections.
+    Any other path is returned unchanged.
+    """
+    root = Path(path)
+    marker = root / "collection.properties"
+    if not marker.is_file():
+        return root
+    from .mirror import _collection_primary  # noqa: PLC0415 - mirror imports io_utils
+
+    primary = _collection_primary(marker.read_bytes(), str(root))
+    if primary is None or not is_hats_dir(root / primary):
+        raise InputError(
+            f"HATS collection {root} does not name a readable primary catalogue "
+            "(hats_primary_table_url in collection.properties); pass the catalogue "
+            "directory itself."
+        )
+    return root / primary
+
+
 def astropy_table_to_polars(table) -> pl.DataFrame:
     """Convert an astropy ``Table`` to a polars ``DataFrame`` via Arrow/NumPy.
 

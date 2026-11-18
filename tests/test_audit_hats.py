@@ -350,3 +350,38 @@ def test_write_hats_of_an_empty_frame_keeps_its_schema(tmp_path: Path) -> None:
     write_hats(frame, out)
     assert pq.read_schema(out / "dataset" / "_common_metadata").names == frame.columns
     assert "hats_nrows=0" in (out / "properties").read_text()
+
+
+def _local_collection(tmp_path: Path, primary: str) -> Path:
+    """An LSDB-style download: collection.properties, the tree, a margin cache."""
+    from xmatcher.io_utils import write_hats
+
+    collection = tmp_path / "gaia_dr3"
+    write_hats(_sky(200, seed=5), collection / "gaia")
+    write_hats(_sky(20, seed=6), collection / "gaia_10arcs")
+    (collection / "collection.properties").write_text(
+        f"obs_collection=gaia_dr3\nhats_primary_table_url={primary}\nall_margins=gaia_10arcs\n"
+    )
+    return collection
+
+
+@pytest.mark.parametrize("spelling", ["{p}", "hats:{p}"])
+def test_local_collection_resolves_to_its_primary_tree(tmp_path: Path, spelling: str) -> None:
+    from xmatcher import CrossMatch
+
+    collection = _local_collection(tmp_path, "gaia")
+    source = CrossMatch().resolve_source(spelling.format(p=collection), {})
+    assert Path(source.path) == collection / "gaia"
+    assert hats_native.load_hats_all(source).height == 200
+
+
+@pytest.mark.parametrize("primary", ["../elsewhere", "missing"])
+def test_local_collection_without_a_readable_primary_is_refused(
+    tmp_path: Path, primary: str
+) -> None:
+    from xmatcher import CrossMatch
+    from xmatcher.exceptions import InputError
+
+    collection = _local_collection(tmp_path, primary)
+    with pytest.raises(InputError, match="does not name a readable primary"):
+        CrossMatch().resolve_source(str(collection), {})
