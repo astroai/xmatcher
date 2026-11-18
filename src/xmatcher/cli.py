@@ -849,7 +849,8 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "--output",
         dest="output_file",
         metavar="FILE",
-        help="Output file (.parquet/.csv/.fits/.hats). Default: CSV to stdout.",
+        help="Output file (.parquet/.csv/.fits/.hats); an existing file is overwritten. "
+        "Default: CSV to stdout.",
     )
     g_out.add_argument(
         "--hats-threshold",
