@@ -88,6 +88,9 @@ _HATS_METADATA_NAMES = frozenset(
     }
 )
 _HTTP_RETRIES = 3
+# A remote HATS sync rewrites its manifest at least this often (seconds), so an
+# interrupted or killed multi-day sync resumes instead of starting over.
+_MANIFEST_CHECKPOINT_S = 30.0
 _HTTP_BACKOFF_CAP_S = 60.0
 _DEFAULT_MIN_FREE_GB = 10.0
 # Auxiliary HATS trees published beside a catalogue: HEALPix margin caches and
@@ -1237,9 +1240,28 @@ def _mirror_remote_hats(
     failed_before = stats.failed
     manifest_rel = f"{prefix}/{_MANIFEST_NAME}"
     manifest = _read_json(cache, manifest_rel)
+    previous_fetched_at = manifest.get("fetched_at")
     downloaded_before = stats.files_downloaded
+    # Workers update the manifest and counters; checkpoints serialize it.
+    lock = threading.Lock()
+    last_checkpoint = time.monotonic()
+    rewriting = False
+
+    def checkpoint() -> None:
+        """Persist per-file progress; the caller holds ``lock``.
+
+        The tree is being rewritten in place, so a checkpoint never claims
+        ``fetched_at``: an interrupted mirror stays visibly incomplete.
+        """
+        nonlocal last_checkpoint
+        manifest["version"] = version
+        manifest["source"] = src.access_identifier
+        manifest.pop("fetched_at", None)
+        _write_json(cache, manifest_rel, manifest)
+        last_checkpoint = time.monotonic()
 
     def do_fetch(entry: dict[str, Any]) -> None:
+        nonlocal rewriting
         rel = entry["rel"]
         tmpdir = Path(tempfile.mkdtemp(prefix="xmatcher-"))
         local_tmp = tmpdir / Path(rel).name
@@ -1274,19 +1296,28 @@ def _mirror_remote_hats(
             if had_old:
                 cache.stage_in(cache_rel, backup)
                 backup_ready = True
+            with lock:
+                if not rewriting:
+                    # The first publication invalidates the previous fetched_at.
+                    checkpoint()
+                    rewriting = True
             upload_started = True
             cache.stage_out(local_tmp, cache_rel)
             stored = cache.size(cache_rel)
-            stats.files_downloaded += 1
-            stats.bytes_downloaded += max(0, stored) if stored >= 0 else 0
             record: dict[str, Any] = {"size": stored}
             if entry.get("generation"):
                 record["generation"] = entry["generation"]
-            manifest.setdefault("files", {})[rel] = record
+            with lock:
+                stats.files_downloaded += 1
+                stats.bytes_downloaded += max(0, stored) if stored >= 0 else 0
+                manifest.setdefault("files", {})[rel] = record
+                if time.monotonic() - last_checkpoint >= _MANIFEST_CHECKPOINT_S:
+                    checkpoint()
             if progress_cb:
                 progress_cb(f"sync {src.name}: fetched {rel}")
         except Exception as exc:  # noqa: BLE001
-            stats.failed += 1
+            with lock:
+                stats.failed += 1
             logger.warning("sync %s: failed to fetch %s: %s", src.name, rel, exc)
             if backup_ready:
                 try:
@@ -1343,10 +1374,17 @@ def _mirror_remote_hats(
 
     if progress_cb:
         progress_cb(f"sync {src.name}: {len(data_todo) + len(metadata_todo)} file(s) to fetch")
-    fetch_phase(data_todo)
-    data_phase_succeeded = stats.failed == failed_before
-    if data_phase_succeeded:
-        fetch_phase(metadata_todo)
+    try:
+        fetch_phase(data_todo)
+        data_phase_succeeded = stats.failed == failed_before
+        if data_phase_succeeded:
+            fetch_phase(metadata_todo)
+    except BaseException:
+        # Interrupted (Ctrl-C, worker shutdown): keep what already landed.
+        with lock:
+            if rewriting:
+                checkpoint()
+        raise
 
     files_manifest = manifest.setdefault("files", {})
     pruned = False
@@ -1376,6 +1414,10 @@ def _mirror_remote_hats(
         manifest["source"] = src.access_identifier
         manifest.pop("fetched_at", None)
     if stats.files_downloaded > downloaded_before or stats.failed == failed_before or pruned:
+        _write_json(cache, manifest_rel, manifest)
+    elif rewriting and previous_fetched_at:
+        # Every publication failed, so the previous complete tree still stands.
+        manifest["fetched_at"] = previous_fetched_at
         _write_json(cache, manifest_rel, manifest)
     logger.info(
         "sync %s: %d bytes, %d files (%d skipped, %d failed)",
@@ -2249,7 +2291,8 @@ def locate_mirrored(
     replicated cache roots.  ``cache_root`` still wins when both are given
     (single-root callers are unchanged).  Raises :class:`CrossMatchError`
     when no mirror exists on any probed root (run ``xmatcher sync`` or drop
-    ``--no-sync``).
+    ``--no-sync``), or when a remote HATS mirror's last sync did not complete
+    (no ``fetched_at`` in its manifest).
     """
     from .storage import default_cache_root
 
@@ -2272,12 +2315,27 @@ def locate_mirrored(
         )
     version = _version_dir(src)
     rel = f"{_safe_name(src.name)}/{version}"
+    incomplete: list[str] = []
     for root in cache_roots:
         cache = open_storage(root)
-        if cache.exists(f"{rel}/properties") or cache.exists(
-            f"{rel}/dataset/partition_info.parquet"
+        if not (
+            cache.exists(f"{rel}/properties")
+            or cache.exists(f"{rel}/dataset/partition_info.parquet")
         ):
-            return root, rel
+            continue
+        if src.access_method == "hats" and not _read_json(cache, f"{rel}/{_MANIFEST_NAME}").get(
+            "fetched_at"
+        ):
+            # A remote HATS tree is rewritten in place; without fetched_at the
+            # last sync failed or was interrupted and may mix two upstream builds.
+            incomplete.append(root)
+            continue
+        return root, rel
+    if incomplete:
+        raise CrossMatchError(
+            f"The mirror of '{src.name}' is incomplete on {', '.join(incomplete)} (its last "
+            f"sync failed or was interrupted); re-run 'xmatcher sync {src.name}'."
+        )
     raise CrossMatchError(
         f"Catalogue '{src.name}' is not mirrored yet (probed: {', '.join(cache_roots)}); "
         f"run 'xmatcher sync {src.name}' or drop --no-sync."

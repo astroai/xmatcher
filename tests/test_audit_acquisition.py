@@ -19,6 +19,7 @@ import polars as pl
 import pytest
 
 from xmatcher import hats_native, mirror
+from xmatcher.exceptions import CrossMatchError
 from xmatcher.hf import HFRemote
 from xmatcher.s3 import S3Remote
 from xmatcher.sources import CatalogueSource
@@ -237,3 +238,90 @@ def test_unsafe_collection_primary_is_not_followed(primary: str) -> None:
 
     reader = Reader({"collection.properties": f"hats_primary_table_url={primary}\n".encode()})
     assert mirror._resolve_reader_tree_root("s3://bucket/hats", reader) == "s3://bucket/hats"
+
+
+# --------------------------------------------------------------------------- #
+# interrupted and partial syncs
+# --------------------------------------------------------------------------- #
+def _http_tree_source(base: str) -> CatalogueSource:
+    return CatalogueSource(
+        name="resumable",
+        is_local=False,
+        access_method="hats",
+        access_identifier=f"{base}/cat",
+    )
+
+
+def test_interrupted_sync_resumes_from_its_checkpoint(tmp_path: Path, monkeypatch) -> None:
+    """Progress made before a crash is in the manifest; the rerun fetches the rest."""
+    serve = tmp_path / "serve"
+    mirror._write_hats_native(
+        _frame(120), serve / "cat", ra_column="ra", dec_column="dec", threshold=50
+    )
+    pixels = len(list((serve / "cat").glob("dataset/Norder=*/Dir=*/Npix=*.parquet")))
+    assert pixels >= 2
+    monkeypatch.setattr(mirror, "_MANIFEST_CHECKPOINT_S", 0.0)
+    real_request = mirror._http_request
+    cache = str(tmp_path / "cache")
+    seen: list[str] = []
+    on_disk: list[dict] = []
+
+    def interrupt_second_pixel(url, bucket, **kwargs):
+        if "/Npix=" in url and not kwargs.get("head") and not kwargs.get("range_probe"):
+            seen.append(url)
+            if len(seen) == 2:
+                src = _http_tree_source(url.split("/cat/")[0])
+                rel = f"resumable/{mirror._version_dir(src)}/{mirror._MANIFEST_NAME}"
+                on_disk.append(mirror._read_json(LocalStorage(cache), rel))
+                raise KeyboardInterrupt
+        return real_request(url, bucket, **kwargs)
+
+    with serve_directory(serve) as base:
+        src = _http_tree_source(base)
+        monkeypatch.setattr(mirror, "_http_request", interrupt_second_pixel)
+        with pytest.raises(KeyboardInterrupt):
+            mirror.sync_catalogue(src, cache_root=cache, rate_limit_rps=0.0, workers=1)
+        # The periodic checkpoint had already recorded the first pixel.
+        assert any("Npix=" in rel for rel in on_disk[0]["files"])
+        assert "fetched_at" not in on_disk[0]
+        monkeypatch.setattr(mirror, "_http_request", real_request)
+        resumed = mirror.sync_catalogue(src, cache_root=cache, rate_limit_rps=0.0, workers=1)
+    assert resumed.failed == 0
+    assert resumed.files_skipped >= 1
+    root, rel = mirror.locate_mirrored(src, cache_root=cache)
+    rows = hats_native.load_hats_all(
+        CatalogueSource(name="m", is_local=True, path=Path(root) / rel)
+    )
+    assert rows.height == 120
+
+
+def test_locate_mirrored_refuses_a_partially_updated_tree(tmp_path: Path, monkeypatch) -> None:
+    """A failed re-sync after an upstream rebuild leaves a mixed tree; do not serve it."""
+    serve = tmp_path / "serve"
+    tree = serve / "cat"
+    mirror._write_hats_native(_frame(120), tree, ra_column="ra", dec_column="dec", threshold=50)
+    cache = str(tmp_path / "cache")
+    with serve_directory(serve) as base:
+        src = _http_tree_source(base)
+        assert mirror.sync_catalogue(src, cache_root=cache, rate_limit_rps=0.0).failed == 0
+        assert mirror.locate_mirrored(src, cache_root=cache)
+
+        shutil.rmtree(tree)
+        mirror._write_hats_native(
+            _frame(120, offset=1000), tree, ra_column="ra", dec_column="dec", threshold=50
+        )
+        real_request = mirror._http_request
+        fetched: list[str] = []
+
+        def fail_after_first_pixel(url, bucket, **kwargs):
+            if "/Npix=" in url and not kwargs.get("head") and not kwargs.get("range_probe"):
+                fetched.append(url)
+                if len(fetched) > 1:
+                    raise OSError("connection reset")
+            return real_request(url, bucket, **kwargs)
+
+        monkeypatch.setattr(mirror, "_http_request", fail_after_first_pixel)
+        with pytest.raises(OSError):
+            mirror.sync_catalogue(src, cache_root=cache, rate_limit_rps=0.0, workers=1)
+    with pytest.raises(CrossMatchError, match="incomplete"):
+        mirror.locate_mirrored(src, cache_root=cache)
