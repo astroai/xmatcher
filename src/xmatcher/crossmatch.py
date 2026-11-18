@@ -2730,7 +2730,9 @@ class CrossMatch:
         ):
             from .remote_cds import cds_xmatch_local_remote
 
-            result = cds_xmatch_local_remote(local, remote, local_lf, req.spec)
+            result = cds_xmatch_local_remote(
+                local, remote, local_lf, req.spec, local_first=src1.is_local
+            )
             return result.lazy()
 
         remote_lf = self._download_remote(
