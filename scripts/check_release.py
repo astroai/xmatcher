@@ -20,6 +20,11 @@ def check_tag(tag: str, version: str) -> None:
     _require(tag == expected, f"release tag {tag!r} does not match project version {expected!r}")
 
 
+def release_notes_path(root: Path, version: str) -> Path:
+    """GitHub release notes that the CI release job attaches for *version*."""
+    return root / "docs" / "archive" / f"release-{version}.md"
+
+
 def package_files(root: Path) -> list[Path]:
     return sorted(
         path
@@ -234,6 +239,8 @@ def main() -> None:
         project = tomllib.load(stream)["project"]
     if args.tag is not None:
         check_tag(args.tag, project["version"])
+        notes = release_notes_path(root, project["version"])
+        _require(notes.is_file(), f"release notes are missing: {notes.relative_to(root)}")
     artifacts = list(args.dist.glob("*.whl"))
     _require(len(artifacts) == 1, f"expected one wheel in {args.dist}, found {artifacts}")
     wheel_path = artifacts[0]

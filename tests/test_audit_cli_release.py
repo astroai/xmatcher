@@ -4,7 +4,7 @@ import re
 import tomllib
 from pathlib import Path
 
-from scripts.check_release import package_files, required_sdist_files
+from scripts.check_release import package_files, release_notes_path, required_sdist_files
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -35,3 +35,12 @@ def test_shipped_pixi_tasks_reference_shipped_scripts():
         referenced.add("scripts/git-hooks/pre-push")
     missing = sorted(path for path in referenced if path not in shipped)
     assert not missing, f"pixi tasks reference files the source archive omits: {missing}"
+
+
+def test_ci_release_job_attaches_the_checked_release_notes():
+    """The tag job copies the notes check_release.py --tag verifies (0.6.0 exists)."""
+    notes = release_notes_path(ROOT, "0.6.0")
+    assert notes.is_file()
+    workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+    template = notes.relative_to(ROOT).as_posix().replace("0.6.0", "${GITHUB_REF_NAME#v}")
+    assert f'cp "{template}" dist/RELEASE_NOTES.md' in workflow

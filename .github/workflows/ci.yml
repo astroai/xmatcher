@@ -68,7 +68,7 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         run: |
           pixi run --as-is python scripts/check_release.py --dist dist --tag "$GITHUB_REF_NAME"
-          cp "docs/release-${GITHUB_REF_NAME#v}.md" dist/RELEASE_NOTES.md
+          cp "docs/archive/release-${GITHUB_REF_NAME#v}.md" dist/RELEASE_NOTES.md
           cd dist
           sha256sum *.whl *.tar.gz > SHA256SUMS
 
