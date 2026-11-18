@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import http.client
 import shutil
 import socket
 import threading
@@ -114,40 +115,18 @@ def test_reader_rejects_a_truncated_body(tmp_path: Path, kind: str) -> None:
         assert list(tmp_path.iterdir()) == []
 
 
-def test_mirror_rejects_a_download_shorter_than_the_listing(tmp_path: Path, monkeypatch) -> None:
-    """A body without Content-Length that ends early is caught by the listed size."""
-    listing = [
-        {"rel": "properties", "size": 10},
-        {"rel": "dataset/Norder=0/Dir=0/Npix=1.parquet", "size": 1000},
-    ]
-    monkeypatch.setattr(mirror, "_remote_hats_listing", lambda src, bucket=None: listing)
+def test_http_get_rejects_a_body_shorter_than_its_content_length(monkeypatch) -> None:
+    """HTTP partitions rest on the GET's own Content-Length, never on a listed size.
 
-    def fake_request(url: str, bucket, **_kwargs):
-        if url.endswith("properties"):
-            return b"x" * 10, None
-        return b"x" * 100, None  # truncated, and no Content-Length to notice it
-
-    monkeypatch.setattr(mirror, "_http_request", fake_request)
-    src = CatalogueSource(
-        name="short",
-        is_local=False,
-        access_method="hats",
-        access_identifier="https://example.test/tree",
-    )
-    cache = tmp_path / "cache"
-    stats = mirror.SyncStats()
-    mirror._mirror_remote_hats(
-        src,
-        LocalStorage(cache),
-        bucket=mirror.TokenBucket(0),
-        force=False,
-        workers=1,
-        progress_cb=None,
-        stats=stats,
-    )
-    assert stats.failed == 1
-    prefix = cache / "short" / mirror._version_dir(src)
-    assert not (prefix / "dataset/Norder=0/Dir=0/Npix=1.parquet").exists()
+    Listed sizes may come from partition_info ``file_size`` or from probes of
+    on-the-fly services (CDS), so the transfer itself is the integrity check.
+    """
+    monkeypatch.setattr(mirror.time, "sleep", lambda *_a, **_k: None)
+    with (
+        short_body_server(advertised=1000, sent=100) as endpoint,
+        pytest.raises(http.client.IncompleteRead),
+    ):
+        mirror._http_request(f"{endpoint}/cat/part.parquet", mirror.TokenBucket(0))
 
 
 # --------------------------------------------------------------------------- #
