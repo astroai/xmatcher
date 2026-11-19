@@ -12,6 +12,7 @@ import os
 import pathlib
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -93,7 +94,7 @@ def probe_skyserver() -> dict:
         qurl = (
             "https://skyserver.sdss.org/dr16/SkyServerWS/SearchTools/SqlSearch"
             "?format=json&cmd="
-            + urllib.request.quote("SELECT TOP 3 objID, ra, dec, mode FROM PhotoPrimary")
+            + urllib.parse.quote("SELECT TOP 3 objID, ra, dec, mode FROM PhotoPrimary")
         )
         req = urllib.request.Request(qurl, headers={"User-Agent": "pensus-probe/1.0"})
         with urllib.request.urlopen(req, timeout=60) as resp:
@@ -235,7 +236,10 @@ def main() -> int:
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps(report, indent=2, sort_keys=True), flush=True)
     print(f"wrote {out}", flush=True)
-    return 0 if report["skyserver"].get("ok") or report["cosmohub"].get("ok") else 1
+    sky = report["skyserver"]
+    cosmo = report["cosmohub"]
+    assert isinstance(sky, dict) and isinstance(cosmo, dict)
+    return 0 if sky.get("ok") or cosmo.get("ok") else 1
 
 
 if __name__ == "__main__":
