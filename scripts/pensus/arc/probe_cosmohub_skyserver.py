@@ -20,13 +20,23 @@ def flag(name: str) -> None:
     print(f"{name}_set={'yes' if val else 'no'} {name}_len={len(val)}", flush=True)
 
 
-def http_json(url: str, method: str = "GET", data: dict | None = None, headers: dict | None = None, timeout: int = 60):
+def http_json(
+    url: str,
+    method: str = "GET",
+    data: dict | None = None,
+    headers: dict | None = None,
+    timeout: int = 60,
+):
     body = None if data is None else json.dumps(data).encode()
     req = urllib.request.Request(
         url,
         data=body,
         method=method,
-        headers={"User-Agent": "pensus-probe/1.0", "Content-Type": "application/json", **(headers or {})},
+        headers={
+            "User-Agent": "pensus-probe/1.0",
+            "Content-Type": "application/json",
+            **(headers or {}),
+        },
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         raw = resp.read()
@@ -48,12 +58,9 @@ def probe_skyserver() -> dict:
             data={"auth": {"identity": {"password": {"user": {"name": user, "password": pw}}}}},
             timeout=45,
         )
-        token = (
-            payload.get("access", {})
-            .get("token", {})
-            .get("id")
-            or payload.get("token", {}).get("id")
-        )
+        token = payload.get("access", {}).get("token", {}).get("id") or payload.get(
+            "token", {}
+        ).get("id")
         out["login_http"] = status
         out["token_present"] = bool(token)
         if not token:
@@ -79,16 +86,21 @@ def probe_skyserver() -> dict:
             )
             out["login_v3_http"] = status2
             # token often in header; urllib may not expose easily — mark attempt
-            out["login_v3_body_keys"] = sorted(payload2.keys()) if isinstance(payload2, dict) else []
+            out["login_v3_body_keys"] = (
+                sorted(payload2.keys()) if isinstance(payload2, dict) else []
+            )
         # Quick anonymous SkyServer sqlSearch (public) as reachability
         qurl = (
             "https://skyserver.sdss.org/dr16/SkyServerWS/SearchTools/SqlSearch"
-            "?format=json&cmd=" + urllib.request.quote("SELECT TOP 3 objID, ra, dec, mode FROM PhotoPrimary")
+            "?format=json&cmd="
+            + urllib.request.quote("SELECT TOP 3 objID, ra, dec, mode FROM PhotoPrimary")
         )
         req = urllib.request.Request(qurl, headers={"User-Agent": "pensus-probe/1.0"})
         with urllib.request.urlopen(req, timeout=60) as resp:
             sample = resp.read(800).decode("utf-8", "replace")
-        out["photo_primary_sample_ok"] = "objID" in sample or "objid" in sample.lower() or "[" in sample
+        out["photo_primary_sample_ok"] = (
+            "objID" in sample or "objid" in sample.lower() or "[" in sample
+        )
         out["photo_primary_head"] = sample[:200]
         out["day0_note"] = (
             "CDS HATS preferred when up; SkyServer/CasJobs usable for PhotoPrimary "
@@ -149,23 +161,42 @@ def probe_cosmohub() -> dict:
                         with urllib.request.urlopen(req, timeout=60) as resp:
                             cats = json.loads(resp.read().decode())
                         names: list[str] = []
-                        items = cats if isinstance(cats, list) else cats.get("results") or cats.get("data") or []
+                        items = (
+                            cats
+                            if isinstance(cats, list)
+                            else cats.get("results") or cats.get("data") or []
+                        )
                         for it in items[:80]:
                             if isinstance(it, dict):
-                                names.append(str(it.get("name") or it.get("title") or it.get("slug") or ""))
+                                names.append(
+                                    str(it.get("name") or it.get("title") or it.get("slug") or "")
+                                )
                             else:
                                 names.append(str(it))
                         out["catalog_endpoint"] = cat_url
                         out["catalog_count_sample"] = len(names)
                         out["catalog_names_sample"] = [n for n in names if n][:40]
                         # Day-0 photometry-ish keywords
-                        keys = ("pauc", "kids", "jpas", "j-pas", "euclid", "des", "sdss", "gaia", "wise", "vhs")
+                        keys = (
+                            "pauc",
+                            "kids",
+                            "jpas",
+                            "j-pas",
+                            "euclid",
+                            "des",
+                            "sdss",
+                            "gaia",
+                            "wise",
+                            "vhs",
+                        )
                         hits = [n for n in names if any(k in n.lower() for k in keys)]
                         out["day0_keyword_hits"] = hits[:30]
                         out["ok"] = True
                         break
                     except Exception as exc:  # noqa: BLE001
-                        out.setdefault("catalog_errors", []).append(f"{cat_url}: {type(exc).__name__}: {exc}")
+                        out.setdefault("catalog_errors", []).append(
+                            f"{cat_url}: {type(exc).__name__}: {exc}"
+                        )
             if out.get("ok"):
                 break
         except Exception as exc:  # noqa: BLE001

@@ -227,9 +227,7 @@ def main() -> None:
         "schema": SCHEMA,
         "table": TABLE,
         "client_version": CLIENT_VERSION,
-        "planned_hats_paths": {
-            b: f"/arc/projects/hats/hsc/pdr3/forced_{b}" for b, _ in BANDS
-        },
+        "planned_hats_paths": {b: f"/arc/projects/hats/hsc/pdr3/forced_{b}" for b, _ in BANDS},
         "stage_root": str(stage),
         "note": "Narrow bands via NAOJ catalog_jobs on summary; broad GRIZY from LSDB separate",
         "probed_at_utc": dt.datetime.now(dt.UTC).isoformat(),

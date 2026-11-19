@@ -76,13 +76,7 @@ class CasJobsREST:
     @staticmethod
     def _login(user: str, pw: str) -> str:
         body = json.dumps(
-            {
-                "auth": {
-                    "identity": {
-                        "password": {"user": {"name": user, "password": pw}}
-                    }
-                }
-            }
+            {"auth": {"identity": {"password": {"user": {"name": user, "password": pw}}}}}
         ).encode()
         req = urllib.request.Request(
             AUTH_URL + "?TaskName=pensus.sdss.login",
@@ -115,9 +109,7 @@ class CasJobsREST:
 
     def drop_table_if_exists(self, table: str) -> None:
         # CasJobs MyDB: unprefixed name only (MyDB.foo → "too many prefixes").
-        sql = (
-            f"IF OBJECT_ID('{table}','U') IS NOT NULL DROP TABLE {table}"
-        )
+        sql = f"IF OBJECT_ID('{table}','U') IS NOT NULL DROP TABLE {table}"
         try:
             self.execute(sql, context="MyDB")
             print(f"dropped MyDB.{table}", flush=True)
@@ -146,13 +138,8 @@ class CasJobsREST:
                 self.drop_table_if_exists(name)
 
     def submit(self, query: str, task_name: str) -> int:
-        url = (
-            f"{CASJOBS}/contexts/{self.context}/jobs"
-            f"?TaskName=pensus.sdss.submit"
-        )
-        payload = json.dumps(
-            {"Query": query, "TaskName": f"pensus-{task_name}"}
-        ).encode()
+        url = f"{CASJOBS}/contexts/{self.context}/jobs?TaskName=pensus.sdss.submit"
+        payload = json.dumps({"Query": query, "TaskName": f"pensus-{task_name}"}).encode()
         headers = self._headers(accept="text/plain")
         req = urllib.request.Request(url, data=payload, method="PUT", headers=headers)
         with urllib.request.urlopen(req, timeout=120) as resp:
@@ -228,9 +215,7 @@ WHERE ra >= {ra0} AND ra < {ra1}
         if width > MIN_RA_WIDTH + 1e-9:
             mid = 0.5 * (ra0 + ra1)
             print(f"SPLIT {name} → [{ra0},{mid}) + [{mid},{ra1})", flush=True)
-            return stage_strip(jobs, shards, ra0, mid) + stage_strip(
-                jobs, shards, mid, ra1
-            )
+            return stage_strip(jobs, shards, ra0, mid) + stage_strip(jobs, shards, mid, ra1)
         raise RuntimeError(f"CasJobs failed for {name}: status={st}")
 
     out = shards / f"{name}.parquet"
@@ -244,9 +229,7 @@ WHERE ra >= {ra0} AND ra < {ra1}
                 f"SPLIT after download fail {name}: {exc} → [{ra0},{mid}) + [{mid},{ra1})",
                 flush=True,
             )
-            return stage_strip(jobs, shards, ra0, mid) + stage_strip(
-                jobs, shards, mid, ra1
-            )
+            return stage_strip(jobs, shards, ra0, mid) + stage_strip(jobs, shards, mid, ra1)
         raise
     marker.write_text(
         json.dumps(
