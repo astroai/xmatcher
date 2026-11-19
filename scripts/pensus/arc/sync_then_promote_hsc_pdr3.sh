@@ -94,30 +94,48 @@ import json, pathlib, sys
 cache = pathlib.Path(sys.argv[1])
 kp = pathlib.Path(sys.argv[2])
 alias, band, band_l = sys.argv[3], sys.argv[4], sys.argv[5]
+needle = f"forced-{band}"
 pointer = kp / "inputs" / alias / "SOURCE.json"
-# known sync layout
+
+def is_band_tree(path: pathlib.Path) -> bool:
+    s = str(path)
+    return needle in s and f"forced-{band}" in s
+
+# known sync layout for THIS band only
 direct = cache / f"hsc_pdr3-forced-{band}"
-for cand in sorted(direct.glob("hats-http-*")) if direct.is_dir() else []:
-    if (cand / "properties").exists() or (cand / "hats.properties").exists():
-        print(cand)
+if direct.is_dir():
+    cands = [
+        cand
+        for cand in sorted(direct.glob("hats-http-*"))
+        if (cand / "properties").exists() or (cand / "hats.properties").exists()
+    ]
+    if cands:
+        print(cands[-1])
         raise SystemExit
+
 if pointer.exists():
     d = json.loads(pointer.read_text())
     for key in ("hats_path", "cache_path", "path"):
         p = d.get(key)
-        if p and ((pathlib.Path(p) / "properties").exists() or (pathlib.Path(p) / "hats.properties").exists()):
+        if not p:
+            continue
+        path = pathlib.Path(p)
+        if is_band_tree(path) and (
+            (path / "properties").exists() or (path / "hats.properties").exists()
+        ):
             print(p)
             raise SystemExit
+
+# last resort: only trees whose path contains this band
 cands = []
-needle = f"forced-{band}"
-for root in list(cache.glob("*hsc*")) + list(cache.glob("*forced*")):
+for root in cache.glob(f"*forced-{band}*"):
     for props in list(root.rglob("properties")) + list(root.rglob("hats.properties")):
-        cands.append(str(props.parent))
+        if is_band_tree(props.parent):
+            cands.append(str(props.parent))
 if not cands:
-    raise SystemExit(f"FAIL no HSC HATS tree under cache for {alias}")
+    raise SystemExit(f"FAIL no HSC HATS tree under cache for {alias} band={band}")
 cands.sort(key=lambda p: pathlib.Path(p).stat().st_mtime, reverse=True)
-pref = [p for p in cands if needle in p or f"forced_{band_l}" in p.lower()]
-print((pref or cands)[0])
+print(cands[0])
 PY
 }
 
@@ -135,13 +153,17 @@ sync_one() {
     return 0
   fi
 
-  # Skip re-sync if cache tree already looks complete (≥95% of est)
-  local skip_sync=0
+  # Skip re-sync only if THIS band's cache tree is ≥95% of est
+  local skip_sync=0 SRC_EXISTING=""
   if SRC_EXISTING=$(find_src "$band" "$band_l" "$alias" 2>/dev/null); then
     local have_gib
     have_gib=$(python3 -c "import os; print(sum(os.path.getsize(os.path.join(r,f)) for r,ds,fs in os.walk('$SRC_EXISTING') for f in fs)/2**30)")
     echo "cache hit SRC=$SRC_EXISTING have_gib=$have_gib"
-    python3 -c "import sys; sys.exit(0 if float('$have_gib') >= 0.95*float('$est_gib') else 1)" && skip_sync=1 || true
+    if python3 -c "import sys; sys.exit(0 if float('$have_gib') >= 0.95*float('$est_gib') else 1)"; then
+      skip_sync=1
+    fi
+  else
+    echo "no cache tree yet for band=$band"
   fi
 
   if [[ "$skip_sync" -eq 0 ]]; then
