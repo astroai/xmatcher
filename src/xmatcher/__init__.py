@@ -18,6 +18,7 @@ from .candidates import (
 )
 from .crossmatch import CrossMatch
 from .exceptions import ConfigError, CrossMatchError, InputError, StiltsError, TapError
+from .hats_export import export_hats, scan_hats
 from .hats_project import project_hats
 from .io_utils import (
     FrameLike,
@@ -70,7 +71,9 @@ __all__ = [
     # I/O helpers (Arrow interop)
     "FrameLike",
     "is_hats_dir",
+    "export_hats",
     "project_hats",
+    "scan_hats",
     "scan_frame",
     "write_frame",
     "astropy_table_to_polars",

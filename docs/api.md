@@ -192,6 +192,32 @@ def project_hats(
   partitions.
 - The returned dict carries `rows`, `columns`, and `partitions`.
 
+### `hats_export.export_hats` / `scan_hats`
+
+Flatten a local HATS tree to a single `.parquet` or `.fits` file, or return a
+lazy Polars scan over its Npix partitions.
+
+```python
+def scan_hats(
+    src: CatalogueSource | str | Path,
+    *,
+    columns: Sequence[str] | None = None,
+) -> pl.LazyFrame
+
+def export_hats(
+    src: CatalogueSource | str | Path,
+    output: str | Path,
+    *,
+    columns: Sequence[str] | None = None,
+) -> dict[str, Any]
+```
+
+- Parquet export scans partitions lazily and uses `write_frame`'s streaming
+  sink when possible; FITS collects the full table.
+- Huge catalogues may still OOM — keep HATS partitioned when a single file is
+  not required. Remote HATS URIs must be mirrored first.
+- `export_hats` returns `rows`, `columns`, `partitions`, and `output`.
+
 ---
 
 ### `nway_match`
