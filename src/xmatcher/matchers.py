@@ -6,18 +6,19 @@ Sky-match engines (drop-in alternatives):
   default when a STILTS command is available.
 * ``astropy`` – ``match_to_catalog_sky`` / ``search_around_sky`` from astropy.
 * ``fast``   – Tier 1: ``scipy.spatial.cKDTree`` on 3D Cartesian unit-sphere
-  embeddings. Drop-in replacement for ``astropy`` in-memory; ~3-5x faster.
+  embeddings. Drop-in replacement for ``astropy`` in-memory; ~2x faster.
 * ``torchsky`` – optional tensor-native nearest-neighbour matching. Geometry
   only: ``matcher='sky'`` and ``matcher='skyerr'`` (per-row radii). Association
   policy (Bayes / LR / AUF / FoF) stays in this module.
-* ``zone``   – Tier 2: HEALPix-sharded cone match. Uses ``cdshealpix`` when
-  importable (sub-pixel zonning + per-pixel ``cKDTree`` queries) and falls
-  back to a single ``cKDTree`` query when ``cdshealpix`` is not available
-  (with a logged warning).
+* ``zone``   – Tier 2: HEALPix-sharded cone match: left rows grouped by
+  depth-5 pixel, each group queried against a ``cKDTree`` of the right rows
+  in its neighbouring pixels. Needs ``cdshealpix``; without it the ``fast``
+  engine runs (``fallback_policy='warn'``) or the match fails (``'error'``).
 
 All engines share an identical schema: source columns (left unchanged, right
 collisions get a ``_2`` suffix) plus a true great-circle ``sep_arcsec``
-column. ``id_join`` is a pure polars relational join and is engine-agnostic.
+column, and the same pairs: ``find="best"`` keeps the lowest right row index
+among equally good counterparts on every engine. ``id_join`` is a pure polars relational join and is engine-agnostic.
 
 Match criteria:
 
@@ -819,6 +820,32 @@ def _best_per_primary(
     best = order[_first_occurrence_indices(left_idx[order])]
     best.sort()
     return left_idx[best], right_idx[best], seps[best]
+
+
+def _lowest_duplicate(right_idx: np.ndarray, r_ra: np.ndarray, r_dec: np.ndarray) -> np.ndarray:
+    """Replace each right index by the lowest right row at the identical position.
+
+    Nearest-neighbour queries (``cKDTree.query``, ``match_to_catalog_sky``)
+    return an arbitrary member of a set of exact-duplicate counterparts.
+    Duplicates are at the same distance, so mapping to the lowest row index
+    changes no separation and gives every engine the same ``find="best"``
+    tie-break as :func:`_best_per_primary` (lowest right index).
+    """
+    if right_idx.size == 0:
+        return right_idx
+    positions = pl.DataFrame({"ra": r_ra, "dec": r_dec})
+    dup_rows = np.flatnonzero(positions.is_duplicated().to_numpy())
+    if dup_rows.size == 0:
+        return right_idx
+    lowest = np.arange(len(r_ra), dtype=np.int64)
+    lowest[dup_rows] = (
+        positions[dup_rows]
+        .with_columns(row=pl.Series(dup_rows))
+        .select(pl.col("row").min().over("ra", "dec"))
+        .to_series()
+        .to_numpy()
+    )
+    return lowest[right_idx]
 
 
 def _skyerr_pair_filter(
@@ -1634,10 +1661,8 @@ def _scipy_match(
         # --- plain sky: spatial-nearest match ------------------------------
         dist, idx = tree.query(l_xyz, k=1, distance_upper_bound=chord_max, workers=workers)
         valid = np.isfinite(dist) & (idx < r_xyz.shape[0])
-        left_idx = np.nonzero(valid)[0]
-        right_idx = idx[valid].astype(np.int64)
-        sep = _chord_to_arcsec(dist[valid])
-        return left_idx, right_idx, sep
+        right_idx = _lowest_duplicate(idx[valid].astype(np.int64), r_ra, r_dec)
+        return np.flatnonzero(valid), right_idx, _chord_to_arcsec(dist[valid])
 
     # find == "all": per-left list of matched right indices.
     idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
@@ -1826,12 +1851,10 @@ def _likelihood_ratio_scoring(
     # --- select best per primary source if find="best" ---------------------
     if spec.find == "best":
         # For each primary source, find the candidate with max reliability.
-        # Ties go to smallest LR (then smallest sep).
-        # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-        order = np.lexsort((seps, lr, -reliability, inverse))
-        best_indices = _first_occurrence_indices(inverse[order])
-        best_positions = order[best_indices]
-        best_positions.sort()  # Preserve original row order implicitly done by boolean mask
+        # Ties go to smallest LR, then smallest sep, then lowest right index.
+        order = np.lexsort((right_idx, seps, lr, -reliability, inverse))
+        best_positions = order[_first_occurrence_indices(inverse[order])]
+        best_positions.sort()
         return (
             left_idx[best_positions],
             right_idx[best_positions],
@@ -2004,6 +2027,37 @@ def _engineer_ml_features_and_labels(
 # --------------------------------------------------------------------------- #
 # Random Forest ML matcher (matcher="ml")
 # --------------------------------------------------------------------------- #
+def _pretrained_probabilities(model_path: str | None, X: np.ndarray, label: str):
+    """Match probabilities from a saved classifier, or ``None`` when there is none.
+
+    A model file that exists but cannot be loaded or applied is an error: it
+    is never silently replaced by an on-the-fly model (which would then be
+    saved over the user's file).
+    """
+    if model_path is None:
+        return None
+    from pathlib import Path
+
+    model_file = Path(model_path)
+    if not model_file.is_file():
+        return None
+    try:
+        import joblib
+
+        model = joblib.load(str(model_file))
+        probs = np.asarray(model.predict_proba(X)[:, 1], dtype=float)
+    except Exception as exc:
+        raise CrossMatchError(f"Cannot use the {label} model at '{model_file}': {exc}") from exc
+    logger.info(
+        "%s match (loaded model %s): %d candidates, median prob=%.3f.",
+        label,
+        model_file,
+        len(probs),
+        float(np.median(probs)),
+    )
+    return probs
+
+
 def _ml_rf_score(
     left: pl.DataFrame,
     right: pl.DataFrame,
@@ -2085,38 +2139,11 @@ def _ml_rf_score(
 
     model_path = spec.ml_model_path
 
-    if _HAS_SKLEARN and model_path is not None:
-        from pathlib import Path
-
-        model_file = Path(model_path)
-        if model_file.is_file():
-            # Load pre-trained model and skip training / pseudo-labels.
-            try:
-                import joblib
-
-                rf = joblib.load(str(model_file))
-                if not hasattr(rf, "predict_proba"):
-                    raise ValueError("Loaded object is not a classifier")
-                probs = rf.predict_proba(X[:n_pairs])[:, 1]
-                logger.info(
-                    "ML match (loaded model %s): %d candidates from %d sources, "
-                    "%d features, median prob=%.3f.",
-                    model_file,
-                    n_pairs,
-                    len(unique_left),
-                    n_features,
-                    float(np.median(probs)),
-                )
-                # Skip to best-per-primary selection.
-                if spec.find == "best":
-                    return _pick_best_per_primary(left_idx, right_idx, seps, probs)
-                return left_idx, right_idx, seps, probs
-            except Exception as exc:
-                logger.warning(
-                    "Failed to load ML model from '%s' (%s); will train a new one.",
-                    model_path,
-                    exc,
-                )
+    probs = _pretrained_probabilities(model_path, X[:n_pairs], "ML")
+    if probs is not None:
+        if spec.find == "best":
+            return _pick_best_per_primary(left_idx, right_idx, seps, probs)
+        return left_idx, right_idx, seps, probs
 
     if _HAS_SKLEARN:
         n_pos = int(np.sum(y_pseudo))
@@ -2252,38 +2279,12 @@ def _xgb_score(
         fallback_scores = np.clip(1.0 / (1.0 + seps), 0.0, 1.0)
         return left_idx, right_idx, seps, fallback_scores
 
-    # --- model load path (mirroring ml_model_path) -------------------------
+    probs = _pretrained_probabilities(spec.xgb_model_path, X[:n_pairs], "XGB")
+    if probs is not None:
+        if spec.find == "best":
+            return _pick_best_per_primary(left_idx, right_idx, seps, probs)
+        return left_idx, right_idx, seps, probs
     model_path = spec.xgb_model_path
-    if model_path is not None:
-        from pathlib import Path
-
-        model_file = Path(model_path)
-        if model_file.is_file():
-            try:
-                import joblib
-
-                clf = joblib.load(str(model_file))
-                if not hasattr(clf, "predict_proba"):
-                    raise ValueError("Loaded object is not a classifier")
-                probs = clf.predict_proba(X[:n_pairs])[:, 1]
-                logger.info(
-                    "XGB match (loaded model %s): %d candidates from %d sources, "
-                    "%d features, median prob=%.3f.",
-                    model_file,
-                    n_pairs,
-                    len(unique_left),
-                    n_features,
-                    float(np.median(probs)),
-                )
-                if spec.find == "best":
-                    return _pick_best_per_primary(left_idx, right_idx, seps, probs)
-                return left_idx, right_idx, seps, probs
-            except Exception as exc:
-                logger.warning(
-                    "Failed to load XGB model from '%s' (%s); will train a new one.",
-                    model_path,
-                    exc,
-                )
 
     # Try XGBoost → LightGBM → sklearn GradientBoosting.
     classifier = None
@@ -2705,13 +2706,12 @@ def _pick_best_per_primary(
 
     Returns ``(left_idx, right_idx, seps, scores)`` filtered to one entry
     per unique primary source, keeping the candidate with the largest
-    *scores* value.
+    *scores* value; ties go to the smaller separation, then the lowest right
+    index.
     """
-    # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-    order = np.lexsort((-scores, left_idx))
-    best_indices = _first_occurrence_indices(left_idx[order])
-    best_positions = order[best_indices]
-    best_positions.sort()  # Preserve original row order implicitly done by boolean mask
+    order = np.lexsort((right_idx, seps, -scores, left_idx))
+    best_positions = order[_first_occurrence_indices(left_idx[order])]
+    best_positions.sort()
     return (
         left_idx[best_positions],
         right_idx[best_positions],
@@ -2726,14 +2726,12 @@ def _ml_fallback_best_by_sep(
     seps: np.ndarray,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Fallback: pick the spatially-nearest candidate per primary source."""
+    """Fallback: pick the spatially-nearest candidate (lowest right index on ties)."""
     if spec.find == "all":
         return left_idx, right_idx, seps, 1.0 / (1.0 + seps)
-    # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-    order = np.lexsort((seps, left_idx))
-    best_indices = _first_occurrence_indices(left_idx[order])
-    best_positions = order[best_indices]
-    best_positions.sort()  # Preserve original row order implicitly done by boolean mask
+    order = np.lexsort((right_idx, seps, left_idx))
+    best_positions = order[_first_occurrence_indices(left_idx[order])]
+    best_positions.sort()
 
     scores = 1.0 / (1.0 + seps[best_positions])
     return left_idx[best_positions], right_idx[best_positions], seps[best_positions], scores
@@ -2746,24 +2744,6 @@ def _load_torchsky_crossmatch():
     return _torchsky.require("catalogs", "engine='torchsky'").crossmatch_sky
 
 
-def _torchsky_lonlat(df: pl.DataFrame, src: CatalogueSource):
-    """RA/Dec degrees, converted to ICRS when ``CatalogueSource.frame`` is set."""
-    ra = df[src.ra_column].to_numpy()
-    dec = df[src.dec_column].to_numpy()
-    frame = str(getattr(src, "frame", None) or "icrs").strip().lower()
-    if frame in {"icrs", "j2000", "j2000.0"}:
-        return ra, dec
-    convert_celestial = _torchsky.require("wcs", "engine='torchsky'").convert_celestial
-    ra_t, dec_t = convert_celestial(ra, dec, from_frame=src.frame, to_frame="icrs")
-
-    def _np(value):
-        if hasattr(value, "detach"):
-            value = value.detach().cpu().numpy()
-        return np.asarray(value)
-
-    return _np(ra_t), _np(dec_t)
-
-
 def _torchsky_match(
     left: pl.DataFrame,
     right: pl.DataFrame,
@@ -2771,9 +2751,11 @@ def _torchsky_match(
     right_src: CatalogueSource,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Run Torchsky's catalog matcher for ``sky`` and ``skyerr``."""
-    import numpy as np
+    """Run Torchsky's catalog matcher for ``sky`` and ``skyerr``.
 
+    Both sides share one frame (:func:`_validate_coordinate_frames`), so the
+    coordinates are matched as given, like every other engine.
+    """
     if spec.extra_distance_cols or spec.matcher not in {"sky", "skyerr"}:
         raise CrossMatchError(
             "engine='torchsky' currently supports only matcher='sky' or 'skyerr' "
@@ -2789,19 +2771,16 @@ def _torchsky_match(
     crossmatch_sky = _load_torchsky_crossmatch()
     import torch  # noqa: PLC0415 - a dependency of torchsky
 
-    left_ra, left_dec = _torchsky_lonlat(left, left_src)
-    right_ra, right_dec = _torchsky_lonlat(right, right_src)
-
     def _tensor(values):
         arr = np.asarray(values, dtype=np.float64)
         if not arr.flags.writeable or not arr.flags.c_contiguous:
             arr = np.array(arr, dtype=np.float64, copy=True, order="C")
         return torch.from_numpy(arr)
 
-    left_ra_t = _tensor(left_ra)
-    left_dec_t = _tensor(left_dec)
-    right_ra_t = _tensor(right_ra)
-    right_dec_t = _tensor(right_dec)
+    left_ra_t = _tensor(left[left_src.ra_column].to_numpy())
+    left_dec_t = _tensor(left[left_src.dec_column].to_numpy())
+    right_ra_t = _tensor(right[right_src.ra_column].to_numpy())
+    right_dec_t = _tensor(right[right_src.dec_column].to_numpy())
 
     lsig = rsig = None
     if spec.matcher == "skyerr":
@@ -2905,8 +2884,8 @@ def _zone_match(
     When ``cdshealpix`` is importable we shard both sides into HEALPix pixels
     (nside=32 by default), build a per-pixel cKDTree on the right, and only
     query neighbour pixels within the cone radius — classic HATS-style
-    partitioning. When ``cdshealpix`` is not importable we transparently
-    downgrade to :func:`_scipy_match` and log a warning.
+    partitioning. Without ``cdshealpix`` this runs :func:`_scipy_match` with a
+    warning (``fallback_policy='warn'``) or raises (``'error'``).
     """
     try:
         import cdshealpix as hp  # noqa: F401
@@ -2982,67 +2961,44 @@ def _zone_match_healpix(
     l_pix = _pixellate(hp, l_ra, l_dec, DEPTH, label=f"catalogue '{left_src.name}'")
     r_pix = _pixellate(hp, r_ra, r_dec, DEPTH, label=f"catalogue '{right_src.name}'")
 
-    # Cache per-pixel right xyz buffers and per-pixel cKDTree instances.
+    # Group right rows (and their unit vectors) by HEALPix pixel.
     r_sort_idx = np.argsort(r_pix, kind="stable")
     r_sorted_pix = r_pix[r_sort_idx]
     r_unique_indices = _first_occurrence_indices(r_sorted_pix)
-    unique_pix = r_sorted_pix[r_unique_indices]
-    r_splits = np.split(r_sort_idx, r_unique_indices[1:])
-    r_groups = {int(k): v for k, v in zip(unique_pix, r_splits, strict=False)}
-    tree_cache: dict[int, cKDTree] = {}
-    xyz_cache: dict[int, np.ndarray] = {}
-    for pix in unique_pix:
-        idx = r_groups[int(pix)]
-        xyz_cache[int(pix)] = _radec_to_xyz(r_ra[idx], r_dec[idx])
-        tree_cache[int(pix)] = cKDTree(xyz_cache[int(pix)])
+    r_groups = {
+        int(k): v
+        for k, v in zip(
+            r_sorted_pix[r_unique_indices], np.split(r_sort_idx, r_unique_indices[1:]), strict=True
+        )
+    }
+    xyz_by_pix = {pix: _radec_to_xyz(r_ra[idx], r_dec[idx]) for pix, idx in r_groups.items()}
 
     l_xyz = _radec_to_xyz(l_ra, l_dec)
 
-    # Group left points by HEALPix pixel so we can batch-query each right
-    # pixel's tree once (instead of spawning worker threads per point).
+    # Group left points by HEALPix pixel so each margin tree is queried once
+    # per left pixel (instead of spawning worker threads per point).
     l_sort_idx = np.argsort(l_pix, kind="stable")
     l_sorted_pix = l_pix[l_sort_idx]
     l_unique_indices = _first_occurrence_indices(l_sorted_pix)
-    l_unique_pix = l_sorted_pix[l_unique_indices]
-    l_splits = np.split(l_sort_idx, l_unique_indices[1:])
-    l_by_pix: dict[int, list] = {
-        int(k): v.tolist() for k, v in zip(l_unique_pix, l_splits, strict=False)
-    }
-
-    # Pre-compute per-right-pixel global-index arrays for fast margin merging.
-    r_global_by_pix: dict[int, np.ndarray] = {int(pix): r_groups[int(pix)] for pix in unique_pix}
-
-    # Sort left pixel groups largest-first so batches are balanced.
-    pixel_items = sorted(
-        l_by_pix.items(),
-        key=lambda kv: len(kv[1]),
-        reverse=True,
-    )
-    batch_size = spec.batch_size or len(pixel_items)
+    # Largest pixel groups first so batches are balanced.
+    pixel_groups = sorted(np.split(l_sort_idx, l_unique_indices[1:]), key=len, reverse=True)
+    batch_size = max(1, spec.batch_size or len(pixel_groups))
     need_all_candidates = (
         spec.find != "best" or spec.matcher != "sky" or bool(spec.extra_distance_cols)
     )
 
     l_parts, r_parts, sep_parts = [], [], []
-    for batch_start in range(0, len(pixel_items), max(1, batch_size)):
-        batch_pixels = pixel_items[batch_start : batch_start + max(1, batch_size)]
-        batch_l = []
-        batch_r = []
-        batch_s = []
-
-        for _l_pix_int, left_indices in batch_pixels:
-            indices_arr = np.asarray(left_indices, dtype=np.int64)
-            # Cone search once per pixel, inflated by the exact intra-batch angular
+    for batch_start in range(0, len(pixel_groups), batch_size):
+        for left_indices in pixel_groups[batch_start : batch_start + batch_size]:
+            # Cone search once per pixel, inflated by the exact intra-pixel angular
             # spread around the representative point so boundary pairs are never missed.
-            mid = len(left_indices) // 2
-            rep_i = left_indices[mid]
-            batch_xyz = l_xyz[indices_arr]  # (n_pix, 3)
-            rep_xyz = l_xyz[rep_i]
+            rep_i = left_indices[len(left_indices) // 2]
+            batch_xyz = l_xyz[left_indices]
             batch_spread_rad = float(
                 np.max(
                     2.0
                     * np.arcsin(
-                        np.clip(np.linalg.norm(batch_xyz - rep_xyz, axis=-1) * 0.5, 0.0, 1.0)
+                        np.clip(np.linalg.norm(batch_xyz - l_xyz[rep_i], axis=-1) * 0.5, 0.0, 1.0)
                     )
                 )
             )
@@ -3053,79 +3009,45 @@ def _zone_match_healpix(
                 min(math.pi, float(np.radians(radius_deg)) + batch_spread_rad),
                 DEPTH,
             )
-
-            # --- margin caching: merge all neighbouring right pixels into one
-            #     tree and query it once instead of querying each right pixel
-            #     individually.
-            margin_xyz_parts: list = []
-            margin_global_parts: list = []
-            for rpix in npix:
-                rpix_int = int(rpix)
-                if rpix_int not in r_global_by_pix:
-                    continue
-                margin_xyz_parts.append(xyz_cache[rpix_int])
-                margin_global_parts.append(r_global_by_pix[rpix_int])
-
-            if not margin_xyz_parts:
+            # Merge the neighbouring right pixels into one margin tree.
+            margin = [int(p) for p in npix if int(p) in r_groups]
+            if not margin:
                 continue
-
-            margin_xyz = np.vstack(margin_xyz_parts)
-            margin_global = np.concatenate(margin_global_parts)
+            margin_xyz = np.vstack([xyz_by_pix[p] for p in margin])
+            margin_global = np.concatenate([r_groups[p] for p in margin])
             margin_tree = cKDTree(margin_xyz)
 
             if not need_all_candidates:
-                # Plain radius + find="best" without extra_distance_cols: the
-                # spatial-nearest candidate is the answer.
+                # Plain radius + find="best": the spatial-nearest candidate.
                 dist, local_idx = margin_tree.query(
-                    batch_xyz,
-                    k=1,
-                    distance_upper_bound=chord_max,
-                    workers=-1,
+                    batch_xyz, k=1, distance_upper_bound=chord_max, workers=-1
                 )
                 valid = np.isfinite(dist) & (local_idx < margin_tree.n)
-                for valid_index in np.nonzero(valid)[0]:
-                    k_idx = left_indices[valid_index]
-                    global_r_index = int(margin_global[local_idx[valid_index]])
-                    sep_arcsec = float(_chord_to_arcsec(float(dist[valid_index])))
-                    batch_l.append(np.array([k_idx], dtype=np.int64))
-                    batch_r.append(np.array([global_r_index], dtype=np.int64))
-                    batch_s.append(np.array([sep_arcsec], dtype=float))
+                l_parts.append(left_indices[valid])
+                r_parts.append(margin_global[local_idx[valid]])
+                sep_parts.append(_chord_to_arcsec(dist[valid]))
             else:
-                idx_lists = margin_tree.query_ball_point(
-                    batch_xyz,
-                    r=chord_max,
-                    workers=-1,
-                )
-                local_l_indices, local_r_indices, seps = _flatten_candidates(
-                    idx_lists,
-                    batch_xyz,
-                    margin_xyz,
-                )
-                if local_l_indices.size:
-                    k_indices = np.asarray(left_indices, dtype=np.int64)[local_l_indices]
-                    global_r_indices = margin_global[local_r_indices].astype(np.int64)
-                    batch_l.append(k_indices)
-                    batch_r.append(global_r_indices)
-                    batch_s.append(np.asarray(seps, dtype=float))
-
-        # Flush batch to accumulator (out-of-core friendly — per-batch
-        # margin trees and numpy arrays can be GC'd after this point).
-        l_parts.extend(batch_l)
-        r_parts.extend(batch_r)
-        sep_parts.extend(batch_s)
-        if spec.batch_size and batch_start + max(1, batch_size) < len(pixel_items):
+                idx_lists = margin_tree.query_ball_point(batch_xyz, r=chord_max, workers=-1)
+                local_l, local_r, seps = _flatten_candidates(idx_lists, batch_xyz, margin_xyz)
+                if local_l.size:
+                    l_parts.append(left_indices[local_l])
+                    r_parts.append(margin_global[local_r])
+                    sep_parts.append(seps)
+        if spec.batch_size and batch_start + batch_size < len(pixel_groups):
             logger.debug(
                 "Batch %d/%d complete (%d matched pairs so far).",
-                batch_start // max(1, batch_size) + 1,
-                (len(pixel_items) + max(1, batch_size) - 1) // max(1, batch_size),
+                batch_start // batch_size + 1,
+                -(-len(pixel_groups) // batch_size),
                 sum(p.size for p in l_parts),
             )
 
     if not l_parts:
         return empty
     left_idx = np.concatenate(l_parts)
-    right_idx = np.concatenate(r_parts)
+    right_idx = np.concatenate(r_parts).astype(np.int64, copy=False)
     seps = np.concatenate(sep_parts)
+    if not need_all_candidates:
+        right_idx = _lowest_duplicate(right_idx, r_ra, r_dec)
 
     # Sort deterministically by (left_idx, right_idx) to match _scipy_match order.
     order = np.lexsort((right_idx, left_idx))
@@ -3175,7 +3097,7 @@ def _zone_match_healpix(
 
 
 # --------------------------------------------------------------------------- #
-# astropy engine (existing implementation, unchanged)
+# astropy engine
 # --------------------------------------------------------------------------- #
 def _astropy_match(
     left: pl.DataFrame,
@@ -3205,7 +3127,12 @@ def _astropy_match(
             idx, sep2d, _ = lcoord.match_to_catalog_sky(rcoord)
             seps = sep2d.arcsec
             within = seps <= spec.radius_arcsec
-            return np.nonzero(within)[0], idx[within], seps[within]
+            right_idx = _lowest_duplicate(
+                np.asarray(idx[within], dtype=np.int64),
+                right[right_src.ra_column].to_numpy(),
+                right[right_src.dec_column].to_numpy(),
+            )
+            return np.flatnonzero(within), right_idx, seps[within]
         left_idx, right_idx, sep2d, _ = search_around_sky(
             lcoord, rcoord, spec.radius_arcsec * u.arcsec
         )
@@ -3267,28 +3194,16 @@ def _astropy_match(
     if search_radius <= 0:
         return empty
     left_idx, right_idx, sep2d, _ = search_around_sky(lcoord, rcoord, search_radius * u.arcsec)
-    seps = sep2d.arcsec
-    limit = spec.max_error * (lsig[left_idx] + rsig[right_idx])
-    if spec.radius_arcsec is not None:
-        limit = np.minimum(limit, float(spec.radius_arcsec))
-    keep = np.isfinite(limit) & (seps <= limit)
-    left_idx, right_idx, seps, limit = (
-        left_idx[keep],
-        right_idx[keep],
-        seps[keep],
-        limit[keep],
+    return _skyerr_pair_filter(
+        left_idx,
+        right_idx,
+        sep2d.arcsec,
+        lsig,
+        rsig,
+        spec.max_error,
+        find=spec.find,
+        radius_arcsec=spec.radius_arcsec,
     )
-
-    if spec.find == "best" and len(left_idx) > 0:
-        score = np.divide(seps, limit, out=np.full_like(seps, np.inf), where=limit > 0)
-        order = np.lexsort((score, left_idx))
-
-        first_occurrence_idx = _first_occurrence_indices(left_idx[order])
-        sel = order[first_occurrence_idx]
-        sel.sort()
-
-        left_idx, right_idx, seps = left_idx[sel], right_idx[sel], seps[sel]
-    return left_idx, right_idx, seps
 
 
 # --------------------------------------------------------------------------- #
