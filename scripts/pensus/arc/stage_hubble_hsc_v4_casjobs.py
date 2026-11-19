@@ -221,8 +221,8 @@ def main() -> None:
     ap.add_argument("--stage", required=True)
     ap.add_argument("--pointer", required=True)
     ap.add_argument("--planned-hats", default="/arc/projects/hats/hubble/hsc_v4")
-    # Default 2° (was 5°): denser footprints exceeded CasJobs MyDB limits.
-    ap.add_argument("--ra-step", type=float, default=2.0)
+    # Default 0.5°: dense footprints fail CasJobs MyDB at ≥1–2° (bisect still available).
+    ap.add_argument("--ra-step", type=float, default=0.5)
     ap.add_argument("--ra-start", type=float, default=0.0)
     ap.add_argument("--ra-stop", type=float, default=360.0)
     ap.add_argument(
