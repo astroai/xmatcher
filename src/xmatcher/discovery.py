@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
-
-import polars as pl
+from typing import TYPE_CHECKING, Any
 
 from .exceptions import InputError
 from .tap import execute_tap_query, get_tap_service
+
+if TYPE_CHECKING:
+    import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +233,8 @@ def discover_columns(
         candidates.append(query_for(f'"{original}"', None))
 
     service = get_tap_service(tap_url, auth_session=auth_session)
+    import polars as pl  # noqa: PLC0415 - discovery is imported by the CLI at startup
+
     from .io_utils import astropy_table_to_polars
 
     last_error: Exception | None = None

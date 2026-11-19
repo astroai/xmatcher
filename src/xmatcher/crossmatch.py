@@ -58,7 +58,7 @@ from .matchers import (
     id_join,
     sky_match,
 )
-from .request import MatchRequest, MatchSpec
+from .request import MatchRequest, MatchSpec, check_match_params
 from .sources import ASTROMETRIC_COVARIANCE_KEYS, CatalogueSource, is_remote_hats_uri
 from .user_config import bundled_config_path, load_merged_config
 
@@ -300,7 +300,21 @@ def _try_mirrored_cone(
 class CrossMatch:
     """Configuration holder and crossmatch entry point."""
 
-    def __init__(self, config_file: str | Path | None = None, **kwargs):
+    def __init__(
+        self,
+        config_file: str | Path | None = None,
+        *,
+        stilts_cmd_base: str | None = None,
+        java_opts: str | None = None,
+        tmpdir: str | None = None,
+        endpoint: str | None = None,
+    ):
+        """Load ``config_file`` (default: bundled ``xmatcher.yaml`` plus the user overlay).
+
+        ``stilts_cmd_base``, ``java_opts`` and ``tmpdir`` override the
+        ``stilts_config`` block; ``endpoint`` is the default TAP endpoint for
+        ad-hoc table ids that name none.
+        """
         self._explicit_config = config_file is not None
         if config_file is None:
             if DEFAULT_CONFIG_PATH is None:
@@ -317,14 +331,10 @@ class CrossMatch:
         self.aliases_config = self.config.get("catalogue_aliases", {})
         self.stilts_config = self.config.get("stilts_config", {})
 
-        self.stilts_cmd_base = kwargs.get(
-            "stilts_cmd_base", self.stilts_config.get("stilts_cmd_base")
-        )
-        self.stilts_java_opts = kwargs.get("java_opts", self.stilts_config.get("java_opts"))
-        self.stilts_tmpdir = kwargs.get("tmpdir", self.stilts_config.get("tmpdir"))
-        self.n_workers = kwargs.get("n_workers", os.cpu_count() or 1)
-        # Optional default TAP endpoint for ad-hoc table-id resolution.
-        self.default_endpoint: str | None = kwargs.get("endpoint")
+        self.stilts_cmd_base = stilts_cmd_base or self.stilts_config.get("stilts_cmd_base")
+        self.stilts_java_opts = java_opts or self.stilts_config.get("java_opts")
+        self.stilts_tmpdir = tmpdir or self.stilts_config.get("tmpdir")
+        self.default_endpoint = endpoint
 
         self.auth_config = auth.load_auth_config()
         self.last_spill_stats: dict[str, int] | None = None
@@ -603,6 +613,12 @@ class CrossMatch:
             return self._hats_source(path, overrides)
         if path.is_file():
             return self._local_source(path.stem, path=path, overrides=overrides)
+
+        if text.startswith(("/", "./", "../", "~")) or (
+            path.suffix.lower() in io_utils.SUPPORTED_SUFFIXES
+        ):
+            # Clearly a path: catalogue-name suggestions would only mislead.
+            raise InputError(f"No such file or directory: '{text}'")
 
         # Prefer a configured catalogue when the user pastes an ACCESS id from
         # `xmatcher list` (e.g. II/349/ps1 → ps1), before falling back to ad-hoc TAP.
@@ -900,6 +916,7 @@ class CrossMatch:
         ``progress_cb``, when supplied, is forwarded to :meth:`_download_remote`
         so the CLI can render a spinner during TAP/CDS downloads.
         """
+        check_match_params(params, method="crossmatch", n_catalogues=2)
         engine_choice = (params.get("engine") or "auto").lower()
         if engine_choice == "ray-union":
             # the distributed N-way join *is* the union engine: two inputs go
@@ -953,6 +970,7 @@ class CrossMatch:
         first two; remote catalogues in positions 3+ require ``ra``, ``dec``,
         and ``radius_deg`` in ``params`` so they can be downloaded.
         """
+        check_match_params(params, method="crossmatch_multi", n_catalogues=len(catalogues))
         return self._multi_match_impl(
             catalogues, output_file, lazy, progress_cb=progress_cb, **params
         )
@@ -1019,7 +1037,9 @@ class CrossMatch:
         ``engine='ray-union'``: the full tables are mirrored and joined
         sky-wide (an ``output_file`` is required). A region or an explicit
         ``engine`` keeps the sequential in-process path.
-        """  # Force full outer join at every pairwise step.
+        """
+        check_match_params(params, method="union_match", n_catalogues=len(catalogues))
+        # Force full outer join at every pairwise step.
         union_params = dict(params)
         union_params.setdefault("join_type", "1or2")
 
@@ -1080,6 +1100,7 @@ class CrossMatch:
         This is a distributed HATS pipeline: inputs are mirrored on demand and
         the output is a HATS directory.  It requires an output path.
         """
+        check_match_params(params, method="anchor_match", n_catalogues=len(catalogues))
         if lazy:
             raise CrossMatchError(
                 "engine='ray-anchor' writes a HATS tree; lazy output is unsupported."
@@ -1146,6 +1167,7 @@ class CrossMatch:
               IDs, strings, booleans) is the first member's value with its
               original dtype.
         """
+        check_match_params(params, method="fof_match", n_catalogues=len(catalogues))
         if len(catalogues) < 2:
             raise CrossMatchError(
                 "fof_match requires at least 2 catalogues, got %d" % len(catalogues),
@@ -1698,7 +1720,7 @@ class CrossMatch:
                     cache_root=cache_root,
                     progress_cb=progress,
                     matcher=matcher,
-                    max_error=float(params.get("max_error", 1.0)),
+                    max_error=float(params.get("max_error", MatchSpec.max_error)),
                     target_epoch=params.get("target_epoch"),
                     pm_prior=bool(params.get("pm_prior", False)),
                     pm_prior_magnitude_column=params.get("pm_prior_magnitude_column"),
@@ -2203,6 +2225,7 @@ class CrossMatch:
             (collisions get ``_2``, ``_3``, … suffixes) plus ``p_match``.
             Returns ``None`` when ``output_file`` is set.
         """
+        check_match_params(params, method="nway_match", n_catalogues=len(catalogues))
         if len(catalogues) < 2:
             raise CrossMatchError(
                 "nway_match requires at least 2 catalogues, got %d" % len(catalogues)
@@ -2730,7 +2753,9 @@ class CrossMatch:
         ):
             from .remote_cds import cds_xmatch_local_remote
 
-            result = cds_xmatch_local_remote(local, remote, local_lf, req.spec)
+            result = cds_xmatch_local_remote(
+                local, remote, local_lf, req.spec, local_first=src1.is_local
+            )
             return result.lazy()
 
         remote_lf = self._download_remote(
