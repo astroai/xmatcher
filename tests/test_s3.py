@@ -398,7 +398,7 @@ def test_transient_server_errors_are_retried(monkeypatch, code: int) -> None:
     import urllib.error
     import urllib.request
 
-    from xmatcher import s3
+    from xmatcher import http_retry
 
     calls: list[str] = []
 
@@ -409,7 +409,7 @@ def test_transient_server_errors_are_retried(monkeypatch, code: int) -> None:
         return io.BytesIO(b"ok")
 
     monkeypatch.setattr(urllib.request, "urlopen", flaky)
-    monkeypatch.setattr(s3.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(http_retry.time, "sleep", lambda _s: None)
     remote = S3Remote("s3://catalogue/hats/cat")
     assert remote._open("https://catalogue.s3.amazonaws.com/hats/cat/properties").read() == b"ok"
     assert len(calls) == 2

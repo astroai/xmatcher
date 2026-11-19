@@ -649,10 +649,10 @@ def test_hats_over_http_mirror(tmp_path: Path, monkeypatch, scenario: str) -> No
             if scenario == "failed_get":
                 real_request = mirror._http_request
 
-                def fail_partition_download(url, bucket, *, head=False):
+                def fail_partition_download(url, bucket, *, head=False, **kwargs):
                     if not head and "/Norder=" in url and url.endswith(".parquet"):
                         raise urllib.error.URLError("simulated partition download failure")
-                    return real_request(url, bucket, head=head)
+                    return real_request(url, bucket, head=head, **kwargs)
 
                 monkeypatch.setattr(mirror, "_http_request", fail_partition_download)
             else:
@@ -1074,7 +1074,7 @@ def test_sync_hats_partial_transfer_fails_over(tmp_path: Path, monkeypatch) -> N
     """
     calls: list = []
 
-    def flaky(src, cache, *, bucket, force, workers, progress_cb, stats, endpoint):
+    def flaky(src, cache, *, bucket, force, workers, progress_cb, stats, min_free_gb, endpoint):
         calls.append(endpoint.access_identifier)
         if len(calls) == 1:
             stats.files_downloaded += 3
