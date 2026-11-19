@@ -35,6 +35,9 @@ MAG_COLS = (
     "m.W2_F555W, m.W2_F606W, m.W2_F814W"
 )
 COLS = f"{PROP_COLS}, {MAG_COLS}"
+# Dense HST footprints make 5° JOIN dumps hit CasJobs MyDB/resource limits
+# (seen: ra[5,10) → 4.5M rows / 565 MB OK; ra[10,15) → status 4 failed).
+MIN_RA_WIDTH_DEG = 0.25
 
 
 def require_casjobs_env() -> tuple[str, str]:
@@ -53,6 +56,57 @@ def require_casjobs_env() -> tuple[str, str]:
 def write_pointer(pointer: pathlib.Path, payload: dict) -> None:
     pointer.parent.mkdir(parents=True, exist_ok=True)
     pointer.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def casjobs_error_text(jobs, jobid) -> str:
+    """Best-effort CasJobs error string for a failed job (never secrets)."""
+    for attr in ("job_info", "status", "get_job", "jobStatus"):
+        fn = getattr(jobs, attr, None)
+        if not callable(fn):
+            continue
+        try:
+            info = fn(jobid)
+        except Exception as exc:  # noqa: BLE001
+            print(f"WARN {attr}({jobid}): {type(exc).__name__}: {exc}", flush=True)
+            continue
+        if info is None:
+            continue
+        if isinstance(info, dict):
+            err = info.get("Error") or info.get("error") or info.get("Message")
+            if err:
+                return str(err)[:500]
+            return str({k: info[k] for k in list(info)[:12]})[:500]
+        for field in ("Error", "error", "Message", "message"):
+            if hasattr(info, field) and getattr(info, field):
+                return str(getattr(info, field))[:500]
+        return str(info)[:500]
+    return ""
+
+
+def scrub_pensus_mydb(jobs) -> None:
+    """Drop leftover pensus_* MyDB tables so quota/resource limits clear."""
+    try:
+        tables = jobs.list_tables()
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARN list_tables: {type(exc).__name__}: {exc}", flush=True)
+        return
+    names: list[str] = []
+    if isinstance(tables, (list, tuple)):
+        for t in tables:
+            if isinstance(t, str):
+                names.append(t)
+            elif isinstance(t, dict):
+                names.append(str(t.get("Name") or t.get("name") or t.get("TableName") or ""))
+            else:
+                names.append(str(getattr(t, "Name", getattr(t, "name", t))))
+    for name in names:
+        if not name.lower().startswith("pensus_"):
+            continue
+        try:
+            jobs.drop_table_if_exists(name)
+            print(f"dropped MyDB.{name}", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"WARN drop MyDB.{name}: {exc}", flush=True)
 
 
 def write_shard_parquet(shards: pathlib.Path, name: str, table, extra: dict) -> tuple[int, str]:
@@ -88,6 +142,7 @@ def write_shard_parquet(shards: pathlib.Path, name: str, table, extra: dict) -> 
 
 
 def stage_strip(jobs, shards: pathlib.Path, ra0: float, ra1: float) -> int:
+    """Dump one MatchRA strip; bisect on CasJobs failure (MyDB/resource limits)."""
     name = f"hscv4_ra_{ra0:06.2f}_{ra1:06.2f}".replace(".", "p")
     marker = shards / f"{name}.done.json"
     if marker.is_file():
@@ -95,6 +150,7 @@ def stage_strip(jobs, shards: pathlib.Path, ra0: float, ra1: float) -> int:
         print(f"skip {name} rows={prev.get('rows')}", flush=True)
         return int(prev.get("rows", 0))
 
+    width = ra1 - ra0
     mydb = f"pensus_{name}"[:100]
     # Join props (coords/quality) to mags; filter on prop MatchRA.
     query = f"""
@@ -105,7 +161,10 @@ INNER JOIN {MAG_TABLE} AS m ON p.MatchID = m.MatchID
 WHERE p.MatchRA >= {ra0} AND p.MatchRA < {ra1}
 """
     print(f"submit {name} ra=[{ra0},{ra1}) ...", flush=True)
-    jobs.drop_table_if_exists(mydb)
+    try:
+        jobs.drop_table_if_exists(mydb)
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARN pre-drop {mydb}: {exc}", flush=True)
     t0 = time.time()
     jobid = jobs.submit(query, task_name=f"pensus-{name}", context=CONTEXT)
     print(f"casjobs_jobid={jobid}", flush=True)
@@ -114,9 +173,25 @@ WHERE p.MatchRA >= {ra0} AND p.MatchRA < {ra1}
     # mastcasjobs: status 4 = failed, 5 = finished (typical CasJobs codes)
     status = results[0] if isinstance(results, tuple | list) and results else results
     if status != 5:
+        err = casjobs_error_text(jobs, jobid)
+        if err:
+            print(f"casjobs_error {name}: {err}", flush=True)
+        try:
+            jobs.drop_table_if_exists(mydb)
+        except Exception as exc:  # noqa: BLE001
+            print(f"WARN drop after fail {mydb}: {exc}", flush=True)
+        if width > MIN_RA_WIDTH_DEG + 1e-9:
+            mid = 0.5 * (ra0 + ra1)
+            print(
+                f"SPLIT {name} width={width:.3f}° → [{ra0},{mid}) + [{mid},{ra1}) "
+                f"(CasJobs status={status}; likely MyDB/resource limit)",
+                flush=True,
+            )
+            return stage_strip(jobs, shards, ra0, mid) + stage_strip(jobs, shards, mid, ra1)
         raise RuntimeError(
-            f"CasJobs job failed for {name}: monitor={results}. "
-            f"Query used JOIN {PROP_TABLE}/{MAG_TABLE} on MatchID."
+            f"CasJobs job failed for {name}: monitor={results} error={err!r}. "
+            f"Query used JOIN {PROP_TABLE}/{MAG_TABLE} on MatchID; "
+            f"strip width {width:.4f}° already at min."
         )
     tab = jobs.fast_table(mydb, verbose=True)
     nrows, path = write_shard_parquet(
@@ -146,7 +221,8 @@ def main() -> None:
     ap.add_argument("--stage", required=True)
     ap.add_argument("--pointer", required=True)
     ap.add_argument("--planned-hats", default="/arc/projects/hats/hubble/hsc_v4")
-    ap.add_argument("--ra-step", type=float, default=5.0)
+    # Default 2° (was 5°): denser footprints exceeded CasJobs MyDB limits.
+    ap.add_argument("--ra-step", type=float, default=2.0)
     ap.add_argument("--ra-start", type=float, default=0.0)
     ap.add_argument("--ra-stop", type=float, default=360.0)
     ap.add_argument(
@@ -212,6 +288,7 @@ def main() -> None:
         ) from exc
 
     jobs = mastcasjobs.MastCasJobs(context="MyDB")
+    scrub_pensus_mydb(jobs)
     total = 0
     strips = 0
     ra0 = args.ra_start

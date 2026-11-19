@@ -63,7 +63,7 @@ if [[ "$MODE" == "stage" ]]; then
     --stage "$STAGE" \
     --pointer "$POINTER" \
     --planned-hats "$PLANNED" \
-    --ra-step "${PENSUS_HSCV4_RA_STEP:-5.0}"
+    --ra-step "${PENSUS_HSCV4_RA_STEP:-2.0}"
 else
   python3 "$CODE/stage_hubble_hsc_v4_casjobs.py" \
     --stage "$STAGE" \
@@ -74,4 +74,4 @@ fi
 
 echo "done $(date -Is) MODE=$MODE STAGE=$STAGE POINTER=$POINTER LOG=$LOG"
 echo "NOTE: public ACL only after promote to $PLANNED via apply_hats_public_acl.sh"
-echo "NOTE: do not disturb y0k6nhqc (HSC-SSP) or n662j3fl (ATLAS)"
+echo "NOTE: do not disturb y0k6nhqc n662j3fl otbv46rl dze675uq"
