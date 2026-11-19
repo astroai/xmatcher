@@ -21,16 +21,20 @@ import time
 
 EXPECTED_ROWS = 139_162_343  # MAST HSCv4 FAQ unique matches
 CONTEXT = "HSCv4"
-TABLE = "SumMagAper2Cat"
+# Live CasJobs schema (probed 2026-11-19): SumMagAper2Cat is magnitudes-only
+# (MatchID + A_*/W2_*/W3_*); MatchRA/MatchDec/CI/Num* live on SumPropMagAper2Cat.
+PROP_TABLE = "SumPropMagAper2Cat"
+MAG_TABLE = "SumMagAper2Cat"
 # Core identity + quality + a practical broadband subset for Day-0 SED anchors.
 # Full filter zoo can be widened later; CasJobs MyDB quotas forbid dumping every column at once.
-COLS = (
-    "MatchID, MatchRA, MatchDec, CI, NumImages, NumVisits, NumFilters, "
-    "A_F435W, A_F475W, A_F555W, A_F606W, A_F775W, A_F814W, "
-    "W3_F275W, W3_F336W, W3_F438W, W3_F555W, W3_F606W, W3_F814W, "
-    "W3_F110W, W3_F125W, W3_F160W, "
-    "W2_F555W, W2_F606W, W2_F814W"
+PROP_COLS = "p.MatchID, p.MatchRA, p.MatchDec, p.CI, p.NumImages, p.NumVisits, p.NumFilters"
+MAG_COLS = (
+    "m.A_F435W, m.A_F475W, m.A_F555W, m.A_F606W, m.A_F775W, m.A_F814W, "
+    "m.W3_F275W, m.W3_F336W, m.W3_F438W, m.W3_F555W, m.W3_F606W, m.W3_F814W, "
+    "m.W3_F110W, m.W3_F125W, m.W3_F160W, "
+    "m.W2_F555W, m.W2_F606W, m.W2_F814W"
 )
+COLS = f"{PROP_COLS}, {MAG_COLS}"
 
 
 def require_casjobs_env() -> tuple[str, str]:
@@ -92,11 +96,13 @@ def stage_strip(jobs, shards: pathlib.Path, ra0: float, ra1: float) -> int:
         return int(prev.get("rows", 0))
 
     mydb = f"pensus_{name}"[:100]
+    # Join props (coords/quality) to mags; filter on prop MatchRA.
     query = f"""
 SELECT {COLS}
 INTO MyDB.{mydb}
-FROM {TABLE}
-WHERE MatchRA >= {ra0} AND MatchRA < {ra1}
+FROM {PROP_TABLE} AS p
+INNER JOIN {MAG_TABLE} AS m ON p.MatchID = m.MatchID
+WHERE p.MatchRA >= {ra0} AND p.MatchRA < {ra1}
 """
     print(f"submit {name} ra=[{ra0},{ra1}) ...", flush=True)
     jobs.drop_table_if_exists(mydb)
@@ -105,6 +111,13 @@ WHERE MatchRA >= {ra0} AND MatchRA < {ra1}
     print(f"casjobs_jobid={jobid}", flush=True)
     results = jobs.monitor(jobid)
     print(f"monitor {name} {results} elapsed={time.time() - t0:.1f}s", flush=True)
+    # mastcasjobs: status 4 = failed, 5 = finished (typical CasJobs codes)
+    status = results[0] if isinstance(results, tuple | list) and results else results
+    if status != 5:
+        raise RuntimeError(
+            f"CasJobs job failed for {name}: monitor={results}. "
+            f"Query used JOIN {PROP_TABLE}/{MAG_TABLE} on MatchID."
+        )
     tab = jobs.fast_table(mydb, verbose=True)
     nrows, path = write_shard_parquet(
         shards,
@@ -113,9 +126,10 @@ WHERE MatchRA >= {ra0} AND MatchRA < {ra1}
         {
             "ra0": ra0,
             "ra1": ra1,
-            "table": TABLE,
+            "prop_table": PROP_TABLE,
+            "mag_table": MAG_TABLE,
             "context": CONTEXT,
-            "source": "MAST CasJobs HSCv4 SumMagAper2Cat",
+            "source": "MAST CasJobs HSCv4 SumPropMagAper2Cat⋈SumMagAper2Cat",
             "mydb_table": mydb,
         },
     )
@@ -153,11 +167,12 @@ def main() -> None:
         "alias": "hubble_hsc_v4_hats",
         "survey": "hubble",
         "release": "hsc_v4",
-        "source": "MAST CasJobs HSCv4 SumMagAper2Cat (unique matches)",
+        "source": "MAST CasJobs HSCv4 SumPropMagAper2Cat⋈SumMagAper2Cat",
         "note": (
             "No public HATS; TAP/Catalogs.MAST still pre-v4. "
             "Distinct from Subaru hats/hsc/pdr3. "
-            "Requires CASJOBS_USERID + CASJOBS_PW."
+            "Requires CASJOBS_USERID + CASJOBS_PW. "
+            "Coords/quality from SumPropMagAper2Cat; mags from SumMagAper2Cat."
         ),
         "stage_root": str(stage),
         "planned_hats_path": args.planned_hats,
@@ -167,7 +182,8 @@ def main() -> None:
         "shard_mode": "ra_strip",
         "ra_step_deg": args.ra_step,
         "expected_rows": EXPECTED_ROWS,
-        "table": TABLE,
+        "prop_table": PROP_TABLE,
+        "mag_table": MAG_TABLE,
         "context": CONTEXT,
         "columns": COLS,
         "probed_at_utc": dt.datetime.now(dt.UTC).isoformat(),
