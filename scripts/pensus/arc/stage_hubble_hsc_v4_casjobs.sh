@@ -63,7 +63,7 @@ if [[ "$MODE" == "stage" ]]; then
     --stage "$STAGE" \
     --pointer "$POINTER" \
     --planned-hats "$PLANNED" \
-    --ra-step "${PENSUS_HSCV4_RA_STEP:-2.0}" \
+    --ra-step "${PENSUS_HSCV4_RA_STEP:-0.5}" \
     --ra-start "${PENSUS_HSCV4_RA_START:-0.0}" \
     --ra-stop "${PENSUS_HSCV4_RA_STOP:-360.0}"
 else
