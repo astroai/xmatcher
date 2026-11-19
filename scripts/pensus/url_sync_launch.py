@@ -26,11 +26,20 @@ from pathlib import Path
 
 WORK = Path("/arc/projects/k-pop/pensus")
 CODE = WORK / "code"
-CACHE = WORK / "inputs" / "_cache"
 MAX_ATTEMPTS = int(os.environ.get("PENSUS_SYNC_RETRY_ATTEMPTS", "4"))
 
 
-def _bootstrap_path() -> None:
+def _cache_root() -> Path:
+    """Prefer an explicit cache root (e.g. skyai) over k-pop ``inputs/_cache``."""
+    raw = (
+        os.environ.get("XMATCHER_CACHE_ROOT", "").strip()
+        or os.environ.get("PENSUS_SYNC_CACHE_ROOT", "").strip()
+        or str(WORK / "inputs" / "_cache")
+    )
+    return Path(raw)
+
+
+def _bootstrap_path(cache: Path) -> None:
     deps = Path(os.environ.get("PENSUS_PYDEPS", "/scratch/pensus-pydeps"))
     deps.mkdir(parents=True, exist_ok=True)
     vendor = CODE / "vendor" / "xmatcher" / "src"
@@ -39,7 +48,7 @@ def _bootstrap_path() -> None:
             sys.path.insert(0, str(path))
     os.environ["PYTHONPATH"] = os.pathsep.join(str(p) for p in (deps, vendor, CODE) if p.exists())
     os.environ["PENSUS_PYDEPS"] = str(deps)
-    os.environ["XMATCHER_CACHE_ROOT"] = str(CACHE)
+    os.environ["XMATCHER_CACHE_ROOT"] = str(cache)
 
 
 def _budget_ok(est_gib: float | None) -> tuple[bool, dict]:
@@ -76,7 +85,8 @@ def _budget_ok(est_gib: float | None) -> tuple[bool, dict]:
 
 
 def main() -> int:
-    _bootstrap_path()
+    cache = _cache_root()
+    _bootstrap_path(cache)
     import pensus.canfar_sync_job as job
 
     url = os.environ.get("PENSUS_SYNC_URL", "").strip()
@@ -100,7 +110,7 @@ def main() -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 3
 
-    CACHE.mkdir(parents=True, exist_ok=True)
+    cache.mkdir(parents=True, exist_ok=True)
     run_id = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     os.environ["PENSUS_RUN_ID"] = run_id
     boot = job.bootstrap_runtime()
@@ -108,7 +118,7 @@ def main() -> int:
         "run_id": run_id,
         "bootstrap": boot,
         "aliases": [alias],
-        "cache_root": str(CACHE),
+        "cache_root": str(cache),
         "url": url,
         "budget": budget,
         "steps": [],
@@ -128,7 +138,7 @@ def main() -> int:
         "sync",
         url,
         "--cache-root",
-        str(CACHE),
+        str(cache),
         "--threads",
         os.environ.get("PENSUS_SYNC_THREADS", "16"),
         "--min-free-gb",
@@ -176,7 +186,7 @@ def main() -> int:
     }
     if hint:
         extra["cache_alias_hint"] = hint
-    job._write_source_pointer(alias, CACHE, ok, extra)
+    job._write_source_pointer(alias, cache, ok, extra)
     results["ok"] = ok
     results["finished_at_utc"] = datetime.now(UTC).isoformat()
     job._write_json(WORK / "logs" / run_id / "sync-job-report.json", results)
