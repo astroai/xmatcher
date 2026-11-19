@@ -323,7 +323,7 @@ def test_component_delta_verifier_rejects_row_and_manifest_tampering(tmp_path) -
     byte_lines = byte_path.read_text(encoding="utf-8").splitlines()
     byte_lines[0] = json.dumps(json.loads(byte_lines[0]))
     byte_path.write_text("\n".join(byte_lines) + "\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="deltas_sha256"):
+    with pytest.raises(ValueError, match="not canonical"):
         verify_association_component_delta_release(byte_tampered)
 
     clean = tmp_path / "clean-deltas"

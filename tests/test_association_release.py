@@ -136,7 +136,7 @@ def test_release_verifier_rejects_byte_level_record_tampering(tmp_path) -> None:
     lines[0] = json.dumps(json.loads(lines[0]))
     records_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="records_sha256"):
+    with pytest.raises(ValueError, match="not canonical"):
         verify_association_release(target)
 
 

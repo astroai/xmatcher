@@ -12,7 +12,8 @@ import math
 import shutil
 import sqlite3
 import tempfile
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from json.encoder import encode_basestring_ascii
 from pathlib import Path
 from typing import Any
 
@@ -114,8 +115,42 @@ def namespaced_source_id(release_namespace: str, native_id: str | int) -> str:
     return f"{SOURCE_ID_SCHEMA_VERSION}:{_digest([release_namespace, type(native_id).__name__, native_id])}"
 
 
+def _hash_batches(expr: pl.Expr, digest: Callable[[pl.Series], list[str]]) -> pl.Expr:
+    # Element-wise, so the streaming engine hashes each morsel independently.
+    return expr.map_batches(
+        lambda values: pl.Series(values.name, digest(values), dtype=pl.String),
+        return_dtype=pl.String,
+        is_elementwise=True,
+    )
+
+
+def _source_ids(release_namespace: str, values: pl.Series) -> list[str]:
+    """Batch form of :func:`namespaced_source_id` with byte-identical payloads.
+
+    The canonical JSON ``[namespace, type, value]`` is assembled from a fixed
+    prefix and the value spelled exactly as ``json.dumps`` spells it, instead
+    of one ``json.dumps`` call per row.
+    """
+    text = values.dtype == pl.String
+    prefix = json.dumps([release_namespace, "str" if text else "int"], separators=(",", ":"))
+    prefix = prefix[:-1] + ","
+    head = f"{SOURCE_ID_SCHEMA_VERSION}:"
+    sha256 = hashlib.sha256
+    ids = []
+    for value in values.to_list():
+        if value is None:
+            raise ValueError("native identifier must be a string or integer")
+        if text:
+            _text(value, "native identifier")
+            spelled = encode_basestring_ascii(value)
+        else:
+            spelled = int.__repr__(value)
+        ids.append(head + sha256(f"{prefix}{spelled}]".encode()).hexdigest())
+    return ids
+
+
 def _identity(source: CatalogueSource) -> tuple[pl.LazyFrame, pl.Expr]:
-    _text(source.release_namespace, "release_namespace")
+    namespace = _text(source.release_namespace, "release_namespace")
     _text(source.id_column, "id_column")
     frame = source.lazy()
     schema = frame.collect_schema()
@@ -124,12 +159,9 @@ def _identity(source: CatalogueSource) -> tuple[pl.LazyFrame, pl.Expr]:
     dtype = schema[source.id_column]
     if dtype != pl.String and not dtype.is_integer():
         raise ValueError("native id_column must have string or integer dtype")
-    # SHA-256 is a lazy Python UDF; use a compiled stable hash only
-    # if profiling shows this boundary dominates ingestion. Never use row IDs.
-    identity = pl.col(source.id_column).map_elements(
-        lambda value: namespaced_source_id(source.release_namespace, value),
-        return_dtype=pl.String,
-        skip_nulls=False,
+    # SHA-256 over the typed native ID, never row numbers or float casts.
+    identity = _hash_batches(
+        pl.col(source.id_column), lambda values: _source_ids(namespace, values)
     )
     return frame, identity
 
@@ -244,10 +276,18 @@ def _nullable_text(value: Any) -> pl.Expr:
 
 
 def _record_id(identity: pl.Expr, mapping: Mapping[str, Any], prefix: str) -> pl.Expr:
-    mapping_hash = _digest(mapping)
-    return identity.map_elements(
-        lambda value: f"{prefix}:{_digest([value, mapping_hash])}", return_dtype=pl.String
-    )
+    # f"{prefix}:{_digest([source_id, mapping_hash])}" without per-row json.dumps;
+    # source IDs are ASCII "xmatch.source.v1:<hex>" so need no JSON escaping.
+    suffix = f',"{_digest(mapping)}"]'
+    sha256 = hashlib.sha256
+
+    def digest(values: pl.Series) -> list[str]:
+        return [
+            f"{prefix}:{sha256(f'[{encode_basestring_ascii(value)}{suffix}'.encode()).hexdigest()}"
+            for value in values.to_list()
+        ]
+
+    return _hash_batches(identity, digest)
 
 
 def normalize_photometry(source: CatalogueSource) -> pl.LazyFrame:
