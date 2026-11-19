@@ -5,6 +5,16 @@ All notable changes to `xmatcher` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- `xmatcher export-hats` and `xmatcher.export_hats` / `xmatcher.scan_hats`:
+  flatten a local HATS tree to a single `.parquet` or `.fits` file. Parquet
+  prefers a Polars scan over Npix partitions and a streaming sink; FITS
+  collects. Survey-scale trees may OOM — keep them partitioned when a single
+  file is not required.
+
 ## [0.6.0] — 2026-10-22
 
 The `v0.6.0` tag is the GitHub release. See the
