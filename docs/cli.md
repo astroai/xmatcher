@@ -46,6 +46,7 @@ All subcommands accept these global flags:
 | [`adopt`](#xmatcher-adopt) | Probe a remote TAP table and append an entry to `~/.config/xmatcher/xmatcher.yaml`. |
 | [`sync`](#xmatcher-sync) | Mirror remote TAP or cloud HATS catalogues into the durable local cache. |
 | [`project-hats`](#xmatcher-project-hats) | Write a narrower HATS tree retaining only specified columns. |
+| [`convert`](#xmatcher-convert) | Convert a catalogue between FITS, Parquet, HATS and CSV, in any direction. |
 | [`completion`](#xmatcher-completion) | Generate shell auto-completion scripts for `bash`, `zsh`, or `fish`. |
 | [`doctor`](#xmatcher-doctor) | Validate local configuration against the bundled baseline and report drift. |
 
@@ -296,6 +297,62 @@ xmatcher project-hats <source> <output> --columns <col1,col2,...> [options]
 | `--cache-root PATH` | auto | Local cache root directory. |
 | `--hats-threshold INT` | `100000` | Max rows per pixel if converting a non-HATS source. |
 | `--rate-limit FLOAT` | `1.0` | Requests/sec when streaming directly from HTTPS HATS trees. |
+
+---
+
+## `xmatcher convert`
+
+Converts a catalogue between FITS, Parquet, HATS and CSV, in any direction.
+The format comes from each path: `.fits`/`.fit`, `.parquet` (or a directory
+of Parquet files as input), `.hats` (or any HATS directory as input), and
+`.csv`/`.tsv`. Rows stream in batches, so memory stays bounded whatever the
+catalogue size.
+
+```bash
+xmatcher convert <source> <output> [options]
+```
+
+```bash
+xmatcher convert gaia_field.fits gaia_field.hats
+xmatcher convert gaia_field.hats gaia_field.parquet --columns source_id,ra,dec
+xmatcher convert survey.parquet survey.hats --ra-col RA_ICRS --dec-col DE_ICRS
+xmatcher convert survey.hats survey.fits --overwrite
+```
+
+### Options
+
+| Option | Default | Description |
+|---|---|---|
+| `--columns COLS` | all | Comma-separated columns to keep, in this order. |
+| `--hdu HDU` | `1` | FITS table HDU (number or EXTNAME). |
+| `--ra-col`, `--dec-col` | auto | Position columns of a HATS output. Defaults to the source's HATS columns or the one obvious name (`ra`, `RA_ICRS`, ...). |
+| `--hats-max-rows INT` | `1000000` | A HEALPix cell holding more rows than this is split. |
+| `--hats-max-order INT` | `10` | Deepest HEALPix order of a HATS output. |
+| `--keep-healpix29` | `False` | Keep a HATS input's `_healpix_29` column. |
+| `--batch-rows INT` | `262144` | Rows per streamed batch. |
+| `--overwrite` | `False` | Replace an existing output. |
+
+### Behaviour
+
+- **HATS output.** Writing a HATS tree takes three passes over the input:
+  1. count rows per HEALPix cell at `--hats-max-order`;
+  2. split cells holding more than `--hats-max-rows` rows, and spill each
+     batch's rows to their partition;
+  3. write each partition sorted by `_healpix_29` (added as a column),
+     followed by the metadata.
+
+  The tree passes `hats` strict validation and also reads as a plain Parquet
+  dataset. Every row needs a finite position.
+- **Reading a HATS tree.** Partitions are read in (order, pixel) order. The
+  `_healpix_29` column is dropped unless `--keep-healpix29` is given.
+- **FITS output.** The output is a standard binary table, written in one
+  streaming pass:
+  - Unsigned and `int8` integers use `TZERO`.
+  - Fixed-size vectors become repeat counts.
+  - Integer nulls use `TNULL`.
+  - Float nulls become NaN, because FITS has no other float null.
+  - String widths come from the source FITS `TFORM`, or from one extra pass
+    over the string columns.
 
 ---
 

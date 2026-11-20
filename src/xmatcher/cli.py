@@ -303,6 +303,7 @@ SUBCOMMANDS = (
     "completion",
     "sync",
     "project-hats",
+    "convert",
     "doctor",
 )
 
@@ -1317,6 +1318,63 @@ def _build_project_hats_subparser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_convert_subparser() -> argparse.ArgumentParser:
+    """Standalone parser for the ``convert`` subcommand."""
+    parser = argparse.ArgumentParser(
+        prog="xmatcher convert",
+        description=(
+            "Convert a catalogue between FITS, Parquet, HATS and CSV, in any direction.\n"
+            "Formats come from the names: .fits/.fit, .parquet (or a Parquet directory),\n"
+            ".hats (or any HATS directory as input), .csv/.tsv. Rows stream in batches, so\n"
+            "memory stays bounded; a HATS output takes three passes over the input."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  xmatcher convert gaia_field.fits gaia_field.hats\n"
+            "  xmatcher convert gaia_field.hats gaia_field.parquet --columns source_id,ra,dec\n"
+            "  xmatcher convert survey.parquet survey.hats --ra-col RA_ICRS --dec-col DE_ICRS\n"
+            "  xmatcher convert survey.hats survey.fits --overwrite\n"
+        ),
+    )
+    parser.add_argument("source", help="Input FITS / Parquet / HATS / CSV path.")
+    parser.add_argument("output", help="Output path; its suffix names the format.")
+    parser.add_argument("--columns", help="Comma-separated columns to keep (in this order).")
+    parser.add_argument("--hdu", help="FITS table HDU (number or EXTNAME; default 1).")
+    parser.add_argument("--ra-col", dest="ra_col", help="RA column for a HATS output.")
+    parser.add_argument("--dec-col", dest="dec_col", help="Dec column for a HATS output.")
+    parser.add_argument(
+        "--hats-max-rows",
+        dest="hats_max_rows",
+        type=int,
+        default=1_000_000,
+        help="Split a HEALPix cell holding more rows than this (default 1,000,000).",
+    )
+    parser.add_argument(
+        "--hats-max-order",
+        dest="hats_max_order",
+        type=int,
+        default=10,
+        help="Deepest HEALPix order of a HATS output (default 10).",
+    )
+    parser.add_argument(
+        "--keep-healpix29",
+        dest="keep_healpix29",
+        action="store_true",
+        help="Keep a HATS input's _healpix_29 column.",
+    )
+    parser.add_argument(
+        "--batch-rows",
+        dest="batch_rows",
+        type=int,
+        default=262_144,
+        help="Rows per streamed batch (default 262,144).",
+    )
+    parser.add_argument("--overwrite", action="store_true", help="Replace an existing output.")
+    _add_global_options(parser)
+    return parser
+
+
 def _build_list_subparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xmatcher list",
@@ -1577,7 +1635,7 @@ _xmatcher_endpoints=(
 {ep_array}
 )
 _xmatcher_shells=( bash zsh fish )
-_xmatcher_subcommands=( match list describe discover search adopt completion sync doctor )
+_xmatcher_subcommands=( match list describe discover search adopt completion sync project-hats convert doctor )
 
 _xmatcher() {{
     local cur="" words="" cword=0 i subcmd=""
@@ -1654,6 +1712,8 @@ _xmatcher_subcommands=(
     'search:search every endpoint for tables matching a substring'
     'adopt:save a remote table into the user config overlay'
     'completion:emit a shell completion script'
+    'project-hats:write a narrow HATS tree with selected columns'
+    'convert:convert between FITS, Parquet, HATS and CSV'
     'doctor:report drift against the bundled baseline'
 )
 _xmatcher_catalogues=( {cat_array} )
@@ -1727,7 +1787,7 @@ function _xmatcher_needs_shell
     test "$cmd" = completion
 end
 
-set -l _xmatcher_subcommands match list describe discover search adopt completion sync doctor
+set -l _xmatcher_subcommands match list describe discover search adopt completion sync project-hats convert doctor
 
 {cat_lines}
 
@@ -1770,6 +1830,7 @@ def _build_top_parser() -> argparse.ArgumentParser:
         "  adopt       save a remote table into ~/.config/xmatcher/xmatcher.yaml\n"
         "  sync        mirror remote catalogues into the local HATS cache\n"
         "  project-hats  write a narrow HATS tree with selected columns\n"
+        "  convert     convert between FITS, Parquet, HATS and CSV (any direction)\n"
         "  completion  emit a shell tab-completion script (bash | zsh | fish)\n"
         "  doctor      report drift between your xmatcher.yaml and the bundled baseline\n"
         "\n"
@@ -2509,6 +2570,46 @@ def _run_project_hats(argv: Sequence[str]) -> int:
     return _guarded(cm, console, body)
 
 
+def _run_convert(argv: Sequence[str]) -> int:
+    parser = _build_convert_subparser()
+    args = parser.parse_args(list(argv))
+    setup_logging(args.verbose)
+    console = _make_console(no_color=bool(getattr(args, "no_color", False)))
+    from .convert import convert  # noqa: PLC0415 - keeps --help light
+
+    hdu: int | str | None = args.hdu
+    if isinstance(hdu, str) and hdu.isdigit():
+        hdu = int(hdu)
+    try:
+        report = convert(
+            args.source,
+            args.output,
+            columns=[c.strip() for c in args.columns.split(",") if c.strip()]
+            if args.columns
+            else None,
+            hdu=hdu,
+            ra_column=args.ra_col,
+            dec_column=args.dec_col,
+            hats_max_rows=int(args.hats_max_rows),
+            hats_max_order=int(args.hats_max_order),
+            keep_healpix29=bool(args.keep_healpix29),
+            batch_rows=int(args.batch_rows),
+            overwrite=bool(args.overwrite),
+        )
+    except CrossMatchError as exc:
+        console.error(f"Error: {exc}")
+        return 1
+    except KeyboardInterrupt:
+        console.error("Interrupted.")
+        return 130
+    parts = f", {report.partitions} partition(s)" if report.dst_format == "hats" else ""
+    console.info(
+        f"Wrote {report.rows} rows x {len(report.columns)} columns "
+        f"({report.src_format} -> {report.dst_format}) to {args.output}{parts}."
+    )
+    return 0
+
+
 def _run_simple_describe(argv: Sequence[str]) -> int:
     parser = _build_describe_subparser()
     args = parser.parse_args(list(argv))
@@ -3106,6 +3207,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_sync_subcommand(remaining)
     if cmd == "project-hats":
         return _run_project_hats(remaining)
+    if cmd == "convert":
+        return _run_convert(remaining)
     if cmd == "describe":
         return _run_simple_describe(remaining)
     if cmd == "adopt":
