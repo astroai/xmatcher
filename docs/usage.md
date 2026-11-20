@@ -49,23 +49,22 @@ If you only need specific optional backends rather than `[all]`:
 
 | Extra | Packages | Purpose |
 |---|---|---|
-| `[all]` | `astroquery`, `cdshealpix`, `hats`, `ray`, `torchsky`, `torchfits`, `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | All optional features in one install. |
+| `[all]` | `astroquery`, `cdshealpix`, `hats`, `ray`, `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | All optional features in one install. |
 | `[cds]` | `astroquery` | CDS VizieR and CDS XMatch remote service backends. |
 | `[zone]` | `cdshealpix` | HEALPix spatial zoning engine. |
 | `[hats]` | `hats`, `cdshealpix` | HATS native reading and spatial partitioning. |
 | `[hats-ray]` | `hats`, `ray`, `cdshealpix` | Native HATS + Ray pixel matcher and `ray-union` engine. |
 | `[ray]` | `ray`, `cdshealpix` | Distributed parallel HEALPix matching across Ray clusters. |
-| `[torchsky]` | `torchsky>=0.5.0` (pulls PyTorch and `torchfits`) | Tensor-native `torchsky` engine, target-epoch `skyerr`/`skyellipse` covariance propagation, faster HEALPix coverings. |
-| `[torchfits]` | `torchfits` | Fast, Arrow/Polars-native local FITS table reader. |
 | `[ml]` | `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | Machine-learning (`ml`) and gradient-boosted (`xgb`) matchers. |
 
-Torchsky is optional. Without it, proper motions are propagated with Astropy and
-HEALPix coverings use cdshealpix; `engine="torchsky"` and target-epoch
-covariance propagation need it. An installed Torchsky older than 0.5.0 is
-refused with an upgrade message rather than silently ignored. With Pixi, use
-the `torchsky` environment (`pixi run -e torchsky ...`), which takes CPU
-PyTorch from conda-forge: the PyPI wheel bundles its own OpenMP runtime, which
-aborts a conda environment on macOS. Torchsky's wheels need macOS 14 or later.
+[torchsky](https://github.com/astroai/torchsky) (>=0.6.0, with PyTorch) and
+[torchfits](https://github.com/astroai/torchfits) are core dependencies:
+torchsky does the matching, association statistics, epoch propagation and
+HEALPix work; torchfits reads FITS tables. An installed torchsky older than
+0.6.0 is refused with an upgrade message. In a conda or Pixi environment, take
+CPU PyTorch from conda-forge (the default Pixi environment does): the PyPI wheel
+bundles its own OpenMP runtime, which aborts a conda environment on macOS.
+torchsky's wheels need macOS 14 or later and Python 3.12 or 3.13.
 
 ---
 

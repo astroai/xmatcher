@@ -1,4 +1,4 @@
-"""Public Torchsky (>=0.5.0) integration.
+"""Torchsky (>=0.6.0) integration.
 
 The version floor is checked with stand-in modules, so it runs everywhere.
 Everything else needs the real package and runs in the Torchsky pixi
@@ -67,30 +67,31 @@ def stand_in(monkeypatch: pytest.MonkeyPatch):
     _torchsky._checked.cache_clear()
 
 
-@pytest.mark.parametrize("version", ["0.5.0", "0.5.1.dev3+g1234abc", "1.0.0"])
+@pytest.mark.parametrize("version", ["0.6.0", "0.6.0rc1", "0.6.1.dev3+g1234abc", "1.0.0"])
 def test_supported_torchsky_versions_are_used(stand_in, version: str) -> None:
     wcs = stand_in(version)
     assert _torchsky.module("wcs") is wcs
 
 
 @pytest.mark.parametrize(
-    ("version", "found"), [("0.4.0", "found 0.4.0"), (None, "found an unversioned copy")]
+    ("version", "found"), [("0.5.0", "found 0.5.0"), (None, "found an unversioned copy")]
 )
 def test_older_torchsky_is_refused_not_ignored(stand_in, version, found) -> None:
     stand_in(version)
-    with pytest.raises(CrossMatchError, match=rf"needs torchsky>=0\.5\.0, {found}"):
+    with pytest.raises(CrossMatchError, match=rf"needs torchsky>=0\.6\.0, {found}"):
         _torchsky.module("wcs")
     # Propagation must not quietly switch to Astropy behind an old Torchsky.
-    with pytest.raises(CrossMatchError, match="needs torchsky>=0.5.0"):
+    with pytest.raises(CrossMatchError, match="needs torchsky>=0.6.0"):
         astro_utils.propagate_proper_motion(
             np.array([10.0]), np.array([0.0]), np.zeros(1), np.zeros(1), np.array([2000.0]), 2016.0
         )
 
 
-def test_missing_torchsky_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_torchsky_names_the_upgrade(monkeypatch: pytest.MonkeyPatch) -> None:
+    # torchsky is a core dependency; a broken install names the fix.
     monkeypatch.setattr(_torchsky, "installed", lambda: False)
     assert _torchsky.module("wcs") is None
-    with pytest.raises(CrossMatchError, match=r"xmatcher\[torchsky\]"):
+    with pytest.raises(CrossMatchError, match=r"pip install --upgrade 'torchsky>=0\.6\.0'"):
         _torchsky.require("catalogs", "engine='torchsky'")
 
 

@@ -36,6 +36,8 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
+      # torchsky is a core dependency: the default environment runs every
+      # torchsky path (XMATCHER_EXPECT_TORCHSKY=1 makes a missing one an error).
       - name: Run lint, type checks, and offline tests
         run: pixi run ci-local
 
@@ -80,36 +82,10 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  torchsky:
-    # The torchsky engine, epoch-propagation Jacobians and torchsky HEALPix
-    # paths are skipped without the package; this job runs them against the
-    # public release (pixi environment `torchsky`, conda-forge CPU PyTorch).
-    name: Ubuntu 24.04 / Python 3.13 / public torchsky
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      PYTHONNOUSERSITE: "1"
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install the locked Pixi torchsky environment
-        uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
-        with:
-          pixi-version: v0.82.0
-          environments: torchsky
-          run-install: true
-          locked: true
-          cache: true
-          cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
-
-      - name: Run lint, type checks, and offline tests with torchsky
-        run: pixi run -e torchsky ci-local
-
   release:
     name: Publish GitHub release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, torchsky]
+    needs: [linux]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -132,7 +108,7 @@ jobs:
   pypi:
     name: Publish package to PyPI
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, torchsky, release]
+    needs: [linux, release]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:

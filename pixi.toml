@@ -1,7 +1,7 @@
 [workspace]
 name = "xmatcher"
 channels = ["conda-forge"]
-# macOS 14+: torchfits, a torchsky dependency (torchsky environment, same solve
+# macOS 14+: torchfits (a torchsky and xmatcher dependency) publishes no older
 # group), publishes no older macOS wheels.
 platforms = [{ name = "osx-arm64-macos-14-0", platform = "osx-arm64", macos = "14.0" }, "linux-64"]
 
@@ -29,6 +29,17 @@ polars = "*"
 ruff = "*"
 pytest = "*"
 mypy = "*"
+# conda-forge CPU PyTorch shares the environment's OpenMP runtime; the PyPI
+# wheel bundles its own libomp, which aborts the process on macOS (OMP #15),
+# and on Linux pulls the multi-GB CUDA toolkit. cpu_generic, not cpu_mkl: MKL
+# would switch the environment from OpenBLAS.
+pytorch = { version = "2.14.*", build = "cpu_generic*" }
+# Build tools for torchsky from source (until its 0.6.0 wheels are published).
+cxx-compiler = "*"
+cmake = ">=3.21"
+ninja = "*"
+scikit-build-core = ">=1.0"
+nanobind = ">=2.10.2"
 
 [pypi-dependencies]
 xmatcher = { path = ".", editable = true }
@@ -38,23 +49,17 @@ hats = "*"
 ray = "*"
 cdshealpix = "*"
 
-# Public torchsky (>=0.5.0) and its PyTorch stack, for the torchsky engine,
-# epoch-propagation Jacobians and HEALPix coverings: `pixi run -e torchsky ci-local`.
-[feature.torchsky.dependencies]
-# conda-forge CPU PyTorch shares the environment's OpenMP runtime; the PyPI
-# wheel bundles its own libomp, which aborts the process on macOS (OMP #15),
-# and on Linux pulls the multi-GB CUDA toolkit.
-# cpu_generic, not cpu_mkl: the MKL build would switch the shared solve
-# group (and so the default environment) from OpenBLAS to MKL.
-pytorch = { version = "2.14.*", build = "cpu_generic*" }
+torchsky = { git = "https://github.com/sfabbro/torchsky.git", rev = "601968a797bcf522c9cdf309c298490f778114a5" }
 
-[feature.torchsky.pypi-dependencies]
-torchsky = ">=0.5.0"
+# torchsky is xmatcher's matching and statistics engine. Until torchsky 0.6.0 is
+# on PyPI it is built from the fork's release-candidate commit, against this
+# environment's own PyTorch (no build isolation), with the tools below.
+[pypi-options]
+no-build-isolation = ["torchsky"]
 
-[feature.torchsky.activation.env]
+[activation.env]
 # Tests assert torchsky is importable instead of skipping its paths.
 XMATCHER_EXPECT_TORCHSKY = "1"
 
 [environments]
 default = { solve-group = "default" }
-torchsky = { features = ["torchsky"], solve-group = "default" }

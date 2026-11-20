@@ -21,9 +21,9 @@ from types import ModuleType
 
 from .exceptions import CrossMatchError
 
-MIN_VERSION = (0, 5, 0)
+MIN_VERSION = (0, 6, 0)
 _MIN_TEXT = ".".join(str(part) for part in MIN_VERSION)
-INSTALL_HINT = "pip install 'xmatcher[torchsky]'"
+INSTALL_HINT = "pip install --upgrade 'torchsky>=0.6.0'"
 
 
 def installed() -> bool:
