@@ -113,12 +113,17 @@ def write_shard_parquet(shards: pathlib.Path, name: str, table, extra: dict) -> 
     import pyarrow as pa
     import pyarrow.parquet as pq
 
-    # Convert astropy table → parquet
+    # Convert astropy table → parquet.
+    # All-missing mag columns otherwise become pa.null(); hats-import then fails
+    # merging with double-typed shards (Unsupported cast from double to null).
     arrays = []
     names = []
     for col in table.colnames:
         names.append(col)
-        arrays.append(pa.array(table[col].tolist()))
+        arr = pa.array(table[col].tolist())
+        if pa.types.is_null(arr.type):
+            arr = pa.nulls(len(table), type=pa.float64())
+        arrays.append(arr)
     arrow = pa.table(dict(zip(names, arrays, strict=True)))
     out = shards / f"{name}.parquet"
     pq.write_table(arrow, out, compression="zstd")
