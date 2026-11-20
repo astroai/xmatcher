@@ -317,14 +317,14 @@ is `--fallback-policy error`.
 
 | Engine | Primary Backend | Threading / Scaling | Memory Overhead | Supported Algorithms & Features |
 |---|---|---|---|---|
-| **`fast`** | `scipy.spatial.cKDTree` | Single-process spatial queries (SciPy may use native parallelism where requested) | Holds coordinate arrays and candidate/result data | General local pairwise engine; matcher requirements still apply. |
-| **`zone`** | `cdshealpix` + `cKDTree` | HEALPix pixel groups on one machine | Pixel batching; total memory depends on input/result path | Zone-based candidate queries; `batch_size` is not a process-memory cap. |
+| **`fast`** | torchsky `SkyIndex` (exact declination-zone index) | Single process; torchsky's native multithreaded kernel on CPU | Holds coordinate arrays and candidate/result data | General local pairwise engine; matcher requirements still apply. |
+| **`zone`** | torchsky `SkyIndex` | Same search as `fast` | Same as `fast` | Kept as a name: torchsky's zone index is the HEALPix-shard algorithm `zone` used to approximate. |
 | **`ray`** | Ray | Distributed HEALPix candidate queries | Coordinator holds input frames and assembles final result | Pairwise work only; it is not an out-of-core flat-file pipeline. |
 | **`ray-union`** | Ray + HATS | Full-sky union to HATS output | Distributed interval plan; may read extra partitions for conservative halos | Supports `sky`, `skyerr`, `skyellipse`; handles mixed-order/RING layouts and uncertainty/epoch halos. |
 | **`ray-anchor`** | Ray + HATS | One row per anchor partition, resumable | Candidate survey partitions per anchor partition; task guards | `sky` only; best counterpart per survey plus `sep_second`, `n_within`, `crowded`, `pm_warn`, `quality`. |
 | **`astropy`** | Astropy `SkyCoord` | Astropy sky-coordinate queries | Depends on input and candidate counts | Alternative local geometry backend. |
 | **`stilts`** | STILTS `tmatch2` | External Java subprocess | Managed by JVM | Requires Java and a working `stilts` executable; matcher support depends on requested options. |
-| **`torchsky`** | PyTorch / Torchsky | Tensor-based candidate search | Depends on tensors and returned candidates | `sky` and `skyerr` only. Requires `xmatcher[torchsky]` (torchsky>=0.5.0); results agree with `fast` and Astropy (tested in CI). |
+| **`torchsky`** | PyTorch / Torchsky | Tensor-based candidate search | Depends on tensors and returned candidates | `sky` and `skyerr` only. torchsky is a core dependency (>=0.6.0); results agree with `fast` and Astropy (tested in CI). |
 
 ---
 

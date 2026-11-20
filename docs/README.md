@@ -83,6 +83,7 @@ flowchart TD
 
 ### 5. Historical Archive & Benchmark Reports
 
+- **[0.7.0 Release Notes](archive/release-0.7.0.md)** — torchsky matching engine, FITS/Parquet/HATS converter, release audit.
 - **[0.6.0 Release Notes](archive/release-0.6.0.md)** — Named catalogues, S3/HF HATS streaming, `skyerr` radius bounds, and upgrade guide.
 - **[0.5.1 Migration Notes](archive/release-0.5.1.md)** — Namespace migration from `xmatch` to `xmatcher`.
 - **[0.5.0 Release Notes](archive/release-0.5.0.md)** — Initial 0.5.0 release features.

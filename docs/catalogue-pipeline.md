@@ -87,10 +87,9 @@ covariance with the existing motion Jacobians; missing covariance fails explicit
 Physical covariance currently conditions on radial velocity: a source must declare
 `release_metadata["radial_velocity_uncertainty"] = "deterministic"` for this path.
 It does not propagate an unknown RV variance or promise a full six-parameter
-covariance model. Jacobian transport requires
-`xmatcher[torchsky]` (torchsky>=0.5.0); the Jacobians agree with finite
-differences of the Astropy propagation in the local east/north basis of
-`ra_error`/`dec_error`, and CI runs this path against the public release.
+covariance model. Jacobian transport uses torchsky (a core dependency, >=0.6.0); the Jacobians
+agree with finite differences of the Astropy propagation in the local
+east/north basis of `ra_error`/`dec_error`, and CI runs this path.
 An explicitly requested missing-motion prior remains an assumed population
 model, distinct from measured covariance, and is not supported by spill execution.
 The distributed `ray-union` driver supports `target_epoch` when sources declare

@@ -5,11 +5,13 @@ All notable changes to `xmatcher` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.0] — Unreleased
 
-A release audit of correctness, HATS conformance, remote acquisition, the
-Ray engines and the collaborator install path. Every fix below has a
-regression test that fails without it.
+torchsky becomes xmatcher's matching engine, a converter between FITS,
+Parquet, HATS and CSV is added, and a release audit of correctness, HATS
+conformance, remote acquisition, the Ray engines and the collaborator install
+path is folded in. Every audit fix below has a regression test that fails
+without it. Requires torchsky 0.6.0 (released first).
 
 ### Added
 
