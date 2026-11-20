@@ -124,7 +124,7 @@ def test_skyerr_epoch_spill_inflates_uncertainty_and_halo(tmp_path, monkeypatch)
     assert not any(name.startswith("_xmatcher_spill_") for name in result.columns)
 
 
-def test_epoch_covariance_alignment_rejects_missing_invalid_or_unavailable_covariance(monkeypatch):
+def test_epoch_covariance_alignment_rejects_missing_or_invalid_covariance():
     frame = _covariance_frame()
     no_mapping = _source(
         frame, ra_err_column="ra_error", dec_err_column="dec_error", pos_err_units="mas"
@@ -135,11 +135,6 @@ def test_epoch_covariance_alignment_rejects_missing_invalid_or_unavailable_covar
     with pytest.raises(CrossMatchError, match="covariance"):
         _align_epoch(
             invalid.lazy(), _covariance_source(invalid), 2010.0, propagate_covariance=True
-        ).collect()
-    monkeypatch.setattr(astro_utils, "propagate_proper_motion_with_jacobian", lambda *args: None)
-    with pytest.raises(CrossMatchError, match=r"xmatcher\[torchsky\]"):
-        _align_epoch(
-            frame.lazy(), _covariance_source(frame), 2010.0, propagate_covariance=True
         ).collect()
 
 

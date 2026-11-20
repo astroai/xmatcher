@@ -21,6 +21,7 @@ import numpy as np
 import polars as pl
 import pytest
 from astropy.coordinates import SkyCoord, search_around_sky
+from astropy.time import Time
 
 from xmatcher import _torchsky, astro_utils, hats_native
 from xmatcher.exceptions import CrossMatchError
@@ -233,10 +234,38 @@ def _physical_stars(n: int, seed: int) -> dict[str, np.ndarray]:
     }
 
 
+def _astropy_pm(ra, dec, pmra, pmdec, epochs, target):
+    """Astropy (the oracle) proper-motion propagation, ICRS, TCB Julian years."""
+    moved = SkyCoord(
+        ra=ra * u.deg,
+        dec=dec * u.deg,
+        pm_ra_cosdec=pmra * u.mas / u.yr,
+        pm_dec=pmdec * u.mas / u.yr,
+        obstime=Time(epochs, format="jyear", scale="tcb"),
+        frame="icrs",
+    ).apply_space_motion(new_obstime=Time(target, format="jyear", scale="tcb"))
+    return moved.ra.deg, moved.dec.deg
+
+
+def _astropy_space(ra, dec, pmra, pmdec, plx, rv, epochs, target):
+    """Astropy (the oracle) full space-motion propagation."""
+    moved = SkyCoord(
+        ra=ra * u.deg,
+        dec=dec * u.deg,
+        pm_ra_cosdec=pmra * u.mas / u.yr,
+        pm_dec=pmdec * u.mas / u.yr,
+        distance=(1000.0 / plx) * u.pc,
+        radial_velocity=rv * u.km / u.s,
+        obstime=Time(epochs, format="jyear", scale="tcb"),
+        frame="icrs",
+    ).apply_space_motion(new_obstime=Time(target, format="jyear", scale="tcb"))
+    return moved.ra.deg, moved.dec.deg
+
+
 @needs_torchsky
 @pytest.mark.parametrize(("source", "target"), [(2016.0, 2000.0), (2016.0, 1950.0)])
-def test_torchsky_propagation_agrees_with_astropy(monkeypatch, source, target) -> None:
-    """Installing Torchsky switches the propagation backend; results must not move."""
+def test_torchsky_propagation_agrees_with_astropy(source, target) -> None:
+    """torchsky propagation agrees with Astropy (the oracle)."""
     s = _physical_stars(4000, seed=int(target))
     epochs = np.full(s["ra"].size, source)
     pm_args = (s["ra"], s["dec"], s["pmra"], s["pmdec"], epochs, target)
@@ -245,12 +274,7 @@ def test_torchsky_propagation_agrees_with_astropy(monkeypatch, source, target) -
         astro_utils.propagate_proper_motion(*pm_args),
         astro_utils.propagate_space_motion(*space_args),
     )
-    monkeypatch.setattr(astro_utils, "_load_torchsky_propagate_proper_motion", lambda: None)
-    monkeypatch.setattr(astro_utils, "_load_torchsky_propagate_space_motion", lambda: None)
-    with_astropy = (
-        astro_utils.propagate_proper_motion(*pm_args),
-        astro_utils.propagate_space_motion(*space_args),
-    )
+    with_astropy = (_astropy_pm(*pm_args), _astropy_space(*space_args))
     # 66 years of Barnard's-star motion: PM-only within 0.05 mas, full space
     # motion (perspective acceleration, light time) within 0.2 mas.
     assert _sep_mas(*with_torchsky[0], *with_astropy[0]).max() < 0.05
@@ -258,7 +282,7 @@ def test_torchsky_propagation_agrees_with_astropy(monkeypatch, source, target) -
 
 
 @needs_torchsky
-def test_torchsky_motion_jacobian_matches_astropy_finite_differences(monkeypatch) -> None:
+def test_torchsky_motion_jacobian_matches_astropy_finite_differences() -> None:
     """The (east, north, pm_east, pm_north) Jacobian, in mas, against Astropy.
 
     Target-epoch skyellipse propagates Gaia-style covariances with it, so its
@@ -273,10 +297,9 @@ def test_torchsky_motion_jacobian_matches_astropy_finite_differences(monkeypatch
     _, _, jacobian = astro_utils.propagate_proper_motion_with_jacobian(
         s["ra"], s["dec"], s["pmra"], s["pmdec"], epochs, 1990.0
     )
-    monkeypatch.setattr(astro_utils, "_load_torchsky_propagate_proper_motion", lambda: None)
 
     def moved(ra, dec, pmra, pmdec) -> SkyCoord:
-        out = astro_utils.propagate_proper_motion(ra, dec, pmra, pmdec, epochs, 1990.0)
+        out = _astropy_pm(ra, dec, pmra, pmdec, epochs, 1990.0)
         return SkyCoord(out[0] * u.deg, out[1] * u.deg)
 
     start = SkyCoord(s["ra"] * u.deg, s["dec"] * u.deg)

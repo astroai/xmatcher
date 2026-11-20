@@ -132,47 +132,18 @@ def _healpix_neighbors(order: int, center_pix: int, *, radius_arcsec: float = 0.
     """Return nested HEALPix pixels covering a cap around ``center_pix``."""
     pix = int(center_pix)
     nside = 2 ** int(order)
-    ts_healpix = _torchsky.module("sphere.healpix")
-    if ts_healpix is not None:
-        import torch  # noqa: PLC0415 - a dependency of torchsky
+    import torch  # noqa: PLC0415 - a dependency of torchsky
 
-        cap_covering_pixels = _torchsky.require("catalogs", "HATS margins").cap_covering_pixels
-        center = torch.tensor([pix], dtype=torch.int64)
-        lon, lat = ts_healpix.pix2ang(nside, center, nest=True, lonlat=True)
-        pixrad = ts_healpix.max_pixel_radius(nside, degrees=False)
-        radius_rad = min(
-            math.pi, math.radians(max(float(radius_arcsec), 0.0) / 3600.0) + (2.0 * pixrad)
-        )
-        covered = cap_covering_pixels(nside, lon, lat, radius_rad, nest=True)
-        return sorted({int(p) for p in covered.tolist()})
-    out = {pix}
-    try:
-        import cdshealpix as chp
-        import numpy as np
-
-        lon, lat = chp.healpix_to_lonlat(np.asarray([pix], dtype=np.uint64), depth=int(order))
-        if hasattr(lon, "to_value"):
-            lon = lon.to_value("rad")
-            lat = lat.to_value("rad")
-        pix_scale = np.sqrt(4.0 * np.pi / (12.0 * nside * nside))
-        radius_rad = math.radians(max(float(radius_arcsec), 0.0) / 3600.0) + float(1.5 * pix_scale)
-        from .matchers import _cone_search_pixels  # noqa: PLC0415
-
-        neigh = _cone_search_pixels(
-            chp,
-            float(lon[0]),
-            float(lat[0]),
-            min(math.pi, radius_rad),
-            int(order),
-        )
-        for n in np.atleast_1d(neigh).astype(int).ravel():
-            if n >= 0:
-                out.add(int(n))
-    except Exception as exc:
-        raise CrossMatchError(
-            "Cannot compute boundary-safe HATS margins; install cdshealpix or torchsky"
-        ) from exc
-    return sorted(out)
+    ts_healpix = _torchsky.require("sphere.healpix", "HATS margins")
+    cap_covering_pixels = _torchsky.require("catalogs", "HATS margins").cap_covering_pixels
+    center = torch.tensor([pix], dtype=torch.int64)
+    lon, lat = ts_healpix.pix2ang(nside, center, nest=True, lonlat=True)
+    pixrad = ts_healpix.max_pixel_radius(nside, degrees=False)
+    radius_rad = min(
+        math.pi, math.radians(max(float(radius_arcsec), 0.0) / 3600.0) + (2.0 * pixrad)
+    )
+    covered = cap_covering_pixels(nside, lon, lat, radius_rad, nest=True)
+    return sorted({int(p) for p in covered.tolist()})
 
 
 def margin_pixels(
@@ -392,10 +363,9 @@ def hats_native_crossmatch(
         # join may lose those rows, and the needed-pixel set is computed at a
         # single order, so a mixed-order left tree is not pruned.  (Target-epoch
         # matches take the global path above, so positions here do not move.)
-        ts_hp = _torchsky.module("sphere.healpix")
+        ts_hp = _torchsky.require("sphere.healpix", "HATS pruning")
         if (
-            ts_hp is not None
-            and spec.join_type == "1and2"
+            spec.join_type == "1and2"
             and right_all.height > 0
             and len({order for order, _, _ in left_pixels}) == 1
         ):

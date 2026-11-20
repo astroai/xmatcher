@@ -164,38 +164,20 @@ def propagate_proper_motion(
     source_epoch = np.asarray(source_epoch, dtype=float)
     source_epoch = np.where(np.isnan(source_epoch), target_epoch, source_epoch)
 
-    torchsky_propagate = _load_torchsky_propagate_proper_motion()
-    if torchsky_propagate is not None:
-        moved_ra, moved_dec = torchsky_propagate(
-            ra,
-            dec,
-            pm_ra_cosdec,
-            pm_dec,
-            source_epoch_jyear=source_epoch,
-            target_epoch_jyear=target_epoch,
-        )
-        return _as_numpy(moved_ra), _as_numpy(moved_dec)
-
-    import astropy.units as u
-    from astropy.coordinates import SkyCoord
-    from astropy.time import Time
-
-    coords = SkyCoord(
-        ra=ra * u.deg,
-        dec=dec * u.deg,
-        pm_ra_cosdec=pm_ra_cosdec * u.mas / u.yr,
-        pm_dec=pm_dec * u.mas / u.yr,
-        obstime=Time(source_epoch, format="jyear", scale="tcb"),
-        frame="icrs",
+    moved_ra, moved_dec = _load_torchsky_propagate_proper_motion()(
+        ra,
+        dec,
+        pm_ra_cosdec,
+        pm_dec,
+        source_epoch_jyear=source_epoch,
+        target_epoch_jyear=target_epoch,
     )
-    moved = coords.apply_space_motion(new_obstime=Time(target_epoch, format="jyear", scale="tcb"))
-    return moved.ra.deg, moved.dec.deg
+    return _as_numpy(moved_ra), _as_numpy(moved_dec)
 
 
 def _load_torchsky_propagate_proper_motion():
     """Return Torchsky's tensor-native PM primitive when the extra is installed."""
-    wcs = _torchsky.module("wcs")
-    return None if wcs is None else wcs.propagate_proper_motion
+    return _torchsky.require("wcs", "epoch propagation").propagate_proper_motion
 
 
 def propagate_proper_motion_with_jacobian(
@@ -205,11 +187,9 @@ def propagate_proper_motion_with_jacobian(
     pm_dec: np.ndarray,
     source_epoch: np.ndarray,
     target_epoch: float,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
-    """Return Torchsky angular positions and local 2x4 Jacobians; ``None`` without Torchsky."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return torchsky angular positions and local 2x4 Jacobians."""
     torchsky_propagate = _load_torchsky_propagate_proper_motion_with_jacobian()
-    if torchsky_propagate is None:
-        return None
     values = [
         np.asarray(value, dtype=float) for value in (ra, dec, pm_ra_cosdec, pm_dec, source_epoch)
     ]
@@ -223,8 +203,7 @@ def propagate_proper_motion_with_jacobian(
 
 def _load_torchsky_propagate_proper_motion_with_jacobian():
     """Return Torchsky's angular-motion Jacobian primitive when installed."""
-    wcs = _torchsky.module("wcs")
-    return None if wcs is None else wcs.propagate_proper_motion_with_jacobian
+    return _torchsky.require("wcs", "epoch propagation").propagate_proper_motion_with_jacobian
 
 
 def propagate_space_motion(
@@ -254,37 +233,17 @@ def propagate_space_motion(
             source_epoch,
         )
     ]
-    torchsky_propagate = _load_torchsky_propagate_space_motion()
-    if torchsky_propagate is not None:
-        result = torchsky_propagate(
-            *values[:6],
-            source_epoch_jyear=values[6],
-            target_epoch_jyear=target_epoch,
-        )
-        return _as_numpy(result[0]), _as_numpy(result[1])
-
-    import astropy.units as u
-    from astropy.coordinates import SkyCoord
-    from astropy.time import Time
-
-    coords = SkyCoord(
-        ra=values[0] * u.deg,
-        dec=values[1] * u.deg,
-        pm_ra_cosdec=values[2] * u.mas / u.yr,
-        pm_dec=values[3] * u.mas / u.yr,
-        distance=(1000.0 / values[4]) * u.pc,
-        radial_velocity=values[5] * u.km / u.s,
-        obstime=Time(values[6], format="jyear", scale="tcb"),
-        frame="icrs",
+    result = _load_torchsky_propagate_space_motion()(
+        *values[:6],
+        source_epoch_jyear=values[6],
+        target_epoch_jyear=target_epoch,
     )
-    moved = coords.apply_space_motion(new_obstime=Time(target_epoch, format="jyear", scale="tcb"))
-    return moved.ra.deg, moved.dec.deg
+    return _as_numpy(result[0]), _as_numpy(result[1])
 
 
 def _load_torchsky_propagate_space_motion():
     """Return Torchsky's complete space-motion primitive when installed."""
-    wcs = _torchsky.module("wcs")
-    return None if wcs is None else wcs.propagate_space_motion
+    return _torchsky.require("wcs", "epoch propagation").propagate_space_motion
 
 
 def propagate_space_motion_with_jacobian(
@@ -296,15 +255,13 @@ def propagate_space_motion_with_jacobian(
     radial_velocity: np.ndarray,
     source_epoch: np.ndarray,
     target_epoch: float,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return Torchsky-propagated positions and local 6D Jacobians.
 
     ``None`` means Torchsky is not installed. There is deliberately no Astropy
     finite-difference fallback on this survey-scale path.
     """
     torchsky_propagate = _load_torchsky_propagate_space_motion_with_jacobian()
-    if torchsky_propagate is None:
-        return None
     values = [
         np.asarray(value, dtype=float)
         for value in (
@@ -327,8 +284,7 @@ def propagate_space_motion_with_jacobian(
 
 def _load_torchsky_propagate_space_motion_with_jacobian():
     """Return Torchsky's local phase-space Jacobian primitive when installed."""
-    wcs = _torchsky.module("wcs")
-    return None if wcs is None else wcs.propagate_space_motion_with_jacobian
+    return _torchsky.require("wcs", "epoch propagation").propagate_space_motion_with_jacobian
 
 
 def _as_numpy(value) -> np.ndarray:

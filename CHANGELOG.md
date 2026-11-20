@@ -51,6 +51,18 @@ regression test that fails without it.
   `ray-anchor` (best, second nearest and `n_within` under one inclusive radius
   rule) find candidates with torchsky as well; no local engine uses scipy's
   cKDTree.
+- Proper-motion and space-motion propagation, and HATS margin and pruning
+  coverings, use torchsky only. The Astropy and cdshealpix fallbacks for a
+  missing torchsky are gone; Astropy remains the tests' oracle (agreement to
+  0.05 mas for proper motion near the poles and 0.2 mas for Barnard's star).
+- `matcher="lr"` is computed by `torchsky.catalogs.associate`. The likelihood
+  ratio is the same Sutherland & Saunders form, now with these changes:
+  - q(m) is learnt by EM from the posteriors, not by background subtraction.
+  - `reliability` is the Bayesian posterior `Q LR / ((1 - Q) + Q ΣLR)`, with
+    `lr_q` as the prior completeness. The old formula `LR / (ΣLR + 1 - Q)`
+    normalised q(m) to 1 instead of Q.
+  - Candidates pass a χ² gate (p = 1e-4) as well as the `radius_arcsec` ceiling.
+  - In crowded fields a right row is the counterpart of at most one left row.
 - An installed torchsky older than 0.5.0 (or one that fails to import) is an
   error naming the upgrade, instead of crashing mid-match with
   `AttributeError` (old torchsky) or being silently ignored.

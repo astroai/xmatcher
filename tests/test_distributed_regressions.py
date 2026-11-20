@@ -438,21 +438,12 @@ def test_empty_union_is_readable_hats_with_schema(tmp_path):
     assert result.height == 0
 
 
-def test_native_hats_margin_honours_radii_larger_than_adjacent_pixels(monkeypatch):
-    import sys
-    import types
-
+def test_native_hats_margin_honours_radii_larger_than_adjacent_pixels():
+    # A 4-degree radius must reach pixels well beyond the immediate neighbours
+    # (an earlier healpy path returned only those, whatever the radius).
     import cdshealpix
     from astropy.coordinates import Latitude, Longitude
 
-    from xmatcher import _torchsky
-
-    monkeypatch.setattr(_torchsky, "installed", lambda: False)  # the cdshealpix path
-    # Previously the optional healpy path returned only immediate neighbours,
-    # regardless of the requested match radius.
-    monkeypatch.setitem(
-        sys.modules, "healpy", types.SimpleNamespace(get_all_neighbours=lambda *a, **k: [])
-    )
     order = 6
     centre = int(
         cdshealpix.lonlat_to_healpix(Longitude(42.0, unit="deg"), Latitude(5.0, unit="deg"), order)[

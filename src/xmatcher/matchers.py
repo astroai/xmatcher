@@ -1167,31 +1167,22 @@ def _apply_proper_motion(
                     epoch_arr[covariance_rows_6d],
                     target_epoch,
                 )
-                if result is None:
-                    message = (
-                        "target-epoch skyellipse covariance propagation requires "
-                        "torchsky>=0.5.0 (pip install 'xmatcher[torchsky]')"
-                    )
-                    if fallback_policy == "error":
-                        raise CrossMatchError(message)
-                    logger.warning("%s; retaining reference-epoch ellipses.", message)
-                else:
-                    moved_ra, moved_dec, jacobian = result
-                    new_ra[covariance_rows_6d] = moved_ra
-                    new_dec[covariance_rows_6d] = moved_dec
-                    covariance_done[covariance_rows_6d] = True
-                    position_jacobian = jacobian[:, :2, :5]
-                    target_covariance = (
-                        position_jacobian
-                        @ covariance[covariance_rows_6d]
-                        @ np.swapaxes(position_jacobian, -1, -2)
-                    )
-                    target_covariance = 0.5 * (
-                        target_covariance + np.swapaxes(target_covariance, -1, -2)
-                    )
-                    target_covariance /= 1_000_000.0  # mas² to arcsec²
-                    propagated_covariance = np.full((df.height, 2, 2), np.nan)
-                    propagated_covariance[covariance_rows_6d] = target_covariance
+                moved_ra, moved_dec, jacobian = result
+                new_ra[covariance_rows_6d] = moved_ra
+                new_dec[covariance_rows_6d] = moved_dec
+                covariance_done[covariance_rows_6d] = True
+                position_jacobian = jacobian[:, :2, :5]
+                target_covariance = (
+                    position_jacobian
+                    @ covariance[covariance_rows_6d]
+                    @ np.swapaxes(position_jacobian, -1, -2)
+                )
+                target_covariance = 0.5 * (
+                    target_covariance + np.swapaxes(target_covariance, -1, -2)
+                )
+                target_covariance /= 1_000_000.0  # mas² to arcsec²
+                propagated_covariance = np.full((df.height, 2, 2), np.nan)
+                propagated_covariance[covariance_rows_6d] = target_covariance
 
             angular_state_valid = (
                 ~complete
@@ -1211,31 +1202,22 @@ def _apply_proper_motion(
                     epoch_arr[angular_state_valid],
                     target_epoch,
                 )
-                if result is None:
-                    message = (
-                        "target-epoch skyellipse covariance propagation requires "
-                        "torchsky>=0.5.0 (pip install 'xmatcher[torchsky]')"
-                    )
-                    if fallback_policy == "error":
-                        raise CrossMatchError(message)
-                    logger.warning("%s; retaining reference-epoch ellipses.", message)
-                else:
-                    moved_ra, moved_dec, position_jacobian = result
-                    new_ra[angular_state_valid] = moved_ra
-                    new_dec[angular_state_valid] = moved_dec
-                    covariance_done[angular_state_valid] = True
-                    target_covariance = (
-                        position_jacobian
-                        @ covariance[angular_state_valid, :4, :4]
-                        @ np.swapaxes(position_jacobian, -1, -2)
-                    )
-                    target_covariance = 0.5 * (
-                        target_covariance + np.swapaxes(target_covariance, -1, -2)
-                    )
-                    target_covariance /= 1_000_000.0
-                    if propagated_covariance is None:
-                        propagated_covariance = np.full((df.height, 2, 2), np.nan)
-                    propagated_covariance[angular_state_valid] = target_covariance
+                moved_ra, moved_dec, position_jacobian = result
+                new_ra[angular_state_valid] = moved_ra
+                new_dec[angular_state_valid] = moved_dec
+                covariance_done[angular_state_valid] = True
+                target_covariance = (
+                    position_jacobian
+                    @ covariance[angular_state_valid, :4, :4]
+                    @ np.swapaxes(position_jacobian, -1, -2)
+                )
+                target_covariance = 0.5 * (
+                    target_covariance + np.swapaxes(target_covariance, -1, -2)
+                )
+                target_covariance /= 1_000_000.0
+                if propagated_covariance is None:
+                    propagated_covariance = np.full((df.height, 2, 2), np.nan)
+                propagated_covariance[angular_state_valid] = target_covariance
 
         angular = ~complete & ~covariance_done
         if np.any(angular):
@@ -1702,30 +1684,24 @@ def _likelihood_ratio_scoring(
     seps: np.ndarray,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Score candidate pairs with the Sutherland & Saunders (1992) Likelihood
-    Ratio and return (left_idx, right_idx, seps, lr, reliability).
+    """Likelihood ratios and reliabilities from :func:`torchsky.catalogs.associate`.
 
-    For each primary source, all candidates within the search radius are scored.
-    When ``spec.find == "best"``, the candidate with the highest reliability is
-    kept per primary source.  When ``spec.find == "all"``, all candidates with
-    their LR and reliability values are returned.
+    Returns ``(left_idx, right_idx, seps, lr, reliability)``. The model is
+    Sutherland & Saunders (1992): ``LR = q(m) f(r) / n(m)``, with ``f`` the 2-D
+    Gaussian surface density of the offset (isotropic, per-axis variance from
+    the two rows' errors), ``n(m)`` the right catalogue's density per
+    magnitude bin over its footprint and ``q(m)`` the counterparts' magnitude
+    distribution. torchsky learns ``q`` by EM from the posteriors, and the
+    reliability is the posterior ``Q LR / ((1 - Q) + Q sum LR)`` with
+    ``Q = lr_q`` as the prior completeness. Candidates pass a chi-square gate
+    (p = 1e-4) and the ``radius_arcsec`` ceiling. A right row is the
+    counterpart of at most one left row (exclusive posteriors), which matters
+    in crowded fields only.
 
-    Algorithm
-    --------
-    1. Estimate the background surface density n(m) from the secondary catalogue.
-    2. Estimate the true-counterpart magnitude distribution q(m) by subtracting
-       the expected background from the candidate magnitude distribution.
-    3. For each pair evaluate the positional error distribution f(r): the 2-D
-       isotropic Gaussian surface density (per arcsec²) of the offset, using
-       the combined per-axis variance of both sources.  It shares n(m)'s
-       per-area units, so LR is dimensionless and peaks at zero offset.
-    4. Compute LR_i = q(m_i) * f(r_i) / n(m_i).
-    5. Compute reliability R_j = LR_j / (Σ_i LR_i + (1 - Q)).
-    6. If find="best", keep the highest-reliability candidate per primary source.
-
-    Returns (left_idx, right_idx, seps, lr, reliability).  When no candidates
-    survive, all arrays are empty.
+    ``left_idx``/``right_idx``/``seps`` (the engine's candidates within the
+    radius) are not needed: torchsky searches with each pair's own gate.
     """
+    del left_idx, right_idx, seps
     empty = (
         np.array([], int),
         np.array([], int),
@@ -1733,157 +1709,74 @@ def _likelihood_ratio_scoring(
         np.array([], float),
         np.array([], float),
     )
-    if left_idx.size == 0:
+    if left.height == 0 or right.height == 0:
         return empty
-
     mag_col = spec.lr_magnitude_column
-    if mag_col is None or mag_col not in right.columns:
+    right_mags = right[mag_col].cast(pl.Float64).to_numpy() if mag_col in right.columns else None
+    finite_mags = right_mags[np.isfinite(right_mags)] if right_mags is not None else None
+    if finite_mags is None or finite_mags.size < 10:
         logger.warning(
-            "lr_magnitude_column='%s' missing from right catalogue; falling back to sky match.",
+            "lr_magnitude_column='%s' is missing or has fewer than 10 values; "
+            "the likelihood ratio uses positions only.",
             mag_col,
         )
-        return (
-            left_idx,
-            right_idx,
-            seps,
-            np.ones(left_idx.size, dtype=float),
-            np.ones(left_idx.size, dtype=float),
+    catalogs = _torchsky.require("catalogs", "matcher='lr'")
+
+    def catalogue(df: pl.DataFrame, src: CatalogueSource):
+        sig = _pos_sigma_arcsec(df, src)
+        if sig is None:
+            sig = np.full(df.height, 0.5, dtype=float)
+        # `_pos_sigma_arcsec` is a radial RMS; per axis it is RMS / sqrt(2), in mas.
+        axis = _ts_tensor(np.maximum(sig, 1e-6) / math.sqrt(2.0) * 1000.0)
+        return catalogs.Catalog(
+            lon=_ts_tensor(df[src.ra_column].cast(pl.Float64).to_numpy()),
+            lat=_ts_tensor(df[src.dec_column].cast(pl.Float64).to_numpy()),
+            epoch=2016.0,
+            astrometry=catalogs.Astrometry.from_errors(axis, axis),
         )
 
-    # --- positional sigmas for the positional density f(r) -----------------
-    lsig = _pos_sigma_arcsec(left, left_src)
-    rsig = _pos_sigma_arcsec(right, right_src)
-    if lsig is None:
-        lsig = np.full(left.height, 0.5, dtype=float)
-    if rsig is None:
-        rsig = np.full(right.height, 0.5, dtype=float)
+    terms: tuple = ()
+    if finite_mags is not None and finite_mags.size >= 10:
+        n_bins = min(50, int(np.sqrt(finite_mags.size)))
+        lo, hi = float(finite_mags.min()), float(finite_mags.max())
+        hi = hi if hi - lo >= 1e-6 else lo + 1.0
+        import torch  # noqa: PLC0415 - loads with torchsky
 
-    # `_pos_sigma_arcsec` is a radial RMS (σ_rad² = σ_ra*² + σ_dec²); the
-    # isotropic 2-D Gaussian needs the per-axis variance σ_rad² / 2.
-    axis_var = 0.5 * (lsig[left_idx] ** 2 + rsig[right_idx] ** 2)
-    axis_var = np.maximum(axis_var, 1e-12)
-
-    # Sutherland & Saunders (1992): f(r) = exp(-r²/2σ²) / (2πσ²), a surface
-    # density.  The Rayleigh radial PDF (an extra factor 2πr) would vanish at
-    # r = 0 and rank farther candidates above coincident ones.
-    f_r = np.exp(-(seps**2) / (2.0 * axis_var)) / (2.0 * math.pi * axis_var)
-    f_r = np.maximum(f_r, 1e-300)
-
-    # --- n(m): background surface density per unit area per magnitude --------
-    right_mags = right[mag_col].to_numpy().astype(float)
-    right_mags = right_mags[np.isfinite(right_mags)]
-    if right_mags.size < 10:
-        logger.warning("Too few valid magnitudes in right catalogue for LR; falling back.")
-        return (
-            left_idx,
-            right_idx,
-            seps,
-            np.ones(left_idx.size, dtype=float),
-            np.ones(left_idx.size, dtype=float),
-        )
-
-    n_bins = min(50, int(np.sqrt(right_mags.size)))
-    mag_min, mag_max = float(np.nanmin(right_mags)), float(np.nanmax(right_mags))
-    if mag_max - mag_min < 1e-6:
-        mag_max = mag_min + 1.0
-    mag_edges = np.linspace(mag_min, mag_max, n_bins + 1)
-    0.5 * (mag_edges[:-1] + mag_edges[1:])
-    bin_width = mag_edges[1] - mag_edges[0]
-
-    # Background counts per magnitude bin (from full right catalogue).
-    bg_counts, _ = np.histogram(right_mags, bins=mag_edges)
-
-    # Estimate sky area from the right catalogue extent.
-    from .astro_utils import sky_extent
-
-    r_ra = right[right_src.ra_column].to_numpy().astype(float)
-    r_dec = right[right_src.dec_column].to_numpy().astype(float)
-    extent = sky_extent(r_ra, r_dec)
-    if extent["radius_deg"] and extent["radius_deg"] > 0:
-        sky_area_deg2 = math.pi * extent["radius_deg"] ** 2
-    else:
-        sky_area_deg2 = 1.0  # fallback: 1 sq deg
-    sky_area_arcsec2 = sky_area_deg2 * (3600.0**2)
-
-    # n(m) in units of sources per arcsec² per magnitude.
-    n_m = np.maximum(bg_counts.astype(float) / (sky_area_arcsec2 * bin_width), 1e-300)
-
-    # --- q(m): true-counterpart magnitude distribution ----------------------
-    search_area_arcsec2 = math.pi * spec.radius_arcsec**2
-    cand_mags_arr = right[mag_col].to_numpy().astype(float)[right_idx]
-    cand_counts, _ = np.histogram(
-        cand_mags_arr[np.isfinite(cand_mags_arr)],
-        bins=mag_edges,
+        edges = torch.linspace(lo, hi + 1e-9 * max(1.0, abs(hi)), n_bins + 1, dtype=torch.float64)
+        terms = (catalogs.HistogramRatio(_ts_tensor(right_mags), [edges]),)
+    q = min(max(float(spec.lr_q), 1e-9), 1.0 - 1e-9)
+    res = catalogs.associate(
+        catalogue(left, left_src),
+        catalogue(right, right_src),
+        gate_pvalue=1e-4,
+        max_radius_arcsec=float(spec.radius_arcsec),
+        epoch=None,
+        completeness=q,
+        terms=terms,
+        assign="none",
     )
-
-    # Expected background in the search area: n(m) × search_area × N_primary.
-    n_primary = left.height
-    expected_bg = n_m * search_area_arcsec2 * n_primary
-    q_m = np.maximum(cand_counts.astype(float) - expected_bg, 0.0)
-    q_sum = q_m.sum()
-    if q_sum > 0:
-        q_m /= q_sum  # normalise to probability distribution
-    else:
-        q_m = np.ones_like(q_m) / len(q_m)
-
-    # --- per-pair LR computation -------------------------------------------
-    # Map each candidate's magnitude to the appropriate bin.
-    mag_bin_indices = np.clip(
-        np.searchsorted(mag_edges, cand_mags_arr, side="right") - 1,
-        0,
-        n_bins - 1,
-    )
-    # Clip non-finite magnitudes to bin 0 (their LR will be negligible).
-    mag_bin_indices[~np.isfinite(cand_mags_arr)] = 0
-
-    q_per_pair = q_m[mag_bin_indices]
-    n_per_pair = n_m[mag_bin_indices]
-
-    lr = q_per_pair * f_r / n_per_pair
-    lr = np.where(np.isfinite(lr), lr, 0.0)
-    lr = np.maximum(lr, 0.0)
-
-    # --- reliability per primary source ------------------------------------
-    # Group LR values by primary source (left_idx).
-    unique_left, inverse, counts = np.unique(
-        left_idx,
-        return_inverse=True,
-        return_counts=True,
-    )
-    # Sum of LR per primary source.
-    lr_sum = np.bincount(inverse, weights=lr, minlength=len(unique_left))
-
-    # R_j = LR_j / (Σ_LR + (1 - Q)).
-    Q = spec.lr_q
-    # Map sum back to each pair.
-    lr_sum_per_pair = lr_sum[inverse]
-    denominator = lr_sum_per_pair + (1.0 - Q)
-    reliability = np.divide(lr, denominator, where=denominator > 1e-300, out=np.zeros_like(lr))
-    reliability = np.clip(reliability, 0.0, 1.0)
-
+    li = res.left_index.numpy().astype(np.int64)
+    rj = res.right_index.numpy().astype(np.int64)
+    sep = res.separation_arcsec.numpy().astype(float)
+    lr = np.exp(res.log_lr.detach().numpy())
+    reliability = np.clip(res.posterior.detach().numpy(), 0.0, 1.0)
+    if li.size == 0:
+        return empty
     logger.info(
-        "LR match: %d candidates → %d unique primary sources, median reliability=%.3f.",
-        len(left_idx),
-        len(unique_left),
+        "LR match: %d candidates for %d primary sources, median reliability=%.3f.",
+        li.size,
+        np.unique(li).size,
         float(np.median(reliability)),
     )
-
-    # --- select best per primary source if find="best" ---------------------
     if spec.find == "best":
-        # For each primary source, find the candidate with max reliability.
-        # Ties go to smallest LR, then smallest sep, then lowest right index.
-        order = np.lexsort((right_idx, seps, lr, -reliability, inverse))
-        best_positions = order[_first_occurrence_indices(inverse[order])]
-        best_positions.sort()
-        return (
-            left_idx[best_positions],
-            right_idx[best_positions],
-            seps[best_positions],
-            lr[best_positions],
-            reliability[best_positions],
-        )
-
-    return left_idx, right_idx, seps, lr, reliability
+        # Highest reliability per primary; ties to the smaller LR, then the
+        # smaller separation, then the lowest right index.
+        order = np.lexsort((rj, sep, lr, -reliability, li))
+        best = order[_first_occurrence_indices(li[order])]
+        best.sort()
+        return li[best], rj[best], sep[best], lr[best], reliability[best]
+    order = np.lexsort((rj, li))
+    return li[order], rj[order], sep[order], lr[order], reliability[order]
 
 
 # --------------------------------------------------------------------------- #
