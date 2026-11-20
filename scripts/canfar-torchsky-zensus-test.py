@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CANFAR Headless Test Suite: Every Crossmatching Algorithm in Public Torchsky (>=0.5.0)
+"""CANFAR Headless Test Suite: Every Crossmatching Algorithm in Torchsky (>=0.6.0rc1)
 
 Executes against the compact VizieR M67 catalog (J/A+A/484/609, 2,410 rows)
 crossmatched against the Zensus full-sky HATS release (/arc/projects/hats/zensus).
@@ -8,11 +8,11 @@ Tested Algorithms & Interfaces:
   1. crossmatch_sky (find="best", scalar radius) - 1-to-1 nearest neighbor
   2. crossmatch_sky (find="all", scalar radius) - 1-to-many all pairs
   3. crossmatch_sky with per-row adaptive radius tensor (skyerr uncertainty mode)
-  4. HealpixIndex: coarse HEALPix pre-indexing & disc querying
-  5. crossmatch_sky with right_index=HealpixIndex
-  6. crossmatch_sky_from_arrow (in-memory PyArrow Table)
-  7. crossmatch_sky_from_arrow (on-disk Parquet files)
-  8. crossmatch_sky_streamed (batched generator / dataset streaming)
+  4. SkyIndex: one exact zone index, reused (count_within)
+  5. crossmatch_sky with index=SkyIndex
+  6. match_within (all pairs, astropy search_around_sky equivalent)
+  7. match_nearest k=2 (match_to_catalog_sky nthneighbor / cKDTree.query equivalent)
+  8. PartitionPlan: partitioned matching equals the single pass
   9. Catalog.crossmatch: pure spatial join
  10. Catalog.crossmatch with angular proper-motion epoch alignment (target_epoch=2016.0)
  11. Catalog.crossmatch with 3D space-motion epoch alignment (parallax + RV)
@@ -37,7 +37,6 @@ import time
 from pathlib import Path
 
 import polars as pl
-import pyarrow.parquet as pq
 import torch
 from astroquery.vizier import Vizier
 
@@ -50,7 +49,7 @@ logger = logging.getLogger("torchsky_all_algorithms")
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Test all public Torchsky (>=0.5.0) crossmatch algorithms against Zensus HATS"
+        description="Test all Torchsky (>=0.6.0rc1) crossmatch algorithms against Zensus HATS"
     )
     parser.add_argument(
         "--zensus-path",
@@ -94,11 +93,13 @@ def main():
         import torchsky
         from torchsky.catalogs import (
             Catalog,
-            HealpixIndex,
+            PartitionPlan,
+            SkyIndex,
+            count_within,
             crossmatch,
             crossmatch_sky,
-            crossmatch_sky_from_arrow,
-            crossmatch_sky_streamed,
+            match_nearest,
+            match_within,
         )
 
         summary["torchsky_version"] = torchsky.__version__
@@ -328,96 +329,81 @@ def main():
     }
 
     # =========================================================================
-    # ALGORITHM 4: HealpixIndex coarse spatial pre-indexing
+    # ALGORITHM 4: SkyIndex (exact zone index), counts within a radius
     # =========================================================================
-    logger.info("Algo 4: HealpixIndex build and disc query...")
+    logger.info("Algo 4: SkyIndex build and count_within...")
     t0 = time.time()
-    hp_idx = HealpixIndex.build(right_ra, right_dec)
+    sky_idx = SkyIndex.build(right_ra, right_dec)
     dur4 = time.time() - t0
-    c_ra, c_dec = float(left_ra[0].item()), float(left_dec[0].item())
-    disc_indices = hp_idx.query_disc(c_ra, c_dec, radius_deg=300.0 / 3600.0)
-    assert disc_indices.numel() > 0
-    summary["tests"]["4_healpix_index_disc_query"] = {
+    n_near = count_within(left_ra, left_dec, right_ra, right_dec, 300.0, index=sky_idx)
+    assert int(n_near.sum()) > 0
+    summary["tests"]["4_sky_index_count_within"] = {
         "build_duration_sec": round(dur4, 4),
-        "disc_points_found": int(disc_indices.numel()),
+        "rows_within_300_arcsec": int(n_near.sum()),
     }
 
     # =========================================================================
-    # ALGORITHM 5: crossmatch_sky with pre-computed right_index=HealpixIndex
+    # ALGORITHM 5: crossmatch_sky with a pre-built index=SkyIndex
     # =========================================================================
-    logger.info("Algo 5: crossmatch_sky with pre-built right_index=HealpixIndex...")
+    logger.info("Algo 5: crossmatch_sky with a pre-built index=SkyIndex...")
     t0 = time.time()
-    res5 = crossmatch_sky(
-        left_ra, left_dec, right_ra, right_dec, radius_arcsec=1.0, right_index=hp_idx
-    )
+    res5 = crossmatch_sky(left_ra, left_dec, right_ra, right_dec, radius_arcsec=1.0, index=sky_idx)
     dur5 = time.time() - t0
     assert res5.left_index.numel() == res1.left_index.numel()
-    summary["tests"]["5_crossmatch_sky_with_right_index"] = {
+    summary["tests"]["5_crossmatch_sky_with_index"] = {
         "matches": int(res5.left_index.numel()),
         "duration_sec": round(dur5, 4),
     }
 
     # =========================================================================
-    # ALGORITHM 6: crossmatch_sky_from_arrow (in-memory PyArrow Table)
+    # ALGORITHM 6: match_within (every pair within the radius)
     # =========================================================================
-    logger.info("Algo 6: crossmatch_sky_from_arrow with in-memory pa.Table...")
-    m67_arrow = pq.read_table(m67_parquet)
-    zensus_arrow = pq.read_table(zensus_cand_parquet)
+    logger.info("Algo 6: match_within...")
     t0 = time.time()
-    res6 = crossmatch_sky_from_arrow(
-        m67_arrow,
-        zensus_arrow,
-        radius_arcsec=1.0,
-        left_columns=("RAJ2000", "DEJ2000"),
-        right_columns=(z_ra_col, z_dec_col),
-    )
+    res6 = match_within(left_ra, left_dec, right_ra, right_dec, 1.0, index=sky_idx)
     dur6 = time.time() - t0
-    assert res6.left_index.numel() > 0
-    summary["tests"]["6_arrow_table_crossmatch"] = {
-        "matches": int(res6.left_index.numel()),
+    assert res6.left_index.numel() >= res1.left_index.numel()
+    summary["tests"]["6_match_within"] = {
+        "pairs": int(res6.left_index.numel()),
         "duration_sec": round(dur6, 4),
     }
 
     # =========================================================================
-    # ALGORITHM 7: crossmatch_sky_from_arrow (on-disk Arrow IPC / Feather file paths)
+    # ALGORITHM 7: match_nearest k=2 (nearest and second nearest)
     # =========================================================================
-    logger.info("Algo 7: crossmatch_sky_from_arrow with on-disk Arrow IPC paths...")
-    import pyarrow.feather as feather
-
-    m67_ipc = scratch / "m67_yadav2008.arrow"
-    zensus_cand_ipc = scratch / "zensus_m67_candidates.arrow"
-    feather.write_feather(m67_arrow, m67_ipc)
-    feather.write_feather(zensus_arrow, zensus_cand_ipc)
+    logger.info("Algo 7: match_nearest k=2...")
     t0 = time.time()
-    res7 = crossmatch_sky_from_arrow(
-        m67_ipc,
-        zensus_cand_ipc,
-        radius_arcsec=1.0,
-        left_columns=("RAJ2000", "DEJ2000"),
-        right_columns=(z_ra_col, z_dec_col),
-    )
+    res7 = match_nearest(left_ra, left_dec, right_ra, right_dec, k=2, index=sky_idx)
     dur7 = time.time() - t0
-    assert res7.left_index.numel() == res6.left_index.numel()
-    summary["tests"]["7_arrow_ipc_file_crossmatch"] = {
-        "matches": int(res7.left_index.numel()),
+    first = res7.separation_arcsec[:, 0]
+    assert bool(torch.all(first <= res7.separation_arcsec[:, 1]))
+    summary["tests"]["7_match_nearest_k2"] = {
+        "rows": int(first.numel()),
+        "median_nearest_arcsec": float(first.median()),
         "duration_sec": round(dur7, 4),
     }
 
     # =========================================================================
-    # ALGORITHM 8: crossmatch_sky_streamed (batched generator / iterator)
+    # ALGORITHM 8: PartitionPlan: matching per partition equals the single pass
     # =========================================================================
-    logger.info("Algo 8: crossmatch_sky_streamed with chunked batches...")
-    batch_size = 500
-    batches = [
-        (left_ra[i : i + batch_size], left_dec[i : i + batch_size])
-        for i in range(0, len(left_ra), batch_size)
-    ]
+    logger.info("Algo 8: partitioned matching with PartitionPlan...")
     t0 = time.time()
-    res8 = crossmatch_sky_streamed(batches, right_ra, right_dec, radius_arcsec=1.0)
+    plan = PartitionPlan.from_counts(left_ra, left_dec, max_rows=500)
+    owner = plan.owner(left_ra, left_dec)
+    parts = 0
+    pairs = 0
+    for p in torch.unique(owner).tolist():
+        rows = torch.nonzero(owner == p, as_tuple=True)[0]
+        sub = crossmatch_sky(
+            left_ra[rows], left_dec[rows], right_ra, right_dec, radius_arcsec=1.0, index=sky_idx
+        )
+        parts += 1
+        pairs += int(sub.left_index.numel())
     dur8 = time.time() - t0
-    assert res8.left_index.numel() == res1.left_index.numel()
-    summary["tests"]["8_crossmatch_sky_streamed"] = {
-        "matches": int(res8.left_index.numel()),
+    assert pairs == res1.left_index.numel()
+    summary["tests"]["8_partition_plan"] = {
+        "partitions": parts,
+        "matches": pairs,
         "duration_sec": round(dur8, 4),
     }
 
@@ -480,9 +466,8 @@ def main():
         radial_velocity_km_s=rv,
     )
     t0 = time.time()
-    res11 = cat_left_3d.crossmatch(
-        cat_right_2016, radius_arcsec=1.0, target_epoch=2016.0, motion="physical"
-    )
+    # Rows with parallax and RV take the full space-motion model automatically.
+    res11 = cat_left_3d.crossmatch(cat_right_2016, radius_arcsec=1.0, target_epoch=2016.0)
     dur11 = time.time() - t0
     assert res11.left_index.numel() > 0
     summary["tests"]["11_catalog_3d_space_motion"] = {

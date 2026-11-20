@@ -1659,7 +1659,7 @@ def test_ray_engine_graceful_fallback_when_unavailable(monkeypatch):
 def test_ray_engine_graceful_fallback_zone_to_fast(monkeypatch):
     """When cdshealpix is unavailable, ray→zone→fast chain must still
     produce correct results via the final fast fallback."""
-    # Simulate no cdshealpix so zone_match falls back to _scipy_match.
+    # Simulate no cdshealpix so zone_match falls back to _local_match.
     # Ray is also unavailable for this test (chain: ray → zone → fast).
     monkeypatch.setattr("xmatcher.ray_engine.ray_available", lambda: False)
     monkeypatch.setattr("xmatcher.ray_engine._RAY_PIXEL_BATCH", None)

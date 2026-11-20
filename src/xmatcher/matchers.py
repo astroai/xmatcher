@@ -746,6 +746,60 @@ def _arcsec_to_chord(arcsec: float) -> float:
     return float(2.0 * np.sin(np.radians(min(angle, 648_000.0) / 3600.0) * 0.5))
 
 
+def _ts_tensor(values: np.ndarray):
+    import torch  # noqa: PLC0415 - torch loads with torchsky
+
+    a = np.ascontiguousarray(values, dtype=np.float64)
+    return torch.from_numpy(a if a.flags.writeable else a.copy())
+
+
+class _SkySearch:
+    """Exact sky candidate search on the right rows (torchsky zone index).
+
+    One :class:`torchsky.catalogs.SkyIndex` serves every radius. Pairs come
+    back ordered by (left row, right row), like ``cKDTree.query_ball_point``
+    with ``return_sorted=True``; separations are torchsky's exact
+    great-circle arcs.
+    """
+
+    def __init__(self, r_ra: np.ndarray, r_dec: np.ndarray) -> None:
+        catalogs = _torchsky.require("catalogs", "local sky matching")
+        self._catalogs = catalogs
+        self._r_ra = _ts_tensor(r_ra)
+        self._r_dec = _ts_tensor(r_dec)
+        self._index = catalogs.SkyIndex.build(self._r_ra, self._r_dec)
+
+    def within(
+        self, l_ra: np.ndarray, l_dec: np.ndarray, radius_arcsec: float | np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        radius = float(radius_arcsec) if np.isscalar(radius_arcsec) else _ts_tensor(radius_arcsec)
+        res = self._catalogs.match_within(
+            _ts_tensor(l_ra), _ts_tensor(l_dec), self._r_ra, self._r_dec, radius, index=self._index
+        )
+        li = res.left_index.numpy().astype(np.int64)
+        rj = res.right_index.numpy().astype(np.int64)
+        sep = res.separation_arcsec.numpy().astype(float)
+        order = np.lexsort((rj, li))
+        return li[order], rj[order], sep[order]
+
+    def nearest(
+        self, l_ra: np.ndarray, l_dec: np.ndarray, radius_arcsec: float
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Nearest right row within the radius; ties go to the lowest right row."""
+        res = self._catalogs.match_nearest(
+            _ts_tensor(l_ra),
+            _ts_tensor(l_dec),
+            self._r_ra,
+            self._r_dec,
+            k=1,
+            max_radius_arcsec=float(radius_arcsec),
+            index=self._index,
+        )
+        idx = res.index[:, 0].numpy().astype(np.int64)
+        found = np.flatnonzero(idx >= 0)
+        return found, idx[found], res.separation_arcsec[:, 0].numpy()[found].astype(float)
+
+
 def _flatten_candidates(
     idx_lists: list[np.ndarray],
     l_xyz: np.ndarray,
@@ -1537,7 +1591,7 @@ def _apply_match_filter(
 # --------------------------------------------------------------------------- #
 # Tier 1 — fast engine (scipy.spatial.cKDTree, no Java, no FITS I/O)
 # --------------------------------------------------------------------------- #
-def _scipy_match(
+def _local_match(
     left: pl.DataFrame,
     right: pl.DataFrame,
     left_src: CatalogueSource,
@@ -1546,9 +1600,13 @@ def _scipy_match(
     *,
     workers: int = -1,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The local in-memory engine (``engine="fast"``): torchsky candidates.
 
-    from scipy.spatial import cKDTree
-
+    Candidates come from torchsky's exact zone index; the matcher-specific
+    filters and rankings below are xmatcher's. ``workers`` is accepted for
+    the call signature; torchsky uses ``torch.get_num_threads()``.
+    """
+    del workers
     empty = (np.array([], int), np.array([], int), np.array([], float))
     if left.height == 0 or right.height == 0:
         return empty
@@ -1557,9 +1615,6 @@ def _scipy_match(
     l_dec = left[left_src.dec_column].to_numpy()
     r_ra = right[right_src.ra_column].to_numpy()
     r_dec = right[right_src.dec_column].to_numpy()
-
-    l_xyz = _radec_to_xyz(l_ra, l_dec)
-    r_xyz = _radec_to_xyz(r_ra, r_dec)
 
     if spec.matcher == "sky":
         chord_max = _arcsec_to_chord(spec.radius_arcsec)
@@ -1595,7 +1650,8 @@ def _scipy_match(
     if chord_max <= 0:
         return empty
 
-    tree = cKDTree(r_xyz)
+    search = _SkySearch(r_ra, r_dec)
+    radius = float(_chord_to_arcsec(chord_max))
     # Likelihood Ratio / ML / XGB / AUF / macauff: retrieve ALL candidates so
     # the scoring function can compute reliabilities across the full candidate set.
     # ND ranking also needs every in-radius candidate; a nearest-k cap can drop
@@ -1603,8 +1659,7 @@ def _scipy_match(
     if spec.matcher in ("lr", "ml", "xgb", "auf", "macauff") or (
         spec.matcher == "sky" and spec.extra_distance_cols and spec.find == "best"
     ):
-        idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
-        left_idx, right_idx, seps = _flatten_candidates(idx_lists, l_xyz, r_xyz)
+        left_idx, right_idx, seps = search.within(l_ra, l_dec, radius)
         if spec.extra_distance_cols and spec.find == "best":
             return _rank_nd_candidates(
                 left_idx, right_idx, seps, l_ra, l_dec, r_ra, r_dec, left, right, spec
@@ -1615,8 +1670,7 @@ def _scipy_match(
         # ``skyerr`` is a per-row criterion, so the global-chord candidate set
         # must be scored rather than reduced to the nearest candidate.
         assert lsig is not None and rsig is not None
-        idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
-        left_idx, right_idx, seps = _flatten_candidates(idx_lists, l_xyz, r_xyz)
+        left_idx, right_idx, seps = search.within(l_ra, l_dec, radius)
         left_idx, right_idx, seps = _skyerr_pair_filter(
             left_idx,
             right_idx,
@@ -1635,8 +1689,7 @@ def _scipy_match(
 
     if spec.matcher == "skyellipse":
         assert cov_l is not None and cov_r is not None
-        idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
-        left_idx, right_idx, seps = _flatten_candidates(idx_lists, l_xyz, r_xyz)
+        left_idx, right_idx, seps = search.within(l_ra, l_dec, radius)
         left_idx, right_idx, seps = _skyellipse_pair_filter(
             left_idx,
             right_idx,
@@ -1659,14 +1712,10 @@ def _scipy_match(
 
     if spec.find == "best":
         # --- plain sky: spatial-nearest match ------------------------------
-        dist, idx = tree.query(l_xyz, k=1, distance_upper_bound=chord_max, workers=workers)
-        valid = np.isfinite(dist) & (idx < r_xyz.shape[0])
-        right_idx = _lowest_duplicate(idx[valid].astype(np.int64), r_ra, r_dec)
-        return np.flatnonzero(valid), right_idx, _chord_to_arcsec(dist[valid])
+        return search.nearest(l_ra, l_dec, radius)
 
-    # find == "all": per-left list of matched right indices.
-    idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
-    return _flatten_candidates(idx_lists, l_xyz, r_xyz)
+    # find == "all": every right row within the radius.
+    return search.within(l_ra, l_dec, radius)
 
 
 # --------------------------------------------------------------------------- #
@@ -2884,7 +2933,7 @@ def _zone_match(
     When ``cdshealpix`` is importable we shard both sides into HEALPix pixels
     (nside=32 by default), build a per-pixel cKDTree on the right, and only
     query neighbour pixels within the cone radius — classic HATS-style
-    partitioning. Without ``cdshealpix`` this runs :func:`_scipy_match` with a
+    partitioning. Without ``cdshealpix`` this runs :func:`_local_match` with a
     warning (``fallback_policy='warn'``) or raises (``'error'``).
     """
     try:
@@ -2899,7 +2948,7 @@ def _zone_match(
             "falling back to the Tier 1 cKDTree (no pixel-shard optimisation). "
             "Install with `pip install cdshealpix` to enable HEALPix-shard partitioning."
         )
-        return _scipy_match(left, right, left_src, right_src, spec)
+        return _local_match(left, right, left_src, right_src, spec)
     return _zone_match_healpix(left, right, left_src, right_src, spec)
 
 
@@ -3049,7 +3098,7 @@ def _zone_match_healpix(
     if not need_all_candidates:
         right_idx = _lowest_duplicate(right_idx, r_ra, r_dec)
 
-    # Sort deterministically by (left_idx, right_idx) to match _scipy_match order.
+    # Sort deterministically by (left_idx, right_idx) to match _local_match order.
     order = np.lexsort((right_idx, left_idx))
     left_idx = left_idx[order]
     right_idx = right_idx[order]
@@ -3469,10 +3518,10 @@ def sky_match(
     elif chosen == "fast":
         left = _collect_side(left_lf, left_src, "left")
         right = _collect_side(right_lf, right_src, "right")
-        l_idx, r_idx, seps = _scipy_match(
+        l_idx, r_idx, seps = _local_match(
             left, right, left_src, right_src, spec, workers=_tree_workers
         )
-        logger.info("fast (cKDTree) sky match: %d matched pairs.", len(l_idx))
+        logger.info("fast (torchsky) sky match: %d matched pairs.", len(l_idx))
     elif chosen == "torchsky":
         left = _collect_side(left_lf, left_src, "left")
         right = _collect_side(right_lf, right_src, "right")

@@ -800,14 +800,14 @@ def test_native_hats_ray_worker_limits_tree_threads(monkeypatch):
     from xmatcher import hats_native, matchers
     from xmatcher.sources import CatalogueSource
 
-    actual_match = matchers._scipy_match
+    actual_match = matchers._local_match
     calls = []
 
     def match(*args, **kwargs):
         calls.append(kwargs.get("workers"))
         return actual_match(*args, **kwargs)
 
-    monkeypatch.setattr(matchers, "_scipy_match", match)
+    monkeypatch.setattr(matchers, "_local_match", match)
     frame = pl.DataFrame({"id": [1], "ra": [10.0], "dec": [0.0]})
     source = CatalogueSource(name="test", is_local=True, ra_column="ra", dec_column="dec")
     result = hats_native._match_frames(

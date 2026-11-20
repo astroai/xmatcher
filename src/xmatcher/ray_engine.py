@@ -210,7 +210,7 @@ def ray_zone_match(
     Falls back to :func:`xmatcher.matchers._zone_match` when Ray is unavailable
     (unless ``fallback_policy="error"``).
 
-    Parameters are identical to :func:`xmatcher.matchers._scipy_match`.
+    Parameters are identical to :func:`xmatcher.matchers._local_match`.
     """
     from .matchers import _zone_match
 
@@ -260,12 +260,12 @@ def _ray_zone_dispatch(ray, left, right, left_src, right_src, spec):
     from .matchers import (
         _arcsec_to_chord,
         _cone_search_pixels,
+        _local_match,
         _pixellate,
         _pos_covariance,
         _pos_sigma_arcsec,
         _radec_to_xyz,
         _rank_nd_candidates,
-        _scipy_match,
         _skyellipse_pair_filter,
         _skyellipse_search_chord_max,
         _skyerr_pair_filter,
@@ -332,7 +332,7 @@ def _ray_zone_dispatch(ray, left, right, left_src, right_src, spec):
                 "engine='ray' requires optional cdshealpix under fallback_policy='error'"
             ) from exc
         logger.warning("cdshealpix unavailable; falling back to scipy cKDTree.")
-        return _scipy_match(left, right, left_src, right_src, spec)
+        return _local_match(left, right, left_src, right_src, spec)
 
     # Group left by pixel.
     l_sort_idx = np.argsort(l_pix, kind="stable")
@@ -432,7 +432,7 @@ def _ray_zone_dispatch(ray, left, right, left_src, right_src, spec):
     right_idx = np.concatenate(r_parts)
     seps = np.concatenate(sep_parts)
 
-    # Sort deterministically by (left_idx, right_idx) to match _scipy_match order.
+    # Sort deterministically by (left_idx, right_idx) to match _local_match order.
     order = np.lexsort((right_idx, left_idx))
     left_idx = left_idx[order]
     right_idx = right_idx[order]

@@ -6,7 +6,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from xmatcher.matchers import MatchSpec, _scipy_match, _torchsky_match, _zone_match_healpix
+from xmatcher.matchers import MatchSpec, _local_match, _torchsky_match, _zone_match_healpix
 from xmatcher.sources import CatalogueSource
 
 
@@ -55,7 +55,7 @@ def _frames():
 def test_fast_skyerr_clamp_survives_corrupt_sigma():
     left, right, left_src, right_src = _frames()
     spec = MatchSpec(matcher="skyerr", max_error=5.0, radius_arcsec=2.0, find="all")
-    l_idx, r_idx, seps = _scipy_match(left, right, left_src, right_src, spec)
+    l_idx, r_idx, seps = _local_match(left, right, left_src, right_src, spec)
     assert len(l_idx) >= 1
     assert float(np.max(seps)) <= 2.0 + 1e-6
 

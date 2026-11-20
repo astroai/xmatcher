@@ -13,6 +13,15 @@ regression test that fails without it.
 
 ### Added
 
+- `xmatcher convert` / `xmatcher.convert.convert`: converts catalogues between
+  FITS, Parquet, HATS and CSV in every direction, streaming in bounded memory.
+  - HATS outputs take three passes (count per cell, spill to partitions,
+    sorted write). They carry `_healpix_29`, pass `hats` strict validation
+    and read as plain Parquet datasets.
+  - FITS outputs are standard binary tables written in one pass: `TZERO` for
+    unsigned and `int8` columns, repeat counts for vectors, and `TNULL` for
+    integer nulls.
+  - Reading a HATS tree streams its partitions in (order, pixel) order.
 - `xmatcher[torchsky]` extra (`torchsky>=0.5.0`, the public PyPI release) and a
   `torchsky` pixi environment with conda-forge CPU PyTorch. CI runs the full
   offline gate in it, and releases require it. The torchsky engine, epoch
@@ -21,6 +30,21 @@ regression test that fails without it.
 
 ### Changed (behaviour)
 
+- **torchsky (>=0.6.0) and torchfits (>=1.3.1) are core dependencies.**
+  - The `torchsky` and `torchfits` extras are gone. The default Pixi
+    environment carries torchsky with conda-forge CPU PyTorch, and CI runs
+    every torchsky path there.
+  - Until torchsky 0.6.0 is on PyPI, Pixi builds it from its release-candidate
+    commit.
+  - Python 3.11 support (proposed for this release) is dropped: torchsky
+    supports 3.12 and 3.13 only.
+  - An installed torchsky older than 0.6.0 is refused with an upgrade
+    message.
+- `engine="fast"` (the default in-memory engine) finds candidates with
+  torchsky's exact zone index (`SkyIndex`, `match_within`, `match_nearest`)
+  instead of scipy's cKDTree. Separations are exact great-circle arcs, ties
+  go to the lowest right row by construction, and the matcher filters and
+  rankings are unchanged; every engine-parity test passes as before.
 - An installed torchsky older than 0.5.0 (or one that fails to import) is an
   error naming the upgrade, instead of crashing mid-match with
   `AttributeError` (old torchsky) or being silently ignored.

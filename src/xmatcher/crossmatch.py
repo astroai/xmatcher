@@ -1314,7 +1314,7 @@ class CrossMatch:
                 elif req.spec.matcher != "sky":
                     from . import matchers as _matchers
 
-                    l_idx, r_idx, _ = _matchers._scipy_match(
+                    l_idx, r_idx, _ = _matchers._local_match(
                         frames[i],
                         frames[j],
                         sources[i],
