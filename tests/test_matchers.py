@@ -1523,9 +1523,9 @@ def test_ray_engine_parity_with_zone():
     # Match pair identity: sort by (left_ra, right_ra_2, sep_arcsec) so we
     # compare the same logical pairs regardless of internal ordering.
     def _sort_key(df):
-        return sorted(
-            zip(df["ra"].to_list(), df["ra_2"].to_list(), df["sep_arcsec"].to_list(), strict=False),
-        )
+        # Pair identity; separations are compared to a tolerance below (the
+        # ray worker rebuilds positions from unit vectors, last-bit rounding).
+        return sorted(zip(df["ra"].to_list(), df["ra_2"].to_list(), strict=False))
 
     assert _sort_key(out_zone) == _sort_key(out_ray), (
         "zone and ray produced different matched pairs"
@@ -1589,9 +1589,9 @@ def test_ray_engine_find_all_parity_with_zone():
 
     # Match pair identity (same as the find='best' test).
     def _sort_key(df):
-        return sorted(
-            zip(df["ra"].to_list(), df["ra_2"].to_list(), df["sep_arcsec"].to_list(), strict=False),
-        )
+        # Pair identity; separations are compared to a tolerance below (the
+        # ray worker rebuilds positions from unit vectors, last-bit rounding).
+        return sorted(zip(df["ra"].to_list(), df["ra_2"].to_list(), strict=False))
 
     assert _sort_key(out_zone) == _sort_key(out_ray), (
         "find=all: zone and ray produced different matched pairs"

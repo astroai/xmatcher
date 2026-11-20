@@ -974,9 +974,10 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         default="auto",
         help=(
             "Sky-match engine (auto=default dispatch, stilts=Java tmatch2, "
-            "astropy=pure-Python KD-tree, fast=scipy.cKDTree, torchsky=tensor-native "
-            "(sky/skyerr; needs xmatcher[torchsky]), "
-            "zone=HEALPix, ray=distributed zone match, ray-union=distributed N-way "
+            "astropy=astropy match_to_catalog_sky / search_around_sky, "
+            "fast=torchsky exact zone index (in memory), zone=same search as fast, "
+            "torchsky=torchsky crossmatch_sky (sky/skyerr), "
+            "ray=distributed zone match, ray-union=distributed N-way "
             "outer join on Ray with mirrored HATS inputs, ray-anchor=one row per "
             "anchor source with the best counterpart from every survey)."
         ),

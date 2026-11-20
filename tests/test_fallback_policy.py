@@ -45,9 +45,10 @@ def test_ray_strict_policy_fails_when_ray_is_unavailable(
         ).collect()
 
 
-def test_zone_strict_policy_fails_when_healpix_is_unavailable(
+def test_zone_needs_no_healpix_package(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # engine="zone" is torchsky's zone index: no cdshealpix, no fallback.
     original_import = builtins.__import__
 
     def no_healpix(name: str, *args: object, **kwargs: object):
@@ -58,14 +59,14 @@ def test_zone_strict_policy_fails_when_healpix_is_unavailable(
     monkeypatch.setattr(builtins, "__import__", no_healpix)
     left = pl.DataFrame({"ra": [10.0], "dec": [5.0]})
     right = pl.DataFrame({"ra": [10.00005], "dec": [5.00005]})
-    with pytest.raises(CrossMatchError, match="requires optional cdshealpix"):
-        _zone_match(
-            left,
-            right,
-            _source("left"),
-            _source("right"),
-            MatchSpec(fallback_policy="error"),
-        )
+    l_idx, r_idx, _ = _zone_match(
+        left,
+        right,
+        _source("left"),
+        _source("right"),
+        MatchSpec(fallback_policy="error"),
+    )
+    assert l_idx.tolist() == r_idx.tolist() == [0]
 
 
 def test_auto_stilts_falls_back_for_unsupported_match_semantics(

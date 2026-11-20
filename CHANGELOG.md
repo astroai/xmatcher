@@ -45,6 +45,12 @@ regression test that fails without it.
   instead of scipy's cKDTree. Separations are exact great-circle arcs, ties
   go to the lowest right row by construction, and the matcher filters and
   rankings are unchanged; every engine-parity test passes as before.
+- `engine="zone"` runs the same exact torchsky search as `fast`: torchsky's
+  declination-zone index is the HEALPix-shard algorithm it approximated, so it
+  no longer needs `cdshealpix` and never falls back. The Ray pixel tasks and
+  `ray-anchor` (best, second nearest and `n_within` under one inclusive radius
+  rule) find candidates with torchsky as well; no local engine uses scipy's
+  cKDTree.
 - An installed torchsky older than 0.5.0 (or one that fails to import) is an
   error naming the upgrade, instead of crashing mid-match with
   `AttributeError` (old torchsky) or being silently ignored.

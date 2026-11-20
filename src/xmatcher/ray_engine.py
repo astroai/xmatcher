@@ -71,12 +71,10 @@ def _get_ray_pixel_batch():
         ``r_xyz_refs``/``r_groups_ref`` hold *only* this batch's neighbouring
         right pixels (the driver scopes them with a cone search), so a worker
         never materialises the whole right catalogue.  Builds one merged
-        margin-cached cKDTree and queries it once, returning
+        margin-cached torchsky index and queries it once, returning
         ``(left_idx, right_idx, seps)`` for this batch only.
         """
-        from scipy.spatial import cKDTree
-
-        from .matchers import _chord_to_arcsec
+        from .matchers import _chord_to_arcsec, _SkySearch
 
         empty = (
             np.array([], dtype=np.int64),
@@ -101,51 +99,34 @@ def _get_ray_pixel_batch():
             return empty
 
         margin_xyz = np.vstack(margin_xyz_parts)
-        margin_global = np.concatenate(margin_global_parts)
-        margin_tree = cKDTree(margin_xyz)
+        margin_global = np.concatenate(margin_global_parts).astype(np.int64)
 
-        if spec.find == "best":
-            dist, local_idx = margin_tree.query(
-                batch_xyz,
-                k=1,
-                distance_upper_bound=chord_max,
-                # one CPU per Ray task; parallelize across pixels.
-                workers=1,
-            )
-            valid = np.isfinite(dist) & (local_idx < margin_tree.n)
-            if not np.any(valid):
-                return empty
-            left_idx = indices_arr[valid].astype(np.int64)
-            right_idx = margin_global[local_idx[valid]].astype(np.int64)
-            seps = _chord_to_arcsec(dist[valid])
-            return left_idx, right_idx, np.asarray(seps, dtype=float)
+        def radec(xyz: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+            ra = np.degrees(np.arctan2(xyz[:, 1], xyz[:, 0])) % 360.0
+            # atan2, not asin(z): asin loses precision near the poles.
+            dec = np.degrees(np.arctan2(xyz[:, 2], np.hypot(xyz[:, 0], xyz[:, 1])))
+            return ra, dec
 
-        # find == "all"
-        idx_lists = margin_tree.query_ball_point(
-            batch_xyz,
-            r=chord_max,
-            workers=1,
+        # One torch thread per Ray task; tasks parallelise across pixels.
+        import torch  # noqa: PLC0415
+
+        torch.set_num_threads(1)
+        search = _SkySearch(*radec(margin_xyz))
+        local_l, local_r, seps = search.within(
+            *radec(batch_xyz), float(_chord_to_arcsec(chord_max))
         )
-        l_parts, r_parts, sep_parts = [], [], []
-        for k, neighbors in enumerate(idx_lists):
-            if not neighbors:
-                continue
-            k_idx = int(indices_arr[k])
-            nb = np.asarray(neighbors, dtype=np.int64)
-            global_r = margin_global[nb].astype(np.int64)
-            chords = np.linalg.norm(margin_xyz[nb] - batch_xyz[k], axis=-1)
-            seps = _chord_to_arcsec(chords)
-            l_parts.append(np.full(len(neighbors), k_idx, dtype=np.int64))
-            r_parts.append(global_r)
-            sep_parts.append(np.asarray(seps, dtype=float))
-
-        if not l_parts:
+        if local_l.size == 0:
             return empty
-        return (
-            np.concatenate(l_parts),
-            np.concatenate(r_parts),
-            np.concatenate(sep_parts),
-        )
+        left_idx = indices_arr[local_l].astype(np.int64)
+        right_idx = margin_global[local_r]
+        if spec.find == "best":
+            # Nearest per left row; exact ties go to the lowest global right row.
+            order = np.lexsort((right_idx, seps, left_idx))
+            first = np.ones(order.size, dtype=bool)
+            first[1:] = left_idx[order][1:] != left_idx[order][:-1]
+            keep = order[first]
+            return left_idx[keep], right_idx[keep], seps[keep]
+        return left_idx, right_idx, seps
 
     _RAY_PIXEL_BATCH = _ray_pixel_batch
     return _RAY_PIXEL_BATCH

@@ -48,7 +48,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from . import matchers
+from . import _torchsky, matchers
 from .exceptions import CrossMatchError
 from .ray_union import (
     CataloguePlan,
@@ -584,8 +584,6 @@ def _match_survey(
     tag: str,
 ) -> pl.DataFrame:
     """Best counterpart + ambiguity block for one survey, one row per anchor row."""
-    from scipy.spatial import cKDTree  # noqa: PLC0415
-
     height = anchor_frame.height
     if height == 0:
         return pl.DataFrame(
@@ -603,13 +601,9 @@ def _match_survey(
             )
         )
 
-    anchor_xyz = matchers._radec_to_xyz(
-        anchor_frame[plan.anchor.ra].cast(pl.Float64).to_numpy(),
-        anchor_frame[plan.anchor.dec].cast(pl.Float64).to_numpy(),
-    )
     pm_warn = _pm_warn(anchor_frame, plan, survey)
     radius = float(plan.sep_arcsec)
-    chord = matchers._arcsec_to_chord(radius)
+    matchers._arcsec_to_chord(radius)  # rejects a non-finite or negative radius
 
     if survey_frame.height == 0:
         best_rows = _null_frame(survey, height)
@@ -617,37 +611,24 @@ def _match_survey(
         best_sep = np.full(height, np.nan)
         second_sep = np.full(height, np.nan)
     else:
-        survey_xyz = matchers._radec_to_xyz(
-            survey_frame[survey.ra].cast(pl.Float64).to_numpy(),
-            survey_frame[survey.dec].cast(pl.Float64).to_numpy(),
+        # torchsky gives the two nearest and the count under one inclusive
+        # radius rule (sep <= radius), with ties to the lowest survey row.
+        catalogs = _torchsky.require("catalogs", "ray-anchor")
+        a_ra = matchers._ts_tensor(anchor_frame[plan.anchor.ra].cast(pl.Float64).to_numpy())
+        a_dec = matchers._ts_tensor(anchor_frame[plan.anchor.dec].cast(pl.Float64).to_numpy())
+        s_ra = matchers._ts_tensor(survey_frame[survey.ra].cast(pl.Float64).to_numpy())
+        s_dec = matchers._ts_tensor(survey_frame[survey.dec].cast(pl.Float64).to_numpy())
+        index = catalogs.SkyIndex.build(s_ra, s_dec)
+        near = catalogs.match_nearest(
+            a_ra, a_dec, s_ra, s_dec, k=2, max_radius_arcsec=radius, index=index
         )
-        tree = cKDTree(survey_xyz)
-        # ``query_ball_point`` counts a candidate exactly on the radius while
-        # ``query(distance_upper_bound=...)`` excludes it; widen the bound by
-        # one ulp, then rebuild from the ball hits any row whose two nearest
-        # still disagree with its count, so n_within, sep_arcsec and
-        # sep_second follow one inclusive radius rule.
-        dist, idx = tree.query(
-            anchor_xyz, k=2, distance_upper_bound=float(np.nextafter(chord, np.inf)), workers=-1
-        )
-        counts = np.asarray(
-            tree.query_ball_point(anchor_xyz, chord, workers=-1, return_length=True),
-            dtype=np.int64,
-        )
-        best_ok = np.isfinite(dist[:, 0])
-        second_ok = np.isfinite(dist[:, 1])
-        best_idx = np.where(best_ok, idx[:, 0], -1).astype(np.int64)
-        best_sep = np.where(best_ok, matchers._chord_to_arcsec(dist[:, 0]), np.nan)
-        second_sep = np.where(second_ok, matchers._chord_to_arcsec(dist[:, 1]), np.nan)
-        disagree = np.minimum(counts, 2) != best_ok.astype(np.int64) + second_ok
-        for row in np.flatnonzero(disagree):
-            hit = np.asarray(tree.query_ball_point(anchor_xyz[row], chord), dtype=np.int64)
-            d = matchers._chord_to_arcsec(np.linalg.norm(survey_xyz[hit] - anchor_xyz[row], axis=1))
-            order = np.argsort(d, kind="stable")
-            counts[row] = hit.size
-            best_idx[row] = int(hit[order[0]]) if hit.size else -1
-            best_sep[row] = float(d[order[0]]) if hit.size else np.nan
-            second_sep[row] = float(d[order[1]]) if hit.size > 1 else np.nan
+        counts = catalogs.count_within(a_ra, a_dec, s_ra, s_dec, radius, index=index)
+        counts = counts.numpy().astype(np.int64)
+        idx = near.index.numpy().astype(np.int64)
+        sep = near.separation_arcsec.numpy().astype(float)
+        best_idx = idx[:, 0]
+        best_sep = np.where(idx[:, 0] >= 0, sep[:, 0], np.nan)
+        second_sep = np.where(idx[:, 1] >= 0, sep[:, 1], np.nan)
         best_rows = _gather_rows(survey_frame, best_idx)
 
     meta = pl.DataFrame(

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import numpy as np
 import polars as pl
 import pytest
-from scipy.spatial import cKDTree
 
 from xmatcher import matchers, ray_anchor
 from xmatcher.ray_union import CataloguePlan
@@ -29,34 +27,34 @@ def _plan(sep_arcsec: float) -> tuple[ray_anchor.AnchorPlan, CataloguePlan]:
     return plan, survey
 
 
-def test_anchor_counts_agree_with_separations_at_the_radius(monkeypatch) -> None:
+def test_anchor_counts_agree_with_separations_at_the_radius() -> None:
     """``n_within`` and ``sep_arcsec``/``sep_second`` must use one radius rule.
 
-    cKDTree's two-neighbour query excludes a candidate exactly on
-    ``distance_upper_bound`` while ``query_ball_point`` counts it, so a row
-    reported ``n_within=3`` with a null ``sep_second``.  Exact binary
-    distances put two candidates exactly on the radius.
+    Two candidates sit exactly on the radius (the radius is their computed
+    separation): both must be counted and the second one reported, as in
+    torchsky's inclusive ``sep <= radius`` rule for counts and neighbours.
     """
-    xyz = {
-        "anchor": np.array([[1.0, 0.0, 0.0]]),
-        "survey": np.array([[1.0, 0.125, 0.0], [1.0, 0.5, 0.0], [1.0, -0.5, 0.0]]),
-    }
-    monkeypatch.setattr(
-        matchers, "_radec_to_xyz", lambda ra, dec: xyz["anchor" if len(ra) == 1 else "survey"]
-    )
-    monkeypatch.setattr(matchers, "_arcsec_to_chord", lambda arcsec: 0.5)
-    tree = cKDTree(xyz["survey"])
-    assert np.isfinite(tree.query(xyz["anchor"], k=3, distance_upper_bound=0.5)[0]).sum() == 1
-    assert tree.query_ball_point(xyz["anchor"], 0.5, return_length=True)[0] == 3
+    import torch
+    from torchsky.catalogs import match_within
 
-    anchor = pl.DataFrame({"ra": [0.0], "dec": [0.0]})
-    survey = pl.DataFrame({"ra_s": [0.0, 0.0, 0.0], "dec_s": [0.0, 0.0, 0.0]})
-    plan, cat = _plan(1.0)
+    ra_s = [10.0001, 10.0, 10.0]
+    dec_s = [5.0, 5.0004, 4.9996]  # the last two are symmetric about the anchor
+    anchor = pl.DataFrame({"ra": [10.0], "dec": [5.0]})
+    survey = pl.DataFrame({"ra_s": ra_s, "dec_s": dec_s})
+    seps = match_within(
+        torch.tensor([10.0], dtype=torch.float64),
+        torch.tensor([5.0], dtype=torch.float64),
+        torch.tensor(ra_s, dtype=torch.float64),
+        torch.tensor(dec_s, dtype=torch.float64),
+        10.0,
+    ).separation_arcsec
+    radius = float(seps.max())
+    plan, cat = _plan(radius)
     out = ray_anchor._match_survey(anchor, survey, plan, cat, "s")
     assert out["s_n_within"][0] == 3
     assert out["s_crowded"][0]
-    assert out["s_sep_arcsec"][0] == matchers._chord_to_arcsec(0.125)
-    assert out["s_sep_second"][0] == matchers._chord_to_arcsec(0.5)
+    assert out["s_sep_arcsec"][0] == pytest.approx(float(seps.min()), abs=1e-9)
+    assert out["s_sep_second"][0] == pytest.approx(radius, abs=1e-9)
 
 
 def test_anchor_refuses_motion_beyond_the_candidate_halo(tmp_path) -> None:

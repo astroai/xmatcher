@@ -5,15 +5,13 @@ Sky-match engines (drop-in alternatives):
 * ``stilts`` – shells out to STILTS ``tmatch2`` (sky/skyerr/skyellipse). Used by
   default when a STILTS command is available.
 * ``astropy`` – ``match_to_catalog_sky`` / ``search_around_sky`` from astropy.
-* ``fast``   – Tier 1: ``scipy.spatial.cKDTree`` on 3D Cartesian unit-sphere
-  embeddings. Drop-in replacement for ``astropy`` in-memory; ~2x faster.
-* ``torchsky`` – optional tensor-native nearest-neighbour matching. Geometry
-  only: ``matcher='sky'`` and ``matcher='skyerr'`` (per-row radii). Association
-  policy (Bayes / LR / AUF / FoF) stays in this module.
-* ``zone``   – Tier 2: HEALPix-sharded cone match: left rows grouped by
-  depth-5 pixel, each group queried against a ``cKDTree`` of the right rows
-  in its neighbouring pixels. Needs ``cdshealpix``; without it the ``fast``
-  engine runs (``fallback_policy='warn'``) or the match fails (``'error'``).
+* ``fast``   – the in-memory engine: candidates from torchsky's exact
+  declination-zone index (``SkyIndex``, ``match_within``, ``match_nearest``),
+  then the matcher filters and rankings of this module.
+* ``zone``   – the same search as ``fast`` (it used to shard a cKDTree by
+  HEALPix pixel; torchsky's zone index is that algorithm, natively).
+* ``torchsky`` – torchsky ``crossmatch_sky`` directly. Geometry only:
+  ``matcher='sky'`` and ``matcher='skyerr'`` (per-row radii).
 
 All engines share an identical schema: source columns (left unchanged, right
 collisions get a ``_2`` suffix) plus a true great-circle ``sep_arcsec``
@@ -42,7 +40,6 @@ The output is a ``p_match`` column in [0, 1]. Numeric evaluation lives in
 """
 
 import dataclasses
-import itertools
 import logging
 import math
 from dataclasses import dataclass, field
@@ -798,32 +795,6 @@ class _SkySearch:
         idx = res.index[:, 0].numpy().astype(np.int64)
         found = np.flatnonzero(idx >= 0)
         return found, idx[found], res.separation_arcsec[:, 0].numpy()[found].astype(float)
-
-
-def _flatten_candidates(
-    idx_lists: list[np.ndarray],
-    l_xyz: np.ndarray,
-    r_xyz: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Flatten ``cKDTree.query_ball_point`` per-left lists into pair arrays.
-
-    Returns ``(left_idx, right_idx, sep_arcsec)``; empty arrays when no
-    candidate pair exists.  Shared by every engine branch that needs the full
-    candidate set (``find="all"``, Likelihood Ratio / ML / AUF / macauff, and
-    the per-row ``skyerr`` criterion).
-    """
-    lens = np.fromiter((len(x) for x in idx_lists), dtype=int, count=len(idx_lists))
-    total = int(lens.sum())
-    if total == 0:
-        return (
-            np.array([], dtype=np.int64),
-            np.array([], dtype=np.int64),
-            np.array([], dtype=float),
-        )
-    right_idx = np.fromiter(itertools.chain.from_iterable(idx_lists), dtype=np.int64, count=total)
-    left_idx: np.ndarray = np.repeat(np.arange(len(idx_lists), dtype=np.int64), lens)
-    chords = np.linalg.norm(l_xyz[left_idx] - r_xyz[right_idx], axis=-1)
-    return left_idx, right_idx, _chord_to_arcsec(chords)
 
 
 def _pixellate(hp_module, ra_deg, dec_deg, depth: int, *, label: str) -> np.ndarray:
@@ -2928,226 +2899,15 @@ def _zone_match(
     right_src: CatalogueSource,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """HEALPix zone cone-match.
+    """``engine="zone"``: the exact torchsky zone search (as ``engine="fast"``).
 
-    When ``cdshealpix`` is importable we shard both sides into HEALPix pixels
-    (nside=32 by default), build a per-pixel cKDTree on the right, and only
-    query neighbour pixels within the cone radius — classic HATS-style
-    partitioning. Without ``cdshealpix`` this runs :func:`_local_match` with a
-    warning (``fallback_policy='warn'``) or raises (``'error'``).
+    Earlier releases sharded both sides by HEALPix pixel with a cKDTree per
+    pixel; torchsky's declination-zone index is that algorithm, exact and
+    native, so the two engines are now one.
     """
-    try:
-        import cdshealpix as hp  # noqa: F401
-    except ImportError as exc:
-        if spec.fallback_policy == "error":
-            raise CrossMatchError(
-                "engine='zone' requires optional cdshealpix under fallback_policy='error'"
-            ) from exc
-        logger.warning(
-            "engine='zone' requested but 'cdshealpix' is unavailable; "
-            "falling back to the Tier 1 cKDTree (no pixel-shard optimisation). "
-            "Install with `pip install cdshealpix` to enable HEALPix-shard partitioning."
-        )
-        return _local_match(left, right, left_src, right_src, spec)
-    return _zone_match_healpix(left, right, left_src, right_src, spec)
+    return _local_match(left, right, left_src, right_src, spec)
 
 
-def _zone_match_healpix(
-    left: pl.DataFrame,
-    right: pl.DataFrame,
-    left_src: CatalogueSource,
-    right_src: CatalogueSource,
-    spec: MatchSpec,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-
-    import cdshealpix as hp
-    from scipy.spatial import cKDTree
-
-    empty = (np.array([], int), np.array([], int), np.array([], float))
-    if left.height == 0 or right.height == 0:
-        return empty
-
-    l_ra = left[left_src.ra_column].to_numpy().astype(float)
-    l_dec = left[left_src.dec_column].to_numpy().astype(float)
-    r_ra = right[right_src.ra_column].to_numpy().astype(float)
-    r_dec = right[right_src.dec_column].to_numpy().astype(float)
-
-    cov_l = cov_r = None
-    lsig = rsig = None
-    if spec.matcher in ("sky", "lr", "ml", "xgb", "auf", "macauff"):
-        radius_deg = spec.radius_arcsec / 3600.0
-        chord_max = _arcsec_to_chord(spec.radius_arcsec)
-    elif spec.matcher == "skyellipse":
-        cov_l = _pos_covariance(left, left_src)
-        cov_r = _pos_covariance(right, right_src)
-        if cov_l is None or cov_r is None:
-            logger.warning(
-                "Matcher '%s' needs positional errors; none found.",
-                spec.matcher,
-            )
-            return empty
-        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error, spec.radius_arcsec)
-        radius_deg = math.degrees(2.0 * math.asin(chord_max * 0.5)) if chord_max < 2.0 else 180.0
-    else:
-        lsig = _pos_sigma_arcsec(left, left_src)
-        rsig = _pos_sigma_arcsec(right, right_src)
-        if lsig is None or rsig is None:
-            logger.warning(
-                "Matcher '%s' needs positional errors; none found.",
-                spec.matcher,
-            )
-            return empty
-        search_radius = spec.max_error * (float(np.nanmax(lsig)) + float(np.nanmax(rsig)))
-        if spec.radius_arcsec is not None:
-            # Pre-query clamp: N-sigma may only narrow the hard radius ceiling.
-            search_radius = min(search_radius, float(spec.radius_arcsec))
-        radius_deg = max(search_radius, 0.0) / 3600.0
-        chord_max = _arcsec_to_chord(max(search_radius, 0.0))
-    if radius_deg <= 0:
-        return empty
-
-    DEPTH = 5  # nside = 2 ** DEPTH == 32
-    l_pix = _pixellate(hp, l_ra, l_dec, DEPTH, label=f"catalogue '{left_src.name}'")
-    r_pix = _pixellate(hp, r_ra, r_dec, DEPTH, label=f"catalogue '{right_src.name}'")
-
-    # Group right rows (and their unit vectors) by HEALPix pixel.
-    r_sort_idx = np.argsort(r_pix, kind="stable")
-    r_sorted_pix = r_pix[r_sort_idx]
-    r_unique_indices = _first_occurrence_indices(r_sorted_pix)
-    r_groups = {
-        int(k): v
-        for k, v in zip(
-            r_sorted_pix[r_unique_indices], np.split(r_sort_idx, r_unique_indices[1:]), strict=True
-        )
-    }
-    xyz_by_pix = {pix: _radec_to_xyz(r_ra[idx], r_dec[idx]) for pix, idx in r_groups.items()}
-
-    l_xyz = _radec_to_xyz(l_ra, l_dec)
-
-    # Group left points by HEALPix pixel so each margin tree is queried once
-    # per left pixel (instead of spawning worker threads per point).
-    l_sort_idx = np.argsort(l_pix, kind="stable")
-    l_sorted_pix = l_pix[l_sort_idx]
-    l_unique_indices = _first_occurrence_indices(l_sorted_pix)
-    # Largest pixel groups first so batches are balanced.
-    pixel_groups = sorted(np.split(l_sort_idx, l_unique_indices[1:]), key=len, reverse=True)
-    batch_size = max(1, spec.batch_size or len(pixel_groups))
-    need_all_candidates = (
-        spec.find != "best" or spec.matcher != "sky" or bool(spec.extra_distance_cols)
-    )
-
-    l_parts, r_parts, sep_parts = [], [], []
-    for batch_start in range(0, len(pixel_groups), batch_size):
-        for left_indices in pixel_groups[batch_start : batch_start + batch_size]:
-            # Cone search once per pixel, inflated by the exact intra-pixel angular
-            # spread around the representative point so boundary pairs are never missed.
-            rep_i = left_indices[len(left_indices) // 2]
-            batch_xyz = l_xyz[left_indices]
-            batch_spread_rad = float(
-                np.max(
-                    2.0
-                    * np.arcsin(
-                        np.clip(np.linalg.norm(batch_xyz - l_xyz[rep_i], axis=-1) * 0.5, 0.0, 1.0)
-                    )
-                )
-            )
-            npix = _cone_search_pixels(
-                hp,
-                float(np.radians(l_ra[rep_i])),
-                float(np.radians(l_dec[rep_i])),
-                min(math.pi, float(np.radians(radius_deg)) + batch_spread_rad),
-                DEPTH,
-            )
-            # Merge the neighbouring right pixels into one margin tree.
-            margin = [int(p) for p in npix if int(p) in r_groups]
-            if not margin:
-                continue
-            margin_xyz = np.vstack([xyz_by_pix[p] for p in margin])
-            margin_global = np.concatenate([r_groups[p] for p in margin])
-            margin_tree = cKDTree(margin_xyz)
-
-            if not need_all_candidates:
-                # Plain radius + find="best": the spatial-nearest candidate.
-                dist, local_idx = margin_tree.query(
-                    batch_xyz, k=1, distance_upper_bound=chord_max, workers=-1
-                )
-                valid = np.isfinite(dist) & (local_idx < margin_tree.n)
-                l_parts.append(left_indices[valid])
-                r_parts.append(margin_global[local_idx[valid]])
-                sep_parts.append(_chord_to_arcsec(dist[valid]))
-            else:
-                idx_lists = margin_tree.query_ball_point(batch_xyz, r=chord_max, workers=-1)
-                local_l, local_r, seps = _flatten_candidates(idx_lists, batch_xyz, margin_xyz)
-                if local_l.size:
-                    l_parts.append(left_indices[local_l])
-                    r_parts.append(margin_global[local_r])
-                    sep_parts.append(seps)
-        if spec.batch_size and batch_start + batch_size < len(pixel_groups):
-            logger.debug(
-                "Batch %d/%d complete (%d matched pairs so far).",
-                batch_start // batch_size + 1,
-                -(-len(pixel_groups) // batch_size),
-                sum(p.size for p in l_parts),
-            )
-
-    if not l_parts:
-        return empty
-    left_idx = np.concatenate(l_parts)
-    right_idx = np.concatenate(r_parts).astype(np.int64, copy=False)
-    seps = np.concatenate(sep_parts)
-    if not need_all_candidates:
-        right_idx = _lowest_duplicate(right_idx, r_ra, r_dec)
-
-    # Sort deterministically by (left_idx, right_idx) to match _local_match order.
-    order = np.lexsort((right_idx, left_idx))
-    left_idx = left_idx[order]
-    right_idx = right_idx[order]
-    seps = seps[order]
-
-    # --- skyellipse Mahalanobis post-filter ---------------------------------
-    if spec.matcher == "skyellipse" and left_idx.size > 0:
-        assert cov_l is not None and cov_r is not None
-        left_idx, right_idx, seps = _skyellipse_pair_filter(
-            left_idx,
-            right_idx,
-            seps,
-            l_ra,
-            l_dec,
-            r_ra,
-            r_dec,
-            cov_l,
-            cov_r,
-            spec.max_error,
-            find="all" if spec.extra_distance_cols else spec.find,
-            radius_arcsec=spec.radius_arcsec,
-        )
-
-    # --- per-row skyerr N-sigma criterion -----------------------------------
-    if spec.matcher == "skyerr" and left_idx.size > 0:
-        assert lsig is not None and rsig is not None
-        left_idx, right_idx, seps = _skyerr_pair_filter(
-            left_idx,
-            right_idx,
-            seps,
-            lsig,
-            rsig,
-            spec.max_error,
-            find="all" if spec.extra_distance_cols else spec.find,
-            radius_arcsec=spec.radius_arcsec,
-        )
-
-    # --- N-dimensional ranking (when extra_distance_cols is set) ------------
-    if spec.extra_distance_cols and spec.find == "best" and left_idx.size > 0:
-        left_idx, right_idx, seps = _rank_nd_candidates(
-            left_idx, right_idx, seps, l_ra, l_dec, r_ra, r_dec, left, right, spec
-        )
-
-    return left_idx, right_idx, seps
-
-
-# --------------------------------------------------------------------------- #
-# astropy engine
-# --------------------------------------------------------------------------- #
 def _astropy_match(
     left: pl.DataFrame,
     right: pl.DataFrame,

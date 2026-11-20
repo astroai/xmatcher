@@ -754,45 +754,39 @@ def test_remote_variable_halos_require_explicit_region(monkeypatch, spec):
 
 
 @pytest.mark.parametrize("find", ["best", "all"])
-def test_ray_pixel_tree_respects_one_cpu_allocation(monkeypatch, find):
-    from types import SimpleNamespace
-
+def test_ray_pixel_task_uses_one_cpu(monkeypatch, find):
     import ray
-    import scipy.spatial
+    import torch
 
     from xmatcher import matchers, ray_engine
 
-    real_tree = scipy.spatial.cKDTree
     calls = []
+    real = torch.set_num_threads
+    before = torch.get_num_threads()
 
-    def tree(points):
-        actual = real_tree(points)
+    def set_threads(n):
+        calls.append(n)
+        real(n)
 
-        def query(*args, **kwargs):
-            calls.append(kwargs["workers"])
-            return actual.query(*args, **kwargs)
-
-        def query_ball_point(*args, **kwargs):
-            calls.append(kwargs["workers"])
-            return actual.query_ball_point(*args, **kwargs)
-
-        return SimpleNamespace(n=actual.n, query=query, query_ball_point=query_ball_point)
-
-    monkeypatch.setattr(scipy.spatial, "cKDTree", tree)
+    monkeypatch.setattr(torch, "set_num_threads", set_threads)
     monkeypatch.setattr(ray, "get", lambda value: value)
     monkeypatch.setattr(ray_engine, "_RAY_PIXEL_BATCH", None)
     function = ray_engine._get_ray_pixel_batch()._function
     xyz = np.array([[1.0, 0.0, 0.0]])
-    left, right, _ = function(
-        0,
-        np.array([0]),
-        xyz,
-        {0: xyz},
-        {0: np.array([0])},
-        matchers.MatchSpec(find=find),
-        0.01,
-    )
+    try:
+        left, right, _ = function(
+            0,
+            np.array([0]),
+            xyz,
+            {0: xyz},
+            {0: np.array([0])},
+            matchers.MatchSpec(find=find),
+            0.01,
+        )
+    finally:
+        real(before)
     assert left.tolist() == right.tolist() == [0]
+    # One torch thread per Ray task: tasks parallelise across pixels.
     assert calls == [1]
 
 
