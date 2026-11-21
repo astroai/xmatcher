@@ -496,6 +496,27 @@ result = cm.crossmatch_request(
 # Result includes 'lr' and 'reliability' columns in [0, 1]
 ```
 
+`lr_color_column="g_mag"` (a primary column) turns the magnitude term into the
+colour secondary − primary. With three or more catalogues, `matcher="lr"` is one
+$N$-way association (torchsky `associate_many`): each primary row's hypotheses
+combine one counterpart or none per catalogue, with a magnitude term per
+secondary (`lr_magnitude_column`, or `lr_magnitude_column_<n>` for catalogue
+`n`). Every catalogue needs positional errors.
+
+```python
+result = cm.crossmatch_multi(
+    ["gaia.parquet", "allwise.parquet", "twomass.parquet"],
+    radius_arcsec=5.0,
+    matcher="lr",
+    lr_magnitude_column_2="W1mag",
+    lr_magnitude_column_3="Jmag",
+    lr_color_column="phot_g_mean_mag",  # W1 - G and J - G
+    lr_q=0.8,
+)
+# One row per primary (its MAP hypothesis): sep_arcsec_2, sep_arcsec_3,
+# reliability, lr, p_any, nway_best; absent members are null.
+```
+
 ### G. Machine Learning Classifiers (`matcher="ml"`, `matcher="xgb"`)
 
 Trained on-the-fly with nearest-neighbour pseudo-labels using normalized separations, multi-band color differences, and local source densities:

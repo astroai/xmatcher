@@ -3378,8 +3378,11 @@ def test_ray_nway_and_fof_match_parity(_ray_cluster):
         default_pos_error_arcsec_3=0.5,
     )
     assert nway_local is not None and nway_ray is not None
-    assert nway_ray.height == nway_local.height == 2
-    assert np.allclose(nway_ray.sort("id")["p_match"], nway_local.sort("id")["p_match"], atol=1e-6)
+    # N-way association runs in process: engine="ray" gives the same hypotheses.
+    assert nway_ray.height == nway_local.height
+    assert nway_ray.filter(pl.col("nway_best")).height == 2
+    key = ["id", "id_2", "id_3"]
+    assert np.allclose(nway_ray.sort(key)["p_match"], nway_local.sort(key)["p_match"], atol=1e-6)
 
     fof_local = cm.fof_match([cat1, cat2, cat3], radius_arcsec=2.0)
     fof_ray = cm.fof_match([cat1, cat2, cat3], radius_arcsec=2.0, engine="ray")

@@ -44,6 +44,17 @@ now core dependencies:
   - candidates pass a χ² gate and the radius ceiling, and in crowded fields a
     right row is the counterpart of at most one left row.
 
+  `lr_color_column` makes the photometric term a colour against the primary
+  (e.g. W1 − G).
+- **N-way association.** `nway_match`, and `matcher="lr"` with three or more
+  catalogues, run `torchsky.catalogs.associate_many`. For each primary row,
+  every combination of one counterpart or none per catalogue is a hypothesis.
+  Hypotheses use full covariances, completeness, background density and
+  magnitude or colour likelihood ratios learnt by EM. Partial associations
+  are kept, and oversized primaries are enumerated best-first with a certified
+  bound instead of truncated. New output columns: `sep_arcsec_<k>`, `lr`,
+  `p_any`, `nway_best`.
+
 For scale, torchsky's crossmatch kernel is 1.2–11.5× faster than scipy's
 cKDTree from 10⁶ to 10⁸ rows on CPU. On a GPU it beats CuPy's KD-tree and
 Open3D on sparse and dense fields at 10⁶–10⁷ rows (torchsky-harness

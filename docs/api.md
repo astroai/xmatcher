@@ -22,7 +22,7 @@ cm = CrossMatch()  # loads bundled xmatcher.yaml and user overrides
 | [`crossmatch_request(req)`](#crossmatch_request) | **Preferred** typed entry point using a `MatchRequest` dataclass. |
 | [`crossmatch_multi(...)`](#crossmatch_multi) | $N$-catalogue sequential pairwise crossmatching ($A \times B \times C \dots$). |
 | [`union_match(...)`](#union_match) | Master union crossmatch producing a full-outer-join catalogue (in-memory or distributed HATS). |
-| [`nway_match(...)`](#nway_match) | Simultaneous Bayesian $N$-way crossmatching (Budavári & Szalay 2008 posterior). |
+| [`nway_match(...)`](#nway_match) | Simultaneous Bayesian $N$-way association (nway-style, torchsky `associate_many`). |
 | [`fof_match(...)`](#fof_match) | Friends-of-Friends transitive closure clustering detections into object bundles. |
 | `resolve_source(value, overrides)` | Builds a `CatalogueSource` from a file path, DataFrame, configured name/alias, or explicit `vizier:` / `tap:` / `hats:` identifier. |
 | `get_catalogue_config(name)` | Returns the merged YAML configuration for a catalogue alias or name. |
@@ -196,7 +196,7 @@ def project_hats(
 
 ### `nway_match`
 
-Simultaneous Bayesian $N$-catalogue crossmatching implementing the Budavári & Szalay (2008) multi-catalogue Bayes factor:
+Simultaneous Bayesian $N$-catalogue association with torchsky's `associate_many` (Budavári & Szalay 2008 with full covariances, completeness, background density and photometric likelihood ratios):
 
 ```python
 def nway_match(
@@ -213,7 +213,18 @@ def nway_match(
 ) -> pl.DataFrame | None
 ```
 
-Resolves and materializes the input frames, finds primary-to-each-secondary candidate pairs inside the spatial radius, then iterates the per-primary Cartesian product in chunks (optionally capped per source). Positional scores require declared errors or explicit per-catalogue error floors. Each `prior_columns` entry must exist in every catalogue and represent a comparable quantity; its midpoint-KDE ratio is an empirical heuristic. `engine="ray"` distributes candidate discovery, but inputs and resulting tuples are assembled on the coordinator. `p_match` uses equal prior odds and is not calibrated for population prevalence or local sky density. Positional covariance is reduced to an isotropic effective sigma; KDEs are fitted on an unconditional source sample capped at 50,000 values per requested column. See [score assumptions](algorithms.md#6-probabilistic--bayesian-matchers).
+Resolves and materializes the input frames (catalogue 1 is the primary) and runs the association in process. For each primary row every combination of one gated counterpart or none per other catalogue is a hypothesis; posteriors are normalised over all of them, and a secondary source is the counterpart of at most one primary. Positional covariances (declared errors, correlations, propagated epoch covariances or explicit per-catalogue error floors) are required for every catalogue and used in full. Candidates pass a $\chi^2_2$ gate ($p = 10^{-4}$) and the `radius_arcsec` ceiling. Primaries with more than `max_tuples_per_source` hypotheses are enumerated best-first with a certified bound on the omitted posterior mass (0 enumerates everything); `chunk_size` is accepted for compatibility only, and `engine="ray"` runs in process with a warning.
+
+Photometric terms (learnt by EM, as for `matcher="lr"`): `lr_magnitude_column` (every secondary) or `lr_magnitude_column_<n>` (catalogue `n`) adds a magnitude likelihood ratio; `lr_color_column` (a primary column) turns it into the colour secondary − primary; each `prior_columns` entry, which must exist in every catalogue, adds the colour `secondary[col] - primary[col]`. `lr_q` fixes every secondary's completeness (default: fitted). `find="all"` (default) returns every hypothesis with at least one counterpart, `find="best"` only each primary's MAP hypothesis. See [algorithms §6C](algorithms.md#6-probabilistic--bayesian-matchers).
+
+**Output Columns** (after every catalogue's columns, suffixed `_2`, `_3`, … on collision and null for absent members):
+- `sep_arcsec_<k>`: separation of catalogue `k`'s member from the primary.
+- `p_match`: posterior of the hypothesis.
+- `lr`: likelihood ratio of the hypothesis against "no counterpart", completeness priors divided out (the pairwise `matcher="lr"` value with two catalogues).
+- `p_any`: probability that the primary has any counterpart.
+- `nway_best`: the hypothesis is the primary's MAP one.
+
+`crossmatch_multi(..., matcher="lr")` with three or more catalogues runs the same association with `lr_q` as completeness, a magnitude column required for every secondary, and the posterior in `reliability`. `find="best"` (the default) keeps each primary's MAP hypothesis, `join_type="all1"` adds primaries without one; other join types, `filter_expr`, `extra_distance_cols`, `prior_columns` and `probabilistic` are rejected.
 
 ---
 
@@ -283,7 +294,8 @@ Defines the algorithm criteria:
 | `batch_size` | `int | None` | `None` | Number of HEALPix pixel groups per batch in zone matching; not a general process-memory limit. |
 | `probabilistic` | `bool` | `False` | Enable positional `p_match` scoring (also settable on `MatchRequest`). |
 | `fallback_policy` | `str` | `"warn"` | `"warn"` logs and substitutes a supported engine/matcher; `"error"` aborts when the request cannot be honoured. |
-| `lr_magnitude_column` | `str | None` | `None` | Secondary magnitude column for Likelihood Ratio (`matcher="lr"`). |
+| `lr_magnitude_column` | `str | None` | `None` | Secondary magnitude column for Likelihood Ratio (`matcher="lr"`); `lr_magnitude_column_<n>` names catalogue `n`'s column in $N$-way matches. |
+| `lr_color_column` | `str | None` | `None` | Primary magnitude column: the LR photometric term becomes the colour secondary magnitude − this column (e.g. W1 − G). |
 | `lr_q` | `float` | `0.8` | Prior probability of counterpart detection in primary survey. |
 | `ml_color_columns` | `list[str]` | `[]` | Colour/magnitude feature columns for RF/XGB matchers. |
 | `ml_model_path` | `str | None` | `None` | Save/load path for Random Forest model artifact (`.joblib`). |

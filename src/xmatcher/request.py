@@ -52,6 +52,8 @@ _SIDE_PARAM_KEYS = frozenset(
         "pm_dec_column",
         "parallax_column",
         "radial_velocity_column",
+        # Secondary catalogue n's magnitude column for matcher="lr" / nway_match.
+        "lr_magnitude_column",
     }
 )
 # Every other keyword the ``CrossMatch`` match methods read from ``**params``.
@@ -70,6 +72,7 @@ _MATCH_PARAM_KEYS = frozenset(
         "extra_distance_cols",
         "batch_size",
         "lr_magnitude_column",
+        "lr_color_column",
         "lr_q",
         "ml_color_columns",
         "ml_model_path",
@@ -338,7 +341,9 @@ class MatchRequest:
             filter_expr=params.get("filter_expr"),
             extra_distance_cols=extra_distance,
             batch_size=params.get("batch_size"),
-            lr_magnitude_column=params.get("lr_magnitude_column"),
+            lr_magnitude_column=params.get("lr_magnitude_column_2")
+            or params.get("lr_magnitude_column"),
+            lr_color_column=params.get("lr_color_column"),
             lr_q=float(params.get("lr_q", 0.8)),
             ml_color_columns=list(params.get("ml_color_columns") or []),
             ml_model_path=params.get("ml_model_path"),

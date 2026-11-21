@@ -278,18 +278,25 @@ def test_cli_invalid_ranking_weights_fail_loudly():
         _parse_extra_distance_cols("mag:oops")
 
 
+def _capture_nway_covariances(monkeypatch) -> list[np.ndarray]:
+    """Record each catalogue's position covariance (mas^2) passed to associate_many."""
+    import torchsky.catalogs as ts_catalogs
+
+    captured: list[np.ndarray] = []
+    original = ts_catalogs.associate_many
+
+    def capture(catalogs, *args, **kwargs):
+        captured.extend(c.astrometry.position_cov().numpy() for c in catalogs)
+        return original(catalogs, *args, **kwargs)
+
+    monkeypatch.setattr(ts_catalogs, "associate_many", capture)
+    return captured
+
+
 def test_nway_uses_per_axis_uncertainty(monkeypatch):
-    import xmatcher.crossmatch as module
     from xmatcher import CrossMatch
 
-    captured = []
-    original = module.compute_nway_p_match
-
-    def capture(ras, decs, sigmas, *args, **kwargs):
-        captured.extend(sigmas)
-        return original(ras, decs, sigmas, *args, **kwargs)
-
-    monkeypatch.setattr(module, "compute_nway_p_match", capture)
+    captured = _capture_nway_covariances(monkeypatch)
     frame = pl.DataFrame({"ra": [42.0], "dec": [5.0], "err": [1.0]})
     CrossMatch().nway_match(
         [frame, frame],
@@ -299,7 +306,8 @@ def test_nway_uses_per_axis_uncertainty(monkeypatch):
         ra_err_column_2="err",
         dec_err_column_2="err",
     )
-    np.testing.assert_allclose(captured, np.ones((2, 1)))
+    # 1 arcsec per axis, as declared: no radial-to-axis rescaling.
+    np.testing.assert_allclose(captured, np.full((2, 1, 2, 2), 1e6 * np.eye(2)))
 
 
 def test_mirrored_cone_keeps_exact_centres_at_tiny_radii():
@@ -480,15 +488,16 @@ def test_nway_empty_result_retains_input_schema():
 
     left = pl.DataFrame({"ra": [0.0], "dec": [0.0], "id": ["a"]})
     right = pl.DataFrame({"ra": [1.0], "dec": [0.0], "id": ["b"]})
-    out = CrossMatch().nway_match([left, right])
+    errors = {f"default_pos_error_arcsec_{i}": 0.1 for i in (1, 2)}
+    out = CrossMatch().nway_match([left, right], **errors)
     assert out.schema["id"] == out.schema["id_2"] == pl.String
     assert out.is_empty()
 
 
 def test_nway_scores_use_propagated_covariance(monkeypatch):
-    from xmatcher import CrossMatch, crossmatch
+    from xmatcher import CrossMatch
 
-    captured = []
+    captured = _capture_nway_covariances(monkeypatch)
 
     def propagate(left, right, *args, propagate_covariance=False, **kwargs):
         assert propagate_covariance
@@ -498,16 +507,12 @@ def test_nway_scores_use_propagated_covariance(monkeypatch):
             pl.lit(0.0).alias(matchers._PROPAGATED_COV_EN),
         ), right
 
-    def score(ras, decs, sigmas, *args, **kwargs):
-        captured.extend(sigmas)
-        return np.ones(len(ras[0]))
-
     monkeypatch.setattr(matchers, "_apply_proper_motion", propagate)
-    monkeypatch.setattr(crossmatch, "compute_nway_p_match", score)
     frame = pl.DataFrame({"ra": [42.0], "dec": [5.0], "err": [1.0]})
     params = {f"{coord}_err_column_{side}": "err" for side in (1, 2) for coord in ("ra", "dec")}
     CrossMatch().nway_match([frame, frame], target_epoch=2020.0, **params)
-    np.testing.assert_allclose(captured, np.full((2, 1), np.sqrt(10.0)))
+    # The full propagated covariance (4 and 16 arcsec^2), not an isotropic average.
+    np.testing.assert_allclose(captured, np.full((2, 1, 2, 2), np.diag([4e6, 16e6])))
 
 
 def test_mirrored_cone_does_not_inflate_tiny_requested_radius():
@@ -661,23 +666,21 @@ def test_cds_uncertainty_request_uses_canonical_matcher(monkeypatch):
 
 
 def test_nway_accepts_explicit_uncertainties_for_every_catalogue(monkeypatch):
-    from xmatcher import CrossMatch, crossmatch
+    from xmatcher import CrossMatch
 
-    captured = []
-
-    def score(ras, decs, sigmas, *args, **kwargs):
-        captured.extend(sigmas)
-        return np.ones(len(ras[0]))
-
-    monkeypatch.setattr(crossmatch, "compute_nway_p_match", score)
+    captured = _capture_nway_covariances(monkeypatch)
 
     frame = pl.DataFrame({"ra": [42.0], "dec": [5.0]})
     result = CrossMatch().nway_match(
         [frame, frame, frame],
         **{f"default_pos_error_arcsec_{i}": i * 0.1 for i in (1, 2, 3)},
     )
-    np.testing.assert_allclose(captured, [[0.1], [0.2], [0.3]])
-    assert result.height == 1
+    sigma_mas = [np.sqrt(np.diagonal(cov[0])) for cov in captured]
+    np.testing.assert_allclose(sigma_mas, [[100.0] * 2, [200.0] * 2, [300.0] * 2])
+    # Hypotheses with one or both counterparts; the MAP one holds both.
+    assert result.height == 3
+    best = result.filter(pl.col("nway_best"))
+    assert best.height == 1 and best["ra_3"].null_count() == 0
     assert result["p_match"].is_finite().all()
 
 

@@ -97,6 +97,11 @@ class MatchSpec:
     # Used to estimate the true-counterpart magnitude distribution q(m) and
     # background surface density n(m).  Required when matcher="lr".
     lr_magnitude_column: str | None = None
+    # Optional primary-catalogue magnitude column for the LR matcher: the
+    # photometric term becomes the pair colour ``secondary magnitude -
+    # primary[lr_color_column]`` (e.g. W1 - G) instead of the secondary
+    # magnitude alone.
+    lr_color_column: str | None = None
     # Prior Q factor for Likelihood Ratio matcher: probability that a
     # primary source has a detectable counterpart in the secondary catalogue.
     # Default 0.8 is a safe empirical value (Sutherland & Saunders 1992);
@@ -1696,7 +1701,9 @@ def _likelihood_ratio_scoring(
     ``Q = lr_q`` as the prior completeness. Candidates pass a chi-square gate
     (p = 1e-4) and the ``radius_arcsec`` ceiling. A right row is the
     counterpart of at most one left row (exclusive posteriors), which matters
-    in crowded fields only.
+    in crowded fields only. With ``lr_color_column`` the photometric feature
+    is the colour ``right magnitude - left[lr_color_column]``
+    (:func:`_lr_photometric_term`).
 
     ``left_idx``/``right_idx``/``seps`` (the engine's candidates within the
     radius) are not needed: torchsky searches with each pair's own gate.
@@ -1711,16 +1718,16 @@ def _likelihood_ratio_scoring(
     )
     if left.height == 0 or right.height == 0:
         return empty
-    mag_col = spec.lr_magnitude_column
-    right_mags = right[mag_col].cast(pl.Float64).to_numpy() if mag_col in right.columns else None
-    finite_mags = right_mags[np.isfinite(right_mags)] if right_mags is not None else None
-    if finite_mags is None or finite_mags.size < 10:
-        logger.warning(
-            "lr_magnitude_column='%s' is missing or has fewer than 10 values; "
-            "the likelihood ratio uses positions only.",
-            mag_col,
-        )
     catalogs = _torchsky.require("catalogs", "matcher='lr'")
+    term = _lr_photometric_term(
+        catalogs,
+        right,
+        spec.lr_magnitude_column,
+        left=left,
+        color_column=spec.lr_color_column,
+        label=right_src.name,
+    )
+    terms: tuple = () if term is None else (term,)
 
     def catalogue(df: pl.DataFrame, src: CatalogueSource):
         sig = _pos_sigma_arcsec(df, src)
@@ -1735,15 +1742,6 @@ def _likelihood_ratio_scoring(
             astrometry=catalogs.Astrometry.from_errors(axis, axis),
         )
 
-    terms: tuple = ()
-    if finite_mags is not None and finite_mags.size >= 10:
-        n_bins = min(50, int(np.sqrt(finite_mags.size)))
-        lo, hi = float(finite_mags.min()), float(finite_mags.max())
-        hi = hi if hi - lo >= 1e-6 else lo + 1.0
-        import torch  # noqa: PLC0415 - loads with torchsky
-
-        edges = torch.linspace(lo, hi + 1e-9 * max(1.0, abs(hi)), n_bins + 1, dtype=torch.float64)
-        terms = (catalogs.HistogramRatio(_ts_tensor(right_mags), [edges]),)
     q = min(max(float(spec.lr_q), 1e-9), 1.0 - 1e-9)
     res = catalogs.associate(
         catalogue(left, left_src),
@@ -1777,6 +1775,445 @@ def _likelihood_ratio_scoring(
         return li[best], rj[best], sep[best], lr[best], reliability[best]
     order = np.lexsort((rj, li))
     return li[order], rj[order], sep[order], lr[order], reliability[order]
+
+
+# Fewest finite values a photometric term is learnt from; below it the
+# likelihood ratio stays positional (logged), as torchsky's EM needs a population.
+_LR_MIN_VALUES = 10
+# chi-square (2 dof) gate of the N-way association, as for matcher="lr".
+_NWAY_GATE_PVALUE = 1e-4
+
+
+def _lr_histogram_edges(lo: float, hi: float, n_values: int):
+    """Fixed bins of a photometric term: ``min(50, sqrt(n))`` bins over ``[lo, hi]``."""
+    import torch  # noqa: PLC0415 - loads with torchsky
+
+    n_bins = min(50, int(np.sqrt(n_values)))
+    hi = hi if hi - lo >= 1e-6 else lo + 1.0
+    return torch.linspace(lo, hi + 1e-9 * max(1.0, abs(hi)), n_bins + 1, dtype=torch.float64)
+
+
+def _lr_photometric_term(
+    catalogs,
+    right: pl.DataFrame,
+    magnitude_column: str | None,
+    *,
+    left: pl.DataFrame | None = None,
+    color_column: str | None = None,
+    label: str = "secondary",
+):
+    """The :class:`torchsky.catalogs.HistogramRatio` term of one secondary catalogue.
+
+    The feature is the secondary's ``magnitude_column`` (Sutherland & Saunders
+    right magnitudes: ``n`` is the footprint histogram, ``q`` is learnt by EM).
+    With ``color_column`` it is the pair colour ``right[magnitude_column] -
+    left[color_column]`` (for example W1 - G), whose counterpart and
+    background distributions are both learnt from the candidate pairs.
+
+    Returns ``None`` (and logs) when the magnitude column is missing or has
+    fewer than :data:`_LR_MIN_VALUES` finite values: the likelihood ratio is
+    then positional. A ``color_column`` absent from the primary is an error.
+    """
+    if magnitude_column is None:
+        return None
+    right_values = (
+        right[magnitude_column].cast(pl.Float64).to_numpy()
+        if magnitude_column in right.columns
+        else None
+    )
+    finite_right = right_values[np.isfinite(right_values)] if right_values is not None else None
+    if finite_right is None or finite_right.size < _LR_MIN_VALUES:
+        logger.warning(
+            "Photometric column '%s' is missing from '%s' or has fewer than %d finite "
+            "values; its likelihood ratio uses positions only.",
+            magnitude_column,
+            label,
+            _LR_MIN_VALUES,
+        )
+        return None
+    if color_column is None:
+        edges = _lr_histogram_edges(
+            float(finite_right.min()), float(finite_right.max()), finite_right.size
+        )
+        return catalogs.HistogramRatio(_ts_tensor(right_values), [edges])
+    if left is None or color_column not in left.columns:
+        raise CrossMatchError(
+            f"lr_color_column='{color_column}' is not a column of the primary catalogue"
+        )
+    left_values = left[color_column].cast(pl.Float64).to_numpy()
+    finite_left = left_values[np.isfinite(left_values)]
+    if finite_left.size < _LR_MIN_VALUES:
+        logger.warning(
+            "lr_color_column='%s' has fewer than %d finite values; the likelihood ratio "
+            "of '%s' uses positions only.",
+            color_column,
+            _LR_MIN_VALUES,
+            label,
+        )
+        return None
+    # Every pair colour lies in [min(right) - max(left), max(right) - min(left)].
+    edges = _lr_histogram_edges(
+        float(finite_right.min() - finite_left.max()),
+        float(finite_right.max() - finite_left.min()),
+        min(finite_right.size, finite_left.size),
+    )
+    return catalogs.HistogramRatio(
+        _ts_tensor(right_values), [edges], left_values=_ts_tensor(left_values)
+    )
+
+
+# --------------------------------------------------------------------------- #
+# N-way association (torchsky.catalogs.associate_many)
+# --------------------------------------------------------------------------- #
+@dataclass
+class NWayAssociation:
+    """N-way hypotheses from :func:`nway_associate`, as NumPy arrays.
+
+    ``members[h, c]`` is the row of catalogue ``c`` in hypothesis ``h`` (``-1``
+    when absent; column 0 is the primary row). Every primary has its "no
+    counterpart" hypothesis. ``posterior`` is normalised per primary;
+    ``log_lr`` is the natural log of the hypothesis' likelihood ratio against
+    "no counterpart", with the completeness priors divided out (with two
+    catalogues it is the pairwise ``matcher="lr"`` likelihood ratio).
+    ``best`` flags each primary's MAP hypothesis. ``p_any`` and
+    ``residual_mass`` (the certified posterior mass of hypotheses that were not
+    enumerated) are per primary; ``completeness`` per catalogue (1 for the
+    primary). ``sep_arcsec[h, c - 1]`` is the separation of catalogue ``c``'s
+    member from the primary (NaN when absent).
+    """
+
+    members: np.ndarray
+    posterior: np.ndarray
+    log_lr: np.ndarray
+    best: np.ndarray
+    p_any: np.ndarray
+    residual_mass: np.ndarray
+    completeness: list[float]
+    sep_arcsec: np.ndarray
+
+
+def _nway_catalog(catalogs, df: pl.DataFrame, src: CatalogueSource):
+    """A torchsky ``Catalog`` with each row's position covariance (mas^2)."""
+    covariance = _pos_covariance(df, src)
+    if covariance is not None:
+        var_e, var_n, rho = covariance
+        sigma_e = np.sqrt(np.asarray(var_e, dtype=float))
+        sigma_n = np.sqrt(np.asarray(var_n, dtype=float))
+        rho = np.asarray(rho, dtype=float)
+    else:
+        sigma = _pos_sigma_arcsec(df, src)
+        if sigma is None:
+            raise CrossMatchError(
+                f"N-way catalogue '{src.name}' needs declared positional errors or an "
+                "explicit default_pos_error_arcsec"
+            )
+        # A radial RMS; per axis it is RMS / sqrt(2).
+        sigma_e = sigma_n = np.asarray(sigma, dtype=float) / math.sqrt(2.0)
+        rho = np.zeros(df.height, dtype=float)
+    if not (np.isfinite(sigma_e).all() and np.isfinite(sigma_n).all() and np.isfinite(rho).all()):
+        raise CrossMatchError(f"N-way catalogue '{src.name}' has non-finite positional errors")
+    # 1 micro-arcsecond keeps exact-position rows' covariances invertible.
+    floor_mas = 1e-3
+    return catalogs.Catalog(
+        lon=_ts_tensor(df[src.ra_column or "ra"].cast(pl.Float64).to_numpy()),
+        lat=_ts_tensor(df[src.dec_column or "dec"].cast(pl.Float64).to_numpy()),
+        epoch=2016.0,
+        astrometry=catalogs.Astrometry.from_errors(
+            _ts_tensor(np.maximum(sigma_e * 1000.0, floor_mas)),
+            _ts_tensor(np.maximum(sigma_n * 1000.0, floor_mas)),
+            _ts_tensor(np.clip(rho, -1.0, 1.0)),
+        ),
+    )
+
+
+def _has_gated_pair(catalogs, primary, secondary, radius_arcsec: float) -> bool:
+    """Whether any (primary, secondary) pair passes the N-way chi-square gate.
+
+    The same test as torchsky's association gate (midpoint-frame offset,
+    summed covariances, ``d^2 <= k^2`` and the radius ceiling). A secondary
+    catalogue without one has no counterpart in any hypothesis and is left
+    out of ``associate_many``, which needs at least one candidate per
+    catalogue.
+    """
+    import torch  # noqa: PLC0415 - loads with torchsky
+
+    ts_assoc = _torchsky.require("catalogs.association", "N-way association")
+    found = catalogs.match_within(
+        primary.lon, primary.lat, secondary.lon, secondary.lat, float(radius_arcsec)
+    )
+    li, rj = found.left_index, found.right_index
+    if li.numel() == 0:
+        return False
+
+    def xyz(lon, lat):
+        lon, lat = torch.deg2rad(lon.to(torch.float64)), torch.deg2rad(lat.to(torch.float64))
+        return torch.stack(
+            (torch.cos(lat) * torch.cos(lon), torch.cos(lat) * torch.sin(lon), torch.sin(lat)), -1
+        )
+
+    delta, tl, tr, psi = ts_assoc.pair_frame(
+        xyz(primary.lon[li], primary.lat[li]), xyz(secondary.lon[rj], secondary.lat[rj])
+    )
+    cov_l = primary.astrometry.position_cov()[li]
+    cov_r = secondary.astrometry.position_cov()[rj]
+    d2, _ = ts_assoc.mahalanobis2(delta, tl @ cov_l @ tl.mT + tr @ cov_r @ tr.mT)
+    sep = torch.rad2deg(psi) * 3600.0
+    keep = (d2 <= ts_assoc.gate_k2(_NWAY_GATE_PVALUE)) & (sep <= radius_arcsec)
+    return bool(keep.any())
+
+
+def _angular_separation_arcsec(
+    ra1: np.ndarray, dec1: np.ndarray, ra2: np.ndarray, dec2: np.ndarray
+) -> np.ndarray:
+    """Great-circle separation (Vincenty form, exact at every distance)."""
+    ra1, dec1, ra2, dec2 = (np.radians(np.asarray(v, dtype=float)) for v in (ra1, dec1, ra2, dec2))
+    dra = ra2 - ra1
+    num = np.hypot(
+        np.cos(dec2) * np.sin(dra),
+        np.cos(dec1) * np.sin(dec2) - np.sin(dec1) * np.cos(dec2) * np.cos(dra),
+    )
+    den = np.sin(dec1) * np.sin(dec2) + np.cos(dec1) * np.cos(dec2) * np.cos(dra)
+    return np.degrees(np.arctan2(num, den)) * 3600.0
+
+
+def nway_associate(
+    frames: list[pl.DataFrame],
+    sources: list[CatalogueSource],
+    *,
+    radius_arcsec: float,
+    magnitude_columns: list[str | None] | None = None,
+    color_column: str | None = None,
+    same_band_columns: list[str] | tuple[str, ...] = (),
+    completeness: float | None = None,
+    budget: int = 4096,
+    exclusive: bool = True,
+) -> NWayAssociation:
+    """N-way association of ``frames[0]`` (primary) with the other catalogues.
+
+    Wraps :func:`torchsky.catalogs.associate_many`: for each primary row, every
+    combination of one gated counterpart (or none) per secondary catalogue is a
+    hypothesis, weighted by the exact Gaussian likelihood that all present
+    positions share one true position (Budavari & Szalay 2008, full
+    covariances), each catalogue's completeness and background density, and the
+    photometric terms. Candidates pass a chi-square gate (p = 1e-4) and the
+    ``radius_arcsec`` ceiling. With ``exclusive=True`` a secondary row is the
+    counterpart of at most one primary (Bethe posteriors).
+
+    Photometric terms (one tuple of ``HistogramRatio`` per secondary, as for
+    two catalogues): ``magnitude_columns[c - 1]`` is secondary ``c``'s
+    magnitude column (``None`` for none); with ``color_column`` the term is
+    the pair colour against that primary column. Each name in
+    ``same_band_columns`` adds a pair-colour term ``secondary[col] -
+    primary[col]`` (the same band measured twice). ``completeness`` fixes
+    every secondary's completeness (``lr_q``); ``None`` fits it by EM.
+    Primaries with more than ``budget`` hypotheses are enumerated best-first
+    with a certified residual mass instead of being truncated.
+    """
+    n_cats = len(frames)
+    if n_cats < 2 or len(sources) != n_cats:
+        raise CrossMatchError("N-way association needs a primary and at least one other catalogue")
+    mags = list(magnitude_columns) if magnitude_columns is not None else [None] * (n_cats - 1)
+    if len(mags) != n_cats - 1:
+        raise CrossMatchError("magnitude_columns needs one entry per secondary catalogue")
+    if budget < 1:
+        raise CrossMatchError("budget must be a positive integer")
+    catalogs = _torchsky.require("catalogs", "N-way association")
+    n0 = frames[0].height
+    all_cats = [
+        _nway_catalog(catalogs, frame, src) if frame.height and n0 else None
+        for frame, src in zip(frames, sources, strict=True)
+    ]
+    active = [
+        c
+        for c in range(1, n_cats)
+        if all_cats[c] is not None
+        and _has_gated_pair(catalogs, all_cats[0], all_cats[c], float(radius_arcsec))
+    ]
+    if n0 == 0 or not active:
+        members = np.full((n0, n_cats), -1, dtype=np.int64)
+        members[:, 0] = np.arange(n0)
+        return NWayAssociation(
+            members=members,
+            posterior=np.ones(n0),
+            log_lr=np.zeros(n0),
+            best=np.ones(n0, dtype=bool),
+            p_any=np.zeros(n0),
+            residual_mass=np.zeros(n0),
+            completeness=[1.0] + [0.0] * (n_cats - 1),
+            sep_arcsec=np.full((n0, n_cats - 1), np.nan),
+        )
+    cats = [all_cats[c] for c in [0, *active]]
+    terms: list[tuple] = []
+    for c in active:
+        found = [
+            _lr_photometric_term(
+                catalogs,
+                frames[c],
+                mags[c - 1],
+                left=frames[0],
+                color_column=color_column,
+                label=sources[c].name,
+            )
+        ]
+        for column in same_band_columns:
+            found.append(
+                _lr_photometric_term(
+                    catalogs,
+                    frames[c],
+                    column,
+                    left=frames[0],
+                    color_column=column,
+                    label=sources[c].name,
+                )
+            )
+        terms.append(tuple(term for term in found if term is not None))
+    if completeness is None:
+        comp: list[float] | str = "em"
+    else:
+        q = min(max(float(completeness), 1e-9), 1.0 - 1e-9)
+        comp = [q] * len(active)
+    res = catalogs.associate_many(
+        cats,
+        gate_pvalue=_NWAY_GATE_PVALUE,
+        max_radius_arcsec=float(radius_arcsec),
+        completeness=comp,
+        terms=terms if any(terms) else None,
+        budget=int(budget),
+        exclusive=exclusive,
+    )
+    sub = res.members.cpu().numpy().astype(np.int64)
+    n_hyp = sub.shape[0]
+    members = np.full((n_hyp, n_cats), -1, dtype=np.int64)
+    members[:, 0] = sub[:, 0]
+    for j, c in enumerate(active, start=1):
+        members[:, c] = sub[:, j]
+    # Divide the completeness priors out of the hypothesis weight: what remains
+    # is its likelihood ratio against "no counterpart".
+    pi = np.array([p * (1.0 - _NWAY_GATE_PVALUE) for p in res.completeness[1:]])
+    present = sub[:, 1:] >= 0
+    log_prior = np.where(present, np.log(pi), np.log1p(-pi)).sum(axis=1)
+    log_lr = res.log_weight.detach().cpu().numpy() - log_prior
+    best = np.zeros(n_hyp, dtype=bool)
+    best[res.best.cpu().numpy()] = True
+    full_comp = [1.0] + [0.0] * (n_cats - 1)
+    for j, c in enumerate(active, start=1):
+        full_comp[c] = float(res.completeness[j])
+    sep = np.full((n_hyp, n_cats - 1), np.nan)
+    ra0 = frames[0][sources[0].ra_column or "ra"].cast(pl.Float64).to_numpy()
+    dec0 = frames[0][sources[0].dec_column or "dec"].cast(pl.Float64).to_numpy()
+    for c in active:
+        on = members[:, c] >= 0
+        ra_c = frames[c][sources[c].ra_column or "ra"].cast(pl.Float64).to_numpy()
+        dec_c = frames[c][sources[c].dec_column or "dec"].cast(pl.Float64).to_numpy()
+        p, m = members[on, 0], members[on, c]
+        sep[on, c - 1] = _angular_separation_arcsec(ra0[p], dec0[p], ra_c[m], dec_c[m])
+    residual = res.residual_mass.detach().cpu().numpy()
+    if residual.size and float(residual.max()) > 0.0:
+        logger.info(
+            "N-way association: %d primaries enumerated best-first (max residual mass %.2g).",
+            int((residual > 0.0).sum()),
+            float(residual.max()),
+        )
+    return NWayAssociation(
+        members=members,
+        posterior=np.clip(res.posterior.detach().cpu().numpy(), 0.0, 1.0),
+        log_lr=log_lr,
+        best=best,
+        p_any=np.clip(res.p_any.detach().cpu().numpy(), 0.0, 1.0),
+        residual_mass=residual,
+        completeness=full_comp,
+        sep_arcsec=sep,
+    )
+
+
+NWAY_BEST_COLUMN = "nway_best"
+NWAY_P_ANY_COLUMN = "p_any"
+
+
+def build_nway_frame(
+    frames: list[pl.DataFrame],
+    assoc: NWayAssociation,
+    *,
+    find: str = "all",
+    keep_unmatched: bool = False,
+    score_column: str = PMATCH_COLUMN,
+) -> pl.DataFrame:
+    """One row per hypothesis that has at least one counterpart.
+
+    ``find="all"`` keeps every enumerated hypothesis, ``"best"`` only each
+    primary's MAP hypothesis. ``keep_unmatched`` adds one row (null
+    secondaries and scores) for each primary without such a row. Rows are
+    ordered by primary, then by decreasing posterior.
+
+    Columns: every catalogue's columns (collisions take ``_2``, ``_3``, ...
+    suffixes; absent members are null), ``sep_arcsec_<k>`` for catalogue
+    ``k >= 2``, ``score_column`` (the hypothesis posterior), ``lr``,
+    ``p_any`` (the primary has any counterpart) and ``nway_best``.
+    """
+    if find not in _FIND_MODES:
+        raise CrossMatchError(f"find must be one of {sorted(_FIND_MODES)}, got {find!r}")
+    n_cats = len(frames)
+    prefixes = (_PM_DRIFT_COLUMN, _PROPAGATED_COV_PREFIX, _EPOCH_SIGMA)
+    frames = [f.drop([c for c in f.columns if c.startswith(prefixes)]) for f in frames]
+    mem = assoc.members
+    keep = (mem[:, 1:] >= 0).any(axis=1)
+    if find == "best":
+        keep &= assoc.best
+    idx = np.flatnonzero(keep)
+    rows = mem[idx]
+    post = assoc.posterior[idx].astype(float)
+    lr = np.exp(assoc.log_lr[idx]).astype(float)
+    best: list[bool | None] = [bool(b) for b in assoc.best[idx]]
+    sep = assoc.sep_arcsec[idx]
+    if keep_unmatched:
+        seen = np.zeros(frames[0].height, dtype=bool)
+        seen[rows[:, 0]] = True
+        extra = np.flatnonzero(~seen)
+        pad = np.full((extra.size, n_cats), -1, dtype=np.int64)
+        pad[:, 0] = extra
+        rows = np.concatenate([rows, pad])
+        post = np.concatenate([post, np.full(extra.size, np.nan)])
+        lr = np.concatenate([lr, np.full(extra.size, np.nan)])
+        best += [None] * int(extra.size)
+        sep = np.concatenate([sep, np.full((extra.size, n_cats - 1), np.nan)])
+    order = np.lexsort((-np.nan_to_num(post, nan=-1.0), rows[:, 0]))
+    rows, post, lr, sep = rows[order], post[order], lr[order], sep[order]
+    best = [best[i] for i in order]
+    p_any = assoc.p_any[rows[:, 0]] if rows.size else np.zeros(0)
+
+    row_key = "__xmatcher_nway_row"
+    parts: list[pl.DataFrame] = []
+    seen_columns: set[str] = set()
+    for i, frame in enumerate(frames):
+        indexed = frame.with_row_index(row_key).with_columns(pl.col(row_key).cast(pl.Int64))
+        part = (
+            pl.DataFrame({row_key: rows[:, i]}, schema={row_key: pl.Int64})
+            .join(indexed, on=row_key, how="left", maintain_order="left")
+            .drop(row_key)
+        )
+        if i:
+            renames = {}
+            for column in part.columns:
+                name = column
+                while name in seen_columns:
+                    name += f"_{i + 1}"
+                seen_columns.add(name)
+                renames[column] = name
+            part = part.rename(renames)
+        seen_columns.update(part.columns)
+        parts.append(part)
+    result = parts[0].hstack([s for part in parts[1:] for s in part.get_columns()])
+    extra_columns = [
+        pl.Series(f"{SEP_COLUMN}_{c + 1}", sep[:, c - 1], dtype=pl.Float64).fill_nan(None)
+        for c in range(1, n_cats)
+    ]
+    extra_columns += [
+        pl.Series(score_column, post, dtype=pl.Float64).fill_nan(None),
+        pl.Series("lr", lr, dtype=pl.Float64).fill_nan(None),
+        pl.Series(NWAY_P_ANY_COLUMN, p_any, dtype=pl.Float64),
+        pl.Series(NWAY_BEST_COLUMN, best, dtype=pl.Boolean),
+    ]
+    return result.with_columns(extra_columns)
 
 
 # --------------------------------------------------------------------------- #

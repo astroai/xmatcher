@@ -24,11 +24,34 @@ without it. Requires torchsky 0.6.0 (released first).
     unsigned and `int8` columns, repeat counts for vectors, and `TNULL` for
     integer nulls.
   - Reading a HATS tree streams its partitions in (order, pixel) order.
-- `xmatcher[torchsky]` extra (`torchsky>=0.5.0`, the public PyPI release) and a
-  `torchsky` pixi environment with conda-forge CPU PyTorch. CI runs the full
-  offline gate in it, and releases require it. The torchsky engine, epoch
-  Jacobians and torchsky HEALPix paths are tested against Astropy, brute force
-  and the default engines there instead of being skipped.
+- N-way association with photometric terms (torchsky `associate_many`):
+  - `matcher="lr"` with three or more catalogues (`crossmatch_multi`, CLI
+    `xmatcher match A B C --matcher lr`) is one N-way association instead of
+    a chain of pairwise matches against an accumulated position (which failed
+    with a duplicate `lr` column). Each primary row's hypotheses combine one
+    gated counterpart or none per catalogue; `lr_q` is every secondary's
+    completeness. `find="best"` (default) keeps each primary's MAP
+    hypothesis, `join_type="all1"` adds primaries without one; other join
+    types, `filter_expr`, `extra_distance_cols`, `prior_columns` and
+    `probabilistic` are rejected.
+  - Photometric terms as for two catalogues: `lr_magnitude_column` for every
+    secondary, or per catalogue `lr_magnitude_column_<n>` (CLI: a
+    comma-separated `--lr-magnitude-column W1mag,Jmag`, or
+    `--side N lr_magnitude_column=COL`). New `lr_color_column` (CLI
+    `--lr-color-column`) makes the term the colour secondary − primary
+    (e.g. W1 − G), for two or more catalogues.
+  - On an injected three-catalogue field (one background source per gate),
+    magnitude or colour terms raise the fraction of correct MAP triples by
+    over 8 points (tested), the direction of torchsky's own result.
+  - New CLI option `--side N KEY=VALUE` sets per-catalogue overrides for any
+    catalogue, not only 1 and 2.
+- Output columns of N-way results (`nway_match`, and `matcher="lr"` with
+  three or more catalogues), after every catalogue's columns (absent members
+  null): `sep_arcsec_<k>` (separation of catalogue `k`'s member from the
+  primary), `p_match` / `reliability` (the hypothesis posterior), `lr`
+  (likelihood ratio against "no counterpart", the pairwise `lr` with two
+  catalogues), `p_any` (the primary has any counterpart) and `nway_best`
+  (the primary's MAP hypothesis).
 
 ### Changed (behaviour)
 
@@ -37,7 +60,8 @@ without it. Requires torchsky 0.6.0 (released first).
     environment carries torchsky with conda-forge CPU PyTorch, and CI runs
     every torchsky path there.
   - Until torchsky 0.6.0 is on PyPI, Pixi builds it from its release-candidate
-    commit.
+    commit (`sfabbro/torchsky` main, 243eb04f: `associate_many` with
+    photometric terms).
   - Python 3.11 support (proposed for this release) is dropped: torchsky
     supports 3.12 and 3.13 only.
   - An installed torchsky older than 0.6.0 is refused with an upgrade
@@ -57,6 +81,23 @@ without it. Requires torchsky 0.6.0 (released first).
   coverings, use torchsky only. The Astropy and cdshealpix fallbacks for a
   missing torchsky are gone; Astropy remains the tests' oracle (agreement to
   0.05 mas for proper motion near the poles and 0.2 mas for Barnard's star).
+- `nway_match` is computed by `torchsky.catalogs.associate_many` (nway-style)
+  instead of the cartesian product of candidates scored with an isotropic
+  Budavári & Szalay factor under equal prior odds:
+  - Rows are every hypothesis with at least one counterpart, partial ones
+    included (one catalogue absent), not only full N-tuples; `find="best"`
+    keeps the MAP hypothesis. `p_match` is the hypothesis posterior over all
+    of the primary's hypotheses ("no counterpart" included), with
+    completeness (`lr_q`, or fitted by EM) and background density.
+  - Full position covariances (error correlation, propagated epoch
+    covariance) replace the isotropic effective sigma.
+  - `prior_columns` become pair-colour likelihood ratios learnt by EM
+    instead of the midpoint-KDE heuristic.
+  - `max_tuples_per_source` is the exact-enumeration budget: larger
+    primaries are enumerated best-first with a certified bound on the
+    omitted posterior mass instead of being truncated. `chunk_size` is
+    ignored and `engine="ray"` runs in process (with a warning).
+  - Every catalogue needs positional errors, also when nothing matches.
 - `matcher="lr"` is computed by `torchsky.catalogs.associate`. The likelihood
   ratio is the same Sutherland & Saunders form, now with these changes:
   - q(m) is learnt by EM from the posteriors, not by background subtraction.

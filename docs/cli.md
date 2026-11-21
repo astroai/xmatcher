@@ -92,6 +92,7 @@ xmatcher match [catalogues ...] [options]
 | `--columns-2 COLS` | all | Comma-separated list of columns to read from catalogue 2. |
 | `--side1 KEY=VALUE` | `None` | Overrides for catalogue 1 (repeatable). Keys: `ra_column`, `dec_column`, `id_column`, `ra_err_column`, `dec_err_column`, `corr_column`, `pos_err_units`, `default_pos_error_arcsec`, `epoch`, `epoch_column`, `pm_ra_column`, `pm_dec_column`, `parallax_column`, `radial_velocity_column`, `frame`. |
 | `--side2 KEY=VALUE` | `None` | Overrides for catalogue 2 (repeatable, same keys as `--side1`). |
+| `--side N KEY=VALUE` | `None` | Overrides for catalogue `N`, any catalogue (repeatable, same keys as `--side1`, plus `lr_magnitude_column`). |
 
 ### Match Algorithms & Engines
 
@@ -140,7 +141,8 @@ xmatcher match [catalogues ...] [options]
 
 | Option | Description |
 |---|---|
-| `--lr-magnitude-column COL` | Magnitude column for Likelihood Ratio matcher (required when `--matcher lr`). |
+| `--lr-magnitude-column COL` | Magnitude column for Likelihood Ratio matcher (required when `--matcher lr`). With three or more catalogues, one name for every secondary or a comma-separated list, one per secondary (`W1mag,Jmag`); `--matcher lr` with $N \ge 3$ runs one $N$-way association (see [API](api.md#nway_match)). |
+| `--lr-color-column COL` | Primary magnitude column: the LR photometric term becomes the colour secondary − primary (e.g. W1 − G). |
 | `--lr-q FLOAT` | Prior probability $Q$ that a primary source has a counterpart (default: `0.8`). |
 | `--ml-color-cols COLS` | Comma-separated photometric features for `ml` / `xgb` matchers. |
 | `--ml-model-path PATH` | Path to save or load a pre-trained Random Forest model (`joblib`). |

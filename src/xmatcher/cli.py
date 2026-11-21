@@ -710,6 +710,8 @@ _SIDE_CLI_TYPES: dict[str, Callable[[str], object]] = {
     "parallax_column": str,
     "radial_velocity_column": str,
     "frame": str,
+    # Secondary catalogue's magnitude column for --matcher lr.
+    "lr_magnitude_column": str,
 }
 
 
@@ -748,10 +750,24 @@ def _build_params(args) -> dict:
     extra_distance = _parse_extra_distance_cols(args.extra_distance_cols)
     ml_color_columns = [c.strip() for c in (args.ml_color_cols or "").split(",") if c.strip()]
     macauff_flux_cols = [c.strip() for c in (args.macauff_flux_cols or "").split(",") if c.strip()]
+    lr_magnitudes = _parse_lr_magnitude_columns(
+        args.lr_magnitude_column, len(getattr(args, "catalogues", None) or [])
+    )
     side_overrides = {
         **_parse_side_overrides(getattr(args, "side1_overrides", None), 1),
         **_parse_side_overrides(getattr(args, "side2_overrides", None), 2),
     }
+    for raw_side, value in getattr(args, "side_n_overrides", None) or []:
+        try:
+            side = int(raw_side)
+        except ValueError:
+            side = 0
+        n_catalogues = len(getattr(args, "catalogues", None) or [])
+        if not 1 <= side <= n_catalogues:
+            raise CrossMatchError(
+                f"--side {raw_side}: expected a catalogue number from 1 to {n_catalogues}."
+            )
+        side_overrides.update(_parse_side_overrides([value], side))
     params = dict(
         radius_arcsec=args.radius_arcsec,
         matcher=args.matcher or "sky",
@@ -775,7 +791,8 @@ def _build_params(args) -> dict:
         memory_budget_bytes=args.memory_budget_bytes,
         scratch_dir=args.scratch_dir,
         partition_order=args.partition_order,
-        lr_magnitude_column=args.lr_magnitude_column,
+        lr_magnitude_column=lr_magnitudes.pop("lr_magnitude_column", None),
+        lr_color_column=getattr(args, "lr_color_column", None),
         lr_q=args.lr_q,
         ml_color_columns=ml_color_columns,
         ml_model_path=args.ml_model_path,
@@ -808,7 +825,27 @@ def _build_params(args) -> dict:
     # ``--side1/--side2`` are the more specific spelling of the per-side
     # column flags, so they win when both are supplied.
     params.update(side_overrides)
+    params.update(lr_magnitudes)
     return params
+
+
+def _parse_lr_magnitude_columns(value: str | None, n_catalogues: int) -> dict[str, str]:
+    """``--lr-magnitude-column``: one name for every secondary, or one per secondary.
+
+    ``W1mag,Jmag`` with three catalogues names catalogue 2's and catalogue 3's
+    magnitude columns (``lr_magnitude_column_2``, ``lr_magnitude_column_3``).
+    """
+    names = [c.strip() for c in (value or "").split(",") if c.strip()]
+    if not names:
+        return {}
+    if len(names) == 1:
+        return {"lr_magnitude_column": names[0]}
+    if len(names) != n_catalogues - 1:
+        raise CrossMatchError(
+            f"--lr-magnitude-column lists {len(names)} columns for {n_catalogues - 1} "
+            "secondary catalogues; give one name, or one per secondary catalogue."
+        )
+    return {f"lr_magnitude_column_{n}": name for n, name in enumerate(names, start=2)}
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -912,7 +949,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
             "  ra_column, dec_column, id_column, ra_err_column, dec_err_column,\n"
             "  corr_column, pos_err_units, default_pos_error_arcsec, epoch,\n"
             "  epoch_column, pm_ra_column, pm_dec_column, parallax_column,\n"
-            "  radial_velocity_column, frame.\n"
+            "  radial_velocity_column, frame, lr_magnitude_column.\n"
             "Example: --side1 ra_err_column=ra_err,pos_err_units=mas"
         ),
     )
@@ -929,6 +966,14 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         action="append",
         metavar="KEY=VALUE",
         help="Overrides for catalogue 2.",
+    )
+    g_side.add_argument(
+        "--side",
+        dest="side_n_overrides",
+        action="append",
+        nargs=2,
+        metavar=("N", "KEY=VALUE"),
+        help="Overrides for catalogue N (any catalogue, e.g. --side 3 ra_err_column=err).",
     )
 
     g_alg = parser.add_argument_group("Match algorithm")
@@ -1134,7 +1179,15 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_msm.add_argument(
         "--lr-magnitude-column",
         dest="lr_magnitude_column",
-        help="Magnitude column for LR matcher (required when --matcher lr).",
+        help="Magnitude column for the LR matcher (required when --matcher lr). With "
+        "three or more catalogues, one name for every secondary or a comma-separated "
+        "list with one per secondary (e.g. W1mag,Jmag).",
+    )
+    g_msm.add_argument(
+        "--lr-color-column",
+        dest="lr_color_column",
+        help="Primary-catalogue magnitude column: the LR photometric term becomes the "
+        "colour secondary magnitude - this column (e.g. G for W1 - G).",
     )
     g_msm.add_argument(
         "--lr-q",

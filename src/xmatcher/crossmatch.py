@@ -23,7 +23,6 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import replace
-from itertools import product as cartesian_product
 from pathlib import Path
 from typing import Any
 
@@ -38,7 +37,6 @@ from .astro_utils import (
     sky_extent,
     sky_extent_from_frame,
 )
-from .bayes import compute_nway_p_match, fit_empirical_kde
 from .discovery import (
     catalogue_entry_from_schema,
     endpoint_archive,
@@ -52,7 +50,6 @@ from .matchers import (
     _RIGHT_SUFFIX,
     PMATCH_COLUMN,
     _arcsec_to_chord,
-    _pos_sigma_arcsec,
     _radec_to_xyz,
     _validate_coordinate_frames,
     id_join,
@@ -1990,6 +1987,49 @@ class CrossMatch:
                     "two-catalogue union output only."
                 )
 
+        if req.spec.matcher == "lr" and len(catalogues) > 2 and not union_match:
+            # Likelihood ratios of three or more catalogues are one N-way
+            # association (torchsky associate_many), not a chain of pairwise
+            # matches against an accumulated position.
+            if req.spec.join_type not in ("1and2", "all1"):
+                raise CrossMatchError(
+                    "matcher='lr' with more than two catalogues supports join_type "
+                    f"'1and2' or 'all1', got {req.spec.join_type!r}"
+                )
+            unsupported = [
+                name
+                for name, value in (
+                    ("filter_expr", req.spec.filter_expr),
+                    ("extra_distance_cols", req.spec.extra_distance_cols),
+                    ("prior_columns", req.spec.prior_columns),
+                    ("probabilistic", req.spec.probabilistic),
+                )
+                if value
+            ]
+            if unsupported:
+                raise CrossMatchError(
+                    "matcher='lr' with more than two catalogues does not support "
+                    + ", ".join(unsupported)
+                )
+            result = self._nway_impl(
+                catalogues,
+                output_file,
+                radius_arcsec=req.spec.radius_arcsec,
+                same_band_columns=[],
+                budget=4096,
+                find=req.spec.find,
+                keep_unmatched=req.spec.join_type == "all1",
+                score_column="reliability",
+                completeness=req.spec.lr_q,
+                require_magnitudes=True,
+                hats_threshold=params.get("hats_threshold", 100_000),
+                progress_cb=progress_cb,
+                params=params,
+            )
+            if result is None:
+                return None
+            return result.lazy() if lazy else result
+
         # Resolve ALL sources up front.
         sources: list[CatalogueSource] = []
         sources.append(self.resolve_source(req.cat1, req.side1.as_dict()))
@@ -2185,15 +2225,20 @@ class CrossMatch:
         progress_cb: Callable[[str], None] | None = None,
         **params: Any,
     ) -> pl.DataFrame | None:
-        """Bayesian N-way multi-catalogue crossmatching (Budavári & Szalay 2008).
+        """Bayesian N-way multi-catalogue association (nway-style).
 
-        Matches *catalogues* simultaneously, computing an N-way Bayes factor
-        for each tuple of sources and returning a ``p_match`` column in [0, 1].
+        Runs :func:`torchsky.catalogs.associate_many` with catalogue 1 as the
+        primary. For each primary row, every combination of one gated
+        counterpart (or none) per other catalogue is a hypothesis, weighted by
+        the exact Gaussian likelihood that all present positions share one
+        true position (Budavári & Szalay 2008, full covariances), each
+        catalogue's completeness and background density, and the photometric
+        terms. A secondary row is the counterpart of at most one primary.
 
         Unlike :meth:`crossmatch_multi` (which chains pairwise inner joins),
-        this method builds cross-product tuples from catalogue 1 × catalogue 2
-        × … × catalogue N and scores them with the full N-way spatial +
-        photometric posterior.
+        hypotheses may leave any catalogue out, and the posteriors are
+        normalised over all of a primary's hypotheses, "no counterpart"
+        included.
 
         Parameters
         ----------
@@ -2203,36 +2248,45 @@ class CrossMatch:
             Write result to file (.parquet/.csv/.fits/.hats).  When ``None``
             (default), returns the DataFrame.
         radius_arcsec : float
-            Search radius (arcsec) for pairwise spatial pre-selection.
+            Hard ceiling on each pairwise candidate separation (arcsec); the
+            chi-square gate (p = 1e-4) of each pair's covariance is the other bound.
         prior_columns : list of str, optional
-            Photometric columns for the photometric prior component.
+            Bands measured in every catalogue. Each adds, per secondary, a
+            pair-colour likelihood ratio ``secondary[col] - primary[col]`` learnt
+            by EM (:class:`torchsky.catalogs.HistogramRatio`).
         max_tuples_per_source : int
-            Maximum Cartesian-product tuples per primary source before
-            truncating with a warning (default 10 000).
+            Primaries with more hypotheses are enumerated best-first, with a
+            certified bound on the posterior mass left out (no silent cut);
+            0 enumerates every hypothesis.
         chunk_size : int
-            Score tuples in batches of this size. Sources, candidate tuples
-            and result batches are materialized in memory.
+            Accepted for compatibility; the association runs in one pass.
         hats_threshold : int
             Max rows per HEALPix pixel for .hats output (default 100 000).
         **params
-            Passed through to :meth:`resolve_source` (``ra``, ``dec``,
-            ``radius_deg`` for remote downloads).
+            ``lr_magnitude_column`` (every secondary) or
+            ``lr_magnitude_column_<n>`` (catalogue ``n``): magnitude
+            likelihood-ratio terms, as for ``matcher="lr"``;
+            ``lr_color_column`` turns them into colours against that primary
+            column. ``lr_q`` fixes every secondary's completeness (default:
+            fitted by EM). ``find="best"`` keeps only each primary's MAP
+            hypothesis (default ``"all"``). The rest go to
+            :meth:`resolve_source` (``ra``, ``dec``, ``radius_deg``, per-catalogue
+            columns and errors).
 
         Returns
         -------
         pl.DataFrame or None
-            One row per matched N-tuple, with columns from all catalogues
-            (collisions get ``_2``, ``_3``, … suffixes) plus ``p_match``.
-            Returns ``None`` when ``output_file`` is set.
+            One row per hypothesis with at least one counterpart: columns from
+            all catalogues (collisions get ``_2``, ``_3``, … suffixes; absent
+            members are null), ``sep_arcsec_<k>``, ``p_match`` (the hypothesis
+            posterior), ``lr``, ``p_any`` and ``nway_best``. Returns ``None``
+            when ``output_file`` is set.
         """
         check_match_params(params, method="nway_match", n_catalogues=len(catalogues))
         if len(catalogues) < 2:
             raise CrossMatchError(
                 "nway_match requires at least 2 catalogues, got %d" % len(catalogues)
             )
-
-        if not np.isfinite(radius_arcsec) or radius_arcsec <= 0:
-            raise CrossMatchError("nway_match radius_arcsec must be positive and finite")
         for name, value, minimum in (
             ("chunk_size", chunk_size, 1),
             ("max_tuples_per_source", max_tuples_per_source, 0),
@@ -2244,6 +2298,70 @@ class CrossMatch:
                 or value < minimum
             ):
                 raise CrossMatchError(f"{name} must be an integer >= {minimum}")
+        lr_q = params.get("lr_q")
+        if lr_q is not None and not (np.isfinite(float(lr_q)) and 0.0 <= float(lr_q) <= 1.0):
+            raise CrossMatchError("lr_q must be finite and in [0, 1]")
+        return self._nway_impl(
+            catalogues,
+            output_file,
+            radius_arcsec=radius_arcsec,
+            same_band_columns=list(prior_columns or []),
+            budget=int(max_tuples_per_source) or 2**62,
+            find=params.get("find") or "all",
+            keep_unmatched=False,
+            score_column=PMATCH_COLUMN,
+            completeness=None if lr_q is None else float(lr_q),
+            require_magnitudes=False,
+            hats_threshold=hats_threshold,
+            progress_cb=progress_cb,
+            params=params,
+        )
+
+    def _nway_impl(
+        self,
+        catalogues: list[FrameInput],
+        output_file: str | Path | None,
+        *,
+        radius_arcsec: float,
+        same_band_columns: list[str],
+        budget: int,
+        find: str,
+        keep_unmatched: bool,
+        score_column: str,
+        completeness: float | None,
+        require_magnitudes: bool,
+        hats_threshold: int,
+        progress_cb: Callable[[str], None] | None,
+        params: dict[str, Any],
+    ) -> pl.DataFrame | None:
+        """Resolve, localise and epoch-align the inputs, then associate them N-way."""
+        from . import matchers as _matchers
+
+        if not np.isfinite(radius_arcsec) or radius_arcsec <= 0:
+            raise CrossMatchError("nway_match radius_arcsec must be positive and finite")
+        n_cats = len(catalogues)
+        magnitude_columns = [
+            params.get(f"lr_magnitude_column_{n}") or params.get("lr_magnitude_column")
+            for n in range(2, n_cats + 1)
+        ]
+        if require_magnitudes and not all(magnitude_columns):
+            raise CrossMatchError(
+                "matcher='lr' requires lr_magnitude_column (or lr_magnitude_column_<n>) "
+                "for every secondary catalogue"
+            )
+        color_column = params.get("lr_color_column")
+        if color_column and not any(magnitude_columns):
+            raise CrossMatchError("lr_color_column needs lr_magnitude_column")
+        engine_choice = (params.get("engine") or "auto").lower()
+        fallback_policy = str(params.get("fallback_policy", "warn"))
+        if engine_choice not in ("auto", "fast"):
+            message = (
+                f"engine={engine_choice!r}: N-way association runs in-process "
+                "(torchsky associate_many)"
+            )
+            if fallback_policy == "error":
+                raise CrossMatchError(message + " and cannot honour it")
+            logger.warning("%s.", message)
 
         # Resolve all sources and ensure they are local (download if remote).
         sources = [
@@ -2253,7 +2371,6 @@ class CrossMatch:
         target_epoch = params.get("target_epoch")
         pm_prior = bool(params.get("pm_prior", False))
         pm_prior_magnitude_column = params.get("pm_prior_magnitude_column")
-        fallback_policy = str(params.get("fallback_policy", "warn"))
         _validate_coordinate_frames(sources, target_epoch=target_epoch)
         for i, src in enumerate(sources):
             if not src.is_local:
@@ -2267,7 +2384,6 @@ class CrossMatch:
                         radius_arcsec=radius_arcsec,
                         target_epoch=target_epoch,
                         probabilistic=True,
-                        prior_columns=prior_columns,
                     )
                     downloaded = self._download_remote(
                         src, req, prefix=str(i + 1), progress_cb=progress_cb
@@ -2280,17 +2396,13 @@ class CrossMatch:
                 else:
                     raise CrossMatchError(
                         f"Catalogue {i + 1} ('{src.name}') is not local; "
-                        f"nway_match requires local or downloadable catalogues."
+                        f"N-way association requires local or downloadable catalogues."
                     )
             sources[i] = src
 
         frames = [s.lazy().collect() for s in sources]
-        orig_cols = [list(f.columns) for f in frames]
-        n_cats = len(sources)
 
         if target_epoch is not None:
-            from . import matchers as _matchers
-
             target_ep = float(target_epoch)
             empty_src = CatalogueSource(
                 name="_empty", is_local=True, ra_column="_ra", dec_column="_dec"
@@ -2324,275 +2436,46 @@ class CrossMatch:
                 frame[source.dec_column or "dec"].to_numpy(),
                 label=f"catalogue '{source.name}'",
             )
-        prior_kdes = []
-        for column in prior_columns or []:
+        for column in same_band_columns:
             if any(column not in frame.columns for frame in frames):
                 raise CrossMatchError(
                     f"N-way prior column '{column}' must exist in every catalogue"
                 )
-            values = np.concatenate([frame[column].cast(pl.Float64).to_numpy() for frame in frames])
-            prior_kdes.append(fit_empirical_kde(values, np.empty(0)))
 
-        # Collect pairwise spatial match indices (primary × each other cat).
-        p_ra = sources[0].ra_column or "ra"
-        p_dec = sources[0].dec_column or "dec"
-        engine_choice = (params.get("engine") or "auto").lower()
-        all_pairs: list[tuple[np.ndarray, np.ndarray]] = []
-
-        for j in range(1, n_cats):
-            if engine_choice == "ray":
-                from .ray_engine import ray_zone_match
-
-                p_idx_j, o_idx_j, _ = ray_zone_match(
-                    frames[0],
-                    frames[j],
-                    sources[0],
-                    sources[j],
-                    MatchSpec(radius_arcsec=radius_arcsec, find="all"),
-                )
-                all_pairs.append((p_idx_j.astype(int), o_idx_j.astype(int)))
-            else:
-                from scipy.spatial import cKDTree
-
-                l_ra_np = frames[0][p_ra].to_numpy()
-                l_dec_np = frames[0][p_dec].to_numpy()
-                r_ra_np = frames[j][sources[j].ra_column or "ra"].to_numpy()
-                r_dec_np = frames[j][sources[j].dec_column or "dec"].to_numpy()
-
-                if len(l_ra_np) == 0 or len(r_ra_np) == 0:
-                    all_pairs.append((np.array([], int), np.array([], int)))
-                    continue
-
-                l_xyz = _radec_to_xyz(l_ra_np, l_dec_np)
-                r_xyz = _radec_to_xyz(r_ra_np, r_dec_np)
-                chord_max = _arcsec_to_chord(radius_arcsec)
-                tree = cKDTree(r_xyz)
-                idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=-1)
-
-                p_idx_parts, o_idx_parts = [], []
-                for pi, neighbors in enumerate(idx_lists):
-                    if neighbors:
-                        p_idx_parts.append(np.full(len(neighbors), pi, dtype=int))
-                        o_idx_parts.append(np.asarray(neighbors, dtype=int))
-                if p_idx_parts:
-                    all_pairs.append((np.concatenate(p_idx_parts), np.concatenate(o_idx_parts)))
-                else:
-                    all_pairs.append((np.array([], int), np.array([], int)))
-
-        # If any non-primary catalogue has no matches, return empty.
-        if any(len(p[0]) == 0 for p in all_pairs):
-            empty = _build_empty_nway_result(
-                [f.select(cols) for f, cols in zip(frames, orig_cols, strict=True)], n_cats
-            )
-            if output_file:
-                io_utils.write_frame(
-                    empty,
-                    output_file,
-                    ra_column=p_ra,
-                    dec_column=p_dec,
-                    hats_threshold=hats_threshold,
-                )
-                return None
-            return empty
-
-        # Pre-compute sigma arrays for all catalogues before stripping temporary columns.
-        cat_ra_names = [sources[i].ra_column or "ra" for i in range(n_cats)]
-        cat_dec_names = [sources[i].dec_column or "dec" for i in range(n_cats)]
-        sigmas_all = []
-        for i, src in enumerate(sources):
-            from . import matchers as _matchers
-
-            if _matchers._PROPAGATED_COV_EE in frames[i].columns:
-                covariance = _matchers._pos_covariance(frames[i], src)
-                sigma = np.sqrt(covariance[0] + covariance[1])
-            else:
-                sigma = _pos_sigma_arcsec(frames[i], src)
-            if sigma is None:
-                raise CrossMatchError(
-                    f"N-way catalogue '{src.name}' needs declared positional errors or an explicit default_pos_error_arcsec"
-                )
-            else:
-                # Gaussian weights need per-axis sigma, not radial RMS.
-                sigma = np.maximum(sigma / np.sqrt(2.0), 1e-6)
-            sigmas_all.append(sigma)
-        frames = [f.select(cols) for f, cols in zip(frames, orig_cols, strict=True)]
-
-        # Pre-group candidate indices by primary index in O(N_pairs) time.
-        pairs_by_pi: list[dict[int, np.ndarray]] = []
-        for p_idx, o_idx in all_pairs:
-            order = np.argsort(p_idx, kind="stable")
-            p_sorted = p_idx[order]
-            o_sorted = o_idx[order]
-            uniq, first_pos = np.unique(p_sorted, return_index=True)
-            splits = np.split(o_sorted, first_pos[1:])
-            pairs_by_pi.append({int(k): v for k, v in zip(uniq, splits, strict=True)})
-
-        # Chunked cartesian-product tuple iteration.
-        n_primary = frames[0].height
-        chunk_batches: list[list] = []
-        chunk_tuples: list = []
-        total_tuples = 0
-        truncated_sources = 0
-
-        for pi in range(n_primary):
-            matches_per_cat = [by_pi.get(pi) for by_pi in pairs_by_pi]
-            if any(m is None or len(m) == 0 for m in matches_per_cat):
-                continue
-
-            prod_size = 1
-            for m in matches_per_cat:
-                assert m is not None
-                prod_size *= len(m)
-            if prod_size == 0:
-                continue
-
-            if max_tuples_per_source and prod_size > max_tuples_per_source:
-                truncated_sources += 1
-                if truncated_sources == 1:
-                    logger.warning(
-                        "Per-source tuple count %d exceeds max_tuples_per_source=%d; "
-                        "truncating (further warnings suppressed).",
-                        prod_size,
-                        max_tuples_per_source,
-                    )
-                cap = max_tuples_per_source
-                for count, combo in enumerate(cartesian_product(*matches_per_cat)):  # type: ignore[arg-type]
-                    if count >= cap:
-                        break
-                    indices = [pi] + list(combo)
-                    chunk_tuples.append(indices)
-                    total_tuples += 1
-                    if len(chunk_tuples) >= chunk_size:
-                        chunk_batches.append(chunk_tuples)
-                        chunk_tuples = []
-            else:
-                for combo in cartesian_product(*matches_per_cat):  # type: ignore[arg-type]
-                    indices = [pi] + list(combo)
-                    chunk_tuples.append(indices)
-                    total_tuples += 1
-                    if len(chunk_tuples) >= chunk_size:
-                        chunk_batches.append(chunk_tuples)
-                        chunk_tuples = []
-
-        if chunk_tuples:
-            chunk_batches.append(chunk_tuples)
-
-        if not chunk_batches:
-            empty = _build_empty_nway_result(frames, n_cats)
-            if output_file:
-                io_utils.write_frame(
-                    empty,
-                    output_file,
-                    ra_column=p_ra,
-                    dec_column=p_dec,
-                    hats_threshold=hats_threshold,
-                )
-                return None
-            return empty
-
-        if engine_choice == "ray":
-            try:
-                import ray  # noqa: PLC0415
-
-                from .ray_union import _init_ray  # noqa: PLC0415
-
-                if not ray.is_initialized():
-                    _init_ray(ray, engine="ray", fallback_policy=fallback_policy)
-
-                @ray.remote
-                def _ray_nway_chunk(
-                    batch: list,
-                    n_c: int,
-                    frames_val: list,
-                    ra_names: list,
-                    dec_names: list,
-                    sigmas_val: list,
-                    rad_arcsec: float,
-                    priors: list | None,
-                    population_kdes: list,
-                ) -> pl.DataFrame:
-                    return _process_nway_chunk(
-                        batch,
-                        n_c,
-                        frames_val,
-                        ra_names,
-                        dec_names,
-                        sigmas_val,
-                        rad_arcsec,
-                        priors,
-                        population_kdes,
-                    )
-
-                frames_ref = ray.put(frames)
-                sigmas_ref = ray.put(sigmas_all)
-                futures = [
-                    _ray_nway_chunk.remote(
-                        batch,
-                        n_cats,
-                        frames_ref,
-                        cat_ra_names,
-                        cat_dec_names,
-                        sigmas_ref,
-                        radius_arcsec,
-                        prior_columns,
-                        prior_kdes,
-                    )
-                    for batch in chunk_batches
-                ]
-                result_chunks = list(ray.get(futures))
-            except ImportError:
-                result_chunks = [
-                    _process_nway_chunk(
-                        batch,
-                        n_cats,
-                        frames,
-                        cat_ra_names,
-                        cat_dec_names,
-                        sigmas_all,
-                        radius_arcsec,
-                        prior_columns,
-                        prior_kdes,
-                    )
-                    for batch in chunk_batches
-                ]
-        else:
-            result_chunks = [
-                _process_nway_chunk(
-                    batch,
-                    n_cats,
-                    frames,
-                    cat_ra_names,
-                    cat_dec_names,
-                    sigmas_all,
-                    radius_arcsec,
-                    prior_columns,
-                    prior_kdes,
-                )
-                for batch in chunk_batches
-            ]
-
-        if truncated_sources:
-            logger.info(
-                "%d/%d primary sources had tuples truncated at %d per source.",
-                truncated_sources,
-                n_primary,
-                max_tuples_per_source,
-            )
-
-        logger.info(
-            "nway_match: %d tuples from %d catalogues across %d primary sources.",
-            total_tuples,
-            n_cats,
-            n_primary,
+        if progress_cb is not None:
+            progress_cb("associating catalogues")
+        assoc = _matchers.nway_associate(
+            frames,
+            sources,
+            radius_arcsec=float(radius_arcsec),
+            magnitude_columns=magnitude_columns,
+            color_column=color_column,
+            same_band_columns=same_band_columns,
+            completeness=completeness,
+            budget=budget,
         )
-        result = pl.concat(result_chunks, how="vertical")
+        result = _matchers.build_nway_frame(
+            frames,
+            assoc,
+            find=find,
+            keep_unmatched=keep_unmatched,
+            score_column=score_column,
+        )
+        logger.info(
+            "N-way association: %d rows from %d catalogues across %d primary sources "
+            "(completeness %s).",
+            result.height,
+            n_cats,
+            frames[0].height,
+            ", ".join(f"{c:.3f}" for c in assoc.completeness[1:]),
+        )
 
         if output_file:
             io_utils.write_frame(
                 result,
                 output_file,
-                ra_column=p_ra,
-                dec_column=p_dec,
+                ra_column=sources[0].ra_column or "ra",
+                dec_column=sources[0].dec_column or "dec",
                 hats_threshold=hats_threshold,
             )
             return None
@@ -2913,95 +2796,3 @@ class CrossMatch:
                 progress_cb=progress_cb,
             )
         raise CrossMatchError(f"Cannot download from access method '{src.access_method}'.")
-
-
-# --------------------------------------------------------------------------- #
-# nway_match helpers (module-level for pickling safety)
-# --------------------------------------------------------------------------- #
-def _build_empty_nway_result(frames: list, n_cats: int) -> pl.DataFrame:
-    """Return an empty N-way frame while retaining each measurement's dtype."""
-    schema = dict(frames[0].schema)
-    for j in range(1, n_cats):
-        for column, dtype in frames[j].schema.items():
-            name = column
-            while name in schema:
-                name += f"_{j + 1}"
-            schema[name] = dtype
-    schema[PMATCH_COLUMN] = pl.Float64
-    return pl.DataFrame(schema=schema)
-
-
-def _process_nway_chunk(
-    chunk_tuples: list,
-    n_cats: int,
-    frames: list,
-    cat_ra_names: list,
-    cat_dec_names: list,
-    sigmas_all: list,
-    radius_arcsec: float,
-    prior_columns: list | None,
-    prior_kdes: list | None = None,
-) -> pl.DataFrame:
-    """Process one chunk of N-way tuples: compute p_match and build frame."""
-    # Extract per-catalogue index arrays from the chunk.
-    indices_per_cat = [
-        np.array([t[i] for t in chunk_tuples], dtype=np.int64) for i in range(n_cats)
-    ]
-
-    ras = [
-        frames[i][cat_ra_names[i]].to_numpy()[indices_per_cat[i]].astype(float)
-        for i in range(n_cats)
-    ]
-    decs = [
-        frames[i][cat_dec_names[i]].to_numpy()[indices_per_cat[i]].astype(float)
-        for i in range(n_cats)
-    ]
-    sigmas = [sigmas_all[i][indices_per_cat[i]] for i in range(n_cats)]
-
-    if prior_columns:
-        prior_data = []
-        for col in prior_columns:
-            col_vals = []
-            for i, f in enumerate(frames):
-                if col in f.columns:
-                    col_vals.append(f[col].to_numpy()[indices_per_cat[i]].astype(float))
-                else:
-                    col_vals.append(np.full(len(indices_per_cat[i]), np.nan))
-            prior_data.append(col_vals)
-        p_match = compute_nway_p_match(
-            ras,
-            decs,
-            sigmas,
-            radius_arcsec,
-            prior_columns=prior_data,
-            prior_kdes=prior_kdes,
-        )
-    else:
-        p_match = compute_nway_p_match(ras, decs, sigmas, radius_arcsec)
-
-    # Build chunk result frame.
-    # Track ALL seen column names so collisions between catalogues 2+3
-    # (e.g. RAJ2000 in both AllWISE and USNO) are suffixed correctly.
-    result_parts = []
-    seen_columns: set = set()
-    for i, f in enumerate(frames):
-        suffix = f"_{i + 1}" if i > 0 else ""
-        part = f.gather(indices_per_cat[i])
-        if suffix:
-            names = set(seen_columns)
-            renames = {}
-            for column in part.columns:
-                name = column
-                while name in names:
-                    name += suffix
-                names.add(name)
-                renames[column] = name
-            part = part.rename(renames)
-        seen_columns.update(part.columns)
-        result_parts.append(part)
-
-    result = result_parts[0].hstack(
-        [column for frame in result_parts[1:] for column in frame.get_columns()]
-    )
-    result = result.with_columns(pl.Series(PMATCH_COLUMN, p_match))
-    return result

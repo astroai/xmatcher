@@ -65,7 +65,7 @@ Choose the appropriate matcher based on your input catalogue properties and scie
 | `matcher="skyellipse"` | RA, Dec, Covariance $\mathbf{C}$ | Mahalanobis distance $d_{\text{M}}^2$ | $O(N \log M + K)$ | Anisotropic errors (drift-scans, slitless spectroscopy, Chandra/XMM). |
 | `matcher="lr"` | RA, Dec, $\sigma_{\text{pos}}$, Magnitude | Likelihood Ratio $LR$ and Reliability $R_j$ | $O(N \log M + K)$ | Cross-identifying low-resolution (Radio/X-ray) with dense Optical/IR catalogues. |
 | `probabilistic=True` | RA, Dec, Errors, Photometry | Bayesian posterior $p_{\text{match}}$ | $O(N \log M + K)$ | Rigorous hypothesis testing ($H_{\text{match}}$ vs. $H_{\text{bg}}$) with empirical flux priors. |
-| `nway_match()` | RA, Dec, Errors ($N \ge 2$) | Joint $N$-way Bayes factor $B$ | $O(N \cdot K_{\text{tuple}})$ | Simultaneous multi-survey matching (Budavári & Szalay 2008). |
+| `nway_match()`, `matcher="lr"` with $N \ge 3$ | RA, Dec, Errors ($N \ge 2$), optional magnitudes | Hypothesis posterior and $N$-way $LR$ | $O(N \log M + K_{\text{hyp}})$ | Simultaneous multi-survey association (Budavári & Szalay 2008, nway) via torchsky `associate_many`. |
 | `matcher="ml"` | RA, Dec, Photometry/Colors | Random Forest pseudo-label score | $O(N \log M + K_{\text{infer}})$ | Multi-band optical/infrared matching with complex color distributions. |
 | `matcher="xgb"` | RA, Dec, Photometry/Colors | Gradient Boosted tree score | $O(N \log M + K_{\text{infer}})$ | Non-linear photometric feature interactions and fast C++ inference. |
 | `matcher="auf"` | RA, Dec | Empirical Annular Residual Score | $O(N \log M + K)$ | Heuristic background-subtracted candidate scoring. |
@@ -439,36 +439,29 @@ $$
 
 ---
 
-### C. Simultaneous $N$-Way Bayesian Matching (`nway_match`)
+### C. Simultaneous $N$-Way Association (`nway_match`, `matcher="lr"` with $N \ge 3$)
 
 #### Intuition
-Chaining sequential pairwise matches ($A \times B \times C$) leads to accumulated false associations and depends on catalogue order. The $N$-way matcher implements the Budavári & Szalay (2008) formulation to jointly evaluate the mutual astrometric agreement of $N \ge 2$ catalogues simultaneously.
+Chaining sequential pairwise matches ($A \times B \times C$) accumulates false associations and depends on catalogue order. The $N$-way association (nway-style, computed by torchsky's `associate_many`) scores, for each primary source (catalogue 1), every combination of one gated counterpart **or none** per other catalogue, so a source missing from one survey is a hypothesis, not a lost match.
 
 #### Mathematical Formulation
-Let $N$ catalogues report coordinates $\mathbf{x}_i$ with isotropic per-axis uncertainties $\sigma_i$ (in radians). Define the astrometric precision weights:
+A hypothesis $h$ with present catalogues $S$ has weight
 
 $$
-w_i = \frac{1}{\sigma_i^2}, \qquad W = \sum_{i=1}^N w_i
+w_h = \prod_{c \in S} \frac{\pi_c\, \rho_c}{\nu_c} \prod_{c \notin S} (1 - \pi_c)\; M_S
 $$
 
-The simultaneous spatial Bayes factor $B$ is:
+- $M_S$ is the exact Gaussian marginal likelihood that all present positions (the primary's included) come from one true position with a flat prior, with each row's full $2\times 2$ covariance in the primary's tangent plane (Budavári & Szalay 2008, eq. 18, generalised from isotropic errors).
+- $\pi_c$ is catalogue $c$'s completeness: `lr_q` when given, otherwise fitted by EM.
+- $\nu_c$ is catalogue $c$'s background surface density over its footprint.
+- $\rho_c = q_c/n_c$ is the photometric likelihood ratio of the member (1 without terms): a histogram ratio of the secondary's magnitude (`lr_magnitude_column`), or of the colour secondary − primary (`lr_color_column`, or `prior_columns` for one band measured in every catalogue), learnt by EM from the hypothesis posteriors.
 
-$$
-B = 2^{N-1} \frac{\prod_{i=1}^N w_i}{W} \exp\left(-\frac{1}{2} \sum_{i < j} \frac{w_i w_j}{W} \psi_{ij}^2\right)
-$$
+Candidates pass a $\chi^2_2$ gate ($p = 10^{-4}$) and the `radius_arcsec` ceiling. Each secondary source is the counterpart of at most one primary (Bethe posteriors of that constraint). Primaries with more than `max_tuples_per_source` (4096 for `matcher="lr"`) hypotheses are enumerated best-first, and the posterior mass left out is bounded instead of being truncated silently.
 
-where $\psi_{ij}$ is the great-circle separation between catalogue $i$ and catalogue $j$ in radians.
-
-#### Breakdown of Terms
-- **Precision Concentration Factor**: The prefactor $2^{N-1} \frac{\prod w_i}{W}$ represents the volume compression of the joint parameter space under the match hypothesis.
-- **Pairwise Astrometric Tension Penalty**: The exponential term $\sum_{i<j} \frac{w_i w_j}{W} \psi_{ij}^2$ penalizes mutual coordinate divergence across all catalogue pairs simultaneously.
-
-#### Posterior Probability
-Applying prior probability $P_0$ (default: $0.5$):
-
-$$
-p_{\text{match}} = \frac{1}{1 + \exp\left(-\left(\ln B + \ln \frac{P_0}{1 - P_0}\right)\right)}
-$$
+#### Outputs
+- `p_match` (`nway_match`) or `reliability` (`matcher="lr"`): the hypothesis posterior, normalised over all of the primary's hypotheses including "no counterpart".
+- `lr`: $w_h / w_\emptyset$ with the completeness priors divided out, $\rho \, M_S / \prod_{c\in S} \nu_c$. With two catalogues this is the pairwise `matcher="lr"` likelihood ratio, and the posterior equals its reliability.
+- `p_any`: probability that the primary has at least one counterpart; `nway_best`: the hypothesis is the primary's MAP one.
 
 ---
 
@@ -610,5 +603,6 @@ When $\pi R^2 \rho \approx 1$, spatial proximity alone fails completely.
 | `d2_mahalanobis` | $[0, \infty)$ | Covariance-weighted squared distance; distributed as $\chi^2$ with 2 d.o.f. |
 | `lr` | $[0, \infty)$ | Sutherland & Saunders Likelihood Ratio. Higher values indicate greater match odds. |
 | `reliability` | $[0, 1]$ | Candidate reliability under explicit model distribution estimates. |
-| `p_match` | $[0, 1]$ | Bayesian posterior probability under declared equal prior odds and uniform background. |
+| `p_match` | $[0, 1]$ | Pairwise: Bayesian posterior probability under declared equal prior odds and uniform background. `nway_match`: posterior of the $N$-way hypothesis. |
+| `p_any` | $[0, 1]$ | $N$-way: probability that the primary has at least one counterpart. |
 | `ml_score` / `xgb_score` | $[0, 1]$ | Supervised classifier ranking score. Excellent for ordering; not calibrated probabilities. |
