@@ -152,7 +152,7 @@ class MatchSpec:
     # names from the left side are used as-is; right-side columns gain a
     # ``_2`` suffix (e.g. ``abs(mag_g - mag_g_2) < 0.5``).
     filter_expr: str | None = None
-    # Extra columns for N-dimensional cKDTree matching, mapping column name
+    # Extra columns for N-dimensional candidate ranking, mapping column name
     # to a dimensionless weight.  Columns are z-score normalized across the
     # union of both catalogues and appended to the 3-D Cartesian unit-sphere
     # embedding.  The spatial ``radius_arcsec`` is still enforced as a hard
@@ -1547,7 +1547,7 @@ def _apply_match_filter(
 
 
 # --------------------------------------------------------------------------- #
-# Tier 1 — fast engine (scipy.spatial.cKDTree, no Java, no FITS I/O)
+# Tier 1 — fast engine (torchsky zone index, no Java, no FITS I/O)
 # --------------------------------------------------------------------------- #
 def _local_match(
     left: pl.DataFrame,

@@ -340,7 +340,7 @@ is `--fallback-policy error`.
 
 ---
 
-### Technical Deep Dive: Astropy vs. SciPy cKDTree
+### Technical Deep Dive: Astropy vs. the torchsky Zone Index
 
 `fast` and `astropy` provide alternative local spatial-query implementations. Their relative performance depends on data size, candidate density, hardware, and installed libraries; measure on representative data with [`scripts/bench_engines.py`](../scripts/bench_engines.py).
 
@@ -353,14 +353,14 @@ flowchart TD
         A4 --> A5["Angle / Quantity Separations"]
     end
 
-    subgraph SciPy cKDTree (fast Engine)
+    subgraph torchsky SkyIndex (fast Engine)
         B1["RA/Dec Arrays"] --> B2["Vectorized 3D Unit Sphere<br/>x = cos(δ)cos(α), y = cos(δ)sin(α), z = sin(δ)"]
-        B2 --> B3["scipy.spatial.cKDTree"]
+        B2 --> B3["torchsky.catalogs.SkyIndex<br/>declination zones"]
         B3 --> B4["Chord length d = 2·sin(θ/2)<br/>Zero Python Object Allocations"]
     end
 ```
 
-1. **Coordinate representation**: Astropy uses `SkyCoord`; the fast path constructs unit-sphere Cartesian arrays for SciPy's `cKDTree`. Costs depend on input and candidate counts.
+1. **Coordinate representation**: Astropy uses `SkyCoord`; the fast path builds torchsky's declination-zone index (`SkyIndex`) on unit-sphere vectors. Costs depend on input and candidate counts.
 2. **Parallelism & Performance**: Runtime and threading depend on the selected query path and native libraries. No fixed speedup or memory-per-row estimate applies across input sizes and candidate densities.
 3. **Exact Spherical to Chord Distance Mapping**:
    The angular separation $\theta$ on the celestial sphere corresponds to the 3D Euclidean chord length $d$:
@@ -371,7 +371,7 @@ $$
 
    The `fast` engine maps unit-sphere angular search radii to Euclidean chord radii; returned separations are great-circle angles.
 4. **N-Dimensional Multimodal Ranking**:
-   - When `extra_distance_cols` is configured, `fast` finds all spatial candidates with `cKDTree`, then ranks them using combined spatial distance and z-score normalized photometry or proper motions.
+   - When `extra_distance_cols` is configured, `fast` finds all spatial candidates with the zone index, then ranks them using combined spatial distance and z-score normalized photometry or proper motions.
 
 ---
 

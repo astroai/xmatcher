@@ -15,7 +15,7 @@ flowchart TD
     end
 
     subgraph ENG["Spatial & Distributed Engines"]
-        E1["fast<br/>Vectorized 3D Unit Sphere cKDTree"]
+        E1["fast<br/>torchsky exact declination-zone index"]
         E2["zone<br/>HEALPix-Sharded Spatial Zoning"]
         E3["ray-union / ray-anchor<br/>Distributed Multi-Node Ray Cluster"]
     end

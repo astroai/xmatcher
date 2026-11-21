@@ -1,6 +1,6 @@
 #!/bin/bash
 # CANFAR headless run of scripts/canfar-torchsky-zensus-test.py against public
-# torchsky (>=0.5.0 from PyPI, CPU PyTorch). Packages go to /scratch, never to
+# torchsky (>=0.6.0, a core xmatcher dependency; CPU PyTorch). Packages go to /scratch, never to
 # $HOME/.local (shared /arc home).
 set -euo pipefail
 
@@ -16,13 +16,13 @@ vcp vos:sfabbro/xmatcher.tar.gz /scratch/xmatcher.tar.gz
 mkdir -p "${WORK}/astroai/xmatcher"
 tar -xzf /scratch/xmatcher.tar.gz -C "${WORK}/astroai/xmatcher"
 
-echo "==> 2. Installing xmatcher[torchsky,cds] into isolated /scratch/packages..."
+echo "==> 2. Installing xmatcher[cds] (with torchsky) into isolated /scratch/packages..."
 # CPU PyTorch: PyPI's Linux wheels pull the multi-GB CUDA toolkit. The local
 # "+cpu" build sorts above the PyPI build of the same release.
 mkdir -p /scratch/packages
 pip install --target /scratch/packages \
     --extra-index-url https://download.pytorch.org/whl/cpu \
-    "${WORK}/astroai/xmatcher[torchsky,cds]"
+    "${WORK}/astroai/xmatcher[cds]"
 export PYTHONPATH=/scratch/packages
 python3 -c "import torch, torchsky, torchfits, xmatcher; print('torchsky', torchsky.__version__, 'torch', torch.__version__, 'torchfits', torchfits.__version__)"
 

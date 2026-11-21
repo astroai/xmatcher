@@ -106,9 +106,6 @@ without it. Requires torchsky 0.6.0 (released first).
     normalised q(m) to 1 instead of Q.
   - Candidates pass a χ² gate (p = 1e-4) as well as the `radius_arcsec` ceiling.
   - In crowded fields a right row is the counterpart of at most one left row.
-- An installed torchsky older than 0.5.0 (or one that fails to import) is an
-  error naming the upgrade, instead of crashing mid-match with
-  `AttributeError` (old torchsky) or being silently ignored.
 - The dev environment is pinned to Python 3.13 again and the lock refreshed on
   both platforms (polars 2.1, numpy 2.5, pyarrow 26, ray 2.60, hats 0.11.2);
   macOS 14+ is required, as torchfits publishes no older macOS wheels.
@@ -207,9 +204,9 @@ without it. Requires torchsky 0.6.0 (released first).
   non-finite coordinates and lets real errors surface, and no longer makes
   PyTorch warn about read-only arrays.
 - The CANFAR torchsky runner installed a torchsky 0.4.0 tarball and stub
-  `torchfits` modules; it now installs `xmatcher[torchsky]` from PyPI with CPU
-  PyTorch. Its suite called `healpix.neighbors`, which torchsky 0.5.0 renamed
-  `get_all_neighbours`.
+  `torchfits` modules; it now installs `xmatcher[cds]` (torchsky is a core
+  dependency) with CPU PyTorch. Its suite called `healpix.neighbors`, which
+  torchsky 0.5.0 renamed `get_all_neighbours`.
 
 ## [0.6.0] — 2026-10-22
 

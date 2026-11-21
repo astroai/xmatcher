@@ -12,7 +12,7 @@ For dedicated reference manuals, see the [CLI Reference](cli.md), [Python API Re
 ### Standard: Pip
 
 ```bash
-# Core package (fast cKDTree, Polars, Astropy, PyVO)
+# Core package (torchsky zone index, Polars, Astropy, PyVO)
 pip install xmatcher
 
 # All optional features (Ray distributed, HATS, CDS, ML, Torchfits)
@@ -95,7 +95,7 @@ df = cm.crossmatch(
     "optical.parquet",
     "infrared.csv",
     radius_arcsec=1.5,
-    engine="fast",  # SciPy cKDTree on 3D unit sphere
+    engine="fast",  # torchsky exact declination-zone index
     join_type="1and2",  # Inner join
 )
 

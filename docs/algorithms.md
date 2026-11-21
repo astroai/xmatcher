@@ -27,7 +27,7 @@ flowchart TD
     end
 
     subgraph S2["Stage 2: Spatial Candidate Pruning"]
-        EMB --> TREE["cKDTree / HEALPix Zoning"]
+        EMB --> TREE["torchsky Declination-Zone Index"]
         TREE --> PRUNE["Fast Chord Radius Pruning<br/>d &le; 2·sin(θ_max / 2)"]
     end
 
@@ -84,7 +84,7 @@ Spherical trigonometry on individual celestial coordinates $(\alpha, \delta)$ re
 ```mermaid
 flowchart LR
     A["Celestial Sphere<br/>RA (α), Dec (δ)"] -->|"Vectorized Projection"| B["3D Unit Vectors<br/>r = (x, y, z) &isin; S²"]
-    B -->|"scipy.spatial.cKDTree"| C["3D Euclidean Distance<br/>d = ||r₁ - r₂||₂"]
+    B -->|"torchsky SkyIndex (declination zones)"| C["3D Euclidean Distance<br/>d = ||r₁ - r₂||₂"]
     C -->|"Exact Inversion"| D["Great-Circle Separation<br/>θ = 2·arcsin(d / 2)"]
 ```
 
@@ -125,11 +125,11 @@ At an astronomical search radius of $\theta = 2'' \approx 9.7 \times 10^{-6}\tex
 > d_{\text{search}} = 2 \sin\left(\frac{\theta_{\text{radius}}}{2}\right)
 > $$
 >
-> The C++ `cKDTree` retrieves all points satisfying $\|\mathbf{r}_1 - \mathbf{r}_2\|_2 \le d_{\text{search}}$, and `xmatcher` converts the exact chord lengths back to great-circle arcseconds.
+> torchsky's native zone index retrieves all points satisfying $\|\mathbf{r}_1 - \mathbf{r}_2\|_2 \le d_{\text{search}}$, and `xmatcher` converts the exact chord lengths back to great-circle arcseconds.
 
 ### Multimodal $N$-Dimensional Ranking
 
-When non-spatial columns are supplied via `extra_distance_cols={"phot_g_mean_mag": 0.5}`, `xmatcher` queries spatial candidates with `cKDTree`, then ranks candidates using an $N$-dimensional Euclidean metric:
+When non-spatial columns are supplied via `extra_distance_cols={"phot_g_mean_mag": 0.5}`, `xmatcher` queries spatial candidates with the zone index, then ranks candidates using an $N$-dimensional Euclidean metric:
 
 $$
 D_{\text{total}}^2 = \left(\frac{\theta}{\theta_{\text{radius}}}\right)^2 + \sum_{k} w_k \left(\frac{c_{1, k} - c_{2, k}}{\sigma_{c, k}}\right)^2

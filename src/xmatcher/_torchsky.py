@@ -1,10 +1,9 @@
-"""Optional Torchsky integration: one import point and one version floor.
+"""Torchsky integration: one import point and one version floor.
 
-Torchsky (``pip install 'xmatcher[torchsky]'``) provides the tensor-native
-``engine="torchsky"`` matcher, the epoch-propagation Jacobians that target-epoch
-``skyerr``/``skyellipse`` covariance propagation needs, and faster HEALPix
-coverings.  Without it, proper motions are propagated with Astropy and HEALPix
-coverings use cdshealpix.
+Torchsky is a core dependency: it provides the exact sky candidate search of
+the local engines, the ``engine="torchsky"`` matcher, the likelihood-ratio and
+N-way association statistics (``associate``, ``associate_many``), the
+epoch-propagation Jacobians and the HEALPix coverings.
 
 An installed Torchsky older than :data:`MIN_VERSION` (or one that cannot be
 imported) is an error rather than silently ignored: its APIs differ, and a

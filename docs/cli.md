@@ -100,7 +100,7 @@ xmatcher match [catalogues ...] [options]
 |---|---|---|
 | `--matcher ALGORITHM` | `sky` | Matching algorithm: `sky`, `skyerr`, `skyellipse`, `lr`, `ml`, `xgb`, `auf`, `macauff`. |
 | `--max-error FLOAT` | `3.0` | N-sigma cap for `skyerr`; Mahalanobis distance cutoff for `skyellipse`. |
-| `--engine ENGINE` | `auto` | Execution engine: `auto`, `fast` (SciPy cKDTree), `zone` (HEALPix), `ray` (distributed zone), `ray-union` (full-sky outer join), `ray-anchor` (anchor-centric 1-to-N master join), `astropy`, `stilts`, `torchsky` (`sky`/`skyerr`; needs `xmatcher[torchsky]`). |
+| `--engine ENGINE` | `auto` | Execution engine: `auto`, `fast` (torchsky exact zone index), `zone` (same search as `fast`), `ray` (distributed zone), `ray-union` (full-sky outer join), `ray-anchor` (anchor-centric 1-to-N master join), `astropy`, `stilts`, `torchsky` (`crossmatch_sky`; `sky`/`skyerr` only). |
 | `--fallback-policy POLICY` | `warn` | Policy when engine cannot honour the request: `warn` (log warning and fall back) or `error` (abort). |
 | `--join JOIN_TYPE` | `1and2` (`1or2` with `--union`) | Relational join mode: `1and2` (inner), `1or2` or `all` (full outer), `all1` (left), `all2` (right), `1not2` (left anti), `2not1` (right anti). |
 | `--find POLICY` | `best` | Candidate selection policy: `best` (closest/highest ranked match) or `all` (all pairs within radius). |
