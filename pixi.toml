@@ -49,7 +49,7 @@ hats = "*"
 ray = "*"
 cdshealpix = "*"
 
-torchsky = { git = "https://github.com/sfabbro/torchsky.git", rev = "601968a797bcf522c9cdf309c298490f778114a5" }
+torchsky = { git = "https://github.com/sfabbro/torchsky.git", rev = "243eb04fd47c278f5dcaf8cea1df772f43c3642e" }
 
 # torchsky is xmatcher's matching and statistics engine. Until torchsky 0.6.0 is
 # on PyPI it is built from the fork's release-candidate commit, against this
