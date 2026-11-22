@@ -39,8 +39,6 @@ dependencies = [
 [project.optional-dependencies]
 # VizieR and CDS XMatch remote service backends.
 cds = ["astroquery>=0.4.11"]
-# HEALPix spatial zoning engine.
-zone = ["cdshealpix>=0.8"]
 # HATS / HiPSCat catalogue support.
 hats = ["hats>=0.7", "cdshealpix>=0.8"]
 # Native HATS+Ray pixel matcher.

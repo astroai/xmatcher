@@ -44,7 +44,6 @@ Install only the backends you use:
 | `ray` | `ray`, `cdshealpix` | The Ray engines: pixel-batch matching, `ray-union`, `ray-anchor` |
 | `hats-ray` | `hats`, `ray`, `cdshealpix` | `hats` and `ray` together |
 | `ml` | `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | The `ml` and `xgb` matchers |
-| `zone` | `cdshealpix` | `cdshealpix` only; `engine="zone"` runs on torchsky since 0.7 and needs no extra. Kept so existing install commands work |
 | `all` | All of the above | Everything |
 
 Local matching (`fast`, `zone`), file conversion and remote TAP queries need no
