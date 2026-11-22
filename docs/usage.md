@@ -684,13 +684,14 @@ separation. This runs in memory; for full-sky unions use
 [`ray-union`](#distributed-full-sky-union-ray-union).
 
 ```bash
-xmatcher match survey1.parquet survey2.csv survey3.fits --union -o master.parquet
+xmatcher match survey1.parquet survey2.csv survey3.fits --union -o master.hats
 ```
 
-A row found only in a later catalogue has null first-catalogue `ra`/`dec`, so
-the in-memory union cannot be written as a `.hats` tree in 0.7.0 (the writer
-rejects the non-finite coordinates); write Parquet, CSV or FITS, or use
-`ray-union` for HATS output.
+A row found only in a later catalogue has a null first-catalogue `ra`/`dec`.
+A `.hats` output therefore gains `_union_ra` and `_union_dec`, the position of
+the first catalogue present in each row (as `ray-union` writes), and is
+partitioned on them. Parquet, CSV and FITS outputs keep the columns as
+matched.
 
 ---
 
@@ -702,14 +703,16 @@ all inputs or outputs out-of-core.
 ### In-memory engines
 
 `engine="auto"` (the default) uses STILTS `tmatch2` when a STILTS command is
-available and the request is one STILTS supports, and otherwise `fast`,
+available and the request is one STILTS supports (`sky` or `skyerr`, no target
+epoch for `skyerr`, no extra distance columns, priors, probabilistic scoring
+or filter), and otherwise `fast`,
 torchsky's exact declination-zone index, which supports every matcher. The
 other in-memory engines (`zone`, `torchsky`, `astropy`, `stilts`) and their
 limits are listed in the
 [engine table](api.md#execution-engines). All engines produce the same schema
 and, for `find="best"`, the same tie rule. `--batch-size`
-(`MatchSpec.batch_size`) is accepted and validated but no engine reads it in
-0.7.0; it does not limit memory.
+(`MatchSpec.batch_size`) is accepted and validated but no engine reads it; it
+does not limit memory.
 
 ### Pairwise spill matching on one machine
 

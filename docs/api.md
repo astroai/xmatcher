@@ -247,7 +247,8 @@ the contributing catalogues (`"1+2+3"`).
 - HATS union outputs carry non-null `_union_ra` and `_union_dec` routing
   coordinates taken from the lowest-indexed catalogue in each row; the tree
   metadata declares NESTED ordering and these columns as the spatial
-  coordinates.
+  coordinates. In-memory unions (`crossmatch` with an outer or right join,
+  `crossmatch_multi`, `union_match`) written to `.hats` do the same.
 - Valid zero-row HATS inputs keep their advertised schema. The first nonempty
   input supplies the output tiling without changing catalogue order or column
   suffixes; if every input is empty, the result is a readable zero-row HATS
@@ -531,7 +532,7 @@ counterparts.
 | `fast` | torchsky `SkyIndex` (`match_within`, `match_nearest`): exact declination-zone index | In process; both sides materialized as CPU tensors; torch intra-op threads | All matchers; `extra_distance_cols` ranking. |
 | `zone` | Same as `fast` | Same as `fast` | Same as `fast`. Before 0.7.0 this was a HEALPix-sharded `cKDTree`; the name is kept. |
 | `torchsky` | `torchsky.catalogs.crossmatch_sky` | In process | `sky` and `skyerr` only; `extra_distance_cols` or another matcher raises `CrossMatchError`. |
-| `astropy` | Astropy `match_to_catalog_sky` (`sky`, `find="best"`) or `search_around_sky` | In process | `sky`, `skyerr`, `skyellipse`, and candidates for the scoring matchers. Does not apply `extra_distance_cols` ranking. |
+| `astropy` | Astropy `match_to_catalog_sky` (`sky`, `find="best"`) or `search_around_sky` | In process | `sky`, `skyerr`, `skyellipse`, and candidates for the scoring matchers; `extra_distance_cols` ranking as `fast`. |
 | `stilts` | STILTS `tmatch2` | Java subprocess; needs a working `stilts` command | `sky` and `skyerr`. Other matchers, target-epoch `skyerr`, `extra_distance_cols`, `prior_columns`, probabilistic scoring and `filter_expr` fall back to `fast` (or raise under `fallback_policy="error"`); so does a failed STILTS run. |
 | `ray` | Depth-5 HEALPix pixel batches (cdshealpix); each Ray task queries a torchsky `SkyIndex` over its pixel's neighbours | Ray tasks; inputs materialized and results collected on the coordinator | All pairwise matchers and `extra_distance_cols`. Falls back to `fast` when Ray or cdshealpix is missing or Ray fails to start (raises under `fallback_policy="error"`). |
 | `ray-union` | Mirrored HATS partitions; per-chunk neighbourhoods with SciPy `cKDTree` | Ray tasks; HATS output | `sky`, `skyerr`, `skyellipse`; full-outer joins only; handles mixed-order and RING inputs and uncertainty/epoch halos. |
@@ -539,8 +540,10 @@ counterparts.
 
 `engine="auto"` resolves as follows:
 
-- Pairwise matches use `stilts` when a STILTS command is available and
-  `fast` otherwise; `skyerr` with `target_epoch` always uses `fast`.
+- Pairwise matches use `stilts` when a STILTS command is available and the
+  request is one STILTS supports (see the `stilts` row), and `fast` otherwise.
+  An unsupported request never reaches STILTS under `auto`, so it does not
+  warn or, under `fallback_policy="error"`, raise.
 - A local catalogue against a CDS X-Match source, or two TAP sources on the
   same service, is matched server-side when the request is `matcher="sky"`,
   `find="all"`, `join_type="1and2"` with no cone, epoch, scoring, filter,
@@ -587,7 +590,7 @@ from xmatcher import (
 |---|---|---|
 | `FrameLike` | type alias | `pl.DataFrame \| pl.LazyFrame`. |
 | `scan_frame` | `(path: str \| Path) -> pl.LazyFrame` | Lazy scan of `.parquet`, `.csv`, `.tsv` and `.tab`. `.fits`/`.fit` files are read eagerly with torchfits (Astropy is used when torchfits fails or masked values may have been lost) and returned as a lazy frame. Other suffixes, including HATS directories, raise `InputError`; use `scan_hats` for HATS. |
-| `write_frame` | `(frame: FrameLike, output_file: str \| Path, *, ra_column: str = "ra", dec_column: str = "dec", hats_threshold: int = 100_000) -> None` | Format by suffix. `.parquet` and `.csv` use Polars streaming sinks; `.tsv`/`.tab` are tab-separated; `.fits`/`.fit` are collected and written through Astropy; `.hats` writes a HATS tree partitioned on `ra_column`/`dec_column` with at most `hats_threshold` rows per pixel (needs cdshealpix). A `vos:` output is staged locally and uploaded. |
+| `write_frame` | `(frame: FrameLike, output_file: str \| Path, *, ra_column: str = "ra", dec_column: str = "dec", hats_threshold: int = 100_000, fallback_positions: Sequence[tuple[str, str]] = ()) -> None` | Format by suffix. `.parquet` and `.csv` use Polars streaming sinks; `.tsv`/`.tab` are tab-separated; `.fits`/`.fit` are collected and written through Astropy; `.hats` writes a HATS tree partitioned on `ra_column`/`dec_column` with at most `hats_threshold` rows per pixel (needs cdshealpix). With `fallback_positions` (other catalogues' `(ra, dec)` columns), a `.hats` output adds `_union_ra`/`_union_dec`, the first non-null position per row, and partitions on them. A `vos:` output is staged locally and uploaded. |
 | `is_hats_dir` | `(path: str \| Path) -> bool` | `True` when `path` is a directory containing a `properties` (or `hats.properties`) file. A bare `_metadata` file does not count. |
 | `astropy_table_to_polars` | `(table) -> pl.DataFrame` | Converts through Arrow/NumPy buffers. Multidimensional columns are dropped, byte-string columns decoded as UTF-8, masked values become nulls. |
 | `polars_to_astropy` | `(frame: FrameLike) -> astropy.table.Table` | Collects a lazy frame; nullable columns become `MaskedColumn`. |

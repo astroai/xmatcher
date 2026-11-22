@@ -2,8 +2,9 @@
 
 Sky-match engines (drop-in alternatives):
 
-* ``stilts`` – shells out to STILTS ``tmatch2`` (sky/skyerr/skyellipse). Used by
-  default when a STILTS command is available.
+* ``stilts`` – shells out to STILTS ``tmatch2`` (``sky`` and ``skyerr`` only).
+  ``engine="auto"`` uses it when a STILTS command is available and the request
+  needs nothing STILTS cannot do; otherwise ``auto`` runs ``fast``.
 * ``astropy`` – ``match_to_catalog_sky`` / ``search_around_sky`` from astropy.
 * ``fast``   – the in-memory engine: candidates from torchsky's exact
   declination-zone index (``SkyIndex``, ``match_within``, ``match_nearest``),
@@ -147,9 +148,10 @@ class MatchSpec:
     # statistically closer → larger proper motion).  ``σ_μ`` is multiplied by
     # ``10^{-0.2 (mag - 15)}``, clipped to [0.3, 3.0].
     pm_prior_magnitude_column: str | None = None
-    # Optional polars expression string applied as a boolean post-filter on
-    # the matched pairs BEFORE reducing find="all" → find="best".  Column
-    # names from the left side are used as-is; right-side columns gain a
+    # Optional polars SQL expression applied as a boolean filter to the final
+    # matched pairs, after the engine has reduced to ``find="best"``: a best
+    # match the filter rejects is dropped, not replaced by the next candidate.
+    # Left-side column names are used as-is; right-side collisions gain a
     # ``_2`` suffix (e.g. ``abs(mag_g - mag_g_2) < 0.5``).
     filter_expr: str | None = None
     # Extra columns for N-dimensional candidate ranking, mapping column name
@@ -159,11 +161,9 @@ class MatchSpec:
     # bound; among candidates within that bound the nearest in N-d feature
     # space is chosen.
     extra_distance_cols: dict[str, float] = field(default_factory=dict)
-    # Maximum number of left HEALPix pixel groups to process in one batch.
-    # When set, the zone engine processes pixel groups in chunks, freeing
-    # intermediate results between batches (out-of-core friendly).  Defaults
-    # to ``None`` (process all pixels in one pass).  Only effective with
-    # ``engine="zone"`` and ``cdshealpix`` installed.
+    # Validated and kept for compatibility, but no engine reads it since the
+    # zone engine moved to torchsky's index.  Memory is bounded with
+    # ``memory_budget_bytes`` (the spill path) instead.
     batch_size: int | None = None
     # ``warn`` logs a warning and falls back; ``error`` raises when an engine
     # cannot honor the requested semantics.
@@ -3252,6 +3252,25 @@ def _astropy_match(
     if left.height == 0 or right.height == 0:
         return empty
 
+    if spec.extra_distance_cols and spec.find == "best":
+        # As ``fast``: keep every candidate the matcher accepts, then pick the
+        # N-dimensional nearest per primary.
+        left_idx, right_idx, seps = _astropy_match(
+            left, right, left_src, right_src, dataclasses.replace(spec, find="all")
+        )
+        return _rank_nd_candidates(
+            left_idx,
+            right_idx,
+            seps,
+            left[left_src.ra_column].to_numpy(),
+            left[left_src.dec_column].to_numpy(),
+            right[right_src.ra_column].to_numpy(),
+            right[right_src.dec_column].to_numpy(),
+            left,
+            right,
+            spec,
+        )
+
     lcoord = SkyCoord(
         left[left_src.ra_column].to_numpy() * u.deg, left[left_src.dec_column].to_numpy() * u.deg
     )
@@ -3487,35 +3506,20 @@ def sky_match(
 
     from . import stilts
 
+    unsupported = _stilts_unsupported(spec)
     chosen = engine
     if chosen == "auto":
+        # STILTS only when it is installed and can honour the whole request;
+        # otherwise the in-memory torchsky path, without a fallback warning.
         chosen = (
-            "fast"
-            if spec.matcher == "skyerr" and spec.target_epoch is not None
-            else "stilts"
-            if stilts.stilts_available(stilts_cmd_base)
-            else "fast"
+            "stilts" if not unsupported and stilts.stilts_available(stilts_cmd_base) else "fast"
         )
-    if chosen == "stilts":
-        unsupported = []
-        if spec.matcher not in {"sky", "skyerr"}:
-            unsupported.append(f"matcher={spec.matcher!r}")
-        if spec.matcher == "skyerr" and spec.target_epoch is not None:
-            unsupported.append("target-epoch skyerr uncertainty")
-        if spec.extra_distance_cols:
-            unsupported.append("extra_distance_cols")
-        if spec.prior_columns:
-            unsupported.append("prior_columns")
-        if spec.probabilistic:
-            unsupported.append("probabilistic scoring")
-        if spec.filter_expr:
-            unsupported.append("filter_expr")
-        if unsupported:
-            message = "engine='stilts' cannot honor " + ", ".join(unsupported)
-            if spec.fallback_policy == "error":
-                raise CrossMatchError(message)
-            logger.warning("%s; falling back to fast engine.", message)
-            chosen = "fast"
+    if chosen == "stilts" and unsupported:
+        message = "engine='stilts' cannot honor " + ", ".join(unsupported)
+        if spec.fallback_policy == "error":
+            raise CrossMatchError(message)
+        logger.warning("%s; falling back to fast engine.", message)
+        chosen = "fast"
 
     # --- proper motion propagation (common to all engines) -----------------
     if spec.target_epoch is not None:
@@ -3621,7 +3625,7 @@ def sky_match(
         left = _collect_side(left_lf, left_src, "left")
         right = _collect_side(right_lf, right_src, "right")
         l_idx, r_idx, seps = _zone_match(left, right, left_src, right_src, spec)
-        logger.info("zone (HEALPix pixellated) sky match: %d matched pairs.", len(l_idx))
+        logger.info("zone (torchsky) sky match: %d matched pairs.", len(l_idx))
     elif chosen == "ray":
         from .ray_engine import ray_zone_match
 
@@ -3769,3 +3773,21 @@ def id_join(
     if join_type == "2not1":
         return right_lf.join(left_lf, left_on=id_right, right_on=id_left, how="anti", suffix=suffix)
     return left_lf.join(right_lf, left_on=id_left, right_on=id_right, how=how, suffix=suffix)
+
+
+def _stilts_unsupported(spec: MatchSpec) -> list[str]:
+    """The parts of ``spec`` that STILTS ``tmatch2`` cannot honour."""
+    unsupported = []
+    if spec.matcher not in {"sky", "skyerr"}:
+        unsupported.append(f"matcher={spec.matcher!r}")
+    if spec.matcher == "skyerr" and spec.target_epoch is not None:
+        unsupported.append("target-epoch skyerr uncertainty")
+    if spec.extra_distance_cols:
+        unsupported.append("extra_distance_cols")
+    if spec.prior_columns:
+        unsupported.append("prior_columns")
+    if spec.probabilistic:
+        unsupported.append("probabilistic scoring")
+    if spec.filter_expr:
+        unsupported.append("filter_expr")
+    return unsupported

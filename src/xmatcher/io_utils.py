@@ -18,6 +18,7 @@ Masked values become nulls automatically.
 """
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
@@ -324,6 +325,42 @@ def write_hats(
     )
 
 
+def _with_union_position(
+    frame: FrameLike,
+    ra_column: str,
+    dec_column: str,
+    fallback_positions: Sequence[tuple[str, str]],
+) -> tuple[pl.LazyFrame | FrameLike, str, str]:
+    """Add ``_union_ra``/``_union_dec``: per row, the first non-null position
+    among ``(ra_column, dec_column)`` and ``fallback_positions``.
+
+    Pairs absent from the frame are skipped (a ``2not1`` result has no
+    catalogue-1 columns). Existing ``_union_ra``/``_union_dec`` values, from an
+    earlier union, are kept and only their nulls are filled. With no usable
+    pair the frame and column names are returned unchanged.
+    """
+    lf = to_lazy(frame)
+    names = set(lf.collect_schema().names())
+    pairs: list[tuple[str, str]] = []
+    if "_union_ra" in names and "_union_dec" in names:
+        pairs.append(("_union_ra", "_union_dec"))
+    for ra, dec in [(ra_column, dec_column), *fallback_positions]:
+        if ra in names and dec in names and (ra, dec) not in pairs:
+            pairs.append((ra, dec))
+    if not pairs or pairs == [(ra_column, dec_column)]:
+        return frame, ra_column, dec_column
+    # Take RA and Dec from the same catalogue: choose on both being present
+    # rather than coalescing column by column.
+    ra_expr = pl.lit(None, dtype=pl.Float64)
+    dec_expr = pl.lit(None, dtype=pl.Float64)
+    for ra, dec in reversed(pairs):
+        present = pl.col(ra).is_not_null() & pl.col(dec).is_not_null()
+        ra_expr = pl.when(present).then(pl.col(ra).cast(pl.Float64)).otherwise(ra_expr)
+        dec_expr = pl.when(present).then(pl.col(dec).cast(pl.Float64)).otherwise(dec_expr)
+    lf = lf.with_columns(ra_expr.alias("_union_ra"), dec_expr.alias("_union_dec"))
+    return lf, "_union_ra", "_union_dec"
+
+
 def _write_frame_vospace(
     frame: FrameLike,
     output_file: str,
@@ -392,6 +429,7 @@ def write_frame(
     ra_column: str = "ra",
     dec_column: str = "dec",
     hats_threshold: int = 100_000,
+    fallback_positions: Sequence[tuple[str, str]] = (),
 ) -> None:
     """Write a frame to ``.parquet`` / ``.csv`` / ``.fits`` / ``.hats`` based on the suffix.
 
@@ -401,11 +439,19 @@ def write_frame(
     When the suffix is ``.hats`` the result is written as a HATS catalogue
     directory (requires ``cdshealpix``).  ``ra_column`` and ``dec_column`` identify
     the spatial columns for partitioning; ``hats_threshold`` controls the
-    maximum rows per HEALPix pixel.
+    maximum rows per HEALPix pixel. ``fallback_positions`` lists the other
+    catalogues' ``(ra, dec)`` columns of an outer-join result: a HATS output
+    then gains ``_union_ra``/``_union_dec``, the first non-null position per
+    row (as ``ray-union`` writes), and is partitioned on them, so rows present
+    only in a later catalogue keep a position.
 
     A ``vos:`` output (e.g. ``vos:hats/xmatcher/full.hats``) is staged locally
     and uploaded through the storage layer.
     """
+    if fallback_positions and Path(str(output_file).rstrip("/")).suffix.lower() == ".hats":
+        frame, ra_column, dec_column = _with_union_position(
+            frame, ra_column, dec_column, fallback_positions
+        )
     if isinstance(output_file, str) and output_file.startswith("vos:"):
         _write_frame_vospace(
             frame,

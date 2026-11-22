@@ -141,6 +141,33 @@ def _side_overrides(params: dict[str, Any], side: int) -> dict[str, Any]:
     return out
 
 
+# Joins that keep rows without a catalogue-1 match, whose catalogue-1
+# position is therefore null.
+_JOINS_WITH_RIGHT_ONLY_ROWS = frozenset({"1or2", "all", "all2", "2not1"})
+
+
+def _position_columns(src: CatalogueSource) -> tuple[str, str]:
+    """The RA/Dec column names of ``src``'s rows.
+
+    A local HATS tree resolves without explicit column names; its properties
+    (``hats_col_ra``/``hats_col_dec``) name them.
+    """
+    if src.ra_column and src.dec_column:
+        return src.ra_column, src.dec_column
+    if src.access_method == "hats":
+        try:
+            from .hats_native import _hats_root, _ra_dec_columns  # noqa: PLC0415
+
+            return _ra_dec_columns(src, _hats_root(src))
+        except (CrossMatchError, OSError):
+            pass
+    return src.ra_column or "ra", src.dec_column or "dec"
+
+
+def _is_hats_output(output_file: str | Path) -> bool:
+    return Path(str(output_file).rstrip("/")).suffix.lower() == ".hats"
+
+
 def _joined_column_name(
     schema_names: set[str],
     original: str,
@@ -2068,8 +2095,7 @@ class CrossMatch:
             )
             sources[i] = src.with_frame(downloaded.lazy())
 
-        first_ra = first_src.ra_column or "ra"
-        first_dec = first_src.dec_column or "dec"
+        first_ra, first_dec = _position_columns(first_src)
 
         # First pair.
         accum_lf = self._dispatch(sources[0], sources[1], req)
@@ -2078,8 +2104,9 @@ class CrossMatch:
         # suffixes when they collide with catalogue 1's names.
         kept_cols = set(sources[0].columns()) if sources[0].is_local else set()
         pair_added = (pair_cols - kept_cols) if kept_cols else None
-        prev_ra = _joined_column_name(pair_cols, sources[1].ra_column or "ra", "_2", pair_added)
-        prev_dec = _joined_column_name(pair_cols, sources[1].dec_column or "dec", "_2", pair_added)
+        second_ra, second_dec = _position_columns(sources[1])
+        prev_ra = _joined_column_name(pair_cols, second_ra, "_2", pair_added)
+        prev_dec = _joined_column_name(pair_cols, second_dec, "_2", pair_added)
         if prev_ra is None or prev_dec is None:
             if union_match:
                 raise CrossMatchError(
@@ -2091,6 +2118,11 @@ class CrossMatch:
                 "later steps will not re-position its rows",
                 sources[1].name,
             )
+        # Later catalogues' result-side positions: a HATS output of an outer
+        # join partitions on the first non-null one per row.
+        union_positions: list[tuple[str, str]] = []
+        if prev_ra is not None and prev_dec is not None:
+            union_positions.append((prev_ra, prev_dec))
         if union_match:
             # Per-row detection: which catalogue(s) contributed?  Requires BOTH
             # RA and Dec to be non-null on a side.
@@ -2134,7 +2166,16 @@ class CrossMatch:
                     pl.coalesce([pl.col(c) for c in dec_present]).alias("_accum_dec")
                 )
 
-            accum_src = replace(first_src, ra_column="_accum_ra", dec_column="_accum_dec")
+            # The accumulator is an in-memory frame, even when catalogue 1 was a
+            # HATS tree: a HATS step must match it, not re-read catalogue 1.
+            accum_src = replace(
+                first_src,
+                ra_column="_accum_ra",
+                dec_column="_accum_dec",
+                access_method=None
+                if first_src.access_method == "hats"
+                else first_src.access_method,
+            )
 
             if right_src.access_method == "hats":
                 from . import hats_native
@@ -2164,12 +2205,9 @@ class CrossMatch:
 
             step_cols = set(accum_lf.collect_schema().names())
             step_added = step_cols - accum_cols
-            rN_ra_in_result = _joined_column_name(
-                step_cols, right_src.ra_column or "ra", suffix, step_added
-            )
-            rN_dec_in_result = _joined_column_name(
-                step_cols, right_src.dec_column or "dec", suffix, step_added
-            )
+            right_ra, right_dec = _position_columns(right_src)
+            rN_ra_in_result = _joined_column_name(step_cols, right_ra, suffix, step_added)
+            rN_dec_in_result = _joined_column_name(step_cols, right_dec, suffix, step_added)
             if rN_ra_in_result is None or rN_dec_in_result is None:
                 if union_match:
                     raise CrossMatchError(
@@ -2181,6 +2219,8 @@ class CrossMatch:
                     "later steps will not re-position its rows",
                     right_src.name,
                 )
+            else:
+                union_positions.append((rN_ra_in_result, rN_dec_in_result))
 
             if union_match:
                 # Per-row detection: did this accumulator row match the new
@@ -2208,6 +2248,11 @@ class CrossMatch:
                 ra_column=first_ra,
                 dec_column=first_dec,
                 hats_threshold=hats_threshold,
+                fallback_positions=(
+                    union_positions
+                    if union_match or req.spec.join_type in _JOINS_WITH_RIGHT_ONLY_ROWS
+                    else ()
+                ),
             )
             return None
         return accum_lf if lazy else accum_lf.collect()
@@ -2518,12 +2563,28 @@ class CrossMatch:
         result_lf = self._dispatch(src1, src2, req, progress_cb=progress_cb)
 
         if req.output_file:
+            ra1, dec1 = _position_columns(src1)
+            fallback: list[tuple[str, str]] = []
+            if (
+                _is_hats_output(req.output_file)
+                and req.spec.join_type in _JOINS_WITH_RIGHT_ONLY_ROWS
+            ):
+                # Rows found only in catalogue 2 have a null catalogue-1
+                # position; partition those on catalogue 2's.
+                names = set(result_lf.collect_schema().names())
+                ra2_src, dec2_src = _position_columns(src2)
+                added = names - set(src1.columns()) if src1.is_local else None
+                ra2 = _joined_column_name(names, ra2_src, "_2", added)
+                dec2 = _joined_column_name(names, dec2_src, "_2", added)
+                if ra2 is not None and dec2 is not None and (ra2, dec2) != (ra1, dec1):
+                    fallback.append((ra2, dec2))
             io_utils.write_frame(
                 result_lf,
                 req.output_file,
-                ra_column=src1.ra_column or "ra",
-                dec_column=src1.dec_column or "dec",
+                ra_column=ra1,
+                dec_column=dec1,
                 hats_threshold=hats_threshold,
+                fallback_positions=fallback,
             )
             return None
         return result_lf if req.lazy else result_lf.collect()
