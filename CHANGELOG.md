@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- The `zone` extra. It only installed `cdshealpix`, which `engine="zone"` no
+  longer uses (it runs on torchsky's zone index since 0.7.0). Install
+  `xmatcher[hats]` or `xmatcher[ray]` when you need `cdshealpix`; pip ignores
+  the unknown extra in an old `xmatcher[zone]` command with a warning.
+
 ### Fixed
 
 - An in-memory union (`--union`, `join_type="1or2"`/`"all2"`/`"2not1"`,
