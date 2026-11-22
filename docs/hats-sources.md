@@ -223,6 +223,16 @@ A live check of the whole path — registry lookup, collection descent, HTTP
 walk, mirror — is `scripts/canfar_headless_run.py hats-sources` on CANFAR, which
 mirrors the small TNS tree and matches a synthetic source against it.
 
+To flatten a **local** mirrored tree into one table for STILTS or notebooks:
+
+```bash
+xmatcher export-hats ./tns.hats tns.parquet
+xmatcher export-hats ./tns.hats tns.fits --columns RA,DEC,Name
+```
+
+Parquet scans Npix partitions lazily; FITS materializes. Prefer keeping HATS
+for survey-scale catalogues.
+
 ## Metadata the mirror needs
 
 `xmatcher` finds partitions from `dataset/partition_info.parquet` when it

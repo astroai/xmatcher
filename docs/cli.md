@@ -46,6 +46,7 @@ All subcommands accept these global flags:
 | [`adopt`](#xmatcher-adopt) | Probe a remote TAP table and append an entry to `~/.config/xmatcher/xmatcher.yaml`. |
 | [`sync`](#xmatcher-sync) | Mirror remote TAP or cloud HATS catalogues into the durable local cache. |
 | [`project-hats`](#xmatcher-project-hats) | Write a narrower HATS tree retaining only specified columns. |
+| [`export-hats`](#xmatcher-export-hats) | Flatten a HATS tree to a single `.parquet` or `.fits` file. |
 | [`convert`](#xmatcher-convert) | Convert a catalogue between FITS, Parquet, HATS and CSV, in any direction. |
 | [`completion`](#xmatcher-completion) | Generate shell auto-completion scripts for `bash`, `zsh`, or `fish`. |
 | [`doctor`](#xmatcher-doctor) | Validate local configuration against the bundled baseline and report drift. |
@@ -299,6 +300,25 @@ xmatcher project-hats <source> <output> --columns <col1,col2,...> [options]
 | `--cache-root PATH` | auto | Local cache root directory. |
 | `--hats-threshold INT` | `100000` | Max rows per pixel if converting a non-HATS source. |
 | `--rate-limit FLOAT` | `1.0` | Requests/sec when streaming directly from HTTPS HATS trees. |
+
+---
+
+## `xmatcher export-hats`
+
+Flattens a local HATS catalogue directory into a single Parquet or FITS table.
+Parquet prefers a Polars scan over Npix partitions and a streaming sink; FITS
+collects the full table. Survey-scale trees may OOM — keep them partitioned
+(HATS) when a single file is not required.
+
+```bash
+xmatcher export-hats <source> <output.parquet|output.fits> [--columns col1,col2,...]
+```
+
+### Options
+
+| Option | Default | Description |
+|---|---|---|
+| `--columns COLS` | all | Optional comma-separated columns to retain. |
 
 ---
 

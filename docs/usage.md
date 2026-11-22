@@ -752,6 +752,12 @@ requested columns, streaming an HTTPS tree without a full mirror. See
 [ray-anchor.md](ray-anchor.md) for the full schema, epoch/PM policy,
 projection workflow, and CANFAR local-product aliases.
 
+To hand a HATS tree to tools that only read ordinary tables, flatten it with
+`xmatcher export-hats <source> <out.parquet|out.fits>` (or
+`xmatcher.export_hats` / `xmatcher.scan_hats`). Parquet scans Npix partitions
+lazily; FITS materializes. Huge catalogues may OOM — prefer keeping the HATS
+layout when a single file is not required.
+
 ## 9. Friends-of-Friends output policy
 
 `fof_match` searches cross-catalogue edges across all input catalogue pairs,

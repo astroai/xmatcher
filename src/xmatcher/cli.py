@@ -303,6 +303,7 @@ SUBCOMMANDS = (
     "completion",
     "sync",
     "project-hats",
+    "export-hats",
     "convert",
     "doctor",
 )
@@ -1372,6 +1373,40 @@ def _build_project_hats_subparser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_export_hats_subparser() -> argparse.ArgumentParser:
+    """Standalone parser for the ``export-hats`` subcommand."""
+    parser = argparse.ArgumentParser(
+        prog="xmatcher export-hats",
+        description=(
+            "Flatten a local HATS catalogue tree into a single Parquet or FITS file.\n\n"
+            "Parquet uses a Polars scan over Npix partitions and a streaming sink when\n"
+            "possible. FITS collects the full table. Survey-scale catalogues may OOM;\n"
+            "keep them partitioned (HATS) when a single file is not required."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  xmatcher export-hats ./gaia_core.hats gaia_core.parquet\n"
+            "  xmatcher export-hats ./gaia_core.hats gaia_core.fits "
+            "--columns Source,RA_ICRS,DE_ICRS\n"
+        ),
+    )
+    parser.add_argument(
+        "source",
+        help="Source catalogue: configured HATS name/alias, or local HATS directory.",
+    )
+    parser.add_argument(
+        "output",
+        help="Destination file ending in .parquet or .fits.",
+    )
+    parser.add_argument(
+        "--columns",
+        help="Optional comma-separated columns to retain (default: all).",
+    )
+    _add_global_options(parser)
+    return parser
+
+
 def _build_convert_subparser() -> argparse.ArgumentParser:
     """Standalone parser for the ``convert`` subcommand."""
     parser = argparse.ArgumentParser(
@@ -1689,7 +1724,7 @@ _xmatcher_endpoints=(
 {ep_array}
 )
 _xmatcher_shells=( bash zsh fish )
-_xmatcher_subcommands=( match list describe discover search adopt completion sync project-hats convert doctor )
+_xmatcher_subcommands=( match list describe discover search adopt completion sync project-hats export-hats convert doctor )
 
 _xmatcher() {{
     local cur="" words="" cword=0 i subcmd=""
@@ -1841,7 +1876,7 @@ function _xmatcher_needs_shell
     test "$cmd" = completion
 end
 
-set -l _xmatcher_subcommands match list describe discover search adopt completion sync project-hats convert doctor
+set -l _xmatcher_subcommands match list describe discover search adopt completion sync project-hats export-hats convert doctor
 
 {cat_lines}
 
@@ -1884,6 +1919,7 @@ def _build_top_parser() -> argparse.ArgumentParser:
         "  adopt       save a remote table into ~/.config/xmatcher/xmatcher.yaml\n"
         "  sync        mirror remote catalogues into the local HATS cache\n"
         "  project-hats  write a narrow HATS tree with selected columns\n"
+        "  export-hats   flatten a HATS tree to a single .parquet or .fits file\n"
         "  convert     convert between FITS, Parquet, HATS and CSV (any direction)\n"
         "  completion  emit a shell tab-completion script (bash | zsh | fish)\n"
         "  doctor      report drift between your xmatcher.yaml and the bundled baseline\n"
@@ -2624,6 +2660,34 @@ def _run_project_hats(argv: Sequence[str]) -> int:
     return _guarded(cm, console, body)
 
 
+def _run_export_hats(argv: Sequence[str]) -> int:
+    parser = _build_export_hats_subparser()
+    args = parser.parse_args(list(argv))
+    setup_logging(args.verbose)
+    console = _make_console(no_color=bool(getattr(args, "no_color", False)))
+    cm = _load_cli_crossmatch(args.config_file, console)
+    if cm is None:
+        return 1
+
+    def body() -> int:
+        from .hats_export import export_hats
+
+        source = cm.resolve_source(args.source, {})
+        columns = None
+        if args.columns:
+            columns = [c.strip() for c in args.columns.split(",") if c.strip()]
+        progress = Progress(f"Exporting {args.source}", enabled=console.enabled)
+        with progress:
+            stats = export_hats(source, args.output, columns=columns)
+        console.info(
+            f"Wrote {stats['rows']} rows x {len(stats['columns'])} columns to {args.output} "
+            f"({stats['partitions']} partition(s))."
+        )
+        return 0
+
+    return _guarded(cm, console, body)
+
+
 def _run_convert(argv: Sequence[str]) -> int:
     parser = _build_convert_subparser()
     args = parser.parse_args(list(argv))
@@ -3261,6 +3325,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_sync_subcommand(remaining)
     if cmd == "project-hats":
         return _run_project_hats(remaining)
+    if cmd == "export-hats":
+        return _run_export_hats(remaining)
     if cmd == "convert":
         return _run_convert(remaining)
     if cmd == "describe":

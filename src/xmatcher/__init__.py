@@ -47,6 +47,8 @@ _EXPORTS = {
     "FrameLike": "io_utils",
     "is_hats_dir": "io_utils",
     "project_hats": "hats_project",
+    "export_hats": "hats_export",
+    "scan_hats": "hats_export",
     "scan_frame": "io_utils",
     "write_frame": "io_utils",
     "astropy_table_to_polars": "io_utils",
@@ -77,7 +79,9 @@ __all__ = [
     "StiltsError",
     "FrameLike",
     "is_hats_dir",
+    "export_hats",
     "project_hats",
+    "scan_hats",
     "scan_frame",
     "write_frame",
     "astropy_table_to_polars",
@@ -107,6 +111,7 @@ if TYPE_CHECKING:
     )
     from .crossmatch import CrossMatch
     from .exceptions import ConfigError, CrossMatchError, InputError, StiltsError, TapError
+    from .hats_export import export_hats, scan_hats
     from .hats_project import project_hats
     from .io_utils import (
         FrameLike,

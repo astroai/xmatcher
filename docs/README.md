@@ -46,7 +46,7 @@ flowchart TD
 - **[User Guide & Practical Cookbooks](usage.md)**
   End-to-end guide covering installation, local and remote crossmatching, memory-bounded disk spilling, and distributed execution.
 - **[CLI Reference Manual](cli.md)**
-  Complete documentation for all command-line interface subcommands (`match`, `list`, `describe`, `discover`, `search`, `adopt`, `sync`, `project-hats`, `convert`, `completion`, `doctor`) and arguments.
+  Complete documentation for all command-line interface subcommands (`match`, `list`, `describe`, `discover`, `search`, `adopt`, `sync`, `project-hats`, `export-hats`, `convert`, `completion`, `doctor`) and arguments.
 - **[Python API Reference](api.md)**
   Comprehensive reference for `CrossMatch`, `MatchRequest`, `MatchSpec`, engine configurations, relational join modes, and exceptions.
 
