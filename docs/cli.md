@@ -88,7 +88,7 @@ xmatcher match [catalogues ...] [options]
 |---|---|---|
 | `-o FILE`, `--output FILE` | CSV on stdout | Output path (`.parquet`, `.csv`, `.fits`, `.hats`). An existing file is overwritten. |
 | `--hats-threshold INT` | `100000` | Maximum rows per HEALPix pixel when writing `.hats` output or converting a TAP table to HATS. |
-| `--batch-size INT` | none | Positive integer, accepted and validated but not read by any engine in 0.7.0; it does not limit memory. |
+| `--batch-size INT` | none | Positive integer, accepted for compatibility but not read by any engine; it does not limit memory. Use `--memory-budget-bytes`. |
 | `--memory-budget-bytes INT` | none | Spill pairwise local CSV/Parquet matching to disk above this memory budget. |
 | `--scratch-dir PATH` | system temp | Parent directory for bounded-memory partition files. |
 | `--partition-order ORDER` | `auto` | Sky-zone partition order of the spill path: an integer from 0 to 12, or `auto`. |

@@ -312,7 +312,7 @@ def _ray_zone_dispatch(ray, left, right, left_src, right_src, spec):
             raise CrossMatchError(
                 "engine='ray' requires optional cdshealpix under fallback_policy='error'"
             ) from exc
-        logger.warning("cdshealpix unavailable; falling back to scipy cKDTree.")
+        logger.warning("cdshealpix unavailable; falling back to the in-memory fast engine.")
         return _local_match(left, right, left_src, right_src, spec)
 
     # Group left by pixel.

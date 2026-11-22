@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- An in-memory union (`--union`, `join_type="1or2"`/`"all2"`/`"2not1"`,
+  `crossmatch_multi`, `union_match`) written to `.hats` failed when a source
+  appeared only in a later catalogue, whose first-catalogue position is null.
+  The HATS output now carries `_union_ra`/`_union_dec`, the first non-null
+  position per row (as `ray-union` writes), and is partitioned on them.
+  `write_frame` takes the other catalogues' columns as `fallback_positions`.
+  Inner and left joins keep their schema, an existing `_union_ra`/`_union_dec`
+  is kept, and a local HATS input's position columns come from its
+  properties instead of defaulting to `ra`/`dec`.
+- `crossmatch_multi` and `union_match` with a HATS first catalogue and a later
+  HATS catalogue matched the later one against catalogue 1 re-read from disk,
+  not against the accumulated result, and failed; `_src_cats` also read the
+  wrong position columns for a HATS first catalogue.
+- `engine="auto"` with STILTS installed sent requests STILTS cannot run
+  (`lr`, `ml`, `xgb`, `auf`, `macauff`, `skyellipse`, target-epoch `skyerr`,
+  extra distance columns, priors, probabilistic scoring, `filter_expr`) to
+  STILTS, which then warned or, under `fallback_policy="error"`, raised. `auto`
+  now chooses `fast` for them; an explicit `engine="stilts"` still refuses.
+- `engine="astropy"` ignored `extra_distance_cols`; it now ranks candidates
+  by them as `fast` does.
+- Stale messages: the Ray engine's cdshealpix fallback named scipy's cKDTree
+  (it runs `fast`), the `zone` engine logged "HEALPix pixellated", the
+  `--batch-size` help described pixel batches no engine uses, and the
+  `MatchSpec` comments for `batch_size` and `filter_expr` were out of date.
+
 ### Documentation
 
 - The README is a short front page (overview, installation, quickstart,

@@ -902,7 +902,8 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "--batch-size",
         dest="batch_size",
         type=_positive_int,
-        help="HEALPix pixel groups per zone batch; not a general memory cap.",
+        help="Accepted for compatibility; no engine uses it. Bound memory with "
+        "--memory-budget-bytes instead.",
     )
     g_out.add_argument(
         "--memory-budget-bytes",
