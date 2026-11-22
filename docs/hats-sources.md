@@ -21,13 +21,10 @@ Resolution rules:
 - The registry snapshot is cached under
   `<cache>/registry/hats_registry.json` for seven days and is reused when the
   registry is unreachable, so a name that resolved once keeps working offline.
-- HTTPS, VOSpace, `s3://` and `hf://datasets/…` registrations resolve. S3
-  trees are read anonymously over plain HTTPS (no credentials, no `boto3`); a
-  bucket that requires signed or requester-pays access is reported as denied.
-- Hugging Face datasets are read through the Hub's public HTTP API (tree
-  listing with sizes, `/resolve` downloads), so no token, no
-  `huggingface_hub` and no repository clone is involved. A private or gated
-  dataset is reported as denied.
+- HTTP(S), VOSpace (`vos:`), `s3://` and `hf://datasets/…` registrations
+  resolve; S3 and Hugging Face access is described under
+  [S3-hosted sources](#s3-hosted-sources) and
+  [Hugging Face-hosted sources](#hugging-face-hosted-sources).
 - Anything else registered as an access URL is rejected with the URL named
   rather than substituted with a different copy.
 
@@ -47,9 +44,10 @@ HTTPS, VOSpace, S3 or Hugging Face:
   given as an absolute URL or one that leaves the collection (`..`, `//`) is
   refused rather than followed.
 - Without `collection.properties`, a collection is descended to its single
-  primary tree, skipping the auxiliary HEALPix margin trees (`*_5arcs`,
-  `*_10arcs`) and id indexes (`*_index`) beside it. A collection holding
-  several real catalogues is not guessed: pass one tree URL.
+  primary tree, skipping the auxiliary trees beside it: HEALPix margin caches
+  (`*_5arcs`, `*_10arcs`, `*_margin_10arcsec`) and id indexes
+  (`*_source_id_index`, `*_index_object_id`). A collection holding several
+  real catalogues is not guessed: pass one tree URL.
 - Time-versioned collections (TNS, VSX) declare their newest dated tree as the
   primary, so the collection root follows it. The resolved tree is logged.
 - A downloaded collection on local disk (an LSDB or Hugging Face download,
@@ -105,19 +103,30 @@ or pass `hats:<url>` directly.
 | `vhs_hats` | `https://vizcat.cds.unistra.fr/hats/vhs_dr5/main` | 1,374,207,485 | VHS DR5, per-band MJD |
 | `ps1_hats` | `https://vizcat.cds.unistra.fr/hats/ps1_dr2/main` | 1,868,236,315 | PS1 DR2, 67 columns |
 | `galex_hats` | `https://vizcat.cds.unistra.fr/hats/galex_gr67/main` | 82,992,086 | GALEX GR6/7 |
-| `splus_hats` | `https://vizcat.cds.unistra.fr/hats/splus_dr4/main` | 27,235,968 | S-PLUS DR4 public HATS (CDS); registry alias `splus_dr5_hats` is a local-tree placeholder only — DR5 is not public |
+| `splus_hats` | `https://vizcat.cds.unistra.fr/hats/splus_dr4/main` | 27,235,968 | S-PLUS DR4 public HATS. The configured `splus_dr5_hats` (alias `splus5_hats`) is a local-tree placeholder only; DR5 is not public |
 
-The anchor has an LSDB-pinned alias too: `gaia_lsdb_hats`
-(`https://data.lsdb.io/hats/gaia_dr3/gaia`, 1,812,731,847 rows, 153 columns,
+The anchor also has an LSDB-pinned catalogue entry, `gaia_lsdb_hats`
+(aliases `gaia_lsdb`, `gaia_dr3_lsdb`;
+`https://data.lsdb.io/hats/gaia_dr3/gaia`, 1,812,731,847 rows, 153 columns,
 ~712 GiB). It is the same tree as the registry's `gaia_dr3`, pinned so a run
 cannot silently follow a registry change, and it is the preferred anchor for
 [`ray-anchor`](ray-anchor.md) because the narrow schema needs less storage.
 
-Local CANFAR products are addressed by aliases whose roots come from the
-environment: `uhs_hats` (`XMATCHER_UHS_DR3_HATS`), `splus5_hats`
-(`XMATCHER_SPLUS_DR5_HATS`), `xp_hats` (`XMATCHER_GAIA_XP_HATS`), and `dp2`
-(`XMATCHER_DP2_HATS`). An unset variable fails resolution with the variable
-named instead of falling back to another sky.
+Local products, such as trees staged on CANFAR, are addressed by catalogue
+entries whose roots come from the environment:
+
+| Name | Variable |
+|---|---|
+| `uhs_hats` | `XMATCHER_UHS_DR3_HATS` |
+| `splus5_hats` | `XMATCHER_SPLUS_DR5_HATS` |
+| `xp_hats` | `XMATCHER_GAIA_XP_HATS` |
+| `dp2` | `XMATCHER_DP2_HATS` |
+| `pristine_hats` | `XMATCHER_PRISTINE_DR2_HATS` |
+| `hsc_hats` | `XMATCHER_HSC_PDR3_HATS` |
+| `gaia_gspc_hats` | `XMATCHER_GAIA_GSPC_HATS` |
+
+An unset variable fails resolution with an error naming the variable, instead
+of falling back to another sky.
 
 The CDS service supports row limits (`:n=`) and asks that large catalogues are
 not bulk-harvested. The mirror's rate limit and incremental manifest apply.
@@ -129,8 +138,12 @@ MJD epochs. See [ray-anchor.md](ray-anchor.md).
 ### S3-hosted sources
 
 The STScI, IRSA and MAST cloud copies are registered as `s3://` prefixes. They
-are public and answer anonymous `ListObjectsV2`/`GET`, so a `sync` of the
-registry name mirrors them exactly like an HTTPS tree. Each is a *collection*
+are public and answer anonymous `ListObjectsV2`/`GET` over plain HTTPS (no
+credentials, no `boto3`), so a `sync` of the registry name mirrors them
+exactly like an HTTPS tree. A bucket that requires signed or requester-pays
+access is reported as denied rather than read as an empty catalogue.
+`XMATCHER_S3_ENDPOINT` points the reader at an S3-compatible service
+(path-style URLs). Each is a *collection*
 root: the `collection.properties` file names the primary table
 (`hats_primary_table_url`), which is the tree that gets synced.
 
@@ -162,7 +175,9 @@ registered as `hf://datasets/<owner>/<name>`. A Hub dataset is a git
 repository, so the reader uses its public API: one paginated tree listing for
 names and sizes, and `/resolve/<revision>/<path>` for the bytes. No token, no
 `huggingface_hub` dependency and no clone of a multi-gigabyte repository; the
-mirror is written locally, never back into the Hub.
+mirror is written locally, never back into the Hub. A private or gated dataset
+is reported as denied. `XMATCHER_HF_ENDPOINT` selects a Hub-compatible
+endpoint.
 
 Each dataset is a *collection* root (`collection.properties` at the top,
 `hats_primary_table_url` naming the tree), exactly like the S3 copies, so the
@@ -214,16 +229,21 @@ xmatcher match targets.parquet hats:https://data.lsdb.io/hats/tns -r 1.0 -o out.
 xmatcher match hats:gaia_dr3 hats:two_mass --engine ray-union -r 2.0 -o union.hats
 ```
 
-`match` (the in-memory engines) needs a mirrored tree, because a remote HATS
-catalogue cannot be zoned locally without downloading it; the error names the
-`xmatcher sync` command to run. `ray-union` mirrors remote inputs itself, and
-`--no-sync` refuses to start without an existing copy.
+`match` with the in-memory engines needs a mirrored tree under the default
+cache root, because a remote HATS catalogue cannot be zoned locally without
+downloading it; the error names the `xmatcher sync` command to run.
+`ray-union` and `ray-anchor` mirror remote inputs themselves into
+`--cache-root`, and with `--no-sync` they refuse to start without an existing
+copy.
 
 A live check of the whole path — registry lookup, collection descent, HTTP
 walk, mirror — is `scripts/canfar_headless_run.py hats-sources` on CANFAR, which
 mirrors the small TNS tree and matches a synthetic source against it.
 
-To flatten a **local** mirrored tree into one table for STILTS or notebooks:
+To flatten a local tree into one table for STILTS or notebooks, use
+[`export-hats`](cli.md#xmatcher-export-hats). It also accepts a configured
+name or `hats:` identifier once `sync` has mirrored it under the default
+cache root; it does not download.
 
 ```bash
 xmatcher export-hats ./tns.hats tns.parquet

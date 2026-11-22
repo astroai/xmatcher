@@ -1,92 +1,83 @@
-# xmatcher Documentation
+# xmatcher documentation
 
-Welcome to the `xmatcher` documentation suite. `xmatcher` is a high-performance astronomical catalogue crossmatching toolkit built on Polars, PyArrow, and 3D unit-sphere KD-trees with native support for local files, remote TAP services, and distributed HATS trees.
-
----
-
-## Architecture Overview
+Start with the [project README](../README.md) for an overview and a quickstart.
 
 ```mermaid
-flowchart TD
-    subgraph IN["Input Catalogues & Streams"]
-        F1["Local Files<br/>Parquet / CSV / TSV / FITS"]
-        F2["Remote TAP & VizieR<br/>Gaia / PS1 / DES / AllWISE"]
-        F3["Partitioned HATS Trees<br/>Local / HTTP / S3 / Hugging Face"]
+flowchart LR
+    subgraph IN["Inputs"]
+        F1["Local files<br/>Parquet · CSV/TSV · FITS · HATS"]
+        F2["Remote archives<br/>TAP · VizieR · CDS XMatch"]
+        F3["Remote HATS trees<br/>HTTPS · S3 · Hugging Face<br/>(mirrored to a local cache)"]
     end
 
-    subgraph ENG["Spatial & Distributed Engines"]
-        E1["fast<br/>torchsky exact declination-zone index"]
-        E2["zone<br/>HEALPix-Sharded Spatial Zoning"]
-        E3["ray-union / ray-anchor<br/>Distributed Multi-Node Ray Cluster"]
+    subgraph SEARCH["Candidate search"]
+        E1["fast / zone<br/>torchsky declination-zone index"]
+        E2["astropy · stilts<br/>reference engines"]
+        E3["ray · ray-union · ray-anchor<br/>Ray cluster, HEALPix partitions"]
     end
 
-    subgraph ALG["Astrometric & Statistical Matchers"]
-        M1["Astrometric Matchers<br/>sky (aperture) &bull; skyerr (N-sigma) &bull; skyellipse (Mahalanobis)"]
-        M2["Probabilistic & ML<br/>Sutherland & Saunders LR &bull; Budavári Bayes &bull; RF / XGBoost"]
-        M3["Graph Clustering<br/>Friends-of-Friends (fof_match) &bull; Multi-Survey Bundles"]
+    subgraph SCORE["Scoring and association"]
+        M1["sky · skyerr · skyellipse"]
+        M2["lr · N-way Bayesian · ml / xgb · auf"]
+        M3["Friends-of-Friends"]
     end
 
-    subgraph OUT["Outputs & Data Contracts"]
-        O1["Relational Joins<br/>Inner &bull; Left &bull; Right &bull; Full-Outer &bull; Anti-Join"]
-        O2["Partitioned Datasets<br/>Master HATS Trees &bull; Streamed Parquet"]
-        O3["Immutable Provenance<br/>xmatch.association.v1 Deterministic SHA-256"]
+    subgraph OUT["Outputs"]
+        O1["Joins: inner · outer · left · right · anti"]
+        O2["Parquet · CSV · FITS · HATS"]
+        O3["Versioned association releases"]
     end
 
-    IN --> ENG
-    ENG --> ALG
-    ALG --> OUT
+    IN --> SEARCH --> SCORE --> OUT
 ```
 
----
+## Using xmatcher
 
-## Documentation Pathways
+- [Installation](install.md): pip and the optional extras, the Pixi developer
+  environment, platform notes.
+- [User guide](usage.md): formats and storage, remote archives and discovery,
+  local mirroring, the matcher cookbook, joins and multi-catalogue chains,
+  choosing an execution path, Friends-of-Friends.
+- [CLI reference](cli.md): every subcommand (`match`, `list`, `describe`,
+  `discover`, `search`, `adopt`, `sync`, `project-hats`, `export-hats`,
+  `convert`, `completion`, `doctor`) and its options.
+- [Python API](api.md): `CrossMatch`, `MatchRequest`, `MatchSpec`, the engines,
+  I/O helpers, mirroring, association records and exceptions.
 
-### 1. Getting Started & User Guides
+## Methods
 
-- **[User Guide & Practical Cookbooks](usage.md)**
-  End-to-end guide covering installation, local and remote crossmatching, memory-bounded disk spilling, and distributed execution.
-- **[CLI Reference Manual](cli.md)**
-  Complete documentation for all command-line interface subcommands (`match`, `list`, `describe`, `discover`, `search`, `adopt`, `sync`, `project-hats`, `export-hats`, `convert`, `completion`, `doctor`) and arguments.
-- **[Python API Reference](api.md)**
-  Comprehensive reference for `CrossMatch`, `MatchRequest`, `MatchSpec`, engine configurations, relational join modes, and exceptions.
+- [Algorithms](algorithms.md): geometry and candidate search, positional error
+  models, epoch propagation, likelihood ratios, Bayesian and N-way association,
+  machine-learned matchers, Friends-of-Friends, and their practical limits.
+- [Catalogue naming](naming.md): the naming grammar, aliases, and explicit
+  `vizier:`, `tap:` and `hats:` identifiers.
 
----
+## Large surveys
 
-### 2. Scientific Rigor & Algorithms
+- [HATS sources](hats-sources.md): registry lookups, verified remote trees,
+  and reading over HTTPS, S3 and Hugging Face.
+- [Gaia-anchored masters](ray-anchor.md): one row per anchor source, built on
+  a Ray cluster from HATS inputs.
 
-- **[Algorithms & Mathematical Foundations](algorithms.md)**
-  Rigorous derivations of 3D unit-sphere chord distances, error ellipses (Mahalanobis metric), Sutherland & Saunders Likelihood Ratios, Budavári & Szalay Bayes factors, proper-motion epoch kinematics, and machine-learning matchers.
-- **[Catalogue Naming & Resolution Grammar](naming.md)**
-  Specification of canonical survey identifiers, short aliases, and explicit registry prefixes (`vizier:<id>`, `tap:<endpoint>/<table>`, `hats:<url>`).
+## Data contracts
 
----
+- [Association contract v1](association-v1.md): the normative layout and
+  identity rules of `xmatch.association.v1` releases.
+- [Source and measurement releases](observations.md): measurement ledgers,
+  photometric normalisation, property evidence and checksummed releases.
+- [Catalogue-to-model pipeline](catalogue-pipeline.md): from survey
+  observations to candidate sets and association hypotheses.
 
-### 3. Distributed Computing & Large Surveys
+## Release notes and reports
 
-- **[HATS Catalogue Sources](hats-sources.md)**
-  IVOA registry lookups, verified LSDB/IRSA datasets, and remote read capabilities across HTTP, AWS S3 (`s3://`), and Hugging Face Hub (`hf://`).
-- **[Anchor-Centric Master Catalogues (`ray-anchor`)](ray-anchor.md)**
-  Distributed one-row-per-anchor-source master catalogue generation with multi-survey counterpart ranking, ambiguity metrics, and HATS spatial partitioning.
+- [0.7.0](archive/release-0.7.0.md): torchsky matching engine, catalogue
+  conversion, release audit.
+- [0.6.0](archive/release-0.6.0.md): named catalogues, HATS over S3 and Hugging
+  Face, Gaia-anchored masters.
+- [0.5.1](archive/release-0.5.1.md): rename from `xmatch` to `xmatcher`.
+- [0.5.0](archive/release-0.5.0.md): first release.
+- [Documentation and CLI audit, 2026-10-21](archive/audit-2026-10-21.md)
+- [CANFAR scaling report, 2026-10-07](archive/canfar-scaling-2026-10-07.md)
+- [0.5.0 release audit, 2026-10-06](archive/release-audit-2026-10-06.md)
 
----
-
-### 4. Data Contracts & Architecture
-
-- **[Association Contract v1 (`xmatch.association.v1`)](association-v1.md)**
-  Normative specification for versioned association tables, directory layouts, component sidecars, deterministic SHA-256 identities, and cross-release member equivalence.
-- **[Source & Measurement Releases](observations.md)**
-  Architecture for lazy measurement ledgers, photometric unit normalization, property evidence, and checksummed Parquet releases.
-- **[Catalogue-to-Model Pipeline](catalogue-pipeline.md)**
-  Data flow architecture transforming raw survey observations into sparse candidate sets and physical target association hypotheses.
-
----
-
-### 5. Historical Archive & Benchmark Reports
-
-- **[0.7.0 Release Notes](archive/release-0.7.0.md)** — torchsky matching engine, FITS/Parquet/HATS converter, release audit.
-- **[0.6.0 Release Notes](archive/release-0.6.0.md)** — Named catalogues, S3/HF HATS streaming, `skyerr` radius bounds, and upgrade guide.
-- **[0.5.1 Migration Notes](archive/release-0.5.1.md)** — Namespace migration from `xmatch` to `xmatcher`.
-- **[0.5.0 Release Notes](archive/release-0.5.0.md)** — Initial 0.5.0 release features.
-- **[Documentation & CLI Audit (2026-10-21)](archive/audit-2026-10-21.md)** — Verification findings and naming migration records.
-- **[CANFAR Scaling Report (2026-10-07)](archive/canfar-scaling-2026-10-07.md)** — Benchmark results and scaling curves.
-- **[0.5.0 Release Audit (2026-10-06)](archive/release-audit-2026-10-06.md)** — Pre-release verification logs.
+The full history is in the [changelog](../CHANGELOG.md).

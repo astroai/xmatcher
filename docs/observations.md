@@ -6,10 +6,12 @@ counterparts, adopt conflicting properties, or infer limits from missing data.
 
 Use the existing `CrossMatch.resolve_source` registry and local overrides. Each
 input needs an explicit `release_namespace` identifying its upstream release
-and product, and a unique string/integer `id_column`. Reordering or partitioning
-rows does not change the SHA-256 source identity. Integer `17` and string `"17"`
-are different native identifiers. Floats and anonymous row numbers are not
-accepted as authoritative IDs.
+and product, and a unique string/integer `id_column`. The source identity is
+`source_id = "xmatch.source.v1:"` followed by the hex SHA-256 of the canonical
+JSON `[release_namespace, "int" | "str", native_id]`, so reordering or
+partitioning rows does not change it, and integer `17` and string `"17"` are
+different native identifiers. Floats and anonymous row numbers are not accepted
+as authoritative IDs.
 
 ```python
 import polars as pl
@@ -118,7 +120,11 @@ Each mapping requires `passband`, `value_column`, and `unit`. Optional fields ar
 | `status_column`, `status_values` | Explicit native-code to canonical-status mapping |
 | `quality_column` | Native quality code, retained without interpreting it |
 | `observation_time_column` or `observation_time` | Native observation time, requiring `time_format` and `time_scale` |
-| `limit_sigma`, `limit_confidence`, `limit_convention` | Supplied limit semantics; sigma and probability are never inferred from one another |
+| `limit_sigma`, `limit_confidence`, `limit_convention` | Supplied limit semantics (`limit_sigma > 0`, `0 < limit_confidence < 1`); sigma and probability are never inferred from one another |
+
+`method` is recorded as `measurement_method`, `"unknown"` when omitted. Each row's
+`measurement_id` is `xmatch.photometry.v1:` plus the SHA-256 of its `source_id`
+and the mapping; identical mappings in one source are rejected.
 
 Supported flux-density units are `Jy`, `mJy`, `uJy`, and `nanomaggy`; one
 nanomaggy is represented as 3.631 microJy. `ABmag` uses the 3631 Jy zero-point
@@ -129,8 +135,10 @@ native-only. The complete raw values and dtype remain in the source inventory.
 Negative measured fluxes survive. Magnitude uncertainties produce separate
 `flux_error_lower_jy` and `flux_error_upper_jy`, representing the transformed
 native symmetric interval; `flux_error_jy` is null for magnitude inputs. Those
-intervals are not a fitted noise distribution. Invalid native uncertainties and
-nonfinite conversions are flagged, and invalid normalized values remain null.
+intervals are not a fitted noise distribution. Invalid native uncertainties
+(`invalid_uncertainty`), unconverted units (`native_only`) and nonfinite
+conversions (`conversion_nonfinite`) are flagged in `flags`, and invalid
+normalized values remain null.
 Magnitude interval endpoints are converted directly with the zero point in
 logarithmic form to avoid intermediate overflow. A finite native uncertainty
 whose converted bound is unrepresentable is flagged
@@ -140,7 +148,8 @@ flagged `invalid_upper_limit` and retain their native value with `invalid` statu
 Without a status column, a finite value means `measured`, null means `missing`,
 and a nonfinite value means `invalid`. Explicit statuses are `measured`,
 `upper_limit`, `missing`, `masked`, `outside_footprint`, `not_detected`,
-`ambiguous`, and `invalid`. Unknown native codes become `invalid`. Supplied
+`ambiguous`, and `invalid`. Unknown native codes become `invalid`, as does a
+`measured` or `upper_limit` row whose value is null or nonfinite. Supplied
 limits occupy `upper_limit_jy`, with `flux_jy` null; missing rows never become
 limits. A status records upstream measurement semantics, not a calibrated
 association decision.
@@ -162,6 +171,9 @@ Optional fields are `error_column`, `unit`, `quality_column`, `reference_frame`,
 `input_features`, `association_id_column`, and `upstream_evidence_id_column`.
 Values are retained as native strings with their dtype; nested arrays/structs
 use JSON so posterior samples or distributions are not collapsed to a scalar.
+Each row's `evidence_id` is `xmatch.property.evidence.v1:` plus the SHA-256 of
+its `source_id` and the mapping; `input_features` is stored as
+`input_features_json`.
 The original native column remains in the source inventory.
 
 Keep distinct property names for spectroscopic and photometric redshift,
@@ -175,9 +187,20 @@ training application can audit target leakage.
 ## Publication and verification
 
 `write_observation_release` streams separate inventory, photometry and evidence
-Parquet files for each namespace. This preserves heterogeneous native schemas.
-A manifest records paths, row counts, Parquet schemas, SHA-256 checksums,
-registry mappings, frame/motion/error metadata and supplied provenance.
+Parquet files for each namespace, which preserves heterogeneous native schemas:
+
+```text
+<release>/
+  manifest.json                # schema_version "xmatch.observations.release.v1"
+  source-0000/inventory.parquet
+  source-0000/photometry.parquet
+  source-0000/evidence.parquet
+  source-0001/...              # one directory per input source, in input order
+```
+
+The manifest records `release_id`, the supplied provenance and, per source,
+paths, row counts, Parquet schemas, SHA-256 checksums, registry mappings,
+`release_metadata` and frame/motion/error metadata.
 
 Publication uses a sibling temporary directory and exclusive writer lock,
 followed by a directory rename. Existing releases are never overwritten.
@@ -185,7 +208,8 @@ Duplicate namespaces, native IDs or identical measurement mappings fail before
 publication. After an interrupted process, inspect and remove a stale sibling
 lock only after confirming no writer is active.
 
-`verify_observation_release` checks each shard's checksum, row count and recorded
-schema, rejecting paths outside the release directory. These checks establish
+`verify_observation_release` checks the manifest schema version and release ID,
+then each shard's checksum, row count and recorded schema, rejecting paths
+outside the release directory. These checks establish
 consistency with the local manifest; they do not authenticate the upstream
 archive, validate survey calibration, or establish scientific association truth.

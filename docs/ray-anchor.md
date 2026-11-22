@@ -1,4 +1,4 @@
-# Anchor-Centric Crossmatching (`ray-anchor`)
+# Anchor-centric crossmatching (`ray-anchor`)
 
 `engine="ray-anchor"` builds a master catalogue that is driven by one
 **anchor** catalogue (such as Gaia DR3 or a primary target list). The output has
@@ -22,8 +22,10 @@ xmatcher match gaia_hats sdss_hats ps1_hats catwise_hats \
 ```
 
 The first catalogue is the anchor. Every later catalogue is a survey. Remote
-inputs are mirrored into the HATS cache on demand; `--no-sync` requires an
-existing cached copy.
+inputs (TAP tables or remote HATS trees) are mirrored into the HATS cache
+(`--cache-root`) on demand; `--no-sync` requires an existing cached copy. An
+output path (`-o`) is required and must be a local directory that does not
+overlap any input.
 
 For a large survey list, use a shell variable:
 
@@ -36,7 +38,8 @@ xmatcher match gaia_hats $SURVEYS --engine ray-anchor -r 1.5 \
 ## Output schema
 
 The anchor's selected columns are preserved: its whole schema, or the
-`default_columns` listed in its catalogue entry. The anchor ID column is
+`default_columns` listed in its catalogue entry plus the configured position,
+identifier, error and epoch/motion columns. The anchor ID column is
 renamed to `source_id` by default (`--anchor-id-name` changes it). An anchor
 whose schema has no column that can serve as an identifier is rejected, rather
 than producing a master that cannot be keyed. Each survey contributes:
@@ -50,10 +53,17 @@ than producing a master that cannot be keyed. Each survey contributes:
 | `<survey>_pm_warn` | Proper-motion/epoch warning (see below) |
 | `<survey>_quality` | `good`, `poor`, `ambiguous`, `pm_warn`, `ambiguous+pm_warn`, or `no_match` |
 
+`<survey>` is the resolved catalogue name, lower-cased with every run of
+non-alphanumeric characters replaced by `_` (a repeated name gets `_2`,
+`_3`, ...). An alias resolves to its catalogue key first, so `sdss_hats`
+produces the tag `sdss_dr16_hats` and `ps1_hats` produces `ps1_dr2_hats`.
+
 Survey measurements keep their original names with a `_<survey>` suffix,
-e.g. `objID_sdss_hats`, `upmag_sdss_hats`, `gmag_ps1_hats`. Only the columns
-listed in the catalogue's `default_columns` are carried by default; a HATS
-input passed without a configured projection carries its full schema.
+e.g. `objID_sdss_dr16_hats`, `upmag_sdss_dr16_hats`, `gmag_ps1_dr2_hats`.
+Only the columns listed in the catalogue's `default_columns` are carried by
+default, plus the configured position, identifier, error and epoch/motion
+columns; a HATS input passed without a configured projection carries its
+full schema.
 
 `quality` is policy, not a calibrated probability:
 
@@ -72,6 +82,17 @@ Labels are applied in that order: a crowded match with a PM warning is
 reported as `pm_warn`. Use the individual boolean/count columns when a
 consumer needs the conditions separately.
 
+## Candidate search
+
+For each anchor partition, the plan selects the survey partitions that
+intersect a cone around the anchor pixel of radius 2 × (match radius +
+largest partition diagonal). Within those rows, the search uses
+torchsky's exact zone index (`torchsky.catalogs.SkyIndex`): one query returns
+the two nearest survey sources and the count inside the radius, under a single
+inclusive rule (separation ≤ radius), with ties going to the lowest survey
+row. `sep_arcsec`, `sep_second` and `n_within` therefore agree with each
+other. Torchsky (`>=0.6.0`) is a core dependency of `xmatcher`.
+
 ## Epochs and proper motion
 
 `--target-epoch` propagates both the anchor and any survey row that has epoch
@@ -80,13 +101,22 @@ the propagated position, and `properties` records the epoch in `hats_epoch`
 (`J2020.000` for `--target-epoch 2020`). Surveys without motion metadata stay
 at their published coordinates; `pm_warn` still flags the anchor's motion over
 the anchor-survey epoch baseline. Without `--target-epoch`, `hats_epoch`
-records the anchor epoch when one is configured. For a reproducible run, set
-`--target-epoch` to the anchor epoch (2016.0 for Gaia DR3) and keep
-`--fallback-policy error`.
+records the anchor epoch when one is configured, and `J2000` otherwise. For a
+reproducible run, set `--target-epoch` to the anchor epoch (2016.0 for Gaia
+DR3) and use `--fallback-policy error`.
 
-`pm_warn` uses the anchor proper motion when available. If the anchor has no
-usable motion and the epoch baseline exceeds five years, every anchor row for
-that survey is flagged rather than silently treated as stationary.
+If propagation moves a source further than the candidate halo,
+0.5 × (match radius + largest partition diagonal), the run stops with an error
+that names the catalogue, rather than missing pairs the partition plan never
+read. This usually indicates wrong proper-motion columns or units.
+
+`pm_warn` compares the anchor epoch (`--target-epoch`, else the anchor's
+configured epoch) with the survey's configured epoch; it is false when either
+is unknown or they are equal. A row with a usable anchor proper motion is
+flagged when its drift over the baseline exceeds half the radius. A row
+without usable motion (a null proper motion, or an anchor with no
+proper-motion columns) is flagged when the baseline exceeds five years, rather
+than being treated as stationary.
 
 ## Gaia XP sidecar
 
@@ -139,19 +169,27 @@ those columns.
 
 Each anchor partition is one output partition under
 `<out>/dataset/Norder=…/Dir=…/Npix=…parquet`. A completed partition is skipped
-on a rerun. The fingerprint in `<out>/resume.state` covers the inputs, selected
-columns, radius, target epoch, and anchor ID name; changing any of them into
-the same output directory wipes the old dataset first.
+on a rerun. The fingerprint in `<out>/resume.state` covers the inputs (roots,
+partitions and input files), selected and output columns, radius, target and
+anchor epochs, the epoch and proper-motion metadata, the fallback policy, and
+the anchor ID name; changing any of them into the same output directory wipes
+the old dataset first. An output directory that already holds a dataset but no
+valid `resume.state` is refused.
 
-The driver uses a running Ray cluster when `RAY_ADDRESS` is set, otherwise it
-starts a local cluster. If Ray is not installed, the same partition loop runs
-serially. The cache and output must be visible to every worker.
+The driver joins the cluster at `RAY_ADDRESS` when it is set; if that
+connection fails it starts a local cluster with a warning, or stops under
+`--fallback-policy error`. Without `RAY_ADDRESS` it starts a private local
+cluster, and it reuses a Ray session already initialised in the same process.
+If Ray is not installed (it is in the `ray` and `hats-ray` extras), the same
+partition loop runs serially. The cache and output must be visible to every
+worker.
 
 ## CANFAR local products
 
 The bundled configuration exposes local HATS aliases for products staged on
-CANFAR. Point the environment variables at the HATS roots before resolving
-the alias:
+CANFAR (the full list of names and variables is in
+[HATS sources](hats-sources.md#cds-pinned-hats-products)). Point the
+environment variables at the HATS roots before resolving the alias:
 
 ```bash
 export XMATCHER_UHS_DR3_HATS=/arc/projects/<group>/uhs_dr3/hats
@@ -160,28 +198,15 @@ export XMATCHER_GAIA_XP_HATS=/arc/projects/<group>/gaia_xp/hats
 export XMATCHER_DP2_HATS=/arc/projects/<group>/dp2/hats
 ```
 
-Use `uhs_hats`, `splus5_hats`, `xp_hats`, and `dp2` as catalogue names. If a
-variable is unset, resolution fails with the variable named instead of
-searching a fallback sky.
+Use `uhs_hats`, `splus5_hats`, `xp_hats`, and `dp2` as catalogue names.
 
 ## Published pinned HATS sources
 
-These products are not in the IVOA HATS registry but are available as pinned
-CDS HATS trees and are bundled as aliases:
-
-| Alias | Pinned tree | Rows |
-|---|---|---:|
-| `gaia_hats` | `https://vizcat.cds.unistra.fr/hats/gaia_dr3/main` | 1,811,709,771 |
-| `sdss_hats` | `https://vizcat.cds.unistra.fr/hats/sdss_dr16/main` | 1,231,051,050 |
-| `catwise_hats` | `https://vizcat.cds.unistra.fr/hats/catwise2020/main` | 1,890,715,640 |
-| `vhs_hats` | `https://vizcat.cds.unistra.fr/hats/vhs_dr5/main` | 1,374,207,485 |
-| `ps1_hats` | `https://vizcat.cds.unistra.fr/hats/ps1_dr2/main` | 1,868,236,315 |
-| `galex_hats` | `https://vizcat.cds.unistra.fr/hats/galex_gr67/main` | 82,992,086 |
-| `splus_hats` | `https://vizcat.cds.unistra.fr/hats/splus_dr4/main` | 27,235,968 |
-
-SDSS DR20 contains no new or updated imaging data. The DR16 HATS is the
-static SDSS imaging photometry product; use it rather than building a DR20
-photometry tree.
+The survey aliases used above (`gaia_hats`, `sdss_hats`, `ps1_hats`,
+`catwise_hats`, `vhs_hats`, `galex_hats`, `splus_hats`) are pinned CDS HATS
+trees that are not in the IVOA registry; their URLs, row counts and notes,
+including why SDSS DR16 is the photometry source, are in
+[HATS sources](hats-sources.md#cds-pinned-hats-products).
 
 ## Limits
 
@@ -190,9 +215,15 @@ photometry tree.
   in its HATS schema).
 - The current engine supports `matcher="sky"` and keeps the best counterpart
   per survey. Use `ray-union` for `skyerr`/`skyellipse`.
-- It always performs a left join from the anchor; `find="all"`, ID joins,
-  probabilistic scores, filters, regions, and extra-distance columns are
-  rejected rather than silently ignored.
+- It always performs a left join from the anchor. `--join` accepts only
+  `1and2`, `1or2` or `all`, all of which mean that left join.
+- These options are rejected rather than silently ignored: `--find all`,
+  `--id-join`, `--probabilistic`, `--priors`, `--filter-expr`,
+  `--extra-distance-cols`, `--columns-1`/`--columns-2`,
+  `--memory-budget-bytes`, `--pm-prior`, and a region
+  (`--ra`/`--dec`/`--radius-deg`).
+- The output is a local HATS directory; a `vos:` output is refused (stage it
+  with `xmatcher sync` afterwards).
 - A single anchor partition whose survey candidate pool exceeds
   `--task-rows` or `--chunk-memory-gb` aborts with an actionable error; raise
   the limits or lower `--hats-threshold`.

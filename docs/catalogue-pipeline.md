@@ -61,16 +61,34 @@ candidates = write_candidate_release(
 )
 ```
 
-Both writers refuse to replace existing releases, stage locally, and publish
-Parquet files with checksum manifests. Candidate releases require ICRS inputs.
-All native sources appear in `sources.parquet`, including zero-candidate sources;
-`candidates.parquet` contains all pairs in the requested survey-pair/radius scope.
+Both writers refuse to replace existing releases, stage in a sibling temporary
+directory, and publish Parquet files with checksum manifests. Candidate releases
+require local, ICRS inputs with unique `release_namespace` values. A candidate
+release directory holds:
+
+- `sources.parquet`: every native source, including zero-candidate sources, with
+  `source_id`, `release_namespace`, `native_id`, `native_id_type`, `ra_deg`,
+  `dec_deg`, `epoch_jyear` and `candidate_count`, sorted by `source_id`;
+- `candidates.parquet`: every pair in the requested survey-pair/radius scope, with
+  `source_id`, `candidate_id`, `source_namespace`, `candidate_namespace`,
+  `sep_arcsec` and `evaluation_epoch_jyear`, sorted by (`source_id`,
+  `candidate_id`); within each survey pair the source side is the
+  lexicographically smaller namespace;
+- `manifest.json`: schema `xmatch.candidates.release.v1`, counts, file SHA-256
+  checksums, `input_release_ids`, the search parameters, `score_semantics:
+  "ranking_score"`, `association_state: "unevaluated_candidates"`, the supplied
+  provenance, execution statistics, and a `release_id` (the schema name plus the
+  SHA-256 of the manifest without its execution statistics).
+
 Namespaced source IDs distinguish identical native IDs in different releases.
 `candidate_count` is graph degree, not confidence or the number of physical objects.
+`verify_candidate_release` rechecks checksums, counts, endpoint references and
+the release ID.
 
 ## Candidate scope and association alternatives
 
-Candidate generation reuses the local partitioned spill engine. The matching
+Candidate generation runs `matcher="sky"`, `find="all"` and
+`fallback_policy="error"` on the local partitioned spill engine. The matching
 budget controls its batch memory proxy; it does not guarantee resident memory
 for Polars scans, sorting, or graph inference. Pair outputs avoid the N-survey
 Cartesian product. `survey_pairs` can explicitly restrict the searched release
@@ -82,26 +100,13 @@ motion fail rather than silently assuming stationary sources. The search radius
 still needs to cover the caller's declared astrometric/physical uncertainty.
 Raw astrometry remains in the inventory; pair records carry the evaluation epoch.
 
-Target-epoch `skyerr` matching transports a declared five-parameter astrometric
-covariance with the existing motion Jacobians; missing covariance fails explicitly.
-Physical covariance currently conditions on radial velocity: a source must declare
-`release_metadata["radial_velocity_uncertainty"] = "deterministic"` for this path.
-It does not propagate an unknown RV variance or promise a full six-parameter
-covariance model. Jacobian transport uses torchsky (a core dependency, >=0.6.0); the Jacobians
-agree with finite differences of the Astropy propagation in the local
-east/north basis of `ra_error`/`dec_error`, and CI runs this path.
-An explicitly requested missing-motion prior remains an assumed population
-model, distinct from measured covariance, and is not supported by spill execution.
-The distributed `ray-union` driver supports `target_epoch` when sources declare
-reference epochs and either finite proper motions for rows that need
-propagation or an explicit missing-motion prior. It rejects unannotated motion
-requests before writing output. Distributed union uses compressed interval
-planning for mixed-order and RING inputs, then applies measured per-source
-uncertainty or epoch-motion halos in distributed tasks. Planner scans can read
-additional partitions, so remote or very large inputs can incur substantial
-I/O. The separate pairwise native HATS path materializes inputs globally for
-adaptive, RING, mixed-order, or epoch-aligned matching. Direct eager and spill entry
-points also validate declared frames instead of comparing incompatible coordinates.
+Covariance transport for target-epoch matching outside candidate releases is
+described under [epoch propagation](algorithms.md#a-epoch-propagation-target_epoch);
+the missing-motion prior is an assumed population model and is not supported
+by spill execution. Epoch and memory behaviour of `ray-union` and the native
+HATS path are in the
+[user guide](usage.md#distributed-full-sky-union-ray-union). Every entry point
+validates declared frames instead of comparing incompatible coordinates.
 
 ```python
 import polars as pl
@@ -121,8 +126,12 @@ hypotheses = normalize_candidate_hypotheses(
 ```
 
 The resulting alternatives compete within the named target survey. Stored pairs
-are oriented appropriately, and every source outside that survey receives an
-explicit no-match alternative. Log weights must include the declared priors and
+are oriented so the target survey is the candidate side, and every source outside
+that survey receives an explicit no-match alternative. The output has
+`source_id`, `candidate_id` (null for no match), `log_weight`, `probability`
+(the softmax of the log weights per source), `hypothesis_kind`
+(`counterpart` or `no_match`), `score_semantics` and `candidate_namespace`;
+`log_weight_column` names a different input column. Log weights must include the declared priors and
 selection/coverage assumptions. Output semantics are `assumed_prior_posterior`;
 normalization does not establish calibration, global one-to-one consistency,
 or deblending. Joint multi-survey/blend hypotheses need a scientific inference
@@ -135,7 +144,8 @@ can name a target with no inventory rows; inventoried sources then receive only
 the explicit no-match alternative.
 
 Existing association.v1 releases remain authoritative for evaluated pair
-records. `construct_association_components(..., additional_members=inventory)`
-can retain isolated sources under an explicit included-decision policy. Its
+records. `construct_association_components(..., additional_members=...)`, given
+`AssociationComponentMember` values built from the inventory, retains isolated
+sources under an explicit included-decision policy. Its
 union-find state is O(number of members); components are graph work units,
 not automatically adopted celestial objects.

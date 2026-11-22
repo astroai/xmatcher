@@ -5,6 +5,22 @@ All notable changes to `xmatcher` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Documentation
+
+- The README is a short front page (overview, installation, quickstart,
+  engines, guide index); installation moves to `docs/install.md`.
+- Every guide and reference page was checked against the 0.7.0 code and
+  corrected: engine selection (`auto` prefers STILTS when installed), likelihood
+  ratio reliability, `skyellipse` offsets, epoch propagation, the Bayesian
+  `p_match` width, `radius_arcsec` as a ceiling for every matcher, name
+  resolution order, `ray-anchor` column names, and `api.md` signatures and
+  association record fields. `xmatcher.convert.convert` is now documented.
+- Formulas live in `docs/algorithms.md` only; repeated tables and explanations
+  elsewhere point to it, to `docs/hats-sources.md` or to the CLI and API
+  references.
+
 ## [0.7.0] — 2026-11-22
 
 The `v0.7.0` tag is the GitHub release. See the
