@@ -1,7 +1,7 @@
 # xmatcher 0.7.0
 
-Release notes for the 0.7.0 source tree, for tag `v0.7.0`. This release has
-three parts:
+Release notes for the 0.7.0 source tree, prepared 2026-11-22 for tag `v0.7.0`.
+This release has three parts:
 
 - torchsky becomes xmatcher's matching engine.
 - `xmatcher convert` converts catalogues between FITS, Parquet, HATS and CSV,

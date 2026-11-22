@@ -5,7 +5,10 @@ All notable changes to `xmatcher` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.7.0] — Unreleased
+## [0.7.0] — 2026-11-22
+
+The `v0.7.0` tag is the GitHub release. See the
+[release notes](docs/archive/release-0.7.0.md).
 
 torchsky becomes xmatcher's matching engine, a converter between FITS,
 Parquet, HATS and CSV is added, and a release audit of correctness, HATS
