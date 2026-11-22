@@ -209,13 +209,16 @@ def export_hats(
     output: str | Path,
     *,
     columns: Sequence[str] | None = None,
+    keep_healpix29: bool = False,
 ) -> dict[str, Any]
 ```
 
 - Parquet export scans partitions lazily and uses `write_frame`'s streaming
-  sink when possible; FITS collects the full table.
-- Huge catalogues may still OOM — keep HATS partitioned when a single file is
-  not required. Remote HATS URIs must be mirrored first.
+  sink; FITS is streamed by `xmatcher.convert.convert` (a standard binary
+  table, `TNULL` for integer nulls).
+- Without `columns`, `_healpix_29` is dropped unless `keep_healpix29=True`.
+- Keep survey-scale trees partitioned when a single file is not required.
+  Remote HATS URIs must be mirrored first.
 - `export_hats` returns `rows`, `columns`, `partitions`, and `output`.
 
 ---

@@ -305,13 +305,15 @@ xmatcher project-hats <source> <output> --columns <col1,col2,...> [options]
 
 ## `xmatcher export-hats`
 
-Flattens a local HATS catalogue directory into a single Parquet or FITS table.
-Parquet prefers a Polars scan over Npix partitions and a streaming sink; FITS
-collects the full table. Survey-scale trees may OOM — keep them partitioned
-(HATS) when a single file is not required.
+Flattens a local or synced HATS catalogue (a directory, a configured name or a
+mirrored `hats:` identifier) into a single Parquet or FITS table. Parquet uses a
+Polars scan over Npix partitions and a streaming sink; FITS is written in one
+bounded-memory pass by the same writer as [`xmatcher convert`](#xmatcher-convert).
+The `_healpix_29` index column is dropped unless `--keep-healpix29` is given.
+Keep survey-scale trees partitioned (HATS) when a single file is not required.
 
 ```bash
-xmatcher export-hats <source> <output.parquet|output.fits> [--columns col1,col2,...]
+xmatcher export-hats <source> <output.parquet|output.fits> [--columns col1,col2,...] [--keep-healpix29]
 ```
 
 ### Options
@@ -319,6 +321,7 @@ xmatcher export-hats <source> <output.parquet|output.fits> [--columns col1,col2,
 | Option | Default | Description |
 |---|---|---|
 | `--columns COLS` | all | Optional comma-separated columns to retain. |
+| `--keep-healpix29` | `False` | Keep the `_healpix_29` index column. |
 
 ---
 

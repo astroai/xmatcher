@@ -25,7 +25,7 @@ High-performance, format-agnostic astronomical catalogue crossmatching and multi
 # Core package (torchsky, Polars, Astropy, PyVO)
 pip install xmatcher
 
-# With all features (Ray distributed, HATS, CDS, ML, Torchfits)
+# With all features (Ray distributed, HATS, CDS, ML)
 pip install "xmatcher[all]"
 ```
 

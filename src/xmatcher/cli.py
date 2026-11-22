@@ -1378,10 +1378,11 @@ def _build_export_hats_subparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xmatcher export-hats",
         description=(
-            "Flatten a local HATS catalogue tree into a single Parquet or FITS file.\n\n"
-            "Parquet uses a Polars scan over Npix partitions and a streaming sink when\n"
-            "possible. FITS collects the full table. Survey-scale catalogues may OOM;\n"
-            "keep them partitioned (HATS) when a single file is not required."
+            "Flatten a local or synced HATS catalogue into a single Parquet or FITS file.\n\n"
+            "Parquet uses a Polars scan over Npix partitions and a streaming sink; FITS is\n"
+            "written in one bounded-memory pass, as by `xmatcher convert`. The _healpix_29\n"
+            "index column is dropped unless --keep-healpix29 is given. Keep survey-scale\n"
+            "catalogues partitioned (HATS) when a single file is not required."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
@@ -1402,6 +1403,12 @@ def _build_export_hats_subparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--columns",
         help="Optional comma-separated columns to retain (default: all).",
+    )
+    parser.add_argument(
+        "--keep-healpix29",
+        dest="keep_healpix29",
+        action="store_true",
+        help="Keep the HATS _healpix_29 index column.",
     )
     _add_global_options(parser)
     return parser
@@ -2678,7 +2685,12 @@ def _run_export_hats(argv: Sequence[str]) -> int:
             columns = [c.strip() for c in args.columns.split(",") if c.strip()]
         progress = Progress(f"Exporting {args.source}", enabled=console.enabled)
         with progress:
-            stats = export_hats(source, args.output, columns=columns)
+            stats = export_hats(
+                source,
+                args.output,
+                columns=columns,
+                keep_healpix29=bool(args.keep_healpix29),
+            )
         console.info(
             f"Wrote {stats['rows']} rows x {len(stats['columns'])} columns to {args.output} "
             f"({stats['partitions']} partition(s))."

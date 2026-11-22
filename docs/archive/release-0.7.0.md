@@ -5,7 +5,8 @@ three parts:
 
 - torchsky becomes xmatcher's matching engine.
 - `xmatcher convert` converts catalogues between FITS, Parquet, HATS and CSV,
-  in both directions.
+  in any direction, and `xmatcher export-hats` flattens a HATS tree to one
+  Parquet or FITS file.
 - A release audit of correctness, HATS conformance, remote acquisition, the
   Ray engines and the install path is folded in.
 
@@ -72,6 +73,12 @@ Formats come from the paths: `.fits`, `.parquet` or a Parquet directory,
 - **Measured round trip:** 5 million rows Parquet → HATS → FITS → Parquet come
   back exactly. The HATS write takes 15 s at 1.3 GB peak memory; the FITS steps
   take 3–6 s at 0.3 GB.
+
+`xmatcher export-hats tree.hats out.parquet` (and `xmatcher.export_hats` /
+`scan_hats`) flattens a local or synced HATS tree, or a configured HATS name,
+to a single Parquet or FITS file. Parquet goes through a lazy scan and a
+streaming sink, FITS through the `convert` writer, and `_healpix_29` is
+dropped unless `--keep-healpix29` is given.
 
 ### Release audit
 

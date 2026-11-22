@@ -16,10 +16,10 @@ without it. Requires torchsky 0.6.0 (released first).
 ### Added
 
 - `xmatcher export-hats` and `xmatcher.export_hats` / `xmatcher.scan_hats`:
-  flatten a local HATS tree to a single `.parquet` or `.fits` file. Parquet
-  prefers a Polars scan over Npix partitions and a streaming sink; FITS
-  collects. Survey-scale trees may OOM — keep them partitioned when a single
-  file is not required.
+  flatten a local or synced HATS tree to a single `.parquet` or `.fits` file.
+  Parquet uses a Polars scan over Npix partitions and a streaming sink; FITS
+  is streamed by the `convert` writer. `_healpix_29` is dropped unless
+  `--keep-healpix29` / `keep_healpix29=True`.
 - `xmatcher convert` / `xmatcher.convert.convert`: converts catalogues between
   FITS, Parquet, HATS and CSV in every direction, streaming in bounded memory.
   - HATS outputs take three passes (count per cell, spill to partitions,

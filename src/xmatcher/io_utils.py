@@ -168,8 +168,7 @@ def _read_fits(path: Path) -> pl.DataFrame:
     """Read a local FITS table with Torchfits, falling back to Astropy.
 
     Torchfits keeps the local catalogue path Arrow/Polars-native. Astropy
-    serves as the fallback for FITS variants not supported by Torchfits or
-    when the optional ``torchfits`` extra is not installed.
+    serves as the fallback for FITS variants Torchfits does not support.
     """
     last_err = None
     try:

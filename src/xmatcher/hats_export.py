@@ -7,9 +7,11 @@ pipelines).
 
 Parquet export prefers a Polars ``scan_parquet`` over the Npix leaves and
 ``write_frame``'s streaming sink so medium trees need not be fully
-materialized first. FITS always collects through Astropy. Huge surveys may
-still OOM or thrash — keep them partitioned (HATS) when a single file is not
-required.
+materialized first. FITS is written by :func:`xmatcher.convert.convert` in one
+bounded-memory pass (a standard binary table, ``TNULL`` for integer nulls).
+The ``_healpix_29`` index column is dropped unless requested, as in
+``convert``. A single flat file of a survey-scale tree is still large — keep it
+partitioned (HATS) when a single file is not required.
 """
 
 from __future__ import annotations
@@ -25,6 +27,8 @@ from .exceptions import CrossMatchError, InputError
 from .hats_native import _hats_root, list_hats_pixels
 from .io_utils import write_frame
 from .sources import CatalogueSource
+
+HEALPIX29 = "_healpix_29"
 
 logger = logging.getLogger(__name__)
 
@@ -79,13 +83,16 @@ def export_hats(
     output: str | Path,
     *,
     columns: Sequence[str] | None = None,
+    keep_healpix29: bool = False,
 ) -> dict[str, Any]:
     """Export a local HATS catalogue to a single ``.parquet`` or ``.fits`` file.
 
-    Prefer Parquet: partitions are scanned lazily and written with
-    :func:`xmatcher.io_utils.write_frame`'s streaming sink. FITS collects the
-    full table first. For survey-scale trees, keep the HATS layout instead of
-    flattening when possible.
+    Parquet partitions are scanned lazily and written with
+    :func:`xmatcher.io_utils.write_frame`'s streaming sink. FITS is streamed by
+    :func:`xmatcher.convert.convert`. Without ``columns``, the ``_healpix_29``
+    index column is dropped unless ``keep_healpix29`` is true. For
+    survey-scale trees, keep the HATS layout instead of flattening when
+    possible.
 
     Returns a dict with ``rows``, ``columns``, ``partitions``, and ``output``.
     """
@@ -99,6 +106,8 @@ def export_hats(
     files = hats_partition_parquet_paths(root)
     if not files:
         lf = _empty_hats_lazy(root, columns=columns)
+        if columns is None and not keep_healpix29:
+            lf = lf.select(pl.exclude(HEALPIX29))
         write_frame(lf, out)
         names = lf.collect_schema().names()
         logger.info("export-hats: wrote empty catalogue (%d columns) to %s", len(names), out)
@@ -109,17 +118,23 @@ def export_hats(
             "output": str(out),
         }
 
-    selected = None
-    lf = pl.scan_parquet(files)
     if columns is not None:
         selected = _validate_columns(files[0], columns, source=source.name)
-        lf = lf.select(selected)
-    write_frame(lf, out)
+    else:
+        schema_names = pl.scan_parquet(files[0]).collect_schema().names()
+        selected = [n for n in schema_names if keep_healpix29 or n != HEALPIX29]
 
-    # Row count without a second full collect when possible: sum partition
-    # metadata. Falls back to scanning the written Parquet / collecting FITS.
-    rows = _count_exported_rows(out, files)
-    names = selected if selected is not None else pl.scan_parquet(files[0]).collect_schema().names()
+    if suffix == ".parquet":
+        write_frame(pl.scan_parquet(files).select(selected), out)
+        rows = int(pl.scan_parquet(out).select(pl.len()).collect().item())
+    else:
+        from .convert import convert  # noqa: PLC0415 - FITS path only
+
+        report = convert(
+            root, out, columns=selected, keep_healpix29=HEALPIX29 in selected, overwrite=True
+        )
+        rows = report.rows
+    names = selected
     logger.info(
         "export-hats: wrote %d rows x %d columns from %d partition(s) to %s",
         rows,
@@ -194,20 +209,6 @@ def _empty_hats_lazy(root: Path, *, columns: Sequence[str] | None) -> pl.LazyFra
             "export-hats cannot project columns from an empty HATS tree with no schema metadata"
         )
     return pl.DataFrame().lazy()
-
-
-def _count_exported_rows(out: Path, source_files: Sequence[Path]) -> int:
-    suffix = out.suffix.lower()
-    if suffix == ".parquet" and out.is_file():
-        return int(pl.scan_parquet(out).select(pl.len()).collect().item())
-    if suffix in (".fits", ".fit") and out.is_file():
-        from .io_utils import scan_frame
-
-        return int(scan_frame(out).select(pl.len()).collect().item())
-    total = 0
-    for path in source_files:
-        total += int(pl.scan_parquet(path).select(pl.len()).collect().item())
-    return total
 
 
 __all__ = ["export_hats", "hats_partition_parquet_paths", "scan_hats"]

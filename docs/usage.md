@@ -15,7 +15,7 @@ For dedicated reference manuals, see the [CLI Reference](cli.md), [Python API Re
 # Core package (torchsky zone index, Polars, Astropy, PyVO)
 pip install xmatcher
 
-# All optional features (Ray distributed, HATS, CDS, ML, Torchfits)
+# All optional features (Ray distributed, HATS, CDS, ML)
 pip install "xmatcher[all]"
 ```
 
@@ -51,7 +51,7 @@ If you only need specific optional backends rather than `[all]`:
 |---|---|---|
 | `[all]` | `astroquery`, `cdshealpix`, `hats`, `ray`, `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | All optional features in one install. |
 | `[cds]` | `astroquery` | CDS VizieR and CDS XMatch remote service backends. |
-| `[zone]` | `cdshealpix` | HEALPix spatial zoning engine. |
+| `[zone]` | `cdshealpix` | Kept for compatibility; `engine="zone"` runs on torchsky and no longer needs it. |
 | `[hats]` | `hats`, `cdshealpix` | HATS native reading and spatial partitioning. |
 | `[hats-ray]` | `hats`, `ray`, `cdshealpix` | Native HATS + Ray pixel matcher and `ray-union` engine. |
 | `[ray]` | `ray`, `cdshealpix` | Distributed parallel HEALPix matching across Ray clusters. |
@@ -755,8 +755,9 @@ projection workflow, and CANFAR local-product aliases.
 To hand a HATS tree to tools that only read ordinary tables, flatten it with
 `xmatcher export-hats <source> <out.parquet|out.fits>` (or
 `xmatcher.export_hats` / `xmatcher.scan_hats`). Parquet scans Npix partitions
-lazily; FITS materializes. Huge catalogues may OOM — prefer keeping the HATS
-layout when a single file is not required.
+lazily and FITS streams in bounded memory. `xmatcher convert` converts in any
+direction between FITS, Parquet, HATS and CSV. Prefer keeping the HATS layout
+when a single file is not required.
 
 ## 9. Friends-of-Friends output policy
 

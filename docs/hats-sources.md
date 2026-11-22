@@ -230,8 +230,8 @@ xmatcher export-hats ./tns.hats tns.parquet
 xmatcher export-hats ./tns.hats tns.fits --columns RA,DEC,Name
 ```
 
-Parquet scans Npix partitions lazily; FITS materializes. Prefer keeping HATS
-for survey-scale catalogues.
+Parquet scans Npix partitions lazily and FITS streams in bounded memory.
+Prefer keeping HATS for survey-scale catalogues.
 
 ## Metadata the mirror needs
 
