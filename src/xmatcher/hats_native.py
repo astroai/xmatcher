@@ -16,6 +16,7 @@ from typing import Any
 
 import polars as pl
 
+from . import _torchsky
 from .exceptions import CrossMatchError
 from .matchers import MatchSpec, sky_match
 from .sources import CatalogueSource, is_remote_hats_uri
@@ -28,28 +29,27 @@ def _hats_root(src: CatalogueSource) -> Path:
     if not path:
         raise CrossMatchError(f"No HATS path for '{src.name}'.")
     if is_remote_hats_uri(path):
-        raise CrossMatchError(
-            f"Remote HATS catalogue '{src.name}' ({path}) must be mirrored before a "
-            f"local match: run `xmatcher sync hats:{path}` and pass the mirrored "
-            "directory, or use engine='ray-union', which mirrors on demand."
-        )
+        # A completed `xmatcher sync` mirror stands in for the remote tree.
+        from .mirror import locate_mirrored  # noqa: PLC0415 - mirror imports this module
+        from .storage import default_cache_root  # noqa: PLC0415
+
+        try:
+            cache_root, rel = locate_mirrored(src, cache_root=default_cache_root())
+        except CrossMatchError as exc:
+            raise CrossMatchError(
+                f"Remote HATS catalogue '{src.name}' ({path}) must be mirrored before a "
+                f"local match: run `xmatcher sync hats:{path}`, or use "
+                f"engine='ray-union', which mirrors on demand. ({exc})"
+            ) from exc
+        if str(cache_root).startswith("vos:"):
+            raise CrossMatchError(
+                f"The mirror of '{src.name}' is on {cache_root}; a local match needs a "
+                "local cache root (or engine='ray-union', which stages vos: trees)."
+            )
+        return Path(cache_root) / rel
     root = Path(path).expanduser()
     if not root.exists():
         raise CrossMatchError(f"HATS path does not exist: {root}")
-    # Auto-resolve workspace root to canonical HATS release directory
-    if not (
-        (root / "properties").exists()
-        or (root / "hats.properties").exists()
-        or (root / "dataset").exists()
-    ):
-        for candidate in (
-            root / "data" / "merged" / "final",
-            root / "data" / "release" / "latest",
-        ):
-            if candidate.exists() and (
-                (candidate / "properties").exists() or (candidate / "dataset").exists()
-            ):
-                return candidate
     return root
 
 
@@ -73,8 +73,8 @@ def _ra_dec_columns(src: CatalogueSource, root: Path) -> tuple[str, str]:
     if ra and dec:
         return ra, dec
     props = _read_properties(root)
-    ra = ra or props.get("hats_col_ra") or props.get("ra_col") or "ra"
-    dec = dec or props.get("hats_col_dec") or props.get("dec_col") or "dec"
+    ra = ra or props.get("hats_col_ra") or "ra"
+    dec = dec or props.get("hats_col_dec") or "dec"
     return ra, dec
 
 
@@ -99,14 +99,6 @@ def list_hats_pixels(root: Path) -> list[tuple[int, int, Path]]:
             except Exception:
                 continue
             found.append((order, pix, npix_dir))
-    if not found:
-        for parquet in sorted(base.glob("Norder=*/Dir=*/Npix=*.parquet")):
-            try:
-                order = int(parquet.parent.parent.name.split("=")[1])
-                pix = int(parquet.stem.split("=")[1])
-            except Exception:
-                continue
-            found.append((order, pix, parquet))
     return found
 
 
@@ -140,57 +132,18 @@ def _healpix_neighbors(order: int, center_pix: int, *, radius_arcsec: float = 0.
     """Return nested HEALPix pixels covering a cap around ``center_pix``."""
     pix = int(center_pix)
     nside = 2 ** int(order)
-    try:
-        import torch
-        from torchsky.catalogs import cap_covering_pixels
-        from torchsky.sphere import healpix as ts_healpix
-    except ImportError:
-        pass
-    else:
-        center = torch.tensor([pix], dtype=torch.int64)
-        lon, lat = ts_healpix.pix2ang(nside, center, nest=True, lonlat=True)
-        # torchsky ≥0.5 renamed healpy-style max_pixrad → max_pixel_radius on
-        # sphere.healpix (max_pixrad remains only on sphere.compat). Prefer the
-        # current name; fall back for older editable checkouts.
-        max_radius = getattr(ts_healpix, "max_pixel_radius", None) or getattr(
-            ts_healpix, "max_pixrad", None
-        )
-        if max_radius is None:
-            raise AttributeError("torchsky.sphere.healpix has no max_pixel_radius")
-        pixrad = max_radius(nside, degrees=False)
-        radius_rad = min(
-            math.pi, math.radians(max(float(radius_arcsec), 0.0) / 3600.0) + (2.0 * pixrad)
-        )
-        covered = cap_covering_pixels(nside, lon, lat, radius_rad, nest=True)
-        return sorted({int(p) for p in covered.tolist()})
-    out = {pix}
-    try:
-        import cdshealpix as chp
-        import numpy as np
+    import torch  # noqa: PLC0415 - a dependency of torchsky
 
-        lon, lat = chp.healpix_to_lonlat(np.asarray([pix], dtype=np.uint64), depth=int(order))
-        if hasattr(lon, "to_value"):
-            lon = lon.to_value("rad")
-            lat = lat.to_value("rad")
-        pix_scale = np.sqrt(4.0 * np.pi / (12.0 * nside * nside))
-        radius_rad = math.radians(max(float(radius_arcsec), 0.0) / 3600.0) + float(1.5 * pix_scale)
-        from .matchers import _cone_search_pixels  # noqa: PLC0415
-
-        neigh = _cone_search_pixels(
-            chp,
-            float(lon[0]),
-            float(lat[0]),
-            min(math.pi, radius_rad),
-            int(order),
-        )
-        for n in np.atleast_1d(neigh).astype(int).ravel():
-            if n >= 0:
-                out.add(int(n))
-    except Exception as exc:
-        raise CrossMatchError(
-            "Cannot compute boundary-safe HATS margins; install cdshealpix or torchsky"
-        ) from exc
-    return sorted(out)
+    ts_healpix = _torchsky.require("sphere.healpix", "HATS margins")
+    cap_covering_pixels = _torchsky.require("catalogs", "HATS margins").cap_covering_pixels
+    center = torch.tensor([pix], dtype=torch.int64)
+    lon, lat = ts_healpix.pix2ang(nside, center, nest=True, lonlat=True)
+    pixrad = ts_healpix.max_pixel_radius(nside, degrees=False)
+    radius_rad = min(
+        math.pi, math.radians(max(float(radius_arcsec), 0.0) / 3600.0) + (2.0 * pixrad)
+    )
+    covered = cap_covering_pixels(nside, lon, lat, radius_rad, nest=True)
+    return sorted({int(p) for p in covered.tolist()})
 
 
 def margin_pixels(
@@ -270,7 +223,7 @@ def _match_frames(
         spec,
         engine=eng,
         right_suffix=right_suffix,
-        # ponytail: Ray allocates one CPU per pixel task; no nested tree pool.
+        # Ray allocates one CPU per pixel task; no nested tree pool.
         _tree_workers=1 if worker_task and engine == "ray" else -1,
     )
     return result.collect()
@@ -406,51 +359,55 @@ def hats_native_crossmatch(
                 right_empty_schema = dict(sample_df.schema)
     else:
         right_all = (local_lf2 if local_lf2 is not None else src2.lazy()).collect()
-        if right_all.height > 0 and left_pixels:
+        # Pruning drops left pixels with no right source nearby: only an inner
+        # join may lose those rows, and the needed-pixel set is computed at a
+        # single order, so a mixed-order left tree is not pruned.  (Target-epoch
+        # matches take the global path above, so positions here do not move.)
+        ts_hp = _torchsky.require("sphere.healpix", "HATS pruning")
+        if (
+            spec.join_type == "1and2"
+            and right_all.height > 0
+            and len({order for order, _, _ in left_pixels}) == 1
+        ):
+            import torch  # noqa: PLC0415 - a dependency of torchsky
+
             order0 = left_pixels[0][0]
-            nside0 = 2 ** int(order0)
             ra2_c, dec2_c = _ra_dec_columns(src2, left_root)
             if ra2_c in right_all.columns and dec2_c in right_all.columns:
-                try:
-                    import torch
-                    from torchsky.sphere import healpix as ts_hp
-
-                    ra_t = torch.from_numpy(right_all[ra2_c].to_numpy())
-                    dec_t = torch.from_numpy(right_all[dec2_c].to_numpy())
-                    base_pixs = (
-                        ts_hp.ang2pix(nside0, ra_t, dec_t, nest=True, lonlat=True).unique().tolist()
+                coords = right_all.select(
+                    pl.col(ra2_c).cast(pl.Float64), pl.col(dec2_c).cast(pl.Float64)
+                ).filter(pl.col(ra2_c).is_finite() & pl.col(dec2_c).is_finite())
+                base_pixs = (
+                    ts_hp.ang2pix(
+                        2 ** int(order0),
+                        torch.from_numpy(coords[ra2_c].to_numpy(writable=True)),
+                        torch.from_numpy(coords[dec2_c].to_numpy(writable=True)),
+                        nest=True,
+                        lonlat=True,
                     )
-                    needed: set[int] = set()
-                    eff_r = float(spec.radius_arcsec)
-                    for bp in base_pixs:
-                        needed.update(_healpix_neighbors(order0, int(bp), radius_arcsec=eff_r))
-                    left_pixels = [p for p in left_pixels if p[1] in needed]
-                except Exception as _filt_exc:
-                    logger.debug("HATS spatial pruning skipped: %s", _filt_exc)
+                    .unique()
+                    .tolist()
+                )
+                needed: set[int] = set()
+                for bp in base_pixs:
+                    needed.update(
+                        _healpix_neighbors(order0, int(bp), radius_arcsec=float(spec.radius_arcsec))
+                    )
+                left_pixels = [p for p in left_pixels if p[1] in needed]
 
     results: list[pl.DataFrame] = []
     right_idx_str = {k: str(v) for k, v in right_index.items()}
 
     if eng == "ray":
-        import os
-
+        owns_ray = False
         try:
             import ray as ray_mod
 
+            from .ray_union import _init_ray
+
             if not ray_mod.is_initialized():
-                try:
-                    ray_mod.init(
-                        address=os.environ.get("RAY_ADDRESS") or None,
-                        ignore_reinit_error=True,
-                        logging_level=logging.WARNING,
-                    )
-                except ConnectionError:
-                    os.environ.pop("RAY_ADDRESS", None)
-                    ray_mod.init(
-                        address=None,
-                        ignore_reinit_error=True,
-                        logging_level=logging.WARNING,
-                    )
+                _init_ray(ray_mod, engine="ray", fallback_policy=spec.fallback_policy)
+                owns_ray = True
             remote_fn: Any = ray_mod.remote(_pixel_task_payload)
             futures = [
                 remote_fn.remote(
@@ -481,6 +438,10 @@ def hats_native_crossmatch(
                     f"HATS native Ray execution failed under fallback_policy='error': {exc}"
                 ) from exc
             logger.warning("HATS native Ray unavailable (%s); serial pixel tasks", exc)
+        finally:
+            if owns_ray:
+                # Stop only the cluster this call started.
+                ray_mod.shutdown()
 
     for order, pix, path in left_pixels:
         part = _pixel_task_payload(

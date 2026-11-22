@@ -47,6 +47,7 @@ All subcommands accept these global flags:
 | [`sync`](#xmatcher-sync) | Mirror remote TAP or cloud HATS catalogues into the durable local cache. |
 | [`project-hats`](#xmatcher-project-hats) | Write a narrower HATS tree retaining only specified columns. |
 | [`export-hats`](#xmatcher-export-hats) | Flatten a HATS tree to a single `.parquet` or `.fits` file. |
+| [`convert`](#xmatcher-convert) | Convert a catalogue between FITS, Parquet, HATS and CSV, in any direction. |
 | [`completion`](#xmatcher-completion) | Generate shell auto-completion scripts for `bash`, `zsh`, or `fish`. |
 | [`doctor`](#xmatcher-doctor) | Validate local configuration against the bundled baseline and report drift. |
 
@@ -92,6 +93,7 @@ xmatcher match [catalogues ...] [options]
 | `--columns-2 COLS` | all | Comma-separated list of columns to read from catalogue 2. |
 | `--side1 KEY=VALUE` | `None` | Overrides for catalogue 1 (repeatable). Keys: `ra_column`, `dec_column`, `id_column`, `ra_err_column`, `dec_err_column`, `corr_column`, `pos_err_units`, `default_pos_error_arcsec`, `epoch`, `epoch_column`, `pm_ra_column`, `pm_dec_column`, `parallax_column`, `radial_velocity_column`, `frame`. |
 | `--side2 KEY=VALUE` | `None` | Overrides for catalogue 2 (repeatable, same keys as `--side1`). |
+| `--side N KEY=VALUE` | `None` | Overrides for catalogue `N`, any catalogue (repeatable, same keys as `--side1`, plus `lr_magnitude_column`). |
 
 ### Match Algorithms & Engines
 
@@ -99,9 +101,9 @@ xmatcher match [catalogues ...] [options]
 |---|---|---|
 | `--matcher ALGORITHM` | `sky` | Matching algorithm: `sky`, `skyerr`, `skyellipse`, `lr`, `ml`, `xgb`, `auf`, `macauff`. |
 | `--max-error FLOAT` | `3.0` | N-sigma cap for `skyerr`; Mahalanobis distance cutoff for `skyellipse`. |
-| `--engine ENGINE` | `auto` | Execution engine: `auto`, `fast` (SciPy cKDTree), `zone` (HEALPix), `ray` (distributed zone), `ray-union` (full-sky outer join), `ray-anchor` (anchor-centric 1-to-N master join), `astropy`, `stilts`, `torchsky`. |
+| `--engine ENGINE` | `auto` | Execution engine: `auto`, `fast` (torchsky exact zone index), `zone` (same search as `fast`), `ray` (distributed zone), `ray-union` (full-sky outer join), `ray-anchor` (anchor-centric 1-to-N master join), `astropy`, `stilts`, `torchsky` (`crossmatch_sky`; `sky`/`skyerr` only). |
 | `--fallback-policy POLICY` | `warn` | Policy when engine cannot honour the request: `warn` (log warning and fall back) or `error` (abort). |
-| `--join JOIN_TYPE` | `1and2` | Relational join mode: `1and2` (inner), `1or2` or `all` (full outer), `all1` (left), `all2` (right), `1not2` (left anti), `2not1` (right anti). |
+| `--join JOIN_TYPE` | `1and2` (`1or2` with `--union`) | Relational join mode: `1and2` (inner), `1or2` or `all` (full outer), `all1` (left), `all2` (right), `1not2` (left anti), `2not1` (right anti). |
 | `--find POLICY` | `best` | Candidate selection policy: `best` (closest/highest ranked match) or `all` (all pairs within radius). |
 | `--union` | `False` | Build a multi-survey full-outer-join master catalogue. |
 | `--fof` | `False` | Run Friends-of-Friends transitive closure clustering across all catalogues. |
@@ -140,7 +142,8 @@ xmatcher match [catalogues ...] [options]
 
 | Option | Description |
 |---|---|
-| `--lr-magnitude-column COL` | Magnitude column for Likelihood Ratio matcher (required when `--matcher lr`). |
+| `--lr-magnitude-column COL` | Magnitude column for Likelihood Ratio matcher (required when `--matcher lr`). With three or more catalogues, one name for every secondary or a comma-separated list, one per secondary (`W1mag,Jmag`); `--matcher lr` with $N \ge 3$ runs one $N$-way association (see [API](api.md#nway_match)). |
+| `--lr-color-column COL` | Primary magnitude column: the LR photometric term becomes the colour secondary − primary (e.g. W1 − G). |
 | `--lr-q FLOAT` | Prior probability $Q$ that a primary source has a counterpart (default: `0.8`). |
 | `--ml-color-cols COLS` | Comma-separated photometric features for `ml` / `xgb` matchers. |
 | `--ml-model-path PATH` | Path to save or load a pre-trained Random Forest model (`joblib`). |
@@ -302,13 +305,15 @@ xmatcher project-hats <source> <output> --columns <col1,col2,...> [options]
 
 ## `xmatcher export-hats`
 
-Flattens a local HATS catalogue directory into a single Parquet or FITS table.
-Parquet prefers a Polars scan over Npix partitions and a streaming sink; FITS
-collects the full table. Survey-scale trees may OOM — keep them partitioned
-(HATS) when a single file is not required.
+Flattens a local or synced HATS catalogue (a directory, a configured name or a
+mirrored `hats:` identifier) into a single Parquet or FITS table. Parquet uses a
+Polars scan over Npix partitions and a streaming sink; FITS is written in one
+bounded-memory pass by the same writer as [`xmatcher convert`](#xmatcher-convert).
+The `_healpix_29` index column is dropped unless `--keep-healpix29` is given.
+Keep survey-scale trees partitioned (HATS) when a single file is not required.
 
 ```bash
-xmatcher export-hats <source> <output.parquet|output.fits> [--columns col1,col2,...]
+xmatcher export-hats <source> <output.parquet|output.fits> [--columns col1,col2,...] [--keep-healpix29]
 ```
 
 ### Options
@@ -316,6 +321,63 @@ xmatcher export-hats <source> <output.parquet|output.fits> [--columns col1,col2,
 | Option | Default | Description |
 |---|---|---|
 | `--columns COLS` | all | Optional comma-separated columns to retain. |
+| `--keep-healpix29` | `False` | Keep the `_healpix_29` index column. |
+
+---
+
+## `xmatcher convert`
+
+Converts a catalogue between FITS, Parquet, HATS and CSV, in any direction.
+The format comes from each path: `.fits`/`.fit`, `.parquet` (or a directory
+of Parquet files as input), `.hats` (or any HATS directory as input), and
+`.csv`/`.tsv`. Rows stream in batches, so memory stays bounded whatever the
+catalogue size.
+
+```bash
+xmatcher convert <source> <output> [options]
+```
+
+```bash
+xmatcher convert gaia_field.fits gaia_field.hats
+xmatcher convert gaia_field.hats gaia_field.parquet --columns source_id,ra,dec
+xmatcher convert survey.parquet survey.hats --ra-col RA_ICRS --dec-col DE_ICRS
+xmatcher convert survey.hats survey.fits --overwrite
+```
+
+### Options
+
+| Option | Default | Description |
+|---|---|---|
+| `--columns COLS` | all | Comma-separated columns to keep, in this order. |
+| `--hdu HDU` | `1` | FITS table HDU (number or EXTNAME). |
+| `--ra-col`, `--dec-col` | auto | Position columns of a HATS output. Defaults to the source's HATS columns or the one obvious name (`ra`, `RA_ICRS`, ...). |
+| `--hats-max-rows INT` | `1000000` | A HEALPix cell holding more rows than this is split. |
+| `--hats-max-order INT` | `10` | Deepest HEALPix order of a HATS output. |
+| `--keep-healpix29` | `False` | Keep a HATS input's `_healpix_29` column. |
+| `--batch-rows INT` | `262144` | Rows per streamed batch. |
+| `--overwrite` | `False` | Replace an existing output. |
+
+### Behaviour
+
+- **HATS output.** Writing a HATS tree takes three passes over the input:
+  1. count rows per HEALPix cell at `--hats-max-order`;
+  2. split cells holding more than `--hats-max-rows` rows, and spill each
+     batch's rows to their partition;
+  3. write each partition sorted by `_healpix_29` (added as a column),
+     followed by the metadata.
+
+  The tree passes `hats` strict validation and also reads as a plain Parquet
+  dataset. Every row needs a finite position.
+- **Reading a HATS tree.** Partitions are read in (order, pixel) order. The
+  `_healpix_29` column is dropped unless `--keep-healpix29` is given.
+- **FITS output.** The output is a standard binary table, written in one
+  streaming pass:
+  - Unsigned and `int8` integers use `TZERO`.
+  - Fixed-size vectors become repeat counts.
+  - Integer nulls use `TNULL`.
+  - Float nulls become NaN, because FITS has no other float null.
+  - String widths come from the source FITS `TFORM`, or from one extra pass
+    over the string columns.
 
 ---
 

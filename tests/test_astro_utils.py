@@ -162,9 +162,8 @@ def test_proper_motion_jacobian_adapter_preserves_batch(monkeypatch):
     np.testing.assert_allclose(jacobian, expected_jacobian)
 
 
-def test_proper_motion_astropy_fallback_matches_high_declination_reference(monkeypatch):
-    """The optional-backend fallback remains accurate near both celestial poles."""
-    monkeypatch.setattr(astro_utils, "_load_torchsky_propagate_proper_motion", lambda: None)
+def test_proper_motion_matches_astropy_near_the_poles():
+    """torchsky propagation agrees with Astropy (the oracle) near both poles."""
     ra = np.array([359.9, 0.1])
     dec = np.array([89.999, -89.999])
     pmra = np.array([10_000.0, -10_000.0])
@@ -181,10 +180,10 @@ def test_proper_motion_astropy_fallback_matches_high_declination_reference(monke
         frame="icrs",
     ).apply_space_motion(new_obstime=Time(2100.0, format="jyear", scale="tcb"))
 
-    np.testing.assert_allclose(
-        ((moved_ra - reference.ra.deg + 180.0) % 360.0) - 180.0, 0.0, atol=1e-10
-    )
-    np.testing.assert_allclose(moved_dec, reference.dec.deg, atol=1e-10)
+    # On-sky separation (RA itself is ill-conditioned 0.001 deg from a pole);
+    # the PM-only model and Astropy's space motion agree to 0.05 mas here.
+    sep = SkyCoord(moved_ra * u.deg, moved_dec * u.deg).separation(reference)
+    assert sep.to_value(u.mas).max() < 0.05
 
 
 def test_space_motion_prefers_torchsky(monkeypatch):
@@ -247,8 +246,8 @@ def test_space_motion_jacobian_adapter_preserves_batch(monkeypatch):
     np.testing.assert_allclose(jacobian, expected_jacobian)
 
 
-def test_space_motion_astropy_fallback_matches_reference(monkeypatch):
-    monkeypatch.setattr(astro_utils, "_load_torchsky_propagate_space_motion", lambda: None)
+def test_space_motion_matches_astropy_for_barnards_star():
+    """Full space motion (parallax, RV) agrees with Astropy (the oracle)."""
     ra = np.array([269.452075])
     dec = np.array([4.693391])
     pmra = np.array([-801.551])

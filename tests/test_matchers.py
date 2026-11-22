@@ -1523,9 +1523,9 @@ def test_ray_engine_parity_with_zone():
     # Match pair identity: sort by (left_ra, right_ra_2, sep_arcsec) so we
     # compare the same logical pairs regardless of internal ordering.
     def _sort_key(df):
-        return sorted(
-            zip(df["ra"].to_list(), df["ra_2"].to_list(), df["sep_arcsec"].to_list(), strict=False),
-        )
+        # Pair identity; separations are compared to a tolerance below (the
+        # ray worker rebuilds positions from unit vectors, last-bit rounding).
+        return sorted(zip(df["ra"].to_list(), df["ra_2"].to_list(), strict=False))
 
     assert _sort_key(out_zone) == _sort_key(out_ray), (
         "zone and ray produced different matched pairs"
@@ -1589,9 +1589,9 @@ def test_ray_engine_find_all_parity_with_zone():
 
     # Match pair identity (same as the find='best' test).
     def _sort_key(df):
-        return sorted(
-            zip(df["ra"].to_list(), df["ra_2"].to_list(), df["sep_arcsec"].to_list(), strict=False),
-        )
+        # Pair identity; separations are compared to a tolerance below (the
+        # ray worker rebuilds positions from unit vectors, last-bit rounding).
+        return sorted(zip(df["ra"].to_list(), df["ra_2"].to_list(), strict=False))
 
     assert _sort_key(out_zone) == _sort_key(out_ray), (
         "find=all: zone and ray produced different matched pairs"
@@ -1659,7 +1659,7 @@ def test_ray_engine_graceful_fallback_when_unavailable(monkeypatch):
 def test_ray_engine_graceful_fallback_zone_to_fast(monkeypatch):
     """When cdshealpix is unavailable, ray→zone→fast chain must still
     produce correct results via the final fast fallback."""
-    # Simulate no cdshealpix so zone_match falls back to _scipy_match.
+    # Simulate no cdshealpix so zone_match falls back to _local_match.
     # Ray is also unavailable for this test (chain: ray → zone → fast).
     monkeypatch.setattr("xmatcher.ray_engine.ray_available", lambda: False)
     monkeypatch.setattr("xmatcher.ray_engine._RAY_PIXEL_BATCH", None)
@@ -3378,8 +3378,11 @@ def test_ray_nway_and_fof_match_parity(_ray_cluster):
         default_pos_error_arcsec_3=0.5,
     )
     assert nway_local is not None and nway_ray is not None
-    assert nway_ray.height == nway_local.height == 2
-    assert np.allclose(nway_ray.sort("id")["p_match"], nway_local.sort("id")["p_match"], atol=1e-6)
+    # N-way association runs in process: engine="ray" gives the same hypotheses.
+    assert nway_ray.height == nway_local.height
+    assert nway_ray.filter(pl.col("nway_best")).height == 2
+    key = ["id", "id_2", "id_3"]
+    assert np.allclose(nway_ray.sort(key)["p_match"], nway_local.sort(key)["p_match"], atol=1e-6)
 
     fof_local = cm.fof_match([cat1, cat2, cat3], radius_arcsec=2.0)
     fof_ray = cm.fof_match([cat1, cat2, cat3], radius_arcsec=2.0, engine="ray")

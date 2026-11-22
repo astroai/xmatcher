@@ -33,9 +33,12 @@ FLOOR_BYTES = 300 * 2**30
 
 
 def kpop_free() -> int:
-    quota = int(os.getxattr(KPOP, "ceph.quota.max_bytes"))
-    used = int(os.getxattr(KPOP, "ceph.dir.rbytes"))
-    return quota - used
+    if sys.platform == "linux":
+        quota = int(os.getxattr(KPOP, "ceph.quota.max_bytes"))
+        used = int(os.getxattr(KPOP, "ceph.dir.rbytes"))
+        return quota - used
+    else:
+        raise SystemExit("kpop_free reads CephFS xattrs and runs only on Linux (CANFAR)")
 
 
 def sha256(path: Path) -> str:

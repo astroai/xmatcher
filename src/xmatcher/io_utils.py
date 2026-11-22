@@ -29,18 +29,46 @@ logger = logging.getLogger(__name__)
 
 SUPPORTED_SUFFIXES = {".parquet", ".csv", ".tsv", ".tab", ".fits", ".fit", ".hats"}
 
-# Files that, when present in a directory, identify a HATS / HiPSCat catalogue.
-_HATS_MARKERS = ("properties", "hats.properties", "catalog_info.json", "_metadata")
+# A HATS catalogue root carries a ``properties`` file (``hats.properties`` is
+# accepted too, as by the mirror and the HATS readers).
+_HATS_MARKERS = ("properties", "hats.properties")
 
 FrameLike = pl.DataFrame | pl.LazyFrame
 
 
 def is_hats_dir(path: str | Path) -> bool:
-    """Return True if *path* looks like a HATS / HiPSCat catalogue directory."""
+    """Return True if *path* is a directory holding a HATS ``properties`` file.
+
+    A bare ``_metadata`` is not enough: every partitioned Parquet dataset has one.
+    """
     p = Path(path)
     if not p.is_dir():
         return False
-    return any((p / marker).exists() for marker in _HATS_MARKERS)
+    return any((p / marker).is_file() for marker in _HATS_MARKERS)
+
+
+def resolve_local_hats_root(path: str | Path) -> Path:
+    """Descend a local HATS *collection* to the catalogue tree it names.
+
+    An LSDB or Hugging Face download is a collection: ``collection.properties``
+    beside the catalogue, its margin caches (``*_10arcs``) and id indexes.
+    ``hats_primary_table_url`` names the catalogue, as for remote collections.
+    Any other path is returned unchanged.
+    """
+    root = Path(path)
+    marker = root / "collection.properties"
+    if not marker.is_file():
+        return root
+    from .mirror import _collection_primary  # noqa: PLC0415 - mirror imports io_utils
+
+    primary = _collection_primary(marker.read_bytes(), str(root))
+    if primary is None or not is_hats_dir(root / primary):
+        raise InputError(
+            f"HATS collection {root} does not name a readable primary catalogue "
+            "(hats_primary_table_url in collection.properties); pass the catalogue "
+            "directory itself."
+        )
+    return root / primary
 
 
 def astropy_table_to_polars(table) -> pl.DataFrame:
@@ -140,8 +168,7 @@ def _read_fits(path: Path) -> pl.DataFrame:
     """Read a local FITS table with Torchfits, falling back to Astropy.
 
     Torchfits keeps the local catalogue path Arrow/Polars-native. Astropy
-    serves as the fallback for FITS variants not supported by Torchfits or
-    when the optional ``torchfits`` extra is not installed.
+    serves as the fallback for FITS variants Torchfits does not support.
     """
     last_err = None
     try:

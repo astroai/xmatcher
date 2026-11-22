@@ -347,14 +347,14 @@ def test_hats_over_s3_mirrors_directory_partitions_and_reads_back(
     # Publish the IRSA/LSDB shape: single-file pixels become
     # `Npix=N/part0.snappy.parquet`, and the CSV keeps only Norder/Dir/Npix/count
     # (no file_loc, no Nfiles, no partition_info.parquet).
-    (tree / "dataset" / "partition_info.parquet").unlink()
+    # Moving the pixels would leave _metadata naming the old paths; drop it.
+    (tree / "dataset" / "_metadata").unlink()
     for pixel in sorted((tree / "dataset").glob("Norder=*/Dir=*/Npix=*.parquet")):
         target = pixel.with_suffix("") / "part0.snappy.parquet"
         target.parent.mkdir(parents=True, exist_ok=True)
         pixel.replace(target)
-    for name in ("dataset/partition_info.csv", "partition_info.csv"):
-        csv = tree / name
-        pl.read_csv(csv).select(["Norder", "Dir", "Npix", "count"]).write_csv(csv)
+    csv = tree / "partition_info.csv"
+    pl.read_csv(csv).select(["Norder", "Dir", "Npix", "count"]).write_csv(csv)
 
     objects = _tree_objects(tree, "hats/cat")
     with fake_s3(objects, page_size=2) as endpoint:
@@ -389,3 +389,27 @@ def test_hats_over_s3_mirrors_directory_partitions_and_reads_back(
         assert again.failed == 0
         assert again.files_downloaded == 0
         assert again.files_skipped == stats.files_downloaded
+
+
+@pytest.mark.parametrize("code", [500, 502, 504])
+def test_transient_server_errors_are_retried(monkeypatch, code: int) -> None:
+    """S3 front ends answer 500/502/504 under load; those are retried like 503."""
+    import io
+    import urllib.error
+    import urllib.request
+
+    from xmatcher import http_retry
+
+    calls: list[str] = []
+
+    def flaky(request, timeout=None):
+        calls.append(request.full_url)
+        if len(calls) == 1:
+            raise urllib.error.HTTPError(request.full_url, code, "busy", {}, io.BytesIO())  # type: ignore[arg-type]
+        return io.BytesIO(b"ok")
+
+    monkeypatch.setattr(urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(http_retry.time, "sleep", lambda _s: None)
+    remote = S3Remote("s3://catalogue/hats/cat")
+    assert remote._open("https://catalogue.s3.amazonaws.com/hats/cat/properties").read() == b"ok"
+    assert len(calls) == 2

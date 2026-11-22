@@ -8,9 +8,8 @@ The CLI is split into:
 * :class:`Console` — a tiny ANSI-colour helper that auto-disables for
   non-TTY streams, ``NO_COLOR`` (https://no-color.org/), ``XMATCHER_NO_COLOR``,
   or ``--no-color``.
-* Dedicated subcommand parsers (``match``, ``list``, ``describe``,
-  ``discover``, ``search``, ``adopt``, ``sync``, ``project-hats``,
-  ``export-hats``, ``completion``, ``doctor``).
+* Nine dedicated subcommand parsers (``match``, ``list``, ``describe``,
+  ``discover``, ``search``, ``adopt``, ``sync``, ``completion``, ``doctor``).
   Each lives in its own function that produces an argparse ``Namespace`` plus
   a colour-aware printer so help, output, and errors are easy to scan.
 * :func:`main` which dispatches to the requested subcommand, or defaults to
@@ -23,6 +22,7 @@ import argparse
 import difflib
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -35,10 +35,14 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import polars as pl
 
+    from .crossmatch import CrossMatch
+
 import yaml
 
+# Keep this import block free of polars/numpy/astropy: `xmatcher --help` and
+# usage errors must not pay for the match stack. Heavy modules are imported
+# where a command needs them.
 from . import __version__
-from .crossmatch import CrossMatch
 from .discovery import (
     catalogue_entry_from_schema,
     discover_tables,
@@ -47,7 +51,6 @@ from .discovery import (
     get_table_schema,
 )
 from .exceptions import ConfigError, CrossMatchError
-from .storage import default_output_root
 from .user_config import append_catalogue_to_user_config, format_catalogue_yaml, user_config_path
 
 logger = logging.getLogger(__name__)
@@ -301,6 +304,7 @@ SUBCOMMANDS = (
     "sync",
     "project-hats",
     "export-hats",
+    "convert",
     "doctor",
 )
 
@@ -641,6 +645,34 @@ def setup_logging(verbose: int) -> None:
     )
 
 
+def _bounded_float(low: float, high: float, *, low_open: bool = False) -> Callable[[str], float]:
+    """Argparse type: a finite float in ``[low, high]`` (``(low, high]`` if *low_open*)."""
+    interval = f"{'(' if low_open else '['}{low:g}, {high:g}]"
+
+    def parse(raw: str) -> float:
+        try:
+            value = float(raw)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid float value: {raw!r}") from exc
+        too_low = value <= low if low_open else value < low
+        if not math.isfinite(value) or too_low or value > high:
+            raise argparse.ArgumentTypeError(f"{raw!r} must be a finite number in {interval}")
+        return value
+
+    return parse
+
+
+def _positive_int(raw: str) -> int:
+    """Argparse type: an integer greater than zero."""
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid int value: {raw!r}") from exc
+    if value <= 0:
+        raise argparse.ArgumentTypeError(f"{raw!r} must be a positive integer")
+    return value
+
+
 def _parse_extra_distance_cols(raw):
     if not raw:
         return {}
@@ -679,6 +711,8 @@ _SIDE_CLI_TYPES: dict[str, Callable[[str], object]] = {
     "parallax_column": str,
     "radial_velocity_column": str,
     "frame": str,
+    # Secondary catalogue's magnitude column for --matcher lr.
+    "lr_magnitude_column": str,
 }
 
 
@@ -717,15 +751,28 @@ def _build_params(args) -> dict:
     extra_distance = _parse_extra_distance_cols(args.extra_distance_cols)
     ml_color_columns = [c.strip() for c in (args.ml_color_cols or "").split(",") if c.strip()]
     macauff_flux_cols = [c.strip() for c in (args.macauff_flux_cols or "").split(",") if c.strip()]
+    lr_magnitudes = _parse_lr_magnitude_columns(
+        args.lr_magnitude_column, len(getattr(args, "catalogues", None) or [])
+    )
     side_overrides = {
         **_parse_side_overrides(getattr(args, "side1_overrides", None), 1),
         **_parse_side_overrides(getattr(args, "side2_overrides", None), 2),
     }
+    for raw_side, value in getattr(args, "side_n_overrides", None) or []:
+        try:
+            side = int(raw_side)
+        except ValueError:
+            side = 0
+        n_catalogues = len(getattr(args, "catalogues", None) or [])
+        if not 1 <= side <= n_catalogues:
+            raise CrossMatchError(
+                f"--side {raw_side}: expected a catalogue number from 1 to {n_catalogues}."
+            )
+        side_overrides.update(_parse_side_overrides([value], side))
     params = dict(
         radius_arcsec=args.radius_arcsec,
         matcher=args.matcher or "sky",
         max_error=args.max_error,
-        join_type=args.join_type,
         find=args.find,
         engine=args.engine,
         id_join=args.id_join,
@@ -745,7 +792,8 @@ def _build_params(args) -> dict:
         memory_budget_bytes=args.memory_budget_bytes,
         scratch_dir=args.scratch_dir,
         partition_order=args.partition_order,
-        lr_magnitude_column=args.lr_magnitude_column,
+        lr_magnitude_column=lr_magnitudes.pop("lr_magnitude_column", None),
+        lr_color_column=getattr(args, "lr_color_column", None),
         lr_q=args.lr_q,
         ml_color_columns=ml_color_columns,
         ml_model_path=args.ml_model_path,
@@ -771,10 +819,34 @@ def _build_params(args) -> dict:
         min_free_gb=getattr(args, "min_free_gb", None),
         fallback_policy=getattr(args, "fallback_policy", None),
     )
+    # Without an explicit --join each operation keeps its own default
+    # (inner for pairwise/multi matches, full outer for --union).
+    if args.join_type is not None:
+        params["join_type"] = args.join_type
     # ``--side1/--side2`` are the more specific spelling of the per-side
     # column flags, so they win when both are supplied.
     params.update(side_overrides)
+    params.update(lr_magnitudes)
     return params
+
+
+def _parse_lr_magnitude_columns(value: str | None, n_catalogues: int) -> dict[str, str]:
+    """``--lr-magnitude-column``: one name for every secondary, or one per secondary.
+
+    ``W1mag,Jmag`` with three catalogues names catalogue 2's and catalogue 3's
+    magnitude columns (``lr_magnitude_column_2``, ``lr_magnitude_column_3``).
+    """
+    names = [c.strip() for c in (value or "").split(",") if c.strip()]
+    if not names:
+        return {}
+    if len(names) == 1:
+        return {"lr_magnitude_column": names[0]}
+    if len(names) != n_catalogues - 1:
+        raise CrossMatchError(
+            f"--lr-magnitude-column lists {len(names)} columns for {n_catalogues - 1} "
+            "secondary catalogues; give one name, or one per secondary catalogue."
+        )
+    return {f"lr_magnitude_column_{n}": name for n, name in enumerate(names, start=2)}
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -816,7 +888,8 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "--output",
         dest="output_file",
         metavar="FILE",
-        help="Output file (.parquet/.csv/.fits/.hats). Default: CSV to stdout.",
+        help="Output file (.parquet/.csv/.fits/.hats); an existing file is overwritten. "
+        "Default: CSV to stdout.",
     )
     g_out.add_argument(
         "--hats-threshold",
@@ -828,7 +901,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_out.add_argument(
         "--batch-size",
         dest="batch_size",
-        type=int,
+        type=_positive_int,
         help="HEALPix pixel groups per zone batch; not a general memory cap.",
     )
     g_out.add_argument(
@@ -851,7 +924,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "-r",
         "--radius",
         dest="radius_arcsec",
-        type=float,
+        type=_bounded_float(0.0, 648_000.0, low_open=True),
         default=1.0,
         help="Match radius (arcsec) for the sky matcher.",
     )
@@ -877,7 +950,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
             "  ra_column, dec_column, id_column, ra_err_column, dec_err_column,\n"
             "  corr_column, pos_err_units, default_pos_error_arcsec, epoch,\n"
             "  epoch_column, pm_ra_column, pm_dec_column, parallax_column,\n"
-            "  radial_velocity_column, frame.\n"
+            "  radial_velocity_column, frame, lr_magnitude_column.\n"
             "Example: --side1 ra_err_column=ra_err,pos_err_units=mas"
         ),
     )
@@ -895,6 +968,14 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         metavar="KEY=VALUE",
         help="Overrides for catalogue 2.",
     )
+    g_side.add_argument(
+        "--side",
+        dest="side_n_overrides",
+        action="append",
+        nargs=2,
+        metavar=("N", "KEY=VALUE"),
+        help="Overrides for catalogue N (any catalogue, e.g. --side 3 ra_err_column=err).",
+    )
 
     g_alg = parser.add_argument_group("Match algorithm")
     g_alg.add_argument(
@@ -906,16 +987,16 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_alg.add_argument(
         "--max-error",
         dest="max_error",
-        type=float,
+        type=_bounded_float(0.0, math.inf, low_open=True),
         default=3.0,
         help="N-sigma cap for skyerr; Mahalanobis d cap for skyellipse.",
     )
     g_alg.add_argument(
         "--join",
         dest="join_type",
-        default="1and2",
         choices=["1and2", "1or2", "all", "1not2", "2not1", "all1", "all2"],
-        help="Join type (1and2=inner, 1or2=full outer, all1=left, all2=right, 1not2/2not1=anti).",
+        help="Join type (1and2=inner, 1or2=full outer, all1=left, all2=right, 1not2/2not1=anti). "
+        "Default: 1and2, or 1or2 with --union.",
     )
     g_alg.add_argument(
         "--find",
@@ -939,8 +1020,10 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         default="auto",
         help=(
             "Sky-match engine (auto=default dispatch, stilts=Java tmatch2, "
-            "astropy=pure-Python KD-tree, fast=scipy.cKDTree, torchsky=tensor-native, "
-            "zone=HEALPix, ray=distributed zone match, ray-union=distributed N-way "
+            "astropy=astropy match_to_catalog_sky / search_around_sky, "
+            "fast=torchsky exact zone index (in memory), zone=same search as fast, "
+            "torchsky=torchsky crossmatch_sky (sky/skyerr), "
+            "ray=distributed zone match, ray-union=distributed N-way "
             "outer join on Ray with mirrored HATS inputs, ray-anchor=one row per "
             "anchor source with the best counterpart from every survey)."
         ),
@@ -1064,7 +1147,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_pm.add_argument(
         "--target-epoch",
         dest="target_epoch",
-        type=float,
+        type=_bounded_float(-math.inf, math.inf),
         help="Julian-year epoch to propagate coordinates via proper motion.",
     )
     g_pm.add_argument(
@@ -1097,12 +1180,20 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_msm.add_argument(
         "--lr-magnitude-column",
         dest="lr_magnitude_column",
-        help="Magnitude column for LR matcher (required when --matcher lr).",
+        help="Magnitude column for the LR matcher (required when --matcher lr). With "
+        "three or more catalogues, one name for every secondary or a comma-separated "
+        "list with one per secondary (e.g. W1mag,Jmag).",
+    )
+    g_msm.add_argument(
+        "--lr-color-column",
+        dest="lr_color_column",
+        help="Primary-catalogue magnitude column: the LR photometric term becomes the "
+        "colour secondary magnitude - this column (e.g. G for W1 - G).",
     )
     g_msm.add_argument(
         "--lr-q",
         dest="lr_q",
-        type=float,
+        type=_bounded_float(0.0, 1.0),
         default=0.8,
         help="Prior probability Q that a primary source has a counterpart (0-1).",
     )
@@ -1129,12 +1220,14 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     )
 
     g_reg = parser.add_argument_group("Region (remote downloads)")
-    g_reg.add_argument("--ra", type=float, help="Region center RA (deg).")
-    g_reg.add_argument("--dec", type=float, help="Region center Dec (deg).")
+    g_reg.add_argument(
+        "--ra", type=_bounded_float(-math.inf, math.inf), help="Region center RA (deg)."
+    )
+    g_reg.add_argument("--dec", type=_bounded_float(-90.0, 90.0), help="Region center Dec (deg).")
     g_reg.add_argument(
         "--radius-deg",
         dest="radius_deg",
-        type=float,
+        type=_bounded_float(0.0, 180.0, low_open=True),
         help="Region radius (deg) for remote cone downloads.",
     )
     g_reg.add_argument(
@@ -1285,10 +1378,11 @@ def _build_export_hats_subparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xmatcher export-hats",
         description=(
-            "Flatten a local HATS catalogue tree into a single Parquet or FITS file.\n\n"
-            "Parquet uses a Polars scan over Npix partitions and a streaming sink when\n"
-            "possible. FITS collects the full table. Survey-scale catalogues may OOM;\n"
-            "keep them partitioned (HATS) when a single file is not required."
+            "Flatten a local or synced HATS catalogue into a single Parquet or FITS file.\n\n"
+            "Parquet uses a Polars scan over Npix partitions and a streaming sink; FITS is\n"
+            "written in one bounded-memory pass, as by `xmatcher convert`. The _healpix_29\n"
+            "index column is dropped unless --keep-healpix29 is given. Keep survey-scale\n"
+            "catalogues partitioned (HATS) when a single file is not required."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
@@ -1310,6 +1404,69 @@ def _build_export_hats_subparser() -> argparse.ArgumentParser:
         "--columns",
         help="Optional comma-separated columns to retain (default: all).",
     )
+    parser.add_argument(
+        "--keep-healpix29",
+        dest="keep_healpix29",
+        action="store_true",
+        help="Keep the HATS _healpix_29 index column.",
+    )
+    _add_global_options(parser)
+    return parser
+
+
+def _build_convert_subparser() -> argparse.ArgumentParser:
+    """Standalone parser for the ``convert`` subcommand."""
+    parser = argparse.ArgumentParser(
+        prog="xmatcher convert",
+        description=(
+            "Convert a catalogue between FITS, Parquet, HATS and CSV, in any direction.\n"
+            "Formats come from the names: .fits/.fit, .parquet (or a Parquet directory),\n"
+            ".hats (or any HATS directory as input), .csv/.tsv. Rows stream in batches, so\n"
+            "memory stays bounded; a HATS output takes three passes over the input."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  xmatcher convert gaia_field.fits gaia_field.hats\n"
+            "  xmatcher convert gaia_field.hats gaia_field.parquet --columns source_id,ra,dec\n"
+            "  xmatcher convert survey.parquet survey.hats --ra-col RA_ICRS --dec-col DE_ICRS\n"
+            "  xmatcher convert survey.hats survey.fits --overwrite\n"
+        ),
+    )
+    parser.add_argument("source", help="Input FITS / Parquet / HATS / CSV path.")
+    parser.add_argument("output", help="Output path; its suffix names the format.")
+    parser.add_argument("--columns", help="Comma-separated columns to keep (in this order).")
+    parser.add_argument("--hdu", help="FITS table HDU (number or EXTNAME; default 1).")
+    parser.add_argument("--ra-col", dest="ra_col", help="RA column for a HATS output.")
+    parser.add_argument("--dec-col", dest="dec_col", help="Dec column for a HATS output.")
+    parser.add_argument(
+        "--hats-max-rows",
+        dest="hats_max_rows",
+        type=int,
+        default=1_000_000,
+        help="Split a HEALPix cell holding more rows than this (default 1,000,000).",
+    )
+    parser.add_argument(
+        "--hats-max-order",
+        dest="hats_max_order",
+        type=int,
+        default=10,
+        help="Deepest HEALPix order of a HATS output (default 10).",
+    )
+    parser.add_argument(
+        "--keep-healpix29",
+        dest="keep_healpix29",
+        action="store_true",
+        help="Keep a HATS input's _healpix_29 column.",
+    )
+    parser.add_argument(
+        "--batch-rows",
+        dest="batch_rows",
+        type=int,
+        default=262_144,
+        help="Rows per streamed batch (default 262,144).",
+    )
+    parser.add_argument("--overwrite", action="store_true", help="Replace an existing output.")
     _add_global_options(parser)
     return parser
 
@@ -1574,7 +1731,7 @@ _xmatcher_endpoints=(
 {ep_array}
 )
 _xmatcher_shells=( bash zsh fish )
-_xmatcher_subcommands=( match list describe discover search adopt completion sync project-hats export-hats doctor )
+_xmatcher_subcommands=( match list describe discover search adopt completion sync project-hats export-hats convert doctor )
 
 _xmatcher() {{
     local cur="" words="" cword=0 i subcmd=""
@@ -1596,7 +1753,7 @@ _xmatcher() {{
     # Skip past leading flag tokens to locate the subcommand keyword.
     for ((i = 1; i < cword; i++)); do
         case "${{words[i]}}" in
-            match|list|describe|discover|search|adopt|completion|sync|project-hats|export-hats|doctor)
+            match|list|describe|discover|search|adopt|completion|sync)
                 subcmd="${{words[i]}}"; break ;;
         esac
     done
@@ -1614,7 +1771,7 @@ _xmatcher() {{
     fi
 
     case "$subcmd" in
-        match|describe|sync|project-hats|export-hats)
+        match|describe|sync)
             COMPREPLY=( $(compgen -W "${{_xmatcher_catalogues[*]}}" -- "$cur") )
             ;;
         discover|adopt)
@@ -1645,14 +1802,14 @@ def _emit_zsh(catalogues: Sequence[str], endpoints: Sequence[str]) -> str:
 _xmatcher_subcommands=(
     'match:cross-match two or more catalogues'
     'sync:mirror remote catalogues into the local HATS cache'
-    'project-hats:write a narrow HATS tree with selected columns'
-    'export-hats:flatten a HATS tree to a single .parquet or .fits file'
     'list:list every configured catalogue'
     'describe:show columns and access info for a catalogue'
     'discover:browse tables on a remote TAP endpoint'
     'search:search every endpoint for tables matching a substring'
     'adopt:save a remote table into the user config overlay'
     'completion:emit a shell completion script'
+    'project-hats:write a narrow HATS tree with selected columns'
+    'convert:convert between FITS, Parquet, HATS and CSV'
     'doctor:report drift against the bundled baseline'
 )
 _xmatcher_catalogues=( {cat_array} )
@@ -1675,7 +1832,7 @@ _xmatcher() {{
                 return
             fi
             case $words[1] in
-                match|describe|sync|project-hats|export-hats)
+                match|describe|sync)
                     _describe 'catalogue' _xmatcher_catalogues
                     ;;
                 discover|adopt)
@@ -1704,7 +1861,7 @@ def _emit_fish(catalogues: Sequence[str], endpoints: Sequence[str]) -> str:
 function _xmatcher_subcmd
     for token in $argv
         switch $token
-            case match list describe discover search adopt completion sync project-hats export-hats doctor
+            case match list describe discover search adopt completion sync
                 echo $token
                 return
         end
@@ -1713,7 +1870,7 @@ end
 
 function _xmatcher_needs_catalogue
     set -l cmd (_xmatcher_subcmd $argv)
-    contains -- $cmd match describe project-hats export-hats
+    contains -- $cmd match describe
 end
 
 function _xmatcher_needs_endpoint
@@ -1726,7 +1883,7 @@ function _xmatcher_needs_shell
     test "$cmd" = completion
 end
 
-set -l _xmatcher_subcommands match list describe discover search adopt completion sync project-hats export-hats doctor
+set -l _xmatcher_subcommands match list describe discover search adopt completion sync project-hats export-hats convert doctor
 
 {cat_lines}
 
@@ -1770,6 +1927,7 @@ def _build_top_parser() -> argparse.ArgumentParser:
         "  sync        mirror remote catalogues into the local HATS cache\n"
         "  project-hats  write a narrow HATS tree with selected columns\n"
         "  export-hats   flatten a HATS tree to a single .parquet or .fits file\n"
+        "  convert     convert between FITS, Parquet, HATS and CSV (any direction)\n"
         "  completion  emit a shell tab-completion script (bash | zsh | fish)\n"
         "  doctor      report drift between your xmatcher.yaml and the bundled baseline\n"
         "\n"
@@ -2276,6 +2434,8 @@ def _resolve_output_path(output_file: str | None) -> str | None:
     """
     if not output_file:
         return output_file
+    from .storage import default_output_root  # noqa: PLC0415 - keeps --help light
+
     out_root = default_output_root()
     if (
         not out_root
@@ -2391,6 +2551,8 @@ def _guarded(
 
 
 def _load_cli_crossmatch(config_file: str | Path | None, console: Console) -> CrossMatch | None:
+    from .crossmatch import CrossMatch  # noqa: PLC0415 - keeps --help light
+
     try:
         return CrossMatch(config_file=config_file)
     except ConfigError as exc:
@@ -2401,6 +2563,9 @@ def _load_cli_crossmatch(config_file: str | Path | None, console: Console) -> Cr
 def _run_match_subcommand(argv: Sequence[str]) -> int:
     parser = _build_match_subparser()
     args = parser.parse_args(list(argv))
+    region = (args.ra, args.dec, args.radius_deg)
+    if any(value is not None for value in region) and None in region:
+        parser.error("--ra, --dec and --radius-deg must be given together")
     setup_logging(args.verbose)
     console = _make_console(no_color=bool(getattr(args, "no_color", False)))
     cm = _load_cli_crossmatch(args.config_file, console)
@@ -2520,7 +2685,12 @@ def _run_export_hats(argv: Sequence[str]) -> int:
             columns = [c.strip() for c in args.columns.split(",") if c.strip()]
         progress = Progress(f"Exporting {args.source}", enabled=console.enabled)
         with progress:
-            stats = export_hats(source, args.output, columns=columns)
+            stats = export_hats(
+                source,
+                args.output,
+                columns=columns,
+                keep_healpix29=bool(args.keep_healpix29),
+            )
         console.info(
             f"Wrote {stats['rows']} rows x {len(stats['columns'])} columns to {args.output} "
             f"({stats['partitions']} partition(s))."
@@ -2528,6 +2698,46 @@ def _run_export_hats(argv: Sequence[str]) -> int:
         return 0
 
     return _guarded(cm, console, body)
+
+
+def _run_convert(argv: Sequence[str]) -> int:
+    parser = _build_convert_subparser()
+    args = parser.parse_args(list(argv))
+    setup_logging(args.verbose)
+    console = _make_console(no_color=bool(getattr(args, "no_color", False)))
+    from .convert import convert  # noqa: PLC0415 - keeps --help light
+
+    hdu: int | str | None = args.hdu
+    if isinstance(hdu, str) and hdu.isdigit():
+        hdu = int(hdu)
+    try:
+        report = convert(
+            args.source,
+            args.output,
+            columns=[c.strip() for c in args.columns.split(",") if c.strip()]
+            if args.columns
+            else None,
+            hdu=hdu,
+            ra_column=args.ra_col,
+            dec_column=args.dec_col,
+            hats_max_rows=int(args.hats_max_rows),
+            hats_max_order=int(args.hats_max_order),
+            keep_healpix29=bool(args.keep_healpix29),
+            batch_rows=int(args.batch_rows),
+            overwrite=bool(args.overwrite),
+        )
+    except CrossMatchError as exc:
+        console.error(f"Error: {exc}")
+        return 1
+    except KeyboardInterrupt:
+        console.error("Interrupted.")
+        return 130
+    parts = f", {report.partitions} partition(s)" if report.dst_format == "hats" else ""
+    console.info(
+        f"Wrote {report.rows} rows x {len(report.columns)} columns "
+        f"({report.src_format} -> {report.dst_format}) to {args.output}{parts}."
+    )
+    return 0
 
 
 def _run_simple_describe(argv: Sequence[str]) -> int:
@@ -2558,6 +2768,8 @@ def _run_completion(argv: Sequence[str]) -> int:
     args = parser.parse_args(list(argv))
     setup_logging(args.verbose)
     console = _make_console(no_color=bool(getattr(args, "no_color", False)))
+    from .crossmatch import CrossMatch  # noqa: PLC0415 - keeps --help light
+
     cm: CrossMatch | None = None
     try:
         cm = CrossMatch(config_file=args.config_file)
@@ -3056,6 +3268,8 @@ def _run_doctor(argv: Sequence[str]) -> int:
     # config differ?" and the answer is "there is no user config".
     user_path: Path | None = None
     user_cfg: dict[str, Any] = {}
+    from .crossmatch import CrossMatch  # noqa: PLC0415 - keeps --help light
+
     try:
         cm = CrossMatch(config_file=args.config_file)
         user_path = cm.config_file
@@ -3125,6 +3339,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_project_hats(remaining)
     if cmd == "export-hats":
         return _run_export_hats(remaining)
+    if cmd == "convert":
+        return _run_convert(remaining)
     if cmd == "describe":
         return _run_simple_describe(remaining)
     if cmd == "adopt":

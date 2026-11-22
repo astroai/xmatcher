@@ -339,7 +339,7 @@ def test_tap_self_join_builds_query_and_parses(monkeypatch):
 
     def fake_execute(service, query, maxrec=None):
         captured["query"] = query
-        return Table({"a_ra": [10.0], "b_ra": [10.0], "all_sep_arcsec": [0.1]})
+        return Table({"ra": [10.0], "ra_2": [10.0], "sep_arcsec": [0.1]})
 
     monkeypatch.setattr(rt, "get_tap_service", fake_get_service)
     monkeypatch.setattr(rt, "execute_tap_query", fake_execute)
@@ -366,7 +366,7 @@ def test_tap_self_join_builds_query_and_parses(monkeypatch):
     )
     out = rt.tap_self_join(s1, s2, MatchSpec(radius_arcsec=1.0, find="all"))
     assert "CONTAINS" in captured["query"]
-    assert "all_sep_arcsec" in captured["query"]
+    assert 'AS "sep_arcsec"' in captured["query"]
     assert out.height == 1
 
 

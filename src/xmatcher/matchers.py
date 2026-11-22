@@ -5,19 +5,18 @@ Sky-match engines (drop-in alternatives):
 * ``stilts`` – shells out to STILTS ``tmatch2`` (sky/skyerr/skyellipse). Used by
   default when a STILTS command is available.
 * ``astropy`` – ``match_to_catalog_sky`` / ``search_around_sky`` from astropy.
-* ``fast``   – Tier 1: ``scipy.spatial.cKDTree`` on 3D Cartesian unit-sphere
-  embeddings. Drop-in replacement for ``astropy`` in-memory; ~3-5x faster.
-* ``torchsky`` – optional tensor-native nearest-neighbour matching. Geometry
-  only: ``matcher='sky'`` and ``matcher='skyerr'`` (per-row radii). Association
-  policy (Bayes / LR / AUF / FoF) stays in this module.
-* ``zone``   – Tier 2: HEALPix-sharded cone match. Uses ``cdshealpix`` when
-  importable (sub-pixel zonning + per-pixel ``cKDTree`` queries) and falls
-  back to a single ``cKDTree`` query when ``cdshealpix`` is not available
-  (with a logged warning).
+* ``fast``   – the in-memory engine: candidates from torchsky's exact
+  declination-zone index (``SkyIndex``, ``match_within``, ``match_nearest``),
+  then the matcher filters and rankings of this module.
+* ``zone``   – the same search as ``fast`` (it used to shard a cKDTree by
+  HEALPix pixel; torchsky's zone index is that algorithm, natively).
+* ``torchsky`` – torchsky ``crossmatch_sky`` directly. Geometry only:
+  ``matcher='sky'`` and ``matcher='skyerr'`` (per-row radii).
 
 All engines share an identical schema: source columns (left unchanged, right
 collisions get a ``_2`` suffix) plus a true great-circle ``sep_arcsec``
-column. ``id_join`` is a pure polars relational join and is engine-agnostic.
+column, and the same pairs: ``find="best"`` keeps the lowest right row index
+among equally good counterparts on every engine. ``id_join`` is a pure polars relational join and is engine-agnostic.
 
 Match criteria:
 
@@ -41,7 +40,6 @@ The output is a ``p_match`` column in [0, 1]. Numeric evaluation lives in
 """
 
 import dataclasses
-import itertools
 import logging
 import math
 from dataclasses import dataclass, field
@@ -49,6 +47,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import polars as pl
 
+from . import _torchsky
 from .exceptions import CrossMatchError
 from .sources import (
     ASTROMETRIC_COVARIANCE_KEYS,
@@ -98,6 +97,11 @@ class MatchSpec:
     # Used to estimate the true-counterpart magnitude distribution q(m) and
     # background surface density n(m).  Required when matcher="lr".
     lr_magnitude_column: str | None = None
+    # Optional primary-catalogue magnitude column for the LR matcher: the
+    # photometric term becomes the pair colour ``secondary magnitude -
+    # primary[lr_color_column]`` (e.g. W1 - G) instead of the secondary
+    # magnitude alone.
+    lr_color_column: str | None = None
     # Prior Q factor for Likelihood Ratio matcher: probability that a
     # primary source has a detectable counterpart in the secondary catalogue.
     # Default 0.8 is a safe empirical value (Sutherland & Saunders 1992);
@@ -148,7 +152,7 @@ class MatchSpec:
     # names from the left side are used as-is; right-side columns gain a
     # ``_2`` suffix (e.g. ``abs(mag_g - mag_g_2) < 0.5``).
     filter_expr: str | None = None
-    # Extra columns for N-dimensional cKDTree matching, mapping column name
+    # Extra columns for N-dimensional candidate ranking, mapping column name
     # to a dimensionless weight.  Columns are z-score normalized across the
     # union of both catalogues and appended to the 3-D Cartesian unit-sphere
     # embedding.  The spatial ``radius_arcsec`` is still enforced as a hard
@@ -581,11 +585,13 @@ def _skyellipse_search_chord_max(
     cov_l: tuple[np.ndarray, np.ndarray, np.ndarray],
     cov_r: tuple[np.ndarray, np.ndarray, np.ndarray],
     max_error: float,
+    radius_arcsec: float | None = None,
 ) -> float:
     """Maximum chord distance for skyellipse spatial pre-filter.
 
     The largest eigenvalue of any combined covariance bounds the search radius.
-    We use the maximum across all rows as a conservative cKDTree bound.
+    We use the maximum across all rows as a conservative cKDTree bound, capped
+    at ``radius_arcsec`` (the hard separation ceiling) when one is given.
     """
     sra2_l, sde2_l, rho_l = cov_l
     sra2_r, sde2_r, rho_r = cov_r
@@ -598,6 +604,8 @@ def _skyellipse_search_chord_max(
     max_cov = math.sqrt(max(max_sra2, 0.0) * max(max_sde2, 0.0))
     max_eig = max_sra2 + max_sde2 + max_cov
     search_radius_arcsec = max_error * math.sqrt(max(max_eig, 0.0))
+    if radius_arcsec is not None:
+        search_radius_arcsec = min(search_radius_arcsec, float(radius_arcsec))
     return _arcsec_to_chord(search_radius_arcsec)
 
 
@@ -636,6 +644,80 @@ def _mahalanobis_pairwise(
     return np.where((det > 1e-30) & np.isfinite(d2), d2, np.inf)
 
 
+def _local_basis(ra_deg: np.ndarray, dec_deg: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Unit east and north vectors (shape ``(n, 3)``) of the local tangent plane."""
+    ra = np.radians(np.asarray(ra_deg, dtype=float))
+    dec = np.radians(np.asarray(dec_deg, dtype=float))
+    sin_ra, cos_ra = np.sin(ra), np.cos(ra)
+    sin_dec, cos_dec = np.sin(dec), np.cos(dec)
+    east = np.stack((-sin_ra, cos_ra, np.zeros_like(ra)), axis=-1)
+    north = np.stack((-sin_dec * cos_ra, -sin_dec * sin_ra, cos_dec), axis=-1)
+    return east, north
+
+
+def _skyellipse_d2(
+    l_ra: np.ndarray,
+    l_dec: np.ndarray,
+    r_ra: np.ndarray,
+    r_dec: np.ndarray,
+    cov_l: tuple[np.ndarray, ...],
+    cov_r: tuple[np.ndarray, ...],
+) -> np.ndarray:
+    """Pairwise Mahalanobis d² of aligned pair arrays, valid all over the sphere.
+
+    ``cov_*`` are per-pair ``(sigma_sq_ra, sigma_sq_dec, rho)`` in arcsec² on
+    each source's own (east, north) axes.  The offset is the exact
+    great-circle separation resolved on the tangent plane at the pair's
+    midpoint, and each covariance is rotated from its source's axes onto that
+    plane.  ``ΔRA·cos(mean Dec)`` is wrong near the poles, where the RA
+    difference of a close pair approaches 180° and the two sources' east axes
+    are no longer parallel.
+    """
+    l_xyz = _radec_to_xyz(l_ra, l_dec)
+    r_xyz = _radec_to_xyz(r_ra, r_dec)
+    mid = l_xyz + r_xyz
+    norm = np.linalg.norm(mid, axis=-1, keepdims=True)
+    mid = np.where(norm > 0.0, mid / np.where(norm > 0.0, norm, 1.0), l_xyz)
+    mid_ra = np.degrees(np.arctan2(mid[:, 1], mid[:, 0]))
+    mid_dec = np.degrees(np.arcsin(np.clip(mid[:, 2], -1.0, 1.0)))
+    east_m, north_m = _local_basis(mid_ra, mid_dec)
+
+    # (r_l - r_r) is orthogonal to the midpoint, so its projection has the
+    # chord length; rescale it to the great-circle arc.
+    delta = l_xyz - r_xyz
+    chord = np.linalg.norm(delta, axis=-1)
+    arc = 2.0 * np.arcsin(np.clip(0.5 * chord, 0.0, 1.0))
+    scale = np.divide(arc, chord, out=np.ones_like(chord), where=chord > 0.0)
+    scale *= math.degrees(1.0) * 3600.0
+    delta_east = np.einsum("ij,ij->i", delta, east_m) * scale
+    delta_north = np.einsum("ij,ij->i", delta, north_m) * scale
+
+    def rotated(
+        ra: np.ndarray, dec: np.ndarray, cov: tuple[np.ndarray, ...]
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        sra2, sde2, rho = (np.asarray(values, dtype=float) for values in cov)
+        east_s, north_s = _local_basis(ra, dec)
+        # Rows of M express the midpoint axes in the source's (east, north).
+        m11 = np.einsum("ij,ij->i", east_m, east_s)
+        m12 = np.einsum("ij,ij->i", east_m, north_s)
+        m21 = np.einsum("ij,ij->i", north_m, east_s)
+        m22 = np.einsum("ij,ij->i", north_m, north_s)
+        cross = rho * np.sqrt(sra2 * sde2)
+        xx = m11 * m11 * sra2 + 2.0 * m11 * m12 * cross + m12 * m12 * sde2
+        yy = m21 * m21 * sra2 + 2.0 * m21 * m22 * cross + m22 * m22 * sde2
+        xy = m11 * m21 * sra2 + (m11 * m22 + m12 * m21) * cross + m12 * m22 * sde2
+        denominator = np.sqrt(xx * yy)
+        rho_m = np.divide(xy, denominator, out=np.zeros_like(xy), where=denominator > 0.0)
+        return xx, yy, rho_m
+
+    return _mahalanobis_pairwise(
+        delta_east,
+        delta_north,
+        *rotated(l_ra, l_dec, cov_l),
+        *rotated(r_ra, r_dec, cov_r),
+    )
+
+
 # --------------------------------------------------------------------------- #
 # 3D Cartesian unit-sphere helpers (Tier 1 and Tier 2 share these)
 # --------------------------------------------------------------------------- #
@@ -666,30 +748,58 @@ def _arcsec_to_chord(arcsec: float) -> float:
     return float(2.0 * np.sin(np.radians(min(angle, 648_000.0) / 3600.0) * 0.5))
 
 
-def _flatten_candidates(
-    idx_lists: list[np.ndarray],
-    l_xyz: np.ndarray,
-    r_xyz: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Flatten ``cKDTree.query_ball_point`` per-left lists into pair arrays.
+def _ts_tensor(values: np.ndarray):
+    import torch  # noqa: PLC0415 - torch loads with torchsky
 
-    Returns ``(left_idx, right_idx, sep_arcsec)``; empty arrays when no
-    candidate pair exists.  Shared by every engine branch that needs the full
-    candidate set (``find="all"``, Likelihood Ratio / ML / AUF / macauff, and
-    the per-row ``skyerr`` criterion).
+    a = np.ascontiguousarray(values, dtype=np.float64)
+    return torch.from_numpy(a if a.flags.writeable else a.copy())
+
+
+class _SkySearch:
+    """Exact sky candidate search on the right rows (torchsky zone index).
+
+    One :class:`torchsky.catalogs.SkyIndex` serves every radius. Pairs come
+    back ordered by (left row, right row), like ``cKDTree.query_ball_point``
+    with ``return_sorted=True``; separations are torchsky's exact
+    great-circle arcs.
     """
-    lens = np.fromiter((len(x) for x in idx_lists), dtype=int, count=len(idx_lists))
-    total = int(lens.sum())
-    if total == 0:
-        return (
-            np.array([], dtype=np.int64),
-            np.array([], dtype=np.int64),
-            np.array([], dtype=float),
+
+    def __init__(self, r_ra: np.ndarray, r_dec: np.ndarray) -> None:
+        catalogs = _torchsky.require("catalogs", "local sky matching")
+        self._catalogs = catalogs
+        self._r_ra = _ts_tensor(r_ra)
+        self._r_dec = _ts_tensor(r_dec)
+        self._index = catalogs.SkyIndex.build(self._r_ra, self._r_dec)
+
+    def within(
+        self, l_ra: np.ndarray, l_dec: np.ndarray, radius_arcsec: float | np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        radius = float(radius_arcsec) if np.isscalar(radius_arcsec) else _ts_tensor(radius_arcsec)
+        res = self._catalogs.match_within(
+            _ts_tensor(l_ra), _ts_tensor(l_dec), self._r_ra, self._r_dec, radius, index=self._index
         )
-    right_idx = np.fromiter(itertools.chain.from_iterable(idx_lists), dtype=np.int64, count=total)
-    left_idx: np.ndarray = np.repeat(np.arange(len(idx_lists), dtype=np.int64), lens)
-    chords = np.linalg.norm(l_xyz[left_idx] - r_xyz[right_idx], axis=-1)
-    return left_idx, right_idx, _chord_to_arcsec(chords)
+        li = res.left_index.numpy().astype(np.int64)
+        rj = res.right_index.numpy().astype(np.int64)
+        sep = res.separation_arcsec.numpy().astype(float)
+        order = np.lexsort((rj, li))
+        return li[order], rj[order], sep[order]
+
+    def nearest(
+        self, l_ra: np.ndarray, l_dec: np.ndarray, radius_arcsec: float
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Nearest right row within the radius; ties go to the lowest right row."""
+        res = self._catalogs.match_nearest(
+            _ts_tensor(l_ra),
+            _ts_tensor(l_dec),
+            self._r_ra,
+            self._r_dec,
+            k=1,
+            max_radius_arcsec=float(radius_arcsec),
+            index=self._index,
+        )
+        idx = res.index[:, 0].numpy().astype(np.int64)
+        found = np.flatnonzero(idx >= 0)
+        return found, idx[found], res.separation_arcsec[:, 0].numpy()[found].astype(float)
 
 
 def _pixellate(hp_module, ra_deg, dec_deg, depth: int, *, label: str) -> np.ndarray:
@@ -740,6 +850,32 @@ def _best_per_primary(
     best = order[_first_occurrence_indices(left_idx[order])]
     best.sort()
     return left_idx[best], right_idx[best], seps[best]
+
+
+def _lowest_duplicate(right_idx: np.ndarray, r_ra: np.ndarray, r_dec: np.ndarray) -> np.ndarray:
+    """Replace each right index by the lowest right row at the identical position.
+
+    Nearest-neighbour queries (``cKDTree.query``, ``match_to_catalog_sky``)
+    return an arbitrary member of a set of exact-duplicate counterparts.
+    Duplicates are at the same distance, so mapping to the lowest row index
+    changes no separation and gives every engine the same ``find="best"``
+    tie-break as :func:`_best_per_primary` (lowest right index).
+    """
+    if right_idx.size == 0:
+        return right_idx
+    positions = pl.DataFrame({"ra": r_ra, "dec": r_dec})
+    dup_rows = np.flatnonzero(positions.is_duplicated().to_numpy())
+    if dup_rows.size == 0:
+        return right_idx
+    lowest = np.arange(len(r_ra), dtype=np.int64)
+    lowest[dup_rows] = (
+        positions[dup_rows]
+        .with_columns(row=pl.Series(dup_rows))
+        .select(pl.col("row").min().over("ra", "dec"))
+        .to_series()
+        .to_numpy()
+    )
+    return lowest[right_idx]
 
 
 def _skyerr_pair_filter(
@@ -801,31 +937,29 @@ def _skyellipse_pair_filter(
     max_error: float,
     *,
     find: str,
+    radius_arcsec: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Apply the per-pair 2-D Mahalanobis d² <= max_error² criterion.
 
     Shared across the numerical engines so every engine evaluates
-    identical error-ellipse geometry and tie-breaking.
+    identical error-ellipse geometry and tie-breaking.  ``radius_arcsec`` is
+    the hard separation ceiling: as for ``skyerr``, the error criterion may
+    only narrow the requested radius, so one corrupt error ellipse cannot
+    accept an unrelated counterpart far outside it.
     """
     if left_idx.size == 0:
         return left_idx, right_idx, seps
-    sra2_l, sde2_l, rho_l = cov_l
-    sra2_r, sde2_r, rho_r = cov_r
-    mean_dec = 0.5 * (l_dec[left_idx] + r_dec[right_idx])
-    cos_dec = np.cos(np.radians(mean_dec))
-    delta_ra = ((l_ra[left_idx] - r_ra[right_idx] + 180.0) % 360.0 - 180.0) * 3600.0 * cos_dec
-    delta_dec = (l_dec[left_idx] - r_dec[right_idx]) * 3600.0
-    d2 = _mahalanobis_pairwise(
-        delta_ra,
-        delta_dec,
-        sra2_l[left_idx],
-        sde2_l[left_idx],
-        rho_l[left_idx],
-        sra2_r[right_idx],
-        sde2_r[right_idx],
-        rho_r[right_idx],
+    d2 = _skyellipse_d2(
+        l_ra[left_idx],
+        l_dec[left_idx],
+        r_ra[right_idx],
+        r_dec[right_idx],
+        tuple(values[left_idx] for values in cov_l),
+        tuple(values[right_idx] for values in cov_r),
     )
     keep = np.isfinite(d2) & (d2 <= max_error**2)
+    if radius_arcsec is not None:
+        keep &= seps <= float(radius_arcsec)
     left_idx, right_idx, seps, d2 = (
         left_idx[keep],
         right_idx[keep],
@@ -1038,31 +1172,22 @@ def _apply_proper_motion(
                     epoch_arr[covariance_rows_6d],
                     target_epoch,
                 )
-                if result is None:
-                    message = (
-                        "target-epoch skyellipse covariance propagation requires "
-                        "Torchsky propagate_space_motion_with_jacobian"
-                    )
-                    if fallback_policy == "error":
-                        raise CrossMatchError(message)
-                    logger.warning("%s; retaining reference-epoch ellipses.", message)
-                else:
-                    moved_ra, moved_dec, jacobian = result
-                    new_ra[covariance_rows_6d] = moved_ra
-                    new_dec[covariance_rows_6d] = moved_dec
-                    covariance_done[covariance_rows_6d] = True
-                    position_jacobian = jacobian[:, :2, :5]
-                    target_covariance = (
-                        position_jacobian
-                        @ covariance[covariance_rows_6d]
-                        @ np.swapaxes(position_jacobian, -1, -2)
-                    )
-                    target_covariance = 0.5 * (
-                        target_covariance + np.swapaxes(target_covariance, -1, -2)
-                    )
-                    target_covariance /= 1_000_000.0  # mas² to arcsec²
-                    propagated_covariance = np.full((df.height, 2, 2), np.nan)
-                    propagated_covariance[covariance_rows_6d] = target_covariance
+                moved_ra, moved_dec, jacobian = result
+                new_ra[covariance_rows_6d] = moved_ra
+                new_dec[covariance_rows_6d] = moved_dec
+                covariance_done[covariance_rows_6d] = True
+                position_jacobian = jacobian[:, :2, :5]
+                target_covariance = (
+                    position_jacobian
+                    @ covariance[covariance_rows_6d]
+                    @ np.swapaxes(position_jacobian, -1, -2)
+                )
+                target_covariance = 0.5 * (
+                    target_covariance + np.swapaxes(target_covariance, -1, -2)
+                )
+                target_covariance /= 1_000_000.0  # mas² to arcsec²
+                propagated_covariance = np.full((df.height, 2, 2), np.nan)
+                propagated_covariance[covariance_rows_6d] = target_covariance
 
             angular_state_valid = (
                 ~complete
@@ -1082,31 +1207,22 @@ def _apply_proper_motion(
                     epoch_arr[angular_state_valid],
                     target_epoch,
                 )
-                if result is None:
-                    message = (
-                        "target-epoch skyellipse covariance propagation requires "
-                        "Torchsky propagate_proper_motion_with_jacobian"
-                    )
-                    if fallback_policy == "error":
-                        raise CrossMatchError(message)
-                    logger.warning("%s; retaining reference-epoch ellipses.", message)
-                else:
-                    moved_ra, moved_dec, position_jacobian = result
-                    new_ra[angular_state_valid] = moved_ra
-                    new_dec[angular_state_valid] = moved_dec
-                    covariance_done[angular_state_valid] = True
-                    target_covariance = (
-                        position_jacobian
-                        @ covariance[angular_state_valid, :4, :4]
-                        @ np.swapaxes(position_jacobian, -1, -2)
-                    )
-                    target_covariance = 0.5 * (
-                        target_covariance + np.swapaxes(target_covariance, -1, -2)
-                    )
-                    target_covariance /= 1_000_000.0
-                    if propagated_covariance is None:
-                        propagated_covariance = np.full((df.height, 2, 2), np.nan)
-                    propagated_covariance[angular_state_valid] = target_covariance
+                moved_ra, moved_dec, position_jacobian = result
+                new_ra[angular_state_valid] = moved_ra
+                new_dec[angular_state_valid] = moved_dec
+                covariance_done[angular_state_valid] = True
+                target_covariance = (
+                    position_jacobian
+                    @ covariance[angular_state_valid, :4, :4]
+                    @ np.swapaxes(position_jacobian, -1, -2)
+                )
+                target_covariance = 0.5 * (
+                    target_covariance + np.swapaxes(target_covariance, -1, -2)
+                )
+                target_covariance /= 1_000_000.0
+                if propagated_covariance is None:
+                    propagated_covariance = np.full((df.height, 2, 2), np.nan)
+                propagated_covariance[angular_state_valid] = target_covariance
 
         angular = ~complete & ~covariance_done
         if np.any(angular):
@@ -1431,9 +1547,9 @@ def _apply_match_filter(
 
 
 # --------------------------------------------------------------------------- #
-# Tier 1 — fast engine (scipy.spatial.cKDTree, no Java, no FITS I/O)
+# Tier 1 — fast engine (torchsky zone index, no Java, no FITS I/O)
 # --------------------------------------------------------------------------- #
-def _scipy_match(
+def _local_match(
     left: pl.DataFrame,
     right: pl.DataFrame,
     left_src: CatalogueSource,
@@ -1442,9 +1558,13 @@ def _scipy_match(
     *,
     workers: int = -1,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The local in-memory engine (``engine="fast"``): torchsky candidates.
 
-    from scipy.spatial import cKDTree
-
+    Candidates come from torchsky's exact zone index; the matcher-specific
+    filters and rankings below are xmatcher's. ``workers`` is accepted for
+    the call signature; torchsky uses ``torch.get_num_threads()``.
+    """
+    del workers
     empty = (np.array([], int), np.array([], int), np.array([], float))
     if left.height == 0 or right.height == 0:
         return empty
@@ -1453,9 +1573,6 @@ def _scipy_match(
     l_dec = left[left_src.dec_column].to_numpy()
     r_ra = right[right_src.ra_column].to_numpy()
     r_dec = right[right_src.dec_column].to_numpy()
-
-    l_xyz = _radec_to_xyz(l_ra, l_dec)
-    r_xyz = _radec_to_xyz(r_ra, r_dec)
 
     if spec.matcher == "sky":
         chord_max = _arcsec_to_chord(spec.radius_arcsec)
@@ -1473,7 +1590,7 @@ def _scipy_match(
                 spec.matcher,
             )
             return empty
-        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error)
+        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error, spec.radius_arcsec)
     else:
         lsig = _pos_sigma_arcsec(left, left_src)
         rsig = _pos_sigma_arcsec(right, right_src)
@@ -1491,7 +1608,8 @@ def _scipy_match(
     if chord_max <= 0:
         return empty
 
-    tree = cKDTree(r_xyz)
+    search = _SkySearch(r_ra, r_dec)
+    radius = float(_chord_to_arcsec(chord_max))
     # Likelihood Ratio / ML / XGB / AUF / macauff: retrieve ALL candidates so
     # the scoring function can compute reliabilities across the full candidate set.
     # ND ranking also needs every in-radius candidate; a nearest-k cap can drop
@@ -1499,8 +1617,7 @@ def _scipy_match(
     if spec.matcher in ("lr", "ml", "xgb", "auf", "macauff") or (
         spec.matcher == "sky" and spec.extra_distance_cols and spec.find == "best"
     ):
-        idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
-        left_idx, right_idx, seps = _flatten_candidates(idx_lists, l_xyz, r_xyz)
+        left_idx, right_idx, seps = search.within(l_ra, l_dec, radius)
         if spec.extra_distance_cols and spec.find == "best":
             return _rank_nd_candidates(
                 left_idx, right_idx, seps, l_ra, l_dec, r_ra, r_dec, left, right, spec
@@ -1511,8 +1628,7 @@ def _scipy_match(
         # ``skyerr`` is a per-row criterion, so the global-chord candidate set
         # must be scored rather than reduced to the nearest candidate.
         assert lsig is not None and rsig is not None
-        idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
-        left_idx, right_idx, seps = _flatten_candidates(idx_lists, l_xyz, r_xyz)
+        left_idx, right_idx, seps = search.within(l_ra, l_dec, radius)
         left_idx, right_idx, seps = _skyerr_pair_filter(
             left_idx,
             right_idx,
@@ -1531,8 +1647,7 @@ def _scipy_match(
 
     if spec.matcher == "skyellipse":
         assert cov_l is not None and cov_r is not None
-        idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
-        left_idx, right_idx, seps = _flatten_candidates(idx_lists, l_xyz, r_xyz)
+        left_idx, right_idx, seps = search.within(l_ra, l_dec, radius)
         left_idx, right_idx, seps = _skyellipse_pair_filter(
             left_idx,
             right_idx,
@@ -1545,6 +1660,7 @@ def _scipy_match(
             cov_r,
             spec.max_error,
             find="all" if spec.extra_distance_cols else spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
         if spec.extra_distance_cols and spec.find == "best":
             return _rank_nd_candidates(
@@ -1554,16 +1670,10 @@ def _scipy_match(
 
     if spec.find == "best":
         # --- plain sky: spatial-nearest match ------------------------------
-        dist, idx = tree.query(l_xyz, k=1, distance_upper_bound=chord_max, workers=workers)
-        valid = np.isfinite(dist) & (idx < r_xyz.shape[0])
-        left_idx = np.nonzero(valid)[0]
-        right_idx = idx[valid].astype(np.int64)
-        sep = _chord_to_arcsec(dist[valid])
-        return left_idx, right_idx, sep
+        return search.nearest(l_ra, l_dec, radius)
 
-    # find == "all": per-left list of matched right indices.
-    idx_lists = tree.query_ball_point(l_xyz, r=chord_max, workers=workers, return_sorted=True)
-    return _flatten_candidates(idx_lists, l_xyz, r_xyz)
+    # find == "all": every right row within the radius.
+    return search.within(l_ra, l_dec, radius)
 
 
 # --------------------------------------------------------------------------- #
@@ -1579,28 +1689,26 @@ def _likelihood_ratio_scoring(
     seps: np.ndarray,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Score candidate pairs with the Sutherland & Saunders (1992) Likelihood
-    Ratio and return (left_idx, right_idx, seps, lr, reliability).
+    """Likelihood ratios and reliabilities from :func:`torchsky.catalogs.associate`.
 
-    For each primary source, all candidates within the search radius are scored.
-    When ``spec.find == "best"``, the candidate with the highest reliability is
-    kept per primary source.  When ``spec.find == "all"``, all candidates with
-    their LR and reliability values are returned.
+    Returns ``(left_idx, right_idx, seps, lr, reliability)``. The model is
+    Sutherland & Saunders (1992): ``LR = q(m) f(r) / n(m)``, with ``f`` the 2-D
+    Gaussian surface density of the offset (isotropic, per-axis variance from
+    the two rows' errors), ``n(m)`` the right catalogue's density per
+    magnitude bin over its footprint and ``q(m)`` the counterparts' magnitude
+    distribution. torchsky learns ``q`` by EM from the posteriors, and the
+    reliability is the posterior ``Q LR / ((1 - Q) + Q sum LR)`` with
+    ``Q = lr_q`` as the prior completeness. Candidates pass a chi-square gate
+    (p = 1e-4) and the ``radius_arcsec`` ceiling. A right row is the
+    counterpart of at most one left row (exclusive posteriors), which matters
+    in crowded fields only. With ``lr_color_column`` the photometric feature
+    is the colour ``right magnitude - left[lr_color_column]``
+    (:func:`_lr_photometric_term`).
 
-    Algorithm
-    --------
-    1. Estimate the background surface density n(m) from the secondary catalogue.
-    2. Estimate the true-counterpart magnitude distribution q(m) by subtracting
-       the expected background from the candidate magnitude distribution.
-    3. For each pair compute the Rayleigh positional PDF f(r) using the combined
-       per-row positional errors.
-    4. Compute LR_i = q(m_i) * f(r_i) / n(m_i).
-    5. Compute reliability R_j = LR_j / (Σ_i LR_i + (1 - Q)).
-    6. If find="best", keep the highest-reliability candidate per primary source.
-
-    Returns (left_idx, right_idx, seps, lr, reliability).  When no candidates
-    survive, all arrays are empty.
+    ``left_idx``/``right_idx``/``seps`` (the engine's candidates within the
+    radius) are not needed: torchsky searches with each pair's own gate.
     """
+    del left_idx, right_idx, seps
     empty = (
         np.array([], int),
         np.array([], int),
@@ -1608,158 +1716,504 @@ def _likelihood_ratio_scoring(
         np.array([], float),
         np.array([], float),
     )
-    if left_idx.size == 0:
+    if left.height == 0 or right.height == 0:
         return empty
+    catalogs = _torchsky.require("catalogs", "matcher='lr'")
+    term = _lr_photometric_term(
+        catalogs,
+        right,
+        spec.lr_magnitude_column,
+        left=left,
+        color_column=spec.lr_color_column,
+        label=right_src.name,
+    )
+    terms: tuple = () if term is None else (term,)
 
-    mag_col = spec.lr_magnitude_column
-    if mag_col is None or mag_col not in right.columns:
-        logger.warning(
-            "lr_magnitude_column='%s' missing from right catalogue; falling back to sky match.",
-            mag_col,
-        )
-        return (
-            left_idx,
-            right_idx,
-            seps,
-            np.ones(left_idx.size, dtype=float),
-            np.ones(left_idx.size, dtype=float),
-        )
-
-    # --- positional sigmas for the Rayleigh PDF f(r) ------------------------
-    lsig = _pos_sigma_arcsec(left, left_src)
-    rsig = _pos_sigma_arcsec(right, right_src)
-    if lsig is None:
-        lsig = np.full(left.height, 0.5, dtype=float)
-    if rsig is None:
-        rsig = np.full(right.height, 0.5, dtype=float)
-
-    sigma_l = lsig[left_idx]
-    sigma_r = rsig[right_idx]
-    sigma_combined = np.sqrt(sigma_l**2 + sigma_r**2)
-    sigma_combined = np.maximum(sigma_combined, 1e-6)
-
-    # f(r) = r / σ² * exp(-r² / (2σ²)) — the Rayleigh radial PDF.
-    sigma_sq = sigma_combined**2
-    f_r = (seps / sigma_sq) * np.exp(-(seps**2) / (2.0 * sigma_sq))
-    f_r = np.maximum(f_r, 1e-300)
-
-    # --- n(m): background surface density per unit area per magnitude --------
-    right_mags = right[mag_col].to_numpy().astype(float)
-    right_mags = right_mags[np.isfinite(right_mags)]
-    if right_mags.size < 10:
-        logger.warning("Too few valid magnitudes in right catalogue for LR; falling back.")
-        return (
-            left_idx,
-            right_idx,
-            seps,
-            np.ones(left_idx.size, dtype=float),
-            np.ones(left_idx.size, dtype=float),
+    def catalogue(df: pl.DataFrame, src: CatalogueSource):
+        sig = _pos_sigma_arcsec(df, src)
+        if sig is None:
+            sig = np.full(df.height, 0.5, dtype=float)
+        # `_pos_sigma_arcsec` is a radial RMS; per axis it is RMS / sqrt(2), in mas.
+        axis = _ts_tensor(np.maximum(sig, 1e-6) / math.sqrt(2.0) * 1000.0)
+        return catalogs.Catalog(
+            lon=_ts_tensor(df[src.ra_column].cast(pl.Float64).to_numpy()),
+            lat=_ts_tensor(df[src.dec_column].cast(pl.Float64).to_numpy()),
+            epoch=2016.0,
+            astrometry=catalogs.Astrometry.from_errors(axis, axis),
         )
 
-    n_bins = min(50, int(np.sqrt(right_mags.size)))
-    mag_min, mag_max = float(np.nanmin(right_mags)), float(np.nanmax(right_mags))
-    if mag_max - mag_min < 1e-6:
-        mag_max = mag_min + 1.0
-    mag_edges = np.linspace(mag_min, mag_max, n_bins + 1)
-    0.5 * (mag_edges[:-1] + mag_edges[1:])
-    bin_width = mag_edges[1] - mag_edges[0]
-
-    # Background counts per magnitude bin (from full right catalogue).
-    bg_counts, _ = np.histogram(right_mags, bins=mag_edges)
-
-    # Estimate sky area from the right catalogue extent.
-    from .astro_utils import sky_extent
-
-    r_ra = right[right_src.ra_column].to_numpy().astype(float)
-    r_dec = right[right_src.dec_column].to_numpy().astype(float)
-    extent = sky_extent(r_ra, r_dec)
-    if extent["radius_deg"] and extent["radius_deg"] > 0:
-        sky_area_deg2 = math.pi * extent["radius_deg"] ** 2
-    else:
-        sky_area_deg2 = 1.0  # fallback: 1 sq deg
-    sky_area_arcsec2 = sky_area_deg2 * (3600.0**2)
-
-    # n(m) in units of sources per arcsec² per magnitude.
-    n_m = np.maximum(bg_counts.astype(float) / (sky_area_arcsec2 * bin_width), 1e-300)
-
-    # --- q(m): true-counterpart magnitude distribution ----------------------
-    search_area_arcsec2 = math.pi * spec.radius_arcsec**2
-    cand_mags_arr = right[mag_col].to_numpy().astype(float)[right_idx]
-    cand_counts, _ = np.histogram(
-        cand_mags_arr[np.isfinite(cand_mags_arr)],
-        bins=mag_edges,
+    q = min(max(float(spec.lr_q), 1e-9), 1.0 - 1e-9)
+    res = catalogs.associate(
+        catalogue(left, left_src),
+        catalogue(right, right_src),
+        gate_pvalue=1e-4,
+        max_radius_arcsec=float(spec.radius_arcsec),
+        epoch=None,
+        completeness=q,
+        terms=terms,
+        assign="none",
     )
-
-    # Expected background in the search area: n(m) × search_area × N_primary.
-    n_primary = left.height
-    expected_bg = n_m * search_area_arcsec2 * n_primary
-    q_m = np.maximum(cand_counts.astype(float) - expected_bg, 0.0)
-    q_sum = q_m.sum()
-    if q_sum > 0:
-        q_m /= q_sum  # normalise to probability distribution
-    else:
-        q_m = np.ones_like(q_m) / len(q_m)
-
-    # --- per-pair LR computation -------------------------------------------
-    # Map each candidate's magnitude to the appropriate bin.
-    mag_bin_indices = np.clip(
-        np.searchsorted(mag_edges, cand_mags_arr, side="right") - 1,
-        0,
-        n_bins - 1,
-    )
-    # Clip non-finite magnitudes to bin 0 (their LR will be negligible).
-    mag_bin_indices[~np.isfinite(cand_mags_arr)] = 0
-
-    q_per_pair = q_m[mag_bin_indices]
-    n_per_pair = n_m[mag_bin_indices]
-
-    lr = q_per_pair * f_r / n_per_pair
-    lr = np.where(np.isfinite(lr), lr, 0.0)
-    lr = np.maximum(lr, 0.0)
-
-    # --- reliability per primary source ------------------------------------
-    # Group LR values by primary source (left_idx).
-    unique_left, inverse, counts = np.unique(
-        left_idx,
-        return_inverse=True,
-        return_counts=True,
-    )
-    # Sum of LR per primary source.
-    lr_sum = np.bincount(inverse, weights=lr, minlength=len(unique_left))
-
-    # R_j = LR_j / (Σ_LR + (1 - Q)).
-    Q = spec.lr_q
-    # Map sum back to each pair.
-    lr_sum_per_pair = lr_sum[inverse]
-    denominator = lr_sum_per_pair + (1.0 - Q)
-    reliability = np.divide(lr, denominator, where=denominator > 1e-300, out=np.zeros_like(lr))
-    reliability = np.clip(reliability, 0.0, 1.0)
-
+    li = res.left_index.numpy().astype(np.int64)
+    rj = res.right_index.numpy().astype(np.int64)
+    sep = res.separation_arcsec.numpy().astype(float)
+    lr = np.exp(res.log_lr.detach().numpy())
+    reliability = np.clip(res.posterior.detach().numpy(), 0.0, 1.0)
+    if li.size == 0:
+        return empty
     logger.info(
-        "LR match: %d candidates → %d unique primary sources, median reliability=%.3f.",
-        len(left_idx),
-        len(unique_left),
+        "LR match: %d candidates for %d primary sources, median reliability=%.3f.",
+        li.size,
+        np.unique(li).size,
         float(np.median(reliability)),
     )
-
-    # --- select best per primary source if find="best" ---------------------
     if spec.find == "best":
-        # For each primary source, find the candidate with max reliability.
-        # Ties go to smallest LR (then smallest sep).
-        # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-        order = np.lexsort((seps, lr, -reliability, inverse))
-        best_indices = _first_occurrence_indices(inverse[order])
-        best_positions = order[best_indices]
-        best_positions.sort()  # Preserve original row order implicitly done by boolean mask
-        return (
-            left_idx[best_positions],
-            right_idx[best_positions],
-            seps[best_positions],
-            lr[best_positions],
-            reliability[best_positions],
+        # Highest reliability per primary; ties to the smaller LR, then the
+        # smaller separation, then the lowest right index.
+        order = np.lexsort((rj, sep, lr, -reliability, li))
+        best = order[_first_occurrence_indices(li[order])]
+        best.sort()
+        return li[best], rj[best], sep[best], lr[best], reliability[best]
+    order = np.lexsort((rj, li))
+    return li[order], rj[order], sep[order], lr[order], reliability[order]
+
+
+# Fewest finite values a photometric term is learnt from; below it the
+# likelihood ratio stays positional (logged), as torchsky's EM needs a population.
+_LR_MIN_VALUES = 10
+# chi-square (2 dof) gate of the N-way association, as for matcher="lr".
+_NWAY_GATE_PVALUE = 1e-4
+
+
+def _lr_histogram_edges(lo: float, hi: float, n_values: int):
+    """Fixed bins of a photometric term: ``min(50, sqrt(n))`` bins over ``[lo, hi]``."""
+    import torch  # noqa: PLC0415 - loads with torchsky
+
+    n_bins = min(50, int(np.sqrt(n_values)))
+    hi = hi if hi - lo >= 1e-6 else lo + 1.0
+    return torch.linspace(lo, hi + 1e-9 * max(1.0, abs(hi)), n_bins + 1, dtype=torch.float64)
+
+
+def _lr_photometric_term(
+    catalogs,
+    right: pl.DataFrame,
+    magnitude_column: str | None,
+    *,
+    left: pl.DataFrame | None = None,
+    color_column: str | None = None,
+    label: str = "secondary",
+):
+    """The :class:`torchsky.catalogs.HistogramRatio` term of one secondary catalogue.
+
+    The feature is the secondary's ``magnitude_column`` (Sutherland & Saunders
+    right magnitudes: ``n`` is the footprint histogram, ``q`` is learnt by EM).
+    With ``color_column`` it is the pair colour ``right[magnitude_column] -
+    left[color_column]`` (for example W1 - G), whose counterpart and
+    background distributions are both learnt from the candidate pairs.
+
+    Returns ``None`` (and logs) when the magnitude column is missing or has
+    fewer than :data:`_LR_MIN_VALUES` finite values: the likelihood ratio is
+    then positional. A ``color_column`` absent from the primary is an error.
+    """
+    if magnitude_column is None:
+        return None
+    right_values = (
+        right[magnitude_column].cast(pl.Float64).to_numpy()
+        if magnitude_column in right.columns
+        else None
+    )
+    finite_right = right_values[np.isfinite(right_values)] if right_values is not None else None
+    if finite_right is None or finite_right.size < _LR_MIN_VALUES:
+        logger.warning(
+            "Photometric column '%s' is missing from '%s' or has fewer than %d finite "
+            "values; its likelihood ratio uses positions only.",
+            magnitude_column,
+            label,
+            _LR_MIN_VALUES,
+        )
+        return None
+    if color_column is None:
+        edges = _lr_histogram_edges(
+            float(finite_right.min()), float(finite_right.max()), finite_right.size
+        )
+        return catalogs.HistogramRatio(_ts_tensor(right_values), [edges])
+    if left is None or color_column not in left.columns:
+        raise CrossMatchError(
+            f"lr_color_column='{color_column}' is not a column of the primary catalogue"
+        )
+    left_values = left[color_column].cast(pl.Float64).to_numpy()
+    finite_left = left_values[np.isfinite(left_values)]
+    if finite_left.size < _LR_MIN_VALUES:
+        logger.warning(
+            "lr_color_column='%s' has fewer than %d finite values; the likelihood ratio "
+            "of '%s' uses positions only.",
+            color_column,
+            _LR_MIN_VALUES,
+            label,
+        )
+        return None
+    # Every pair colour lies in [min(right) - max(left), max(right) - min(left)].
+    edges = _lr_histogram_edges(
+        float(finite_right.min() - finite_left.max()),
+        float(finite_right.max() - finite_left.min()),
+        min(finite_right.size, finite_left.size),
+    )
+    return catalogs.HistogramRatio(
+        _ts_tensor(right_values), [edges], left_values=_ts_tensor(left_values)
+    )
+
+
+# --------------------------------------------------------------------------- #
+# N-way association (torchsky.catalogs.associate_many)
+# --------------------------------------------------------------------------- #
+@dataclass
+class NWayAssociation:
+    """N-way hypotheses from :func:`nway_associate`, as NumPy arrays.
+
+    ``members[h, c]`` is the row of catalogue ``c`` in hypothesis ``h`` (``-1``
+    when absent; column 0 is the primary row). Every primary has its "no
+    counterpart" hypothesis. ``posterior`` is normalised per primary;
+    ``log_lr`` is the natural log of the hypothesis' likelihood ratio against
+    "no counterpart", with the completeness priors divided out (with two
+    catalogues it is the pairwise ``matcher="lr"`` likelihood ratio).
+    ``best`` flags each primary's MAP hypothesis. ``p_any`` and
+    ``residual_mass`` (the certified posterior mass of hypotheses that were not
+    enumerated) are per primary; ``completeness`` per catalogue (1 for the
+    primary). ``sep_arcsec[h, c - 1]`` is the separation of catalogue ``c``'s
+    member from the primary (NaN when absent).
+    """
+
+    members: np.ndarray
+    posterior: np.ndarray
+    log_lr: np.ndarray
+    best: np.ndarray
+    p_any: np.ndarray
+    residual_mass: np.ndarray
+    completeness: list[float]
+    sep_arcsec: np.ndarray
+
+
+def _nway_catalog(catalogs, df: pl.DataFrame, src: CatalogueSource):
+    """A torchsky ``Catalog`` with each row's position covariance (mas^2)."""
+    covariance = _pos_covariance(df, src)
+    if covariance is not None:
+        var_e, var_n, rho = covariance
+        sigma_e = np.sqrt(np.asarray(var_e, dtype=float))
+        sigma_n = np.sqrt(np.asarray(var_n, dtype=float))
+        rho = np.asarray(rho, dtype=float)
+    else:
+        sigma = _pos_sigma_arcsec(df, src)
+        if sigma is None:
+            raise CrossMatchError(
+                f"N-way catalogue '{src.name}' needs declared positional errors or an "
+                "explicit default_pos_error_arcsec"
+            )
+        # A radial RMS; per axis it is RMS / sqrt(2).
+        sigma_e = sigma_n = np.asarray(sigma, dtype=float) / math.sqrt(2.0)
+        rho = np.zeros(df.height, dtype=float)
+    if not (np.isfinite(sigma_e).all() and np.isfinite(sigma_n).all() and np.isfinite(rho).all()):
+        raise CrossMatchError(f"N-way catalogue '{src.name}' has non-finite positional errors")
+    # 1 micro-arcsecond keeps exact-position rows' covariances invertible.
+    floor_mas = 1e-3
+    return catalogs.Catalog(
+        lon=_ts_tensor(df[src.ra_column or "ra"].cast(pl.Float64).to_numpy()),
+        lat=_ts_tensor(df[src.dec_column or "dec"].cast(pl.Float64).to_numpy()),
+        epoch=2016.0,
+        astrometry=catalogs.Astrometry.from_errors(
+            _ts_tensor(np.maximum(sigma_e * 1000.0, floor_mas)),
+            _ts_tensor(np.maximum(sigma_n * 1000.0, floor_mas)),
+            _ts_tensor(np.clip(rho, -1.0, 1.0)),
+        ),
+    )
+
+
+def _has_gated_pair(catalogs, primary, secondary, radius_arcsec: float) -> bool:
+    """Whether any (primary, secondary) pair passes the N-way chi-square gate.
+
+    The same test as torchsky's association gate (midpoint-frame offset,
+    summed covariances, ``d^2 <= k^2`` and the radius ceiling). A secondary
+    catalogue without one has no counterpart in any hypothesis and is left
+    out of ``associate_many``, which needs at least one candidate per
+    catalogue.
+    """
+    import torch  # noqa: PLC0415 - loads with torchsky
+
+    ts_assoc = _torchsky.require("catalogs.association", "N-way association")
+    found = catalogs.match_within(
+        primary.lon, primary.lat, secondary.lon, secondary.lat, float(radius_arcsec)
+    )
+    li, rj = found.left_index, found.right_index
+    if li.numel() == 0:
+        return False
+
+    def xyz(lon, lat):
+        lon, lat = torch.deg2rad(lon.to(torch.float64)), torch.deg2rad(lat.to(torch.float64))
+        return torch.stack(
+            (torch.cos(lat) * torch.cos(lon), torch.cos(lat) * torch.sin(lon), torch.sin(lat)), -1
         )
 
-    return left_idx, right_idx, seps, lr, reliability
+    delta, tl, tr, psi = ts_assoc.pair_frame(
+        xyz(primary.lon[li], primary.lat[li]), xyz(secondary.lon[rj], secondary.lat[rj])
+    )
+    cov_l = primary.astrometry.position_cov()[li]
+    cov_r = secondary.astrometry.position_cov()[rj]
+    d2, _ = ts_assoc.mahalanobis2(delta, tl @ cov_l @ tl.mT + tr @ cov_r @ tr.mT)
+    sep = torch.rad2deg(psi) * 3600.0
+    keep = (d2 <= ts_assoc.gate_k2(_NWAY_GATE_PVALUE)) & (sep <= radius_arcsec)
+    return bool(keep.any())
+
+
+def _angular_separation_arcsec(
+    ra1: np.ndarray, dec1: np.ndarray, ra2: np.ndarray, dec2: np.ndarray
+) -> np.ndarray:
+    """Great-circle separation (Vincenty form, exact at every distance)."""
+    ra1, dec1, ra2, dec2 = (np.radians(np.asarray(v, dtype=float)) for v in (ra1, dec1, ra2, dec2))
+    dra = ra2 - ra1
+    num = np.hypot(
+        np.cos(dec2) * np.sin(dra),
+        np.cos(dec1) * np.sin(dec2) - np.sin(dec1) * np.cos(dec2) * np.cos(dra),
+    )
+    den = np.sin(dec1) * np.sin(dec2) + np.cos(dec1) * np.cos(dec2) * np.cos(dra)
+    return np.degrees(np.arctan2(num, den)) * 3600.0
+
+
+def nway_associate(
+    frames: list[pl.DataFrame],
+    sources: list[CatalogueSource],
+    *,
+    radius_arcsec: float,
+    magnitude_columns: list[str | None] | None = None,
+    color_column: str | None = None,
+    same_band_columns: list[str] | tuple[str, ...] = (),
+    completeness: float | None = None,
+    budget: int = 4096,
+    exclusive: bool = True,
+) -> NWayAssociation:
+    """N-way association of ``frames[0]`` (primary) with the other catalogues.
+
+    Wraps :func:`torchsky.catalogs.associate_many`: for each primary row, every
+    combination of one gated counterpart (or none) per secondary catalogue is a
+    hypothesis, weighted by the exact Gaussian likelihood that all present
+    positions share one true position (Budavari & Szalay 2008, full
+    covariances), each catalogue's completeness and background density, and the
+    photometric terms. Candidates pass a chi-square gate (p = 1e-4) and the
+    ``radius_arcsec`` ceiling. With ``exclusive=True`` a secondary row is the
+    counterpart of at most one primary (Bethe posteriors).
+
+    Photometric terms (one tuple of ``HistogramRatio`` per secondary, as for
+    two catalogues): ``magnitude_columns[c - 1]`` is secondary ``c``'s
+    magnitude column (``None`` for none); with ``color_column`` the term is
+    the pair colour against that primary column. Each name in
+    ``same_band_columns`` adds a pair-colour term ``secondary[col] -
+    primary[col]`` (the same band measured twice). ``completeness`` fixes
+    every secondary's completeness (``lr_q``); ``None`` fits it by EM.
+    Primaries with more than ``budget`` hypotheses are enumerated best-first
+    with a certified residual mass instead of being truncated.
+    """
+    n_cats = len(frames)
+    if n_cats < 2 or len(sources) != n_cats:
+        raise CrossMatchError("N-way association needs a primary and at least one other catalogue")
+    mags = list(magnitude_columns) if magnitude_columns is not None else [None] * (n_cats - 1)
+    if len(mags) != n_cats - 1:
+        raise CrossMatchError("magnitude_columns needs one entry per secondary catalogue")
+    if budget < 1:
+        raise CrossMatchError("budget must be a positive integer")
+    catalogs = _torchsky.require("catalogs", "N-way association")
+    n0 = frames[0].height
+    all_cats = [
+        _nway_catalog(catalogs, frame, src) if frame.height and n0 else None
+        for frame, src in zip(frames, sources, strict=True)
+    ]
+    active = [
+        c
+        for c in range(1, n_cats)
+        if all_cats[c] is not None
+        and _has_gated_pair(catalogs, all_cats[0], all_cats[c], float(radius_arcsec))
+    ]
+    if n0 == 0 or not active:
+        members = np.full((n0, n_cats), -1, dtype=np.int64)
+        members[:, 0] = np.arange(n0)
+        return NWayAssociation(
+            members=members,
+            posterior=np.ones(n0),
+            log_lr=np.zeros(n0),
+            best=np.ones(n0, dtype=bool),
+            p_any=np.zeros(n0),
+            residual_mass=np.zeros(n0),
+            completeness=[1.0] + [0.0] * (n_cats - 1),
+            sep_arcsec=np.full((n0, n_cats - 1), np.nan),
+        )
+    cats = [all_cats[c] for c in [0, *active]]
+    terms: list[tuple] = []
+    for c in active:
+        found = [
+            _lr_photometric_term(
+                catalogs,
+                frames[c],
+                mags[c - 1],
+                left=frames[0],
+                color_column=color_column,
+                label=sources[c].name,
+            )
+        ]
+        for column in same_band_columns:
+            found.append(
+                _lr_photometric_term(
+                    catalogs,
+                    frames[c],
+                    column,
+                    left=frames[0],
+                    color_column=column,
+                    label=sources[c].name,
+                )
+            )
+        terms.append(tuple(term for term in found if term is not None))
+    if completeness is None:
+        comp: list[float] | str = "em"
+    else:
+        q = min(max(float(completeness), 1e-9), 1.0 - 1e-9)
+        comp = [q] * len(active)
+    res = catalogs.associate_many(
+        cats,
+        gate_pvalue=_NWAY_GATE_PVALUE,
+        max_radius_arcsec=float(radius_arcsec),
+        completeness=comp,
+        terms=terms if any(terms) else None,
+        budget=int(budget),
+        exclusive=exclusive,
+    )
+    sub = res.members.cpu().numpy().astype(np.int64)
+    n_hyp = sub.shape[0]
+    members = np.full((n_hyp, n_cats), -1, dtype=np.int64)
+    members[:, 0] = sub[:, 0]
+    for j, c in enumerate(active, start=1):
+        members[:, c] = sub[:, j]
+    # Divide the completeness priors out of the hypothesis weight: what remains
+    # is its likelihood ratio against "no counterpart".
+    pi = np.array([p * (1.0 - _NWAY_GATE_PVALUE) for p in res.completeness[1:]])
+    present = sub[:, 1:] >= 0
+    log_prior = np.where(present, np.log(pi), np.log1p(-pi)).sum(axis=1)
+    log_lr = res.log_weight.detach().cpu().numpy() - log_prior
+    best = np.zeros(n_hyp, dtype=bool)
+    best[res.best.cpu().numpy()] = True
+    full_comp = [1.0] + [0.0] * (n_cats - 1)
+    for j, c in enumerate(active, start=1):
+        full_comp[c] = float(res.completeness[j])
+    sep = np.full((n_hyp, n_cats - 1), np.nan)
+    ra0 = frames[0][sources[0].ra_column or "ra"].cast(pl.Float64).to_numpy()
+    dec0 = frames[0][sources[0].dec_column or "dec"].cast(pl.Float64).to_numpy()
+    for c in active:
+        on = members[:, c] >= 0
+        ra_c = frames[c][sources[c].ra_column or "ra"].cast(pl.Float64).to_numpy()
+        dec_c = frames[c][sources[c].dec_column or "dec"].cast(pl.Float64).to_numpy()
+        p, m = members[on, 0], members[on, c]
+        sep[on, c - 1] = _angular_separation_arcsec(ra0[p], dec0[p], ra_c[m], dec_c[m])
+    residual = res.residual_mass.detach().cpu().numpy()
+    if residual.size and float(residual.max()) > 0.0:
+        logger.info(
+            "N-way association: %d primaries enumerated best-first (max residual mass %.2g).",
+            int((residual > 0.0).sum()),
+            float(residual.max()),
+        )
+    return NWayAssociation(
+        members=members,
+        posterior=np.clip(res.posterior.detach().cpu().numpy(), 0.0, 1.0),
+        log_lr=log_lr,
+        best=best,
+        p_any=np.clip(res.p_any.detach().cpu().numpy(), 0.0, 1.0),
+        residual_mass=residual,
+        completeness=full_comp,
+        sep_arcsec=sep,
+    )
+
+
+NWAY_BEST_COLUMN = "nway_best"
+NWAY_P_ANY_COLUMN = "p_any"
+
+
+def build_nway_frame(
+    frames: list[pl.DataFrame],
+    assoc: NWayAssociation,
+    *,
+    find: str = "all",
+    keep_unmatched: bool = False,
+    score_column: str = PMATCH_COLUMN,
+) -> pl.DataFrame:
+    """One row per hypothesis that has at least one counterpart.
+
+    ``find="all"`` keeps every enumerated hypothesis, ``"best"`` only each
+    primary's MAP hypothesis. ``keep_unmatched`` adds one row (null
+    secondaries and scores) for each primary without such a row. Rows are
+    ordered by primary, then by decreasing posterior.
+
+    Columns: every catalogue's columns (collisions take ``_2``, ``_3``, ...
+    suffixes; absent members are null), ``sep_arcsec_<k>`` for catalogue
+    ``k >= 2``, ``score_column`` (the hypothesis posterior), ``lr``,
+    ``p_any`` (the primary has any counterpart) and ``nway_best``.
+    """
+    if find not in _FIND_MODES:
+        raise CrossMatchError(f"find must be one of {sorted(_FIND_MODES)}, got {find!r}")
+    n_cats = len(frames)
+    prefixes = (_PM_DRIFT_COLUMN, _PROPAGATED_COV_PREFIX, _EPOCH_SIGMA)
+    frames = [f.drop([c for c in f.columns if c.startswith(prefixes)]) for f in frames]
+    mem = assoc.members
+    keep = (mem[:, 1:] >= 0).any(axis=1)
+    if find == "best":
+        keep &= assoc.best
+    idx = np.flatnonzero(keep)
+    rows = mem[idx]
+    post = assoc.posterior[idx].astype(float)
+    lr = np.exp(assoc.log_lr[idx]).astype(float)
+    best: list[bool | None] = [bool(b) for b in assoc.best[idx]]
+    sep = assoc.sep_arcsec[idx]
+    if keep_unmatched:
+        seen = np.zeros(frames[0].height, dtype=bool)
+        seen[rows[:, 0]] = True
+        extra = np.flatnonzero(~seen)
+        pad = np.full((extra.size, n_cats), -1, dtype=np.int64)
+        pad[:, 0] = extra
+        rows = np.concatenate([rows, pad])
+        post = np.concatenate([post, np.full(extra.size, np.nan)])
+        lr = np.concatenate([lr, np.full(extra.size, np.nan)])
+        best += [None] * int(extra.size)
+        sep = np.concatenate([sep, np.full((extra.size, n_cats - 1), np.nan)])
+    order = np.lexsort((-np.nan_to_num(post, nan=-1.0), rows[:, 0]))
+    rows, post, lr, sep = rows[order], post[order], lr[order], sep[order]
+    best = [best[i] for i in order]
+    p_any = assoc.p_any[rows[:, 0]] if rows.size else np.zeros(0)
+
+    row_key = "__xmatcher_nway_row"
+    parts: list[pl.DataFrame] = []
+    seen_columns: set[str] = set()
+    for i, frame in enumerate(frames):
+        indexed = frame.with_row_index(row_key).with_columns(pl.col(row_key).cast(pl.Int64))
+        part = (
+            pl.DataFrame({row_key: rows[:, i]}, schema={row_key: pl.Int64})
+            .join(indexed, on=row_key, how="left", maintain_order="left")
+            .drop(row_key)
+        )
+        if i:
+            renames = {}
+            for column in part.columns:
+                name = column
+                while name in seen_columns:
+                    name += f"_{i + 1}"
+                seen_columns.add(name)
+                renames[column] = name
+            part = part.rename(renames)
+        seen_columns.update(part.columns)
+        parts.append(part)
+    result = parts[0].hstack([s for part in parts[1:] for s in part.get_columns()])
+    extra_columns = [
+        pl.Series(f"{SEP_COLUMN}_{c + 1}", sep[:, c - 1], dtype=pl.Float64).fill_nan(None)
+        for c in range(1, n_cats)
+    ]
+    extra_columns += [
+        pl.Series(score_column, post, dtype=pl.Float64).fill_nan(None),
+        pl.Series("lr", lr, dtype=pl.Float64).fill_nan(None),
+        pl.Series(NWAY_P_ANY_COLUMN, p_any, dtype=pl.Float64),
+        pl.Series(NWAY_BEST_COLUMN, best, dtype=pl.Boolean),
+    ]
+    return result.with_columns(extra_columns)
 
 
 # --------------------------------------------------------------------------- #
@@ -1923,6 +2377,37 @@ def _engineer_ml_features_and_labels(
 # --------------------------------------------------------------------------- #
 # Random Forest ML matcher (matcher="ml")
 # --------------------------------------------------------------------------- #
+def _pretrained_probabilities(model_path: str | None, X: np.ndarray, label: str):
+    """Match probabilities from a saved classifier, or ``None`` when there is none.
+
+    A model file that exists but cannot be loaded or applied is an error: it
+    is never silently replaced by an on-the-fly model (which would then be
+    saved over the user's file).
+    """
+    if model_path is None:
+        return None
+    from pathlib import Path
+
+    model_file = Path(model_path)
+    if not model_file.is_file():
+        return None
+    try:
+        import joblib
+
+        model = joblib.load(str(model_file))
+        probs = np.asarray(model.predict_proba(X)[:, 1], dtype=float)
+    except Exception as exc:
+        raise CrossMatchError(f"Cannot use the {label} model at '{model_file}': {exc}") from exc
+    logger.info(
+        "%s match (loaded model %s): %d candidates, median prob=%.3f.",
+        label,
+        model_file,
+        len(probs),
+        float(np.median(probs)),
+    )
+    return probs
+
+
 def _ml_rf_score(
     left: pl.DataFrame,
     right: pl.DataFrame,
@@ -2004,38 +2489,11 @@ def _ml_rf_score(
 
     model_path = spec.ml_model_path
 
-    if _HAS_SKLEARN and model_path is not None:
-        from pathlib import Path
-
-        model_file = Path(model_path)
-        if model_file.is_file():
-            # Load pre-trained model and skip training / pseudo-labels.
-            try:
-                import joblib
-
-                rf = joblib.load(str(model_file))
-                if not hasattr(rf, "predict_proba"):
-                    raise ValueError("Loaded object is not a classifier")
-                probs = rf.predict_proba(X[:n_pairs])[:, 1]
-                logger.info(
-                    "ML match (loaded model %s): %d candidates from %d sources, "
-                    "%d features, median prob=%.3f.",
-                    model_file,
-                    n_pairs,
-                    len(unique_left),
-                    n_features,
-                    float(np.median(probs)),
-                )
-                # Skip to best-per-primary selection.
-                if spec.find == "best":
-                    return _pick_best_per_primary(left_idx, right_idx, seps, probs)
-                return left_idx, right_idx, seps, probs
-            except Exception as exc:
-                logger.warning(
-                    "Failed to load ML model from '%s' (%s); will train a new one.",
-                    model_path,
-                    exc,
-                )
+    probs = _pretrained_probabilities(model_path, X[:n_pairs], "ML")
+    if probs is not None:
+        if spec.find == "best":
+            return _pick_best_per_primary(left_idx, right_idx, seps, probs)
+        return left_idx, right_idx, seps, probs
 
     if _HAS_SKLEARN:
         n_pos = int(np.sum(y_pseudo))
@@ -2171,38 +2629,12 @@ def _xgb_score(
         fallback_scores = np.clip(1.0 / (1.0 + seps), 0.0, 1.0)
         return left_idx, right_idx, seps, fallback_scores
 
-    # --- model load path (mirroring ml_model_path) -------------------------
+    probs = _pretrained_probabilities(spec.xgb_model_path, X[:n_pairs], "XGB")
+    if probs is not None:
+        if spec.find == "best":
+            return _pick_best_per_primary(left_idx, right_idx, seps, probs)
+        return left_idx, right_idx, seps, probs
     model_path = spec.xgb_model_path
-    if model_path is not None:
-        from pathlib import Path
-
-        model_file = Path(model_path)
-        if model_file.is_file():
-            try:
-                import joblib
-
-                clf = joblib.load(str(model_file))
-                if not hasattr(clf, "predict_proba"):
-                    raise ValueError("Loaded object is not a classifier")
-                probs = clf.predict_proba(X[:n_pairs])[:, 1]
-                logger.info(
-                    "XGB match (loaded model %s): %d candidates from %d sources, "
-                    "%d features, median prob=%.3f.",
-                    model_file,
-                    n_pairs,
-                    len(unique_left),
-                    n_features,
-                    float(np.median(probs)),
-                )
-                if spec.find == "best":
-                    return _pick_best_per_primary(left_idx, right_idx, seps, probs)
-                return left_idx, right_idx, seps, probs
-            except Exception as exc:
-                logger.warning(
-                    "Failed to load XGB model from '%s' (%s); will train a new one.",
-                    model_path,
-                    exc,
-                )
 
     # Try XGBoost → LightGBM → sklearn GradientBoosting.
     classifier = None
@@ -2624,13 +3056,12 @@ def _pick_best_per_primary(
 
     Returns ``(left_idx, right_idx, seps, scores)`` filtered to one entry
     per unique primary source, keeping the candidate with the largest
-    *scores* value.
+    *scores* value; ties go to the smaller separation, then the lowest right
+    index.
     """
-    # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-    order = np.lexsort((-scores, left_idx))
-    best_indices = _first_occurrence_indices(left_idx[order])
-    best_positions = order[best_indices]
-    best_positions.sort()  # Preserve original row order implicitly done by boolean mask
+    order = np.lexsort((right_idx, seps, -scores, left_idx))
+    best_positions = order[_first_occurrence_indices(left_idx[order])]
+    best_positions.sort()
     return (
         left_idx[best_positions],
         right_idx[best_positions],
@@ -2645,14 +3076,12 @@ def _ml_fallback_best_by_sep(
     seps: np.ndarray,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Fallback: pick the spatially-nearest candidate per primary source."""
+    """Fallback: pick the spatially-nearest candidate (lowest right index on ties)."""
     if spec.find == "all":
         return left_idx, right_idx, seps, 1.0 / (1.0 + seps)
-    # Vectorized O(N log N) optimization replacing O(N^2) boolean mask loop
-    order = np.lexsort((seps, left_idx))
-    best_indices = _first_occurrence_indices(left_idx[order])
-    best_positions = order[best_indices]
-    best_positions.sort()  # Preserve original row order implicitly done by boolean mask
+    order = np.lexsort((right_idx, seps, left_idx))
+    best_positions = order[_first_occurrence_indices(left_idx[order])]
+    best_positions.sort()
 
     scores = 1.0 / (1.0 + seps[best_positions])
     return left_idx[best_positions], right_idx[best_positions], seps[best_positions], scores
@@ -2662,32 +3091,7 @@ def _ml_fallback_best_by_sep(
 # Torchsky engine (optional tensor-native nearest-neighbour backend)
 # --------------------------------------------------------------------------- #
 def _load_torchsky_crossmatch():
-    try:
-        from torchsky.catalogs import crossmatch_sky
-    except ImportError as exc:
-        raise CrossMatchError("engine='torchsky' requires the optional torchsky package") from exc
-    return crossmatch_sky
-
-
-def _torchsky_lonlat(df: pl.DataFrame, src: CatalogueSource):
-    """RA/Dec degrees, converted to ICRS when ``CatalogueSource.frame`` is set."""
-    ra = df[src.ra_column].to_numpy()
-    dec = df[src.dec_column].to_numpy()
-    frame = str(getattr(src, "frame", None) or "icrs").strip().lower()
-    if frame in {"icrs", "j2000", "j2000.0"}:
-        return ra, dec
-    try:
-        from torchsky.wcs import convert_celestial
-    except ImportError as exc:
-        raise CrossMatchError("engine='torchsky' requires the optional torchsky package") from exc
-    ra_t, dec_t = convert_celestial(ra, dec, from_frame=src.frame, to_frame="icrs")
-
-    def _np(value):
-        if hasattr(value, "detach"):
-            value = value.detach().cpu().numpy()
-        return np.asarray(value)
-
-    return _np(ra_t), _np(dec_t)
+    return _torchsky.require("catalogs", "engine='torchsky'").crossmatch_sky
 
 
 def _torchsky_match(
@@ -2697,9 +3101,11 @@ def _torchsky_match(
     right_src: CatalogueSource,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Run Torchsky's catalog matcher for ``sky`` and ``skyerr``."""
-    import numpy as np
+    """Run Torchsky's catalog matcher for ``sky`` and ``skyerr``.
 
+    Both sides share one frame (:func:`_validate_coordinate_frames`), so the
+    coordinates are matched as given, like every other engine.
+    """
     if spec.extra_distance_cols or spec.matcher not in {"sky", "skyerr"}:
         raise CrossMatchError(
             "engine='torchsky' currently supports only matcher='sky' or 'skyerr' "
@@ -2712,14 +3118,8 @@ def _torchsky_match(
     )
     if left.height == 0 or right.height == 0:
         return empty
-    try:
-        import torch
-    except ImportError as exc:
-        raise CrossMatchError("engine='torchsky' requires the optional torchsky package") from exc
-
     crossmatch_sky = _load_torchsky_crossmatch()
-    left_ra, left_dec = _torchsky_lonlat(left, left_src)
-    right_ra, right_dec = _torchsky_lonlat(right, right_src)
+    import torch  # noqa: PLC0415 - a dependency of torchsky
 
     def _tensor(values):
         arr = np.asarray(values, dtype=np.float64)
@@ -2727,10 +3127,10 @@ def _torchsky_match(
             arr = np.array(arr, dtype=np.float64, copy=True, order="C")
         return torch.from_numpy(arr)
 
-    left_ra_t = _tensor(left_ra)
-    left_dec_t = _tensor(left_dec)
-    right_ra_t = _tensor(right_ra)
-    right_dec_t = _tensor(right_dec)
+    left_ra_t = _tensor(left[left_src.ra_column].to_numpy())
+    left_dec_t = _tensor(left[left_src.dec_column].to_numpy())
+    right_ra_t = _tensor(right[right_src.ra_column].to_numpy())
+    right_dec_t = _tensor(right[right_src.dec_column].to_numpy())
 
     lsig = rsig = None
     if spec.matcher == "skyerr":
@@ -2829,282 +3229,15 @@ def _zone_match(
     right_src: CatalogueSource,
     spec: MatchSpec,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """HEALPix zone cone-match.
+    """``engine="zone"``: the exact torchsky zone search (as ``engine="fast"``).
 
-    When ``cdshealpix`` is importable we shard both sides into HEALPix pixels
-    (nside=32 by default), build a per-pixel cKDTree on the right, and only
-    query neighbour pixels within the cone radius — classic HATS-style
-    partitioning. When ``cdshealpix`` is not importable we transparently
-    downgrade to :func:`_scipy_match` and log a warning.
+    Earlier releases sharded both sides by HEALPix pixel with a cKDTree per
+    pixel; torchsky's declination-zone index is that algorithm, exact and
+    native, so the two engines are now one.
     """
-    try:
-        import cdshealpix as hp  # noqa: F401
-    except ImportError as exc:
-        if spec.fallback_policy == "error":
-            raise CrossMatchError(
-                "engine='zone' requires optional cdshealpix under fallback_policy='error'"
-            ) from exc
-        logger.warning(
-            "engine='zone' requested but 'cdshealpix' is unavailable; "
-            "falling back to the Tier 1 cKDTree (no pixel-shard optimisation). "
-            "Install with `pip install cdshealpix` to enable HEALPix-shard partitioning."
-        )
-        return _scipy_match(left, right, left_src, right_src, spec)
-    return _zone_match_healpix(left, right, left_src, right_src, spec)
+    return _local_match(left, right, left_src, right_src, spec)
 
 
-def _zone_match_healpix(
-    left: pl.DataFrame,
-    right: pl.DataFrame,
-    left_src: CatalogueSource,
-    right_src: CatalogueSource,
-    spec: MatchSpec,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-
-    import cdshealpix as hp
-    from scipy.spatial import cKDTree
-
-    empty = (np.array([], int), np.array([], int), np.array([], float))
-    if left.height == 0 or right.height == 0:
-        return empty
-
-    l_ra = left[left_src.ra_column].to_numpy().astype(float)
-    l_dec = left[left_src.dec_column].to_numpy().astype(float)
-    r_ra = right[right_src.ra_column].to_numpy().astype(float)
-    r_dec = right[right_src.dec_column].to_numpy().astype(float)
-
-    cov_l = cov_r = None
-    lsig = rsig = None
-    if spec.matcher in ("sky", "lr", "ml", "xgb", "auf", "macauff"):
-        radius_deg = spec.radius_arcsec / 3600.0
-        chord_max = _arcsec_to_chord(spec.radius_arcsec)
-    elif spec.matcher == "skyellipse":
-        cov_l = _pos_covariance(left, left_src)
-        cov_r = _pos_covariance(right, right_src)
-        if cov_l is None or cov_r is None:
-            logger.warning(
-                "Matcher '%s' needs positional errors; none found.",
-                spec.matcher,
-            )
-            return empty
-        chord_max = _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error)
-        radius_deg = math.degrees(2.0 * math.asin(chord_max * 0.5)) if chord_max < 2.0 else 180.0
-    else:
-        lsig = _pos_sigma_arcsec(left, left_src)
-        rsig = _pos_sigma_arcsec(right, right_src)
-        if lsig is None or rsig is None:
-            logger.warning(
-                "Matcher '%s' needs positional errors; none found.",
-                spec.matcher,
-            )
-            return empty
-        search_radius = spec.max_error * (float(np.nanmax(lsig)) + float(np.nanmax(rsig)))
-        if spec.radius_arcsec is not None:
-            # Pre-query clamp: N-sigma may only narrow the hard radius ceiling.
-            search_radius = min(search_radius, float(spec.radius_arcsec))
-        radius_deg = max(search_radius, 0.0) / 3600.0
-        chord_max = _arcsec_to_chord(max(search_radius, 0.0))
-    if radius_deg <= 0:
-        return empty
-
-    DEPTH = 5  # nside = 2 ** DEPTH == 32
-    l_pix = _pixellate(hp, l_ra, l_dec, DEPTH, label=f"catalogue '{left_src.name}'")
-    r_pix = _pixellate(hp, r_ra, r_dec, DEPTH, label=f"catalogue '{right_src.name}'")
-
-    # Cache per-pixel right xyz buffers and per-pixel cKDTree instances.
-    r_sort_idx = np.argsort(r_pix, kind="stable")
-    r_sorted_pix = r_pix[r_sort_idx]
-    r_unique_indices = _first_occurrence_indices(r_sorted_pix)
-    unique_pix = r_sorted_pix[r_unique_indices]
-    r_splits = np.split(r_sort_idx, r_unique_indices[1:])
-    r_groups = {int(k): v for k, v in zip(unique_pix, r_splits, strict=False)}
-    tree_cache: dict[int, cKDTree] = {}
-    xyz_cache: dict[int, np.ndarray] = {}
-    for pix in unique_pix:
-        idx = r_groups[int(pix)]
-        xyz_cache[int(pix)] = _radec_to_xyz(r_ra[idx], r_dec[idx])
-        tree_cache[int(pix)] = cKDTree(xyz_cache[int(pix)])
-
-    l_xyz = _radec_to_xyz(l_ra, l_dec)
-
-    # Group left points by HEALPix pixel so we can batch-query each right
-    # pixel's tree once (instead of spawning worker threads per point).
-    l_sort_idx = np.argsort(l_pix, kind="stable")
-    l_sorted_pix = l_pix[l_sort_idx]
-    l_unique_indices = _first_occurrence_indices(l_sorted_pix)
-    l_unique_pix = l_sorted_pix[l_unique_indices]
-    l_splits = np.split(l_sort_idx, l_unique_indices[1:])
-    l_by_pix: dict[int, list] = {
-        int(k): v.tolist() for k, v in zip(l_unique_pix, l_splits, strict=False)
-    }
-
-    # Pre-compute per-right-pixel global-index arrays for fast margin merging.
-    r_global_by_pix: dict[int, np.ndarray] = {int(pix): r_groups[int(pix)] for pix in unique_pix}
-
-    # Sort left pixel groups largest-first so batches are balanced.
-    pixel_items = sorted(
-        l_by_pix.items(),
-        key=lambda kv: len(kv[1]),
-        reverse=True,
-    )
-    batch_size = spec.batch_size or len(pixel_items)
-    need_all_candidates = (
-        spec.find != "best" or spec.matcher != "sky" or bool(spec.extra_distance_cols)
-    )
-
-    l_parts, r_parts, sep_parts = [], [], []
-    for batch_start in range(0, len(pixel_items), max(1, batch_size)):
-        batch_pixels = pixel_items[batch_start : batch_start + max(1, batch_size)]
-        batch_l = []
-        batch_r = []
-        batch_s = []
-
-        for _l_pix_int, left_indices in batch_pixels:
-            indices_arr = np.asarray(left_indices, dtype=np.int64)
-            # Cone search once per pixel, inflated by the exact intra-batch angular
-            # spread around the representative point so boundary pairs are never missed.
-            mid = len(left_indices) // 2
-            rep_i = left_indices[mid]
-            batch_xyz = l_xyz[indices_arr]  # (n_pix, 3)
-            rep_xyz = l_xyz[rep_i]
-            batch_spread_rad = float(
-                np.max(
-                    2.0
-                    * np.arcsin(
-                        np.clip(np.linalg.norm(batch_xyz - rep_xyz, axis=-1) * 0.5, 0.0, 1.0)
-                    )
-                )
-            )
-            npix = _cone_search_pixels(
-                hp,
-                float(np.radians(l_ra[rep_i])),
-                float(np.radians(l_dec[rep_i])),
-                min(math.pi, float(np.radians(radius_deg)) + batch_spread_rad),
-                DEPTH,
-            )
-
-            # --- margin caching: merge all neighbouring right pixels into one
-            #     tree and query it once instead of querying each right pixel
-            #     individually.
-            margin_xyz_parts: list = []
-            margin_global_parts: list = []
-            for rpix in npix:
-                rpix_int = int(rpix)
-                if rpix_int not in r_global_by_pix:
-                    continue
-                margin_xyz_parts.append(xyz_cache[rpix_int])
-                margin_global_parts.append(r_global_by_pix[rpix_int])
-
-            if not margin_xyz_parts:
-                continue
-
-            margin_xyz = np.vstack(margin_xyz_parts)
-            margin_global = np.concatenate(margin_global_parts)
-            margin_tree = cKDTree(margin_xyz)
-
-            if not need_all_candidates:
-                # Plain radius + find="best" without extra_distance_cols: the
-                # spatial-nearest candidate is the answer.
-                dist, local_idx = margin_tree.query(
-                    batch_xyz,
-                    k=1,
-                    distance_upper_bound=chord_max,
-                    workers=-1,
-                )
-                valid = np.isfinite(dist) & (local_idx < margin_tree.n)
-                for valid_index in np.nonzero(valid)[0]:
-                    k_idx = left_indices[valid_index]
-                    global_r_index = int(margin_global[local_idx[valid_index]])
-                    sep_arcsec = float(_chord_to_arcsec(float(dist[valid_index])))
-                    batch_l.append(np.array([k_idx], dtype=np.int64))
-                    batch_r.append(np.array([global_r_index], dtype=np.int64))
-                    batch_s.append(np.array([sep_arcsec], dtype=float))
-            else:
-                idx_lists = margin_tree.query_ball_point(
-                    batch_xyz,
-                    r=chord_max,
-                    workers=-1,
-                )
-                local_l_indices, local_r_indices, seps = _flatten_candidates(
-                    idx_lists,
-                    batch_xyz,
-                    margin_xyz,
-                )
-                if local_l_indices.size:
-                    k_indices = np.asarray(left_indices, dtype=np.int64)[local_l_indices]
-                    global_r_indices = margin_global[local_r_indices].astype(np.int64)
-                    batch_l.append(k_indices)
-                    batch_r.append(global_r_indices)
-                    batch_s.append(np.asarray(seps, dtype=float))
-
-        # Flush batch to accumulator (out-of-core friendly — per-batch
-        # margin trees and numpy arrays can be GC'd after this point).
-        l_parts.extend(batch_l)
-        r_parts.extend(batch_r)
-        sep_parts.extend(batch_s)
-        if spec.batch_size and batch_start + max(1, batch_size) < len(pixel_items):
-            logger.debug(
-                "Batch %d/%d complete (%d matched pairs so far).",
-                batch_start // max(1, batch_size) + 1,
-                (len(pixel_items) + max(1, batch_size) - 1) // max(1, batch_size),
-                sum(p.size for p in l_parts),
-            )
-
-    if not l_parts:
-        return empty
-    left_idx = np.concatenate(l_parts)
-    right_idx = np.concatenate(r_parts)
-    seps = np.concatenate(sep_parts)
-
-    # Sort deterministically by (left_idx, right_idx) to match _scipy_match order.
-    order = np.lexsort((right_idx, left_idx))
-    left_idx = left_idx[order]
-    right_idx = right_idx[order]
-    seps = seps[order]
-
-    # --- skyellipse Mahalanobis post-filter ---------------------------------
-    if spec.matcher == "skyellipse" and left_idx.size > 0:
-        assert cov_l is not None and cov_r is not None
-        left_idx, right_idx, seps = _skyellipse_pair_filter(
-            left_idx,
-            right_idx,
-            seps,
-            l_ra,
-            l_dec,
-            r_ra,
-            r_dec,
-            cov_l,
-            cov_r,
-            spec.max_error,
-            find="all" if spec.extra_distance_cols else spec.find,
-        )
-
-    # --- per-row skyerr N-sigma criterion -----------------------------------
-    if spec.matcher == "skyerr" and left_idx.size > 0:
-        assert lsig is not None and rsig is not None
-        left_idx, right_idx, seps = _skyerr_pair_filter(
-            left_idx,
-            right_idx,
-            seps,
-            lsig,
-            rsig,
-            spec.max_error,
-            find="all" if spec.extra_distance_cols else spec.find,
-            radius_arcsec=spec.radius_arcsec,
-        )
-
-    # --- N-dimensional ranking (when extra_distance_cols is set) ------------
-    if spec.extra_distance_cols and spec.find == "best" and left_idx.size > 0:
-        left_idx, right_idx, seps = _rank_nd_candidates(
-            left_idx, right_idx, seps, l_ra, l_dec, r_ra, r_dec, left, right, spec
-        )
-
-    return left_idx, right_idx, seps
-
-
-# --------------------------------------------------------------------------- #
-# astropy engine (existing implementation, unchanged)
-# --------------------------------------------------------------------------- #
 def _astropy_match(
     left: pl.DataFrame,
     right: pl.DataFrame,
@@ -3133,7 +3266,12 @@ def _astropy_match(
             idx, sep2d, _ = lcoord.match_to_catalog_sky(rcoord)
             seps = sep2d.arcsec
             within = seps <= spec.radius_arcsec
-            return np.nonzero(within)[0], idx[within], seps[within]
+            right_idx = _lowest_duplicate(
+                np.asarray(idx[within], dtype=np.int64),
+                right[right_src.ra_column].to_numpy(),
+                right[right_src.dec_column].to_numpy(),
+            )
+            return np.flatnonzero(within), right_idx, seps[within]
         left_idx, right_idx, sep2d, _ = search_around_sky(
             lcoord, rcoord, spec.radius_arcsec * u.arcsec
         )
@@ -3156,7 +3294,7 @@ def _astropy_match(
         # engines accept.  One shared bound keeps the engines on the same
         # *candidate* set; the d^2 filter below is the actual criterion.
         search_radius_arcsec = _chord_to_arcsec(
-            _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error)
+            _skyellipse_search_chord_max(cov_l, cov_r, spec.max_error, spec.radius_arcsec)
         )
         if search_radius_arcsec <= 0:
             return empty
@@ -3177,6 +3315,7 @@ def _astropy_match(
             cov_r,
             spec.max_error,
             find=spec.find,
+            radius_arcsec=spec.radius_arcsec,
         )
 
     lsig = _pos_sigma_arcsec(left, left_src)
@@ -3194,28 +3333,16 @@ def _astropy_match(
     if search_radius <= 0:
         return empty
     left_idx, right_idx, sep2d, _ = search_around_sky(lcoord, rcoord, search_radius * u.arcsec)
-    seps = sep2d.arcsec
-    limit = spec.max_error * (lsig[left_idx] + rsig[right_idx])
-    if spec.radius_arcsec is not None:
-        limit = np.minimum(limit, float(spec.radius_arcsec))
-    keep = np.isfinite(limit) & (seps <= limit)
-    left_idx, right_idx, seps, limit = (
-        left_idx[keep],
-        right_idx[keep],
-        seps[keep],
-        limit[keep],
+    return _skyerr_pair_filter(
+        left_idx,
+        right_idx,
+        sep2d.arcsec,
+        lsig,
+        rsig,
+        spec.max_error,
+        find=spec.find,
+        radius_arcsec=spec.radius_arcsec,
     )
-
-    if spec.find == "best" and len(left_idx) > 0:
-        score = np.divide(seps, limit, out=np.full_like(seps, np.inf), where=limit > 0)
-        order = np.lexsort((score, left_idx))
-
-        first_occurrence_idx = _first_occurrence_indices(left_idx[order])
-        sel = order[first_occurrence_idx]
-        sel.sort()
-
-        left_idx, right_idx, seps = left_idx[sel], right_idx[sel], seps[sel]
-    return left_idx, right_idx, seps
 
 
 # --------------------------------------------------------------------------- #
@@ -3481,10 +3608,10 @@ def sky_match(
     elif chosen == "fast":
         left = _collect_side(left_lf, left_src, "left")
         right = _collect_side(right_lf, right_src, "right")
-        l_idx, r_idx, seps = _scipy_match(
+        l_idx, r_idx, seps = _local_match(
             left, right, left_src, right_src, spec, workers=_tree_workers
         )
-        logger.info("fast (cKDTree) sky match: %d matched pairs.", len(l_idx))
+        logger.info("fast (torchsky) sky match: %d matched pairs.", len(l_idx))
     elif chosen == "torchsky":
         left = _collect_side(left_lf, left_src, "left")
         right = _collect_side(right_lf, right_src, "right")

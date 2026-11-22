@@ -11,8 +11,11 @@ import tempfile
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import cached_property
 from pathlib import Path
 from typing import Any
+
+import polars as pl
 
 # Persisted v1 wire names stay fixed across the package rename to preserve IDs.
 ASSOCIATION_SCHEMA_VERSION = "xmatch.association.v1"
@@ -69,10 +72,14 @@ def _text(value: Any, name: str) -> str:
 def _finite_number(value: Any, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{name} must be a finite number")
-    result = float(value)
+    try:
+        result = float(value)
+    except OverflowError as exc:
+        raise ValueError(f"{name} must be a finite number") from exc
     if not math.isfinite(result):
         raise ValueError(f"{name} must be a finite number")
-    return result
+    # -0.0 == 0.0 but serialises differently; keep one canonical spelling.
+    return result + 0.0
 
 
 def _exact_keys(data: Mapping[str, Any], expected: set[str], name: str) -> None:
@@ -107,6 +114,13 @@ def _content_id(value: str, schema_version: str, name: str) -> str:
 
 def _canonical_json(data: Mapping[str, Any]) -> bytes:
     return json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _require_canonical(line: bytes, data: Mapping[str, Any], name: str, line_number: int) -> None:
+    # The file checksum alone would accept any spelling of the same rows, giving
+    # one content two release IDs; only the canonical bytes are a release.
+    if line != _canonical_json(data) + b"\n":
+        raise ValueError(f"{name} line {line_number} is not canonical JSON")
 
 
 @dataclass(frozen=True)
@@ -210,7 +224,7 @@ class AssociationRecord:
             raise ValueError("evaluation_epoch_jyear=None requires the epoch_unknown flag")
         object.__setattr__(self, "flags", flags)
 
-    @property
+    @cached_property
     def association_id(self) -> str:
         identity = {
             "schema_version": ASSOCIATION_SCHEMA_VERSION,
@@ -456,6 +470,7 @@ def _validated_release_records(
             if not isinstance(data, Mapping):
                 raise ValueError(f"association record line {line_number} must be an object")
             record = AssociationRecord.from_mapping(data)
+            _require_canonical(line, record.to_dict(), "association record", line_number)
             if record.provenance != manifest.provenance:
                 raise ValueError(
                     f"association record line {line_number} provenance differs from the manifest"
@@ -650,7 +665,7 @@ class AssociationMemberEquivalence:
         if self.parent_member.input_release_id == self.current_member.input_release_id:
             raise ValueError("member equivalence requires an input-release namespace change")
 
-    @property
+    @cached_property
     def equivalence_id(self) -> str:
         return _member_equivalence_id(
             parent_association_release_id=self.parent_association_release_id,
@@ -865,6 +880,9 @@ def _validated_member_equivalences(
                     f"association member equivalence line {line_number} must be an object"
                 )
             equivalence = AssociationMemberEquivalence.from_mapping(data)
+            _require_canonical(
+                line, equivalence.to_dict(), "association member equivalence", line_number
+            )
             if (
                 equivalence.parent_association_release_id != manifest.parent_association_release_id
                 or equivalence.current_association_release_id
@@ -1052,14 +1070,16 @@ def _current_to_parent_equivalences(
     parent_input_release_ids: tuple[str, ...],
     current_input_release_ids: tuple[str, ...],
 ) -> dict[AssociationComponentMember, AssociationComponentMember]:
-    manifest = verify_association_member_equivalence_release(directory)
+    path = Path(directory)
+    manifest = load_association_member_equivalence_release_manifest(path)
     if (
         manifest.parent_association_release_id != parent_association_release_id
         or manifest.current_association_release_id != current_association_release_id
     ):
         raise ValueError("member equivalence release does not match component endpoints")
     result: dict[AssociationComponentMember, AssociationComponentMember] = {}
-    for equivalence in iter_association_member_equivalence_release(directory):
+    # one validating pass: the generator raises at EOF on checksum/count errors
+    for equivalence in _validated_member_equivalences(path, manifest):
         if equivalence.parent_member.input_release_id not in parent_input_release_ids:
             raise ValueError("parent member input release is absent from parent provenance")
         if equivalence.current_member.input_release_id not in current_input_release_ids:
@@ -1133,7 +1153,7 @@ class AssociationComponent:
             raise ValueError("parent_component_ids must not contain duplicates")
         object.__setattr__(self, "parent_component_ids", parents)
 
-    @property
+    @cached_property
     def component_id(self) -> str:
         member_count, members_sha256 = _component_member_identity(self.members)
         return _component_id(
@@ -1417,6 +1437,9 @@ def _validated_component_memberships(
                     f"association component membership line {line_number} must be an object"
                 )
             membership = AssociationComponentMembership.from_mapping(data)
+            _require_canonical(
+                line, membership.to_dict(), "association component membership", line_number
+            )
             if membership.association_release_id != manifest.association_release_id:
                 raise ValueError(
                     f"association component membership line {line_number} release differs "
@@ -1502,9 +1525,10 @@ def _validated_component_memberships(
 def _verified_parent_component_ids(
     directory: str | os.PathLike[str],
 ) -> tuple[AssociationComponentReleaseManifest, set[str]]:
-    manifest = verify_association_component_release(directory)
+    path = Path(directory)
+    manifest = load_association_component_release_manifest(path)
     component_ids = {
-        membership.component_id for membership in iter_association_component_release(directory)
+        membership.component_id for membership in _validated_component_memberships(path, manifest)
     }
     return manifest, component_ids
 
@@ -1693,24 +1717,74 @@ def write_association_component_release(
 def _component_partition(
     directory: str | os.PathLike[str],
     *,
-    parent_component_directory: str | os.PathLike[str] | None = None,
+    parent_manifest: AssociationComponentReleaseManifest | None = None,
+    parent_component_ids: set[str] | None = None,
 ) -> tuple[
     AssociationComponentReleaseManifest,
     dict[str, tuple[AssociationComponentMember, ...]],
     dict[str, tuple[str, ...]],
 ]:
-    manifest = verify_association_component_release(
-        directory,
-        parent_component_directory=parent_component_directory,
-    )
+    """Read and verify a component release in one pass."""
+    path = Path(directory)
+    manifest = load_association_component_release_manifest(path)
+    if (
+        parent_manifest is not None
+        and manifest.parent_component_release_id != parent_manifest.component_release_id
+    ):
+        raise ValueError("parent component release does not match the manifest")
     members: dict[str, list[AssociationComponentMember]] = {}
     parents: dict[str, tuple[str, ...]] = {}
-    for membership in iter_association_component_release(directory):
+    for membership in _validated_component_memberships(
+        path, manifest, parent_component_ids=parent_component_ids
+    ):
         members.setdefault(membership.component_id, []).append(
             AssociationComponentMember(membership.input_release_id, membership.member_id)
         )
         parents[membership.component_id] = membership.parent_component_ids
     return manifest, {key: tuple(value) for key, value in members.items()}, parents
+
+
+class _DisjointSets:
+    """Union-find over member keys with path compression and union by size.
+
+    Root choice is internal: callers canonicalise each group before hashing, so
+    the result does not depend on edge order.
+    """
+
+    def __init__(self) -> None:
+        self._parent: dict[tuple[str, str], tuple[str, str]] = {}
+        self._size: dict[tuple[str, str], int] = {}
+
+    def add(self, key: tuple[str, str]) -> None:
+        if key not in self._parent:
+            self._parent[key] = key
+            self._size[key] = 1
+
+    def find(self, key: tuple[str, str]) -> tuple[str, str]:
+        parent = self._parent
+        root = key
+        while parent[root] != root:
+            root = parent[root]
+        while key != root:
+            parent[key], key = root, parent[key]
+        return root
+
+    def union(self, left: tuple[str, str], right: tuple[str, str]) -> None:
+        self.add(left)
+        self.add(right)
+        left_root, right_root = self.find(left), self.find(right)
+        if left_root == right_root:
+            return
+        if self._size[left_root] < self._size[right_root]:
+            left_root, right_root = right_root, left_root
+        self._parent[right_root] = left_root
+        self._size[left_root] += self._size.pop(right_root)
+
+    def groups(self) -> Iterable[list[tuple[str, str]]]:
+        grouped: dict[tuple[str, str], list[tuple[str, str]]] = {}
+        for key in self._parent:
+            grouped.setdefault(self.find(key), []).append(key)
+        return grouped.values()
 
 
 def construct_association_components(
@@ -1730,7 +1804,7 @@ def construct_association_components(
     inventory members to retain isolated sources and sources whose edges were
     excluded by that policy; connectivity alone does not assert object identity.
     """
-    manifest = verify_association_release(association_release_directory)
+    manifest = load_association_release_manifest(association_release_directory)
     endpoint_releases = (
         _text(source_input_release_id, "source_input_release_id"),
         _text(candidate_input_release_id, "candidate_input_release_id"),
@@ -1766,27 +1840,7 @@ def construct_association_components(
 
     # union-find retains O(nodes) state; survey-scale construction
     # should move this exact contract behind an external graph engine.
-    roots: dict[AssociationComponentMember, AssociationComponentMember] = {}
-
-    def find(member: AssociationComponentMember) -> AssociationComponentMember:
-        root = roots.setdefault(member, member)
-        while root != roots[root]:
-            root = roots[root]
-        while member != root:
-            member, roots[member] = roots[member], root
-        return root
-
-    def union(left: AssociationComponentMember, right: AssociationComponentMember) -> None:
-        left_root = find(left)
-        right_root = find(right)
-        if left_root != right_root:
-            left_key = (left_root.input_release_id, left_root.member_id)
-            right_key = (right_root.input_release_id, right_root.member_id)
-            if left_key < right_key:
-                roots[right_root] = left_root
-            else:
-                roots[left_root] = right_root
-
+    sets = _DisjointSets()
     for member in additional_members:
         if not isinstance(member, AssociationComponentMember):
             raise ValueError("additional_members must contain AssociationComponentMember values")
@@ -1794,37 +1848,25 @@ def construct_association_components(
             raise ValueError(
                 "additional member input release is absent from association provenance"
             )
-        find(member)
+        sets.add((member.input_release_id, member.member_id))
 
-    for record in iter_association_release(association_release_directory):
-        if record.decision not in decisions:
-            continue
-        union(
-            AssociationComponentMember(endpoint_releases[0], record.source_id),
-            AssociationComponentMember(endpoint_releases[1], record.candidate_id),
-        )
+    # one validating pass: the generator raises at EOF on checksum/count errors
+    for record in _validated_release_records(Path(association_release_directory), manifest):
+        if record.decision in decisions:
+            sets.union(
+                (endpoint_releases[0], record.source_id),
+                (endpoint_releases[1], record.candidate_id),
+            )
 
-    grouped: dict[AssociationComponentMember, list[AssociationComponentMember]] = {}
-    for member in roots:
-        grouped.setdefault(find(member), []).append(member)
-
-    components = [
-        AssociationComponent(
-            manifest.release_id,
-            tuple(members),
-            tuple(
-                sorted(
-                    {
-                        parent_by_member[parent_member]
-                        for member in members
-                        if (parent_member := current_to_parent.get(member, member))
-                        in parent_by_member
-                    }
-                )
-            ),
-        )
-        for members in grouped.values()
-    ]
+    components = []
+    for keys in sets.groups():
+        members = tuple(AssociationComponentMember(*key) for key in keys)
+        parents = {
+            parent_by_member[parent_member]
+            for member in members
+            if (parent_member := current_to_parent.get(member, member)) in parent_by_member
+        }
+        components.append(AssociationComponent(manifest.release_id, members, tuple(parents)))
     return sorted(components, key=lambda component: component.component_id)
 
 
@@ -1838,81 +1880,54 @@ def construct_association_components_from_edge_shards(
     candidate_id_column: str = "candidate_id",
     additional_members: Iterable[AssociationComponentMember] = (),
 ) -> list[AssociationComponent]:
-    """Build tile-local components from parquet edge shards (survey-scale path).
+    """Build components from Parquet edge shards instead of an association release.
 
-    The in-memory :func:`construct_association_components` path materialises the
-    full association release and is not viable at full-sky edge counts.  Pensus
-    tile campaigns emit mutual-best edge shards per tile; this helper unions
-    those shards under the same deterministic component-id contract without
-    requiring a monolithic association.v1 release on disk.
+    Pensus tile campaigns emit mutual-best edges per tile without publishing a
+    monolithic association.v1 release; this unions those shards under the same
+    deterministic component-ID contract. Nothing is verified against a release
+    manifest: ``association_release_id`` is only the ID the components are
+    scoped to, and every edge is included. Union-find state is O(members), as
+    in :func:`construct_association_components`.
 
-    Each shard must be parquet with ``source_id_column`` and
-    ``candidate_id_column`` string (or castable) columns.
+    Each shard needs ``source_id_column`` and ``candidate_id_column`` holding
+    string or integer IDs; integers are spelled exactly (``str(int)``), and
+    float columns are rejected because they cannot carry int64 IDs exactly.
     """
-    try:
-        import polars as pl
-    except ImportError as exc:  # pragma: no cover - polars is a hard dependency
-        raise RuntimeError("polars is required for sharded association construction") from exc
-
     source_release = _text(source_input_release_id, "source_input_release_id")
     candidate_release = _text(candidate_input_release_id, "candidate_input_release_id")
     release_id = _text(association_release_id, "association_release_id")
     src_col = _text(source_id_column, "source_id_column")
     cand_col = _text(candidate_id_column, "candidate_id_column")
 
-    roots: dict[AssociationComponentMember, AssociationComponentMember] = {}
-
-    def find(member: AssociationComponentMember) -> AssociationComponentMember:
-        root = roots.setdefault(member, member)
-        while root != roots[root]:
-            root = roots[root]
-        while member != root:
-            member, roots[member] = roots[member], root
-        return root
-
-    def union(left: AssociationComponentMember, right: AssociationComponentMember) -> None:
-        left_root = find(left)
-        right_root = find(right)
-        if left_root != right_root:
-            left_key = (left_root.input_release_id, left_root.member_id)
-            right_key = (right_root.input_release_id, right_root.member_id)
-            if left_key < right_key:
-                roots[right_root] = left_root
-            else:
-                roots[left_root] = right_root
-
+    sets = _DisjointSets()
     for member in additional_members:
         if not isinstance(member, AssociationComponentMember):
             raise ValueError("additional_members must contain AssociationComponentMember values")
-        find(member)
+        sets.add((member.input_release_id, member.member_id))
 
-    saw_shard = False
     for path in edge_shard_paths:
-        saw_shard = True
         shard = Path(path)
         if not shard.is_file():
             raise FileNotFoundError(f"edge shard not found: {shard}")
         frame = pl.read_parquet(shard, columns=[src_col, cand_col])
-        if frame.is_empty():
-            continue
+        for column, dtype in frame.schema.items():
+            if dtype != pl.String and not dtype.is_integer():
+                raise ValueError(
+                    f"edge shard {shard} column {column!r} must hold string or integer IDs, "
+                    f"not {dtype}"
+                )
         for source_id, candidate_id in frame.select(
             pl.col(src_col).cast(pl.Utf8), pl.col(cand_col).cast(pl.Utf8)
         ).iter_rows():
             if not source_id or not candidate_id:
                 raise ValueError(f"empty endpoint id in edge shard {shard}")
-            union(
-                AssociationComponentMember(source_release, source_id),
-                AssociationComponentMember(candidate_release, candidate_id),
-            )
-    if not saw_shard and not additional_members:
-        return []
-
-    grouped: dict[AssociationComponentMember, list[AssociationComponentMember]] = {}
-    for member in roots:
-        grouped.setdefault(find(member), []).append(member)
+            sets.union((source_release, source_id), (candidate_release, candidate_id))
 
     components = [
-        AssociationComponent(release_id, tuple(members), ()) for members in grouped.values()
+        AssociationComponent(
+            release_id, tuple(AssociationComponentMember(*key) for key in keys), ()
+        )
+        for keys in sets.groups()
     ]
     return sorted(components, key=lambda component: component.component_id)
 
@@ -2011,7 +2026,7 @@ class AssociationComponentDelta:
         ):
             raise ValueError("split component delta has invalid endpoint counts")
 
-    @property
+    @cached_property
     def delta_id(self) -> str:
         return _component_delta_id(
             parent_association_release_id=self.parent_association_release_id,
@@ -2091,7 +2106,8 @@ def _classified_component_deltas(
     parent_manifest, parent_components, _ = _component_partition(parent_component_directory)
     current_manifest, current_components, declared_parents = _component_partition(
         current_component_directory,
-        parent_component_directory=parent_component_directory,
+        parent_manifest=parent_manifest,
+        parent_component_ids=set(parent_components),
     )
     parent_by_member = {
         member: component_id
@@ -2371,6 +2387,7 @@ def _validated_component_deltas(
                     f"association component delta line {line_number} must be an object"
                 )
             delta = AssociationComponentDelta.from_mapping(data)
+            _require_canonical(line, delta.to_dict(), "association component delta", line_number)
             for field in (
                 "parent_association_release_id",
                 "parent_component_release_id",
@@ -2418,28 +2435,31 @@ def verify_association_component_delta_release(
     path = Path(directory)
     manifest = load_association_component_delta_release_manifest(path)
     actual = list(_validated_component_deltas(path, manifest))
-    if parent_component_directory is not None:
-        parent_manifest = verify_association_component_release(parent_component_directory)
-        if (
-            manifest.parent_association_release_id != parent_manifest.association_release_id
-            or manifest.parent_component_release_id != parent_manifest.component_release_id
-        ):
-            raise ValueError("parent component release does not match the delta manifest")
-    if current_component_directory is not None:
-        current_manifest = verify_association_component_release(current_component_directory)
-        if (
-            manifest.current_association_release_id != current_manifest.association_release_id
-            or manifest.current_component_release_id != current_manifest.component_release_id
-        ):
-            raise ValueError("current component release does not match the delta manifest")
+    expected: list[AssociationComponentDelta] | None = None
     if parent_component_directory is not None and current_component_directory is not None:
-        expected = classify_association_component_deltas(
+        # classification reads and verifies both endpoints exactly once
+        parent_manifest, current_manifest, expected = _classified_component_deltas(
             parent_component_directory,
             current_component_directory,
             member_equivalence_directory=member_equivalence_directory,
         )
-        if actual != expected:
-            raise ValueError("component deltas do not match exact endpoint membership overlap")
+    else:
+        if parent_component_directory is not None:
+            parent_manifest = verify_association_component_release(parent_component_directory)
+        if current_component_directory is not None:
+            current_manifest = verify_association_component_release(current_component_directory)
+    if parent_component_directory is not None and (
+        manifest.parent_association_release_id != parent_manifest.association_release_id
+        or manifest.parent_component_release_id != parent_manifest.component_release_id
+    ):
+        raise ValueError("parent component release does not match the delta manifest")
+    if current_component_directory is not None and (
+        manifest.current_association_release_id != current_manifest.association_release_id
+        or manifest.current_component_release_id != current_manifest.component_release_id
+    ):
+        raise ValueError("current component release does not match the delta manifest")
+    if expected is not None and actual != expected:
+        raise ValueError("component deltas do not match exact endpoint membership overlap")
     return manifest
 
 

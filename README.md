@@ -12,7 +12,7 @@ High-performance, format-agnostic astronomical catalogue crossmatching and multi
 
 ## Highlights
 
-- ⚡ **Fast & Memory-Bounded**: Vectorized 3D unit-sphere KD-tree indexing in C++ via SciPy `cKDTree` and Polars, with bounded disk-spilling for memory-constrained systems.
+- ⚡ **Fast & Memory-Bounded**: Exact sky candidate search with torchsky's native declination-zone index and Polars, with bounded disk-spilling for memory-constrained systems.
 - 🔭 **Format & Survey Agnostic**: Match local Parquet, CSV, TSV, and FITS files directly against remote TAP/VizieR archives (`gaia`, `ps1`, `des`, `allwise`), or stream HATS trees from local storage, AWS S3 (`s3://`), and Hugging Face (`hf://`).
 - 📐 **Rigorous Astrometric & Probabilistic Scoring**: Fixed-radius (`sky`), per-source adaptive errors (`skyerr`), 2D Gaussian error ellipses via Mahalanobis distance (`skyellipse`), Sutherland & Saunders Likelihood Ratios (`lr`), and Budavári & Szalay Bayes factors (`nway_match`).
 - 🌐 **Laptop to Distributed Cluster**: Fast multi-threaded queries on a single workstation, scaling out to distributed full-sky unions and master catalogues on Ray clusters (`ray-union` and `ray-anchor`).
@@ -22,10 +22,10 @@ High-performance, format-agnostic astronomical catalogue crossmatching and multi
 ## Installation
 
 ```bash
-# Core package (cKDTree, Polars, Astropy, PyVO)
+# Core package (torchsky, Polars, Astropy, PyVO)
 pip install xmatcher
 
-# With all features (Ray distributed, HATS, CDS, ML, Torchfits)
+# With all features (Ray distributed, HATS, CDS, ML)
 pip install "xmatcher[all]"
 ```
 

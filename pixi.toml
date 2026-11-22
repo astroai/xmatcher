@@ -1,7 +1,9 @@
 [workspace]
 name = "xmatcher"
 channels = ["conda-forge"]
-platforms = ["osx-arm64", "linux-64"]
+# macOS 14+: torchfits (a torchsky and xmatcher dependency) publishes no older
+# group), publishes no older macOS wheels.
+platforms = [{ name = "osx-arm64-macos-14-0", platform = "osx-arm64", macos = "14.0" }, "linux-64"]
 
 [tasks]
 lint = "ruff check ."
@@ -12,25 +14,42 @@ install-git-hooks = "bash scripts/install-git-hooks.sh"
 test = "python -m pytest"
 
 [dependencies]
-# Python 3.13 is the locked release runtime; 3.14 has separate targeted checks.
+# The release runtime. An open bound re-solves to the newest CPython (3.15),
+# for which Ray publishes no wheels.
 python = "3.13.*"
-# hats → numba needs numpy<2.5 on conda-forge
-numpy = ">=2.4,<2.5"
-scipy = ">=1.18"
-astropy = ">=7.2"
-pyyaml = ">=6.0.3"
-pyvo = ">=1.8"
-astroquery = ">=0.4.11"
-pyarrow = ">=25.0"
-polars = ">=1.40"
-ruff = ">=0.15"
-pytest = ">=9.0"
-mypy = ">=2.0"
+# numba (via hats) constrains numpy itself; no pin needed here
+numpy = "*"
+scipy = "*"
+astropy = "*"
+pyyaml = "*"
+pyvo = "*"
+astroquery = "*"
+pyarrow = "*"
+polars = "*"
+ruff = "*"
+pytest = "*"
+mypy = "*"
+# conda-forge CPU PyTorch shares the environment's OpenMP runtime; the PyPI
+# wheel bundles its own libomp, which aborts the process on macOS (OMP #15),
+# and on Linux pulls the multi-GB CUDA toolkit. cpu_generic, not cpu_mkl: MKL
+# would switch the environment from OpenBLAS.
+pytorch = { version = "2.14.*", build = "cpu_generic*" }
 
 [pypi-dependencies]
 xmatcher = { path = ".", editable = true }
 # HATS-native Ray union engine: always in the dev env so CI runs the new tests.
 # (Optional extras `hats` / `hats-ray` / `ray` in pyproject.toml stay for pip users.)
-hats = ">=0.7"
-ray = ">=2.50"
-cdshealpix = ">=0.8"
+hats = "*"
+ray = "*"
+cdshealpix = "*"
+
+# xmatcher's matching and statistics engine. Its abi3 wheel does not link
+# libtorch, so it runs on the conda-forge PyTorch above.
+torchsky = ">=0.6.0"
+
+[activation.env]
+# Tests assert torchsky is importable instead of skipping its paths.
+XMATCHER_EXPECT_TORCHSKY = "1"
+
+[environments]
+default = { solve-group = "default" }

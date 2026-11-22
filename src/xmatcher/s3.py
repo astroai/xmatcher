@@ -26,7 +26,6 @@ from __future__ import annotations
 import io
 import os
 import shutil
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -36,12 +35,13 @@ from typing import Any
 
 import polars as pl
 
+from .http_retry import DEFAULT_DELAY_S, backoff_sleep, retry_after_seconds
+
 #: Environment variable selecting an S3-compatible endpoint (path-style URLs).
 ENDPOINT_ENV = "XMATCHER_S3_ENDPOINT"
 
 _PREFIX = "s3://"
 _RETRIES = 3
-_BACKOFF_CAP_S = 60.0
 _MAX_LIST_PAGES = 10_000
 _TIMEOUT_S = 120
 
@@ -237,23 +237,19 @@ class S3Remote:
                         "the bucket or key needs credentials or requester-pays access, "
                         "which xmatcher does not send"
                     ) from exc
-                if exc.code not in (429, 503):
+                if exc.code not in (429, 500, 502, 503, 504):
                     exc.close()
                     raise OSError(
                         f"S3 request failed for {self.display(url)} (HTTP {exc.code} {exc.reason})"
                     ) from exc
                 last = exc
-                retry_after = exc.headers.get("Retry-After") if exc.headers else None
-                try:
-                    delay = float(retry_after) if retry_after else 1.0
-                except ValueError:
-                    delay = 1.0
+                delay = retry_after_seconds(exc.headers.get("Retry-After") if exc.headers else None)
                 exc.close()
             except (urllib.error.URLError, OSError) as exc:
                 last = exc
-                delay = 1.0
+                delay = DEFAULT_DELAY_S
             if attempt < _RETRIES - 1:
-                time.sleep(min(delay * (2**attempt) + 0.1, _BACKOFF_CAP_S))
+                backoff_sleep(delay, attempt)
         raise OSError(f"S3 request failed for {self.display(url)}: {last}") from last
 
     def _read_url(self, url: str) -> bytes:
@@ -322,7 +318,16 @@ class S3Remote:
         partial = dest.with_name(f".{dest.name}.s3part")
         try:
             with self._open(url) as resp, partial.open("wb") as out:
+                expected = resp.headers.get("Content-Length")
+                # http.client returns b"" instead of raising when a sized body
+                # ends early, so a dropped connection looks like a short file.
                 shutil.copyfileobj(resp, out, length=1 << 20)
+                received = out.tell()
+            if expected and str(expected).isdigit() and received != int(expected):
+                raise OSError(
+                    f"truncated S3 download of {self.display(url)}: "
+                    f"received {received} of {expected} bytes"
+                )
             os.replace(partial, dest)
         finally:
             partial.unlink(missing_ok=True)

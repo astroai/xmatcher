@@ -736,6 +736,9 @@ def _match_partition_pair(
                 continue
             if spec.matcher == "skyerr":
                 limit = spec.max_error * (pl.col(_LEFT_SIGMA) + pl.col(_RIGHT_SIGMA))
+                if spec.radius_arcsec is not None:
+                    # Rank like the in-memory engines: θ / min(N·σ_pair, R).
+                    limit = pl.min_horizontal(limit, pl.lit(float(spec.radius_arcsec)))
                 result = result.filter(pl.col("sep_arcsec") <= limit).with_columns(
                     (pl.col("sep_arcsec") / limit).alias(_RANK)
                 )

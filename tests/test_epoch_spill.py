@@ -124,7 +124,7 @@ def test_skyerr_epoch_spill_inflates_uncertainty_and_halo(tmp_path, monkeypatch)
     assert not any(name.startswith("_xmatcher_spill_") for name in result.columns)
 
 
-def test_epoch_covariance_alignment_rejects_missing_invalid_or_unavailable_covariance(monkeypatch):
+def test_epoch_covariance_alignment_rejects_missing_or_invalid_covariance():
     frame = _covariance_frame()
     no_mapping = _source(
         frame, ra_err_column="ra_error", dec_err_column="dec_error", pos_err_units="mas"
@@ -135,11 +135,6 @@ def test_epoch_covariance_alignment_rejects_missing_invalid_or_unavailable_covar
     with pytest.raises(CrossMatchError, match="covariance"):
         _align_epoch(
             invalid.lazy(), _covariance_source(invalid), 2010.0, propagate_covariance=True
-        ).collect()
-    monkeypatch.setattr(astro_utils, "propagate_proper_motion_with_jacobian", lambda *args: None)
-    with pytest.raises(CrossMatchError, match="Torchsky"):
-        _align_epoch(
-            frame.lazy(), _covariance_source(frame), 2010.0, propagate_covariance=True
         ).collect()
 
 
@@ -391,16 +386,28 @@ def test_eager_epoch_skyerr_refuses_unknown_or_unsupported_science(kind):
     if kind == "unknown_motion":
         source.pm_ra_column = source.pm_dec_column = None
     elif kind == "missing_errors":
+        # The astrometric covariance also carries the positional errors.
         source.ra_err_column = source.dec_err_column = None
-    with pytest.raises(CrossMatchError):
+        source.astrometric_covariance_columns = None
+    # STILTS cannot honour epoch uncertainties; under "warn" it falls back to
+    # the fast engine, so only "error" refuses.
+    policy = "error" if kind == "stilts" else "warn"
+    with pytest.raises(CrossMatchError, match=EPOCH_REFUSALS[kind]):
         sky_match(
             source,
             source,
             frame.lazy(),
             frame.lazy(),
-            MatchSpec(matcher="skyerr", target_epoch=2010.0, fallback_policy="warn"),
+            MatchSpec(matcher="skyerr", target_epoch=2010.0, fallback_policy=policy),
             engine="stilts" if kind == "stilts" else "fast",
         )
+
+
+EPOCH_REFUSALS = {
+    "unknown_motion": "needs finite proper motion",
+    "missing_errors": "requires positional errors",
+    "stilts": "cannot honor target-epoch skyerr",
+}
 
 
 def test_epoch_alignment_preserves_empty_catalogue_without_imputing_motion():

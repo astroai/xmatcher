@@ -5,15 +5,213 @@ All notable changes to `xmatcher` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.0] — 2026-11-22
+
+The `v0.7.0` tag is the GitHub release. See the
+[release notes](docs/archive/release-0.7.0.md).
+
+torchsky becomes xmatcher's matching engine, a converter between FITS,
+Parquet, HATS and CSV is added, and a release audit of correctness, HATS
+conformance, remote acquisition, the Ray engines and the collaborator install
+path is folded in. Every audit fix below has a regression test that fails
+without it. Requires torchsky 0.6.0 (released first).
 
 ### Added
 
 - `xmatcher export-hats` and `xmatcher.export_hats` / `xmatcher.scan_hats`:
-  flatten a local HATS tree to a single `.parquet` or `.fits` file. Parquet
-  prefers a Polars scan over Npix partitions and a streaming sink; FITS
-  collects. Survey-scale trees may OOM — keep them partitioned when a single
-  file is not required.
+  flatten a local or synced HATS tree to a single `.parquet` or `.fits` file.
+  Parquet uses a Polars scan over Npix partitions and a streaming sink; FITS
+  is streamed by the `convert` writer. `_healpix_29` is dropped unless
+  `--keep-healpix29` / `keep_healpix29=True`.
+- `xmatcher convert` / `xmatcher.convert.convert`: converts catalogues between
+  FITS, Parquet, HATS and CSV in every direction, streaming in bounded memory.
+  - HATS outputs take three passes (count per cell, spill to partitions,
+    sorted write). They carry `_healpix_29`, pass `hats` strict validation
+    and read as plain Parquet datasets.
+  - FITS outputs are standard binary tables written in one pass: `TZERO` for
+    unsigned and `int8` columns, repeat counts for vectors, and `TNULL` for
+    integer nulls.
+  - Reading a HATS tree streams its partitions in (order, pixel) order.
+- N-way association with photometric terms (torchsky `associate_many`):
+  - `matcher="lr"` with three or more catalogues (`crossmatch_multi`, CLI
+    `xmatcher match A B C --matcher lr`) is one N-way association instead of
+    a chain of pairwise matches against an accumulated position (which failed
+    with a duplicate `lr` column). Each primary row's hypotheses combine one
+    gated counterpart or none per catalogue; `lr_q` is every secondary's
+    completeness. `find="best"` (default) keeps each primary's MAP
+    hypothesis, `join_type="all1"` adds primaries without one; other join
+    types, `filter_expr`, `extra_distance_cols`, `prior_columns` and
+    `probabilistic` are rejected.
+  - Photometric terms as for two catalogues: `lr_magnitude_column` for every
+    secondary, or per catalogue `lr_magnitude_column_<n>` (CLI: a
+    comma-separated `--lr-magnitude-column W1mag,Jmag`, or
+    `--side N lr_magnitude_column=COL`). New `lr_color_column` (CLI
+    `--lr-color-column`) makes the term the colour secondary − primary
+    (e.g. W1 − G), for two or more catalogues.
+  - On an injected three-catalogue field (one background source per gate),
+    magnitude or colour terms raise the fraction of correct MAP triples by
+    over 8 points (tested), the direction of torchsky's own result.
+  - New CLI option `--side N KEY=VALUE` sets per-catalogue overrides for any
+    catalogue, not only 1 and 2.
+- Output columns of N-way results (`nway_match`, and `matcher="lr"` with
+  three or more catalogues), after every catalogue's columns (absent members
+  null): `sep_arcsec_<k>` (separation of catalogue `k`'s member from the
+  primary), `p_match` / `reliability` (the hypothesis posterior), `lr`
+  (likelihood ratio against "no counterpart", the pairwise `lr` with two
+  catalogues), `p_any` (the primary has any counterpart) and `nway_best`
+  (the primary's MAP hypothesis).
+
+### Changed (behaviour)
+
+- **torchsky (>=0.6.0) and torchfits (>=1.3.3) are core dependencies.**
+  - The `torchsky` and `torchfits` extras are gone. The default Pixi
+    environment carries the torchsky wheel from PyPI with conda-forge CPU
+    PyTorch, and CI runs every torchsky path there.
+  - Python 3.11 support (proposed for this release) is dropped: torchsky
+    requires Python 3.12 or later.
+  - An installed torchsky older than 0.6.0 is refused with an upgrade
+    message.
+- `engine="fast"` (the default in-memory engine) finds candidates with
+  torchsky's exact zone index (`SkyIndex`, `match_within`, `match_nearest`)
+  instead of scipy's cKDTree. Separations are exact great-circle arcs, ties
+  go to the lowest right row by construction, and the matcher filters and
+  rankings are unchanged; every engine-parity test passes as before.
+- `engine="zone"` runs the same exact torchsky search as `fast`: torchsky's
+  declination-zone index is the HEALPix-shard algorithm it approximated, so it
+  no longer needs `cdshealpix` and never falls back. The Ray pixel tasks and
+  `ray-anchor` (best, second nearest and `n_within` under one inclusive radius
+  rule) find candidates with torchsky as well; no local engine uses scipy's
+  cKDTree.
+- Proper-motion and space-motion propagation, and HATS margin and pruning
+  coverings, use torchsky only. The Astropy and cdshealpix fallbacks for a
+  missing torchsky are gone; Astropy remains the tests' oracle (agreement to
+  0.05 mas for proper motion near the poles and 0.2 mas for Barnard's star).
+- `nway_match` is computed by `torchsky.catalogs.associate_many` (nway-style)
+  instead of the cartesian product of candidates scored with an isotropic
+  Budavári & Szalay factor under equal prior odds:
+  - Rows are every hypothesis with at least one counterpart, partial ones
+    included (one catalogue absent), not only full N-tuples; `find="best"`
+    keeps the MAP hypothesis. `p_match` is the hypothesis posterior over all
+    of the primary's hypotheses ("no counterpart" included), with
+    completeness (`lr_q`, or fitted by EM) and background density.
+  - Full position covariances (error correlation, propagated epoch
+    covariance) replace the isotropic effective sigma.
+  - `prior_columns` become pair-colour likelihood ratios learnt by EM
+    instead of the midpoint-KDE heuristic.
+  - `max_tuples_per_source` is the exact-enumeration budget: larger
+    primaries are enumerated best-first with a certified bound on the
+    omitted posterior mass instead of being truncated. `chunk_size` is
+    ignored and `engine="ray"` runs in process (with a warning).
+  - Every catalogue needs positional errors, also when nothing matches.
+- `matcher="lr"` is computed by `torchsky.catalogs.associate`. The likelihood
+  ratio is the same Sutherland & Saunders form, now with these changes:
+  - q(m) is learnt by EM from the posteriors, not by background subtraction.
+  - `reliability` is the Bayesian posterior `Q LR / ((1 - Q) + Q ΣLR)`, with
+    `lr_q` as the prior completeness. The old formula `LR / (ΣLR + 1 - Q)`
+    normalised q(m) to 1 instead of Q.
+  - Candidates pass a χ² gate (p = 1e-4) as well as the `radius_arcsec` ceiling.
+  - In crowded fields a right row is the counterpart of at most one left row.
+- The dev environment is pinned to Python 3.13 again and the lock refreshed on
+  both platforms (polars 2.1, numpy 2.5, pyarrow 26, ray 2.60, hats 0.11.2);
+  macOS 14+ is required, as torchfits publishes no older macOS wheels.
+
+- `radius_arcsec` is the hard separation ceiling for `skyellipse` on every
+  engine (fast, zone, astropy, ray, ray-union), as it already was for
+  `skyerr`; positional errors can only narrow a match. `ray-union` previously
+  used the radius as a floor for both error matchers.
+- Ray engines join `RAY_ADDRESS` when it is set and otherwise start a private
+  local cluster; they no longer attach to whatever cluster another process
+  on the host started.
+- `fof_match` keeps each non-float column's first value with its original
+  dtype (integer IDs are no longer averaged), averages float columns
+  ignoring NaN, and averages RA/Dec as unit vectors.
+- HATS collection roots (remote and local downloads) resolve to the tree
+  named by `hats_primary_table_url`; time-versioned collections (TNS, VSX)
+  follow their newest tree.
+- Server-side TAP self-joins and CDS XMatch return the shared schema
+  (`sep_arcsec`, `_2` suffix on right-hand collisions).
+
+### Fixed
+
+#### Science correctness
+
+- `ray-union` (full outer join) silently dropped rows whose only lower-
+  catalogue mate had already been folded into an earlier row (an A–B–C chain
+  lost C). Resume chunks from earlier versions are not reused.
+- `fof_match` cast int64 IDs above 2**53 (Gaia `source_id`) to float64, dropped
+  columns of catalogues first seen after the 100th bundle, let a suffixed
+  name overwrite an existing column, and averaged RA linearly across 0/360.
+- The likelihood-ratio matcher (`matcher="lr"`) used the Rayleigh radial PDF
+  instead of the 2-D Gaussian surface density, so a coincident counterpart
+  scored below one 1.2" away.
+- `skyellipse` offsets near the poles: the offset is now the exact
+  great-circle separation on the pair's tangent plane with both covariances
+  rotated onto it (all engines, including ray-union).
+- `ray-anchor` flagged null/NaN anchor proper motion as stationary
+  (`pm_warn=False`) over any baseline.
+- The out-of-core spill path ranked capped `skyerr` candidates differently
+  from the in-memory engines.
+- Resume: `ray-anchor` reused stale partitions after a survey epoch or a
+  same-row-count partition changed; `ray-union` discarded every finished
+  chunk when only `--chunk-memory-gb`, `--task-rows` or `--hats-threshold`
+  was raised (as its own memory guard advises).
+
+#### HATS
+
+- Every tree xmatcher writes (`ray-union`, `ray-anchor`, `project-hats`,
+  `.hats` output, TAP mirrors) now passes `hats` strict validation:
+  `dataset/_metadata` lists every partition footer (it held only a schema,
+  so pyarrow read 0 rows from it), `dataset/` holds only Parquet, and
+  partitions share one schema.
+- `project-hats` of a tree with `Npix=N/` directories produced paths `hats`
+  could not open, and kept `hats_col_healpix` after dropping that column.
+- `ray-union` ignored `hats_col_ra`/`hats_col_dec`, failing on trees such as
+  PS1 (`raMean`) or ZTF (`objra`).
+- A local HATS collection (LSDB or Hugging Face download) was rejected.
+- `hats:gaia_dr3` no longer resolved: LSDB collection roots are now landing
+  pages, so HTTP resolution reads `collection.properties` first.
+
+#### Remote acquisition (`xmatcher sync`)
+
+- Trees listed only by `partition_info.csv` (LSDB Gaia DR3, ~712 GiB; PS1
+  otmo) were re-downloaded in full on every sync.
+- Truncated S3 and Hugging Face downloads were accepted as complete.
+- An interrupted sync lost all progress, and a half-finished re-sync was
+  served as complete; progress is now checkpointed and incomplete mirrors
+  are refused.
+- `hats:<tree>/` and `hats:<tree>` were mirrored twice.
+- An empty or failed IVOA registry refresh replaced the cached snapshot.
+- S3 500/502/504 responses were not retried.
+- `fresh_after` read UTC timestamps as local time; `ensure_mirrored` did not
+  forward `--min-free-gb`.
+
+#### CLI, packaging and CI
+
+- `--union` was an inner join (unmatched rows dropped); `--join` now defaults
+  per operation (`1and2` for matches, `1or2` with `--union`).
+- Invalid `-r`, `--max-error`, `--lr-q`, `--batch-size`, region values and
+  partial `--ra/--dec/--radius-deg` regions are usage errors (exit 2)
+  instead of tracebacks or being silently ignored.
+- The STILTS engine returned a null `sep_arcsec` when coordinate names
+  differed only in case.
+- The tag build would have failed: release notes are attached from
+  `docs/archive/`, and `check_release.py --tag` requires them.
+- The source archive shipped tests for unshipped scripts and missed the
+  pre-push hook; the hook now runs `pixi run --frozen preflight-push` and
+  requires pixi.
+- `preflight-push` failed on macOS (`os.getxattr` in a CANFAR-only script).
+
+#### Torchsky
+
+- Two epoch-refusal tests passed only because torchsky was absent; with it
+  installed they exposed wrong expectations (fixed) rather than code defects.
+- HATS pruning (torchsky path) swallowed every exception; it now filters
+  non-finite coordinates and lets real errors surface, and no longer makes
+  PyTorch warn about read-only arrays.
+- The CANFAR torchsky runner installed a torchsky 0.4.0 tarball and stub
+  `torchfits` modules; it now installs `xmatcher[cds]` (torchsky is a core
+  dependency) with CPU PyTorch. Its suite called `healpix.neighbors`, which
+  torchsky 0.5.0 renamed `get_all_neighbours`.
 
 ## [0.6.0] — 2026-10-22
 

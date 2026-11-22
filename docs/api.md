@@ -22,7 +22,7 @@ cm = CrossMatch()  # loads bundled xmatcher.yaml and user overrides
 | [`crossmatch_request(req)`](#crossmatch_request) | **Preferred** typed entry point using a `MatchRequest` dataclass. |
 | [`crossmatch_multi(...)`](#crossmatch_multi) | $N$-catalogue sequential pairwise crossmatching ($A \times B \times C \dots$). |
 | [`union_match(...)`](#union_match) | Master union crossmatch producing a full-outer-join catalogue (in-memory or distributed HATS). |
-| [`nway_match(...)`](#nway_match) | Simultaneous Bayesian $N$-way crossmatching (Budavári & Szalay 2008 posterior). |
+| [`nway_match(...)`](#nway_match) | Simultaneous Bayesian $N$-way association (nway-style, torchsky `associate_many`). |
 | [`fof_match(...)`](#fof_match) | Friends-of-Friends transitive closure clustering detections into object bundles. |
 | `resolve_source(value, overrides)` | Builds a `CatalogueSource` from a file path, DataFrame, configured name/alias, or explicit `vizier:` / `tap:` / `hats:` identifier. |
 | `get_catalogue_config(name)` | Returns the merged YAML configuration for a catalogue alias or name. |
@@ -209,20 +209,23 @@ def export_hats(
     output: str | Path,
     *,
     columns: Sequence[str] | None = None,
+    keep_healpix29: bool = False,
 ) -> dict[str, Any]
 ```
 
 - Parquet export scans partitions lazily and uses `write_frame`'s streaming
-  sink when possible; FITS collects the full table.
-- Huge catalogues may still OOM — keep HATS partitioned when a single file is
-  not required. Remote HATS URIs must be mirrored first.
+  sink; FITS is streamed by `xmatcher.convert.convert` (a standard binary
+  table, `TNULL` for integer nulls).
+- Without `columns`, `_healpix_29` is dropped unless `keep_healpix29=True`.
+- Keep survey-scale trees partitioned when a single file is not required.
+  Remote HATS URIs must be mirrored first.
 - `export_hats` returns `rows`, `columns`, `partitions`, and `output`.
 
 ---
 
 ### `nway_match`
 
-Simultaneous Bayesian $N$-catalogue crossmatching implementing the Budavári & Szalay (2008) multi-catalogue Bayes factor:
+Simultaneous Bayesian $N$-catalogue association with torchsky's `associate_many` (Budavári & Szalay 2008 with full covariances, completeness, background density and photometric likelihood ratios):
 
 ```python
 def nway_match(
@@ -239,13 +242,24 @@ def nway_match(
 ) -> pl.DataFrame | None
 ```
 
-Resolves and materializes the input frames, finds primary-to-each-secondary candidate pairs inside the spatial radius, then iterates the per-primary Cartesian product in chunks (optionally capped per source). Positional scores require declared errors or explicit per-catalogue error floors. Each `prior_columns` entry must exist in every catalogue and represent a comparable quantity; its midpoint-KDE ratio is an empirical heuristic. `engine="ray"` distributes candidate discovery, but inputs and resulting tuples are assembled on the coordinator. `p_match` uses equal prior odds and is not calibrated for population prevalence or local sky density. Positional covariance is reduced to an isotropic effective sigma; KDEs are fitted on an unconditional source sample capped at 50,000 values per requested column. See [score assumptions](algorithms.md#6-probabilistic--bayesian-matchers).
+Resolves and materializes the input frames (catalogue 1 is the primary) and runs the association in process. For each primary row every combination of one gated counterpart or none per other catalogue is a hypothesis; posteriors are normalised over all of them, and a secondary source is the counterpart of at most one primary. Positional covariances (declared errors, correlations, propagated epoch covariances or explicit per-catalogue error floors) are required for every catalogue and used in full. Candidates pass a $\chi^2_2$ gate ($p = 10^{-4}$) and the `radius_arcsec` ceiling. Primaries with more than `max_tuples_per_source` hypotheses are enumerated best-first with a certified bound on the omitted posterior mass (0 enumerates everything); `chunk_size` is accepted for compatibility only, and `engine="ray"` runs in process with a warning.
+
+Photometric terms (learnt by EM, as for `matcher="lr"`): `lr_magnitude_column` (every secondary) or `lr_magnitude_column_<n>` (catalogue `n`) adds a magnitude likelihood ratio; `lr_color_column` (a primary column) turns it into the colour secondary − primary; each `prior_columns` entry, which must exist in every catalogue, adds the colour `secondary[col] - primary[col]`. `lr_q` fixes every secondary's completeness (default: fitted). `find="all"` (default) returns every hypothesis with at least one counterpart, `find="best"` only each primary's MAP hypothesis. See [algorithms §6C](algorithms.md#6-probabilistic--bayesian-matchers).
+
+**Output Columns** (after every catalogue's columns, suffixed `_2`, `_3`, … on collision and null for absent members):
+- `sep_arcsec_<k>`: separation of catalogue `k`'s member from the primary.
+- `p_match`: posterior of the hypothesis.
+- `lr`: likelihood ratio of the hypothesis against "no counterpart", completeness priors divided out (the pairwise `matcher="lr"` value with two catalogues).
+- `p_any`: probability that the primary has any counterpart.
+- `nway_best`: the hypothesis is the primary's MAP one.
+
+`crossmatch_multi(..., matcher="lr")` with three or more catalogues runs the same association with `lr_q` as completeness, a magnitude column required for every secondary, and the posterior in `reliability`. `find="best"` (the default) keeps each primary's MAP hypothesis, `join_type="all1"` adds primaries without one; other join types, `filter_expr`, `extra_distance_cols`, `prior_columns` and `probabilistic` are rejected.
 
 ---
 
 ### `fof_match`
 
-Friends-of-Friends transitive closure algorithm. Groups detections across multiple surveys into connected components (bundles) via union-find graph clustering.
+Friends-of-Friends transitive closure algorithm. Groups detections across multiple surveys into connected components (bundles) of the sparse match graph.
 
 ```python
 def fof_match(
@@ -259,7 +273,7 @@ def fof_match(
 ) -> pl.DataFrame | None
 ```
 
-Searches cross-catalogue edges for every pair of catalogues before forming connected components. Only components containing a source from the first catalogue are emitted; isolated first-catalogue sources are retained, while secondary-only components are omitted. `engine="ray"` distributes pairwise edge discovery, but input frames and component output are still assembled on the coordinator. Numeric attributes are averaged, and nonnumeric attributes use the first value.
+Searches cross-catalogue edges for every pair of catalogues before forming connected components. Only components containing a source from the first catalogue are emitted; isolated first-catalogue sources are retained, while secondary-only components are omitted. `engine="ray"` distributes pairwise edge discovery, but input frames and component output are still assembled on the coordinator. Columns from the first catalogue come from the bundle's first primary row unchanged; other catalogues' float columns are NaN-ignoring means, their RA/Dec a unit-vector mean, and every other column (integer IDs, strings) the first member's value with its dtype kept. See [usage §9](usage.md#9-friends-of-friends-output-policy).
 
 **Output Columns**:
 - `bundle_id`: Unique integer assigned to the connected component.
@@ -309,7 +323,8 @@ Defines the algorithm criteria:
 | `batch_size` | `int | None` | `None` | Number of HEALPix pixel groups per batch in zone matching; not a general process-memory limit. |
 | `probabilistic` | `bool` | `False` | Enable positional `p_match` scoring (also settable on `MatchRequest`). |
 | `fallback_policy` | `str` | `"warn"` | `"warn"` logs and substitutes a supported engine/matcher; `"error"` aborts when the request cannot be honoured. |
-| `lr_magnitude_column` | `str | None` | `None` | Secondary magnitude column for Likelihood Ratio (`matcher="lr"`). |
+| `lr_magnitude_column` | `str | None` | `None` | Secondary magnitude column for Likelihood Ratio (`matcher="lr"`); `lr_magnitude_column_<n>` names catalogue `n`'s column in $N$-way matches. |
+| `lr_color_column` | `str | None` | `None` | Primary magnitude column: the LR photometric term becomes the colour secondary magnitude − this column (e.g. W1 − G). |
 | `lr_q` | `float` | `0.8` | Prior probability of counterpart detection in primary survey. |
 | `ml_color_columns` | `list[str]` | `[]` | Colour/magnitude feature columns for RF/XGB matchers. |
 | `ml_model_path` | `str | None` | `None` | Save/load path for Random Forest model artifact (`.joblib`). |
@@ -343,18 +358,18 @@ is `--fallback-policy error`.
 
 | Engine | Primary Backend | Threading / Scaling | Memory Overhead | Supported Algorithms & Features |
 |---|---|---|---|---|
-| **`fast`** | `scipy.spatial.cKDTree` | Single-process spatial queries (SciPy may use native parallelism where requested) | Holds coordinate arrays and candidate/result data | General local pairwise engine; matcher requirements still apply. |
-| **`zone`** | `cdshealpix` + `cKDTree` | HEALPix pixel groups on one machine | Pixel batching; total memory depends on input/result path | Zone-based candidate queries; `batch_size` is not a process-memory cap. |
+| **`fast`** | torchsky `SkyIndex` (exact declination-zone index) | Single process; torchsky's native multithreaded kernel on CPU | Holds coordinate arrays and candidate/result data | General local pairwise engine; matcher requirements still apply. |
+| **`zone`** | torchsky `SkyIndex` | Same search as `fast` | Same as `fast` | Kept as a name: torchsky's zone index is the HEALPix-shard algorithm `zone` used to approximate. |
 | **`ray`** | Ray | Distributed HEALPix candidate queries | Coordinator holds input frames and assembles final result | Pairwise work only; it is not an out-of-core flat-file pipeline. |
 | **`ray-union`** | Ray + HATS | Full-sky union to HATS output | Distributed interval plan; may read extra partitions for conservative halos | Supports `sky`, `skyerr`, `skyellipse`; handles mixed-order/RING layouts and uncertainty/epoch halos. |
 | **`ray-anchor`** | Ray + HATS | One row per anchor partition, resumable | Candidate survey partitions per anchor partition; task guards | `sky` only; best counterpart per survey plus `sep_second`, `n_within`, `crowded`, `pm_warn`, `quality`. |
 | **`astropy`** | Astropy `SkyCoord` | Astropy sky-coordinate queries | Depends on input and candidate counts | Alternative local geometry backend. |
 | **`stilts`** | STILTS `tmatch2` | External Java subprocess | Managed by JVM | Requires Java and a working `stilts` executable; matcher support depends on requested options. |
-| **`torchsky`** | PyTorch / Torchsky | Tensor-based candidate search | Depends on tensors and returned candidates | Requires a separately installed compatible Torchsky checkout; no PyPI distribution is available. Tested with the sibling 0.4 development source installed editable. |
+| **`torchsky`** | PyTorch / Torchsky | Tensor-based candidate search | Depends on tensors and returned candidates | `sky` and `skyerr` only. torchsky is a core dependency (>=0.6.0); results agree with `fast` and Astropy (tested in CI). |
 
 ---
 
-### Technical Deep Dive: Astropy vs. SciPy cKDTree
+### Technical Deep Dive: Astropy vs. the torchsky Zone Index
 
 `fast` and `astropy` provide alternative local spatial-query implementations. Their relative performance depends on data size, candidate density, hardware, and installed libraries; measure on representative data with [`scripts/bench_engines.py`](../scripts/bench_engines.py).
 
@@ -367,14 +382,14 @@ flowchart TD
         A4 --> A5["Angle / Quantity Separations"]
     end
 
-    subgraph SciPy cKDTree (fast Engine)
+    subgraph torchsky SkyIndex (fast Engine)
         B1["RA/Dec Arrays"] --> B2["Vectorized 3D Unit Sphere<br/>x = cos(δ)cos(α), y = cos(δ)sin(α), z = sin(δ)"]
-        B2 --> B3["scipy.spatial.cKDTree"]
+        B2 --> B3["torchsky.catalogs.SkyIndex<br/>declination zones"]
         B3 --> B4["Chord length d = 2·sin(θ/2)<br/>Zero Python Object Allocations"]
     end
 ```
 
-1. **Coordinate representation**: Astropy uses `SkyCoord`; the fast path constructs unit-sphere Cartesian arrays for SciPy's `cKDTree`. Costs depend on input and candidate counts.
+1. **Coordinate representation**: Astropy uses `SkyCoord`; the fast path builds torchsky's declination-zone index (`SkyIndex`) on unit-sphere vectors. Costs depend on input and candidate counts.
 2. **Parallelism & Performance**: Runtime and threading depend on the selected query path and native libraries. No fixed speedup or memory-per-row estimate applies across input sizes and candidate densities.
 3. **Exact Spherical to Chord Distance Mapping**:
    The angular separation $\theta$ on the celestial sphere corresponds to the 3D Euclidean chord length $d$:
@@ -385,7 +400,7 @@ $$
 
    The `fast` engine maps unit-sphere angular search radii to Euclidean chord radii; returned separations are great-circle angles.
 4. **N-Dimensional Multimodal Ranking**:
-   - When `extra_distance_cols` is configured, `fast` finds all spatial candidates with `cKDTree`, then ranks them using combined spatial distance and z-score normalized photometry or proper motions.
+   - When `extra_distance_cols` is configured, `fast` finds all spatial candidates with the zone index, then ranks them using combined spatial distance and z-score normalized photometry or proper motions.
 
 ---
 

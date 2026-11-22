@@ -121,16 +121,22 @@ def hats_catalogues(
     reached, so offline runs keep resolving names that resolved before.
     """
     path = cache_file(cache_root)
-    snapshot = None if refresh else _read_cache(path)
+    cached = _read_cache(path)
+    snapshot = None if refresh else cached
     if snapshot is not None and (time.time() - float(snapshot.get("fetched_at", 0))) < ttl:
         records = snapshot["records"]
     else:
         try:
             records = _registry_records()
+            if not records:
+                # A registry outage can answer with zero rows; that must not
+                # replace a good snapshot for the next seven days.
+                raise InputError("the IVOA registry returned no HATS services")
         except InputError:
-            if snapshot is None:
+            if cached is None:
                 raise
-            records = snapshot["records"]
+            logger.warning("HATS registry unavailable; using the cached snapshot at %s", path)
+            records = cached["records"]
         else:
             try:
                 _write_cache(path, records)

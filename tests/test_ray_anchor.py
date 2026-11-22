@@ -132,9 +132,11 @@ def test_ray_anchor_match_writes_metadata(survey_tree: Path, monkeypatch) -> Non
     out = survey_tree / "out"
     ray_anchor_match(anchor, [survey], sep_arcsec=1.5, output_file=str(out))
     assert (out / "properties").is_file()
-    assert (out / "dataset" / "partition_info.parquet").is_file()
     assert (out / "partition_info.csv").is_file()
     assert "hats_nrows=6" in (out / "properties").read_text()
+    from hats.io.validation import is_valid_catalog
+
+    assert is_valid_catalog(out, strict=True)
 
 
 def test_hats_aliases_resolve_without_network() -> None:

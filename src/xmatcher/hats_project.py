@@ -119,6 +119,9 @@ def _projected_props(
     for key in ("hats_col_ra", "hats_col_dec"):
         if key in out and out[key] not in selected:
             del out[key]
+    if out.get("hats_col_healpix") not in selected:
+        out.pop("hats_col_healpix", None)
+        out.pop("hats_col_healpix_order", None)
     out["hats_cols_default"] = " ".join(selected)
     if source.ra_column and source.ra_column in selected:
         out["hats_col_ra"] = source.ra_column

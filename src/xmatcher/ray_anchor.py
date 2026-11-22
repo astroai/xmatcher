@@ -37,19 +37,18 @@ import importlib
 import json
 import logging
 import math
-import os
 import re
 import shutil
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import polars as pl
 
-from . import matchers
+from . import _torchsky, matchers
 from .exceptions import CrossMatchError
 from .ray_union import (
     CataloguePlan,
@@ -64,6 +63,8 @@ from .ray_union import (
     _footer_row_count,
     _gather_rows,
     _hats_dir,
+    _init_ray,
+    _input_fingerprint,
     _list_partitions,
     _partition_index,
     _pixel_diagonal_deg,
@@ -108,10 +109,7 @@ class AnchorPlan:
     target_epoch: float | None = None
     anchor_epoch: float | None = None
     matcher: str = "sky"
-    pm_prior: bool = False
-    pm_prior_magnitude_column: str | None = None
     fallback_policy: str = "warn"
-    max_error: float = 1.0
     chunk_memory_gb: float = DEFAULT_CHUNK_MEMORY_GB
     task_rows: int = DEFAULT_TASK_ROWS
 
@@ -488,6 +486,9 @@ def _read_frame(
         empty = pl.DataFrame(
             {"_ra": pl.Series([], dtype=pl.Float64), "_dec": pl.Series([], dtype=pl.Float64)}
         )
+        before = matchers._radec_to_xyz(
+            frame[cat.ra].cast(pl.Float64).to_numpy(), frame[cat.dec].cast(pl.Float64).to_numpy()
+        )
         frame, _ = matchers._apply_proper_motion(
             frame,
             empty,
@@ -497,6 +498,24 @@ def _read_frame(
             propagate_covariance=False,
             fallback_policy=plan.fallback_policy,
         )
+        after = matchers._radec_to_xyz(
+            frame[cat.ra].cast(pl.Float64).to_numpy(), frame[cat.dec].cast(pl.Float64).to_numpy()
+        )
+        moved = np.linalg.norm(after - before, axis=1)
+        moved_deg = matchers._chord_to_arcsec(float(np.nanmax(moved))) / 3600.0
+        # Survey candidates are chosen from the catalogue-epoch tiling with a
+        # cone of 2 * (radius + delta) around the anchor pixel centre; the
+        # margin beyond a stationary match is at least radius + delta, split
+        # between anchor and survey motion.  A larger move could pair rows the
+        # cone never read, so it is an error rather than a silent miss.
+        limit_deg = 0.5 * (plan.sep_arcsec / 3600.0 + plan.delta_deg)
+        if moved_deg > limit_deg:
+            raise CrossMatchError(
+                f"catalogue '{cat.name}': propagation to epoch {plan.target_epoch} moves a "
+                f"source by {moved_deg * 3600.0:.1f} arcsec, beyond the "
+                f"{limit_deg * 3600.0:.1f} arcsec candidate halo; check its proper-motion "
+                "columns and units, or match at the catalogue epoch"
+            )
     return frame
 
 
@@ -526,10 +545,13 @@ def _pm_warn(anchor_frame: pl.DataFrame, plan: AnchorPlan, survey: CataloguePlan
         and pmra_col in anchor_frame.columns
         and pmde_col in anchor_frame.columns
     ):
-        pmra = anchor_frame[pmra_col].cast(pl.Float64).fill_null(0.0).to_numpy()
-        pmde = anchor_frame[pmde_col].cast(pl.Float64).fill_null(0.0).to_numpy()
+        pmra = anchor_frame[pmra_col].cast(pl.Float64).fill_null(np.nan).to_numpy()
+        pmde = anchor_frame[pmde_col].cast(pl.Float64).fill_null(np.nan).to_numpy()
         drift_arcsec = np.hypot(pmra, pmde) * dt / 1000.0
-        return drift_arcsec > 0.5 * plan.sep_arcsec
+        usable = np.isfinite(drift_arcsec)
+        # Rows without usable motion (Gaia two-parameter solutions) get the
+        # same long-baseline flag as an anchor with no motion columns.
+        return np.where(usable, drift_arcsec > 0.5 * plan.sep_arcsec, dt > 5.0)
     # No usable anchor PM: flag long baselines rather than pretending the
     # source is stationary.
     warn[:] = dt > 5.0
@@ -562,8 +584,6 @@ def _match_survey(
     tag: str,
 ) -> pl.DataFrame:
     """Best counterpart + ambiguity block for one survey, one row per anchor row."""
-    from scipy.spatial import cKDTree  # noqa: PLC0415
-
     height = anchor_frame.height
     if height == 0:
         return pl.DataFrame(
@@ -581,13 +601,9 @@ def _match_survey(
             )
         )
 
-    anchor_xyz = matchers._radec_to_xyz(
-        anchor_frame[plan.anchor.ra].cast(pl.Float64).to_numpy(),
-        anchor_frame[plan.anchor.dec].cast(pl.Float64).to_numpy(),
-    )
     pm_warn = _pm_warn(anchor_frame, plan, survey)
     radius = float(plan.sep_arcsec)
-    chord = matchers._arcsec_to_chord(radius)
+    matchers._arcsec_to_chord(radius)  # rejects a non-finite or negative radius
 
     if survey_frame.height == 0:
         best_rows = _null_frame(survey, height)
@@ -595,37 +611,24 @@ def _match_survey(
         best_sep = np.full(height, np.nan)
         second_sep = np.full(height, np.nan)
     else:
-        survey_xyz = matchers._radec_to_xyz(
-            survey_frame[survey.ra].cast(pl.Float64).to_numpy(),
-            survey_frame[survey.dec].cast(pl.Float64).to_numpy(),
+        # torchsky gives the two nearest and the count under one inclusive
+        # radius rule (sep <= radius), with ties to the lowest survey row.
+        catalogs = _torchsky.require("catalogs", "ray-anchor")
+        a_ra = matchers._ts_tensor(anchor_frame[plan.anchor.ra].cast(pl.Float64).to_numpy())
+        a_dec = matchers._ts_tensor(anchor_frame[plan.anchor.dec].cast(pl.Float64).to_numpy())
+        s_ra = matchers._ts_tensor(survey_frame[survey.ra].cast(pl.Float64).to_numpy())
+        s_dec = matchers._ts_tensor(survey_frame[survey.dec].cast(pl.Float64).to_numpy())
+        index = catalogs.SkyIndex.build(s_ra, s_dec)
+        near = catalogs.match_nearest(
+            a_ra, a_dec, s_ra, s_dec, k=2, max_radius_arcsec=radius, index=index
         )
-        tree = cKDTree(survey_xyz)
-        dist, idx = tree.query(anchor_xyz, k=2, distance_upper_bound=chord, workers=-1)
-        counts = np.asarray(
-            tree.query_ball_point(anchor_xyz, chord, workers=-1, return_length=True),
-            dtype=np.int64,
-        )
-        best_ok = dist[:, 0] <= chord
-        best_idx = np.where(best_ok, idx[:, 0], -1).astype(np.int64)
-        best_sep = np.where(best_ok, matchers._chord_to_arcsec(dist[:, 0]), np.nan)
-        second_ok = dist[:, 1] <= chord
-        second_sep = np.where(second_ok, matchers._chord_to_arcsec(dist[:, 1]), np.nan)
-        # query_ball_point may see a candidate that the two-neighbour query
-        # omits at the exact boundary; a best index of -1 with count > 0 is
-        # inconsistent, so fall back to the nearest candidate explicitly.
-        missing = (counts > 0) & ~best_ok
-        if missing.any():
-            for row in np.flatnonzero(missing):
-                hit = np.asarray(tree.query_ball_point(anchor_xyz[row], chord), dtype=np.int64)
-                if hit.size:
-                    d = matchers._chord_to_arcsec(
-                        np.linalg.norm(survey_xyz[hit] - anchor_xyz[row], axis=1)
-                    )
-                    order = np.argsort(d, kind="stable")
-                    best_idx[row] = int(hit[order[0]])
-                    best_sep[row] = float(d[order[0]])
-                    if order.size > 1:
-                        second_sep[row] = float(d[order[1]])
+        counts = catalogs.count_within(a_ra, a_dec, s_ra, s_dec, radius, index=index)
+        counts = counts.numpy().astype(np.int64)
+        idx = near.index.numpy().astype(np.int64)
+        sep = near.separation_arcsec.numpy().astype(float)
+        best_idx = idx[:, 0]
+        best_sep = np.where(idx[:, 0] >= 0, sep[:, 0], np.nan)
+        second_sep = np.where(idx[:, 1] >= 0, sep[:, 1], np.nan)
         best_rows = _gather_rows(survey_frame, best_idx)
 
     meta = pl.DataFrame(
@@ -728,18 +731,30 @@ def _fingerprint(plan: AnchorPlan) -> dict[str, Any]:
             "cols": cat.cols,
             "final_cols": cat.final_cols,
             "dtypes": {k: str(v) for k, v in cat.dtypes.items()},
-            "partitions": [asdict(p) for p in cat.partitions],
+            "partitions": [[p.order, p.pix, p.rel] for p in cat.partitions],
+            # Epoch and motion metadata drive propagation and pm_warn.
+            "epoch": cat.epoch,
+            "epoch_column": cat.epoch_column,
+            "pm_ra_column": cat.pm_ra_column,
+            "pm_dec_column": cat.pm_dec_column,
+            "parallax_column": cat.parallax_column,
+            "radial_velocity_column": cat.radial_velocity_column,
+            "frame": cat.frame,
         }
 
     return {
-        "version": 1,
+        # 3: n_within/sep_arcsec/sep_second share one inclusive radius rule.
+        "version": 3,
         "anchor": cat_fp(plan.anchor),
         "surveys": [cat_fp(c) for c in plan.surveys],
         "tags": plan.survey_tags,
         "sep_arcsec": plan.sep_arcsec,
         "target_epoch": plan.target_epoch,
+        "anchor_epoch": plan.anchor_epoch,
+        "fallback_policy": plan.fallback_policy,
         "anchor_id": plan.anchor_id,
         "out_columns": plan.out_columns,
+        "input_files": _input_fingerprint([plan.anchor, *plan.surveys]),
     }
 
 
@@ -853,18 +868,7 @@ def ray_anchor_match(
     else:
         owns_ray = not ray.is_initialized()
         if owns_ray:
-            address = os.environ.get("RAY_ADDRESS")
-            try:
-                ray.init(address=address or "auto", ignore_reinit_error=True)
-            except ConnectionError as exc:
-                if address and fallback_policy == "error":
-                    raise CrossMatchError(
-                        "engine='ray-anchor' could not connect to RAY_ADDRESS under "
-                        "fallback_policy='error'"
-                    ) from exc
-                if address:
-                    logger.warning("Cannot connect to RAY_ADDRESS; starting local Ray.")
-                ray.init(address="local", ignore_reinit_error=True)
+            _init_ray(ray, engine="ray-anchor", fallback_policy=fallback_policy)
         try:
             plan_ref = ray.put(plan)
             task = _anchor_task_factory()

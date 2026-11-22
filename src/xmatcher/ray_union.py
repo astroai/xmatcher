@@ -20,11 +20,14 @@ the matcher's right-side rename convention).
 
 Chunking: each chunk owns exactly one centre partition (the template of a
 HATS output partition).  Candidate rows of each catalogue with a larger
-index are the partitions intersecting a cone of radius ``2*(sep + delta)``
-degrees around the *centre partition pixel centre* (``sep`` converted
-to degrees and enlarged by measured errors/motion; ``delta`` = largest
-partition diagonal across all catalogues; the factor-2 margin keeps the
-covering conservative, so every mate row lies inside its chunk's pool).
+index are the partitions intersecting a cone of radius
+``2*delta + max(2, N-1)*sep`` degrees around the *centre partition pixel
+centre* (``sep`` converted to degrees and enlarged by measured
+errors/motion; ``delta`` = largest partition diagonal across all
+catalogues; ``N`` catalogues).  The margin keeps the covering
+conservative: every mate row lies inside its chunk's pool, and so does every
+row on the chain of lower-catalogue mates that decides whether a centre row
+leads its own row set.
 Every centre row belongs to exactly one chunk and its partners all live in
 that chunk's pool, so every row set is enumerated exactly once.  Partitions
 of catalogue *k* that no earlier catalogue's cone ever covers are emitted
@@ -36,8 +39,8 @@ capped by ``max_tuples``.
 
 Output: ``<out>/dataset/Norder=…/Dir=…/Npix=….parquet`` — one disjoint NESTED tiling
 based on the hub footprint, plus
-``dataset/partition_info.parquet``, ``properties`` and
-``_metadata``/``_common_metadata``, readable via standard HATS
+root ``properties`` and ``partition_info.csv``, and
+``dataset/_metadata``/``_common_metadata``, readable via standard HATS
 readers.  Chunk outputs go to ``<out>/chunks/<key>.parquet`` and are skipped
 on resume when present.
 
@@ -57,7 +60,7 @@ import os
 import shutil
 import tempfile
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -75,9 +78,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_TASK_ROWS = 2_000_000
 DEFAULT_CHUNK_MEMORY_GB = 8.0
 DEFAULT_MAX_TUPLES = 10_000
-_BYTES_PER_ROW = (
-    64.0  # ponytail: advisory estimate, not a hard memory cap; size wide rows separately
-)
+# Planning estimate for the pool guard; _output_row_bytes sizes the emitted rows.
+_BYTES_PER_ROW = 64.0
 _HUB_BLOCK = 50_000  # centre rows per distance batch
 _STATE_NAME = "resume.state"
 _FIXED_COLS = {"sep_arcsec", "_src_cats", "_union_ra", "_union_dec"}
@@ -508,8 +510,9 @@ def build_union_plan(
             else None
         )
 
-        ra_orig = src.ra_column or "ra"
-        dec_orig = src.dec_column or "dec"
+        # HATS trees name their coordinates (PS1 raMean, ZTF objra).
+        ra_orig = src.ra_column or props.get("hats_col_ra") or "ra"
+        dec_orig = src.dec_column or props.get("hats_col_dec") or "dec"
         ra_final = final_cols[cols.index(ra_orig)] if ra_orig in cols else ra_orig
         dec_final = final_cols[cols.index(dec_orig)] if dec_orig in cols else dec_orig
 
@@ -593,7 +596,11 @@ def build_union_plan(
                 eff_arcsec, float(max_error) * math.sqrt(2.0 * (max_ra_var + max_dec_var))
             )
     sep_deg = eff_arcsec / 3600.0
-    cone_radius = min(180.0, 2.0 * (sep_deg + max_delta + max_motion_deg))
+    # A centre row of catalogue k decides ownership through a chain of at most
+    # k mates in lower catalogues (see _lower_position_rows), so the pool must
+    # reach k radii beyond the row, not one.
+    hops = max(2, len(catalogues) - 1)
+    cone_radius = min(180.0, 2.0 * (max_delta + max_motion_deg) + hops * sep_deg)
     depths = [max((p.order for p in c.partitions), default=0) for c in catalogues]
 
     chunks: list[ChunkPlan] = []
@@ -812,7 +819,12 @@ def _effective_pair_chord(
     centre_err: Any,
     pool_errs: Sequence[Any],
 ) -> float:
-    """Spatial upper-bound chord for cKDTree pre-filtering in chunk/rest workers."""
+    """Spatial upper-bound chord for cKDTree pre-filtering in chunk/rest workers.
+
+    ``sep_arcsec`` is the hard ceiling for every matcher, as in the serial
+    engines; positional errors can only narrow the search.  The chunk cone
+    (``max(2, N-1) * sep``) relies on that bound to hold every chain of mates.
+    """
     base_chord = matchers._arcsec_to_chord(float(plan.sep_arcsec))
     if plan.matcher == "skyerr" and centre_err is not None:
         c_max = float(np.nanmax(centre_err)) if len(centre_err) else 0.0
@@ -822,16 +834,125 @@ def _effective_pair_chord(
         )
         bound_arcsec = float(plan.max_error) * (c_max + p_max)
         if np.isfinite(bound_arcsec) and bound_arcsec > 0.0:
-            return max(base_chord, matchers._arcsec_to_chord(bound_arcsec))
+            return min(base_chord, matchers._arcsec_to_chord(bound_arcsec))
     elif plan.matcher == "skyellipse" and centre_err is not None:
-        chords = [base_chord]
-        for pe in pool_errs:
-            if pe is not None and len(pe[0]):
-                chords.append(
-                    matchers._skyellipse_search_chord_max(centre_err, pe, float(plan.max_error))
-                )
-        return max(chords)
+        chords = [
+            matchers._skyellipse_search_chord_max(
+                centre_err, pe, float(plan.max_error), float(plan.sep_arcsec)
+            )
+            for pe in pool_errs
+            if pe is not None and len(pe[0])
+        ]
+        return min(base_chord, max(chords)) if chords else base_chord
     return base_chord
+
+
+def _err_row(err: Any, matcher: str, row: int) -> Any:
+    """One row of a ``skyerr`` sigma array or ``skyellipse`` covariance tuple."""
+    if err is None:
+        return None
+    if matcher == "skyerr":
+        return float(err[row])
+    if matcher == "skyellipse":
+        return tuple(float(part[row]) for part in err)
+    return None
+
+
+def _pair_keep(
+    matcher: str,
+    max_error: float,
+    c_ra: float,
+    c_dec: float,
+    c_err: Any,
+    ra: np.ndarray,
+    dec: np.ndarray,
+    p_err: Any,
+    idx: np.ndarray,
+    seps: np.ndarray,
+) -> np.ndarray:
+    """Which spatial candidates ``idx`` (separations ``seps``) pass the pair criterion."""
+    if matcher == "skyerr" and c_err is not None and p_err is not None:
+        limit = float(max_error) * (c_err + np.asarray(p_err, dtype=float)[idx])
+        return np.isfinite(limit) & np.isfinite(seps) & (seps <= limit)
+    if matcher == "skyellipse" and c_err is not None and p_err is not None:
+        sra2_p, sde2_p, rho_p = p_err
+        n = idx.size
+        # Exact tangent-plane offset and rotated covariances: ΔRA·cos(mean Dec)
+        # is wrong near the poles, where a close pair can differ by 180° in RA.
+        d2 = matchers._skyellipse_d2(
+            np.full(n, c_ra),
+            np.full(n, c_dec),
+            ra[idx],
+            dec[idx],
+            tuple(np.full(n, part) for part in c_err),
+            (sra2_p[idx], sde2_p[idx], rho_p[idx]),
+        )
+        return np.isfinite(d2) & (d2 <= float(max_error) ** 2)
+    return np.ones(idx.size, dtype=bool)
+
+
+def _lower_position_rows(
+    plan: UnionPlan,
+    centre_cat: int,
+    partner_globals: Sequence[int],
+    pools: Sequence[tuple[np.ndarray, np.ndarray]],
+    pool_errs: Sequence[Any],
+) -> list[np.ndarray | None]:
+    """Mark the pool rows of catalogues below the centre that lead a row set.
+
+    The sequential union positions a merged row at its lowest-indexed member,
+    so a row of catalogue ``j`` that matched a leading row of a lower catalogue
+    is folded into that row and no longer offers its own position.  A later
+    catalogue's row that only matches such a folded row is unmatched in the
+    sequential union and must lead its own row set; gating it on the folded
+    mate would drop it from the output entirely.
+
+    Catalogue 0 rows always lead.  A row of catalogue ``j`` leads iff it has
+    no mate among the leading rows of catalogues below ``j``.  The chunk cone
+    covers ``centre_cat`` such hops, so every status reached from a centre row
+    is decided from complete neighbourhoods.  Higher catalogues get ``None``.
+    """
+    from scipy.spatial import cKDTree  # noqa: PLC0415
+
+    masks: list[np.ndarray | None] = [None] * len(partner_globals)
+    lower = [kk for kk, k in enumerate(partner_globals) if k < centre_cat]
+    for kk in lower:
+        ra, dec = pools[kk]
+        lead = np.ones(len(ra), dtype=bool)
+        if not len(ra):
+            masks[kk] = lead
+            continue
+        xyz = matchers._radec_to_xyz(ra, dec)
+        for jj in lower:
+            if partner_globals[jj] >= partner_globals[kk]:
+                break
+            leaders = np.flatnonzero(masks[jj])
+            if not leaders.size:
+                continue
+            j_ra, j_dec = pools[jj]
+            j_xyz = matchers._radec_to_xyz(j_ra[leaders], j_dec[leaders])
+            chord = _effective_pair_chord(plan, pool_errs[kk], [pool_errs[jj]])
+            hits = cKDTree(j_xyz).query_ball_point(xyz, chord)
+            for i, hs in enumerate(hits):
+                if not hs or not lead[i]:
+                    continue
+                idx = leaders[np.asarray(hs, dtype=np.int64)]
+                seps = matchers._chord_to_arcsec(np.linalg.norm(j_xyz[hs] - xyz[i], axis=1))
+                if _pair_keep(
+                    plan.matcher,
+                    plan.max_error,
+                    float(ra[i]),
+                    float(dec[i]),
+                    _err_row(pool_errs[kk], plan.matcher, i),
+                    j_ra,
+                    j_dec,
+                    pool_errs[jj],
+                    idx,
+                    seps,
+                ).any():
+                    lead[i] = False
+        masks[kk] = lead
+    return masks
 
 
 def _gather_rows(frame: pl.DataFrame, idx: np.ndarray) -> pl.DataFrame:
@@ -895,6 +1016,7 @@ def _block_combos(
     pool_errs: Sequence[Any] | None = None,
     max_block_rows: int | None = None,
     block_label: str = "",
+    pool_leads: Sequence[np.ndarray | None] | None = None,
 ) -> tuple[dict[int, np.ndarray], np.ndarray, list[str], np.ndarray]:
     """Enumerate star-shaped row sets for one block of centre rows.
 
@@ -905,12 +1027,14 @@ def _block_combos(
       * srcs[i] — membership string like ``"1+3"``;
       * centre_ids — per-output-row centre row id (from ``centre_row``).
 
-    A row set's positions come from the lowest-indexed catalogue in the set,
-    so combos selecting a partner from a catalogue *lower*-indexed than the
-    centre are dropped (their canonical emission happens in that lower
-    centre's chunk), and the centre-only single is dropped for every row
-    that has ANY mate — the sequential-union oracle never keeps a singleton
-    for a matched row.  ``drop_singles`` (rest partitions) drops all
+    A row set's positions come from the lowest-indexed catalogue in the set.
+    A centre row with a mate that *leads* in a lower catalogue
+    (``pool_leads[k]``, see :func:`_lower_position_rows`; ``None`` = every
+    row leads) is emitted by that lower centre's chunk and skipped here.
+    Mates in lower catalogues that are already folded into a lower row never
+    join this row's sets, and the centre-only single is dropped for every
+    row that has a higher-indexed mate — the sequential-union oracle never
+    keeps a singleton for a matched row.  ``drop_singles`` (rest partitions) drops all
     centre-only combos: the rest task emits those rows instead.
 
     ``max_block_rows`` bounds the rows this block may emit (each row emits
@@ -950,61 +1074,47 @@ def _block_combos(
                 xyz_c = matchers._radec_to_xyz(ra[idx], dec[idx])
                 chord = np.linalg.norm(xyz_c - h_xyz[bi], axis=1)
                 seps_k = matchers._chord_to_arcsec(chord)
-                if (
-                    matcher == "skyerr"
-                    and centre_err is not None
-                    and pool_errs is not None
-                    and pool_errs[k] is not None
-                ):
-                    c_sig = float(centre_err[bi])
-                    p_sig = np.asarray(pool_errs[k], dtype=float)[idx]
-                    limit = float(max_error) * (c_sig + p_sig)
-                    keep_k = np.isfinite(limit) & np.isfinite(seps_k) & (seps_k <= limit)
-                    idx = idx[keep_k]
-                    seps_k = seps_k[keep_k]
-                elif (
-                    matcher == "skyellipse"
-                    and centre_err is not None
-                    and pool_errs is not None
-                    and pool_errs[k] is not None
-                ):
-                    sra2_c, sde2_c, rho_c = centre_err
-                    sra2_p, sde2_p, rho_p = pool_errs[k]
-                    mean_dec = 0.5 * (float(centre_dec[bi]) + dec[idx])
-                    cos_dec = np.cos(np.radians(mean_dec))
-                    delta_ra = (
-                        ((float(centre_ra[bi]) - ra[idx] + 180.0) % 360.0 - 180.0)
-                        * 3600.0
-                        * cos_dec
-                    )
-                    delta_dec = (float(centre_dec[bi]) - dec[idx]) * 3600.0
-                    d2 = matchers._mahalanobis_pairwise(
-                        delta_ra,
-                        delta_dec,
-                        np.full(idx.size, float(sra2_c[bi])),
-                        np.full(idx.size, float(sde2_c[bi])),
-                        np.full(idx.size, float(rho_c[bi])),
-                        sra2_p[idx],
-                        sde2_p[idx],
-                        rho_p[idx],
-                    )
-                    keep_k = np.isfinite(d2) & (d2 <= float(max_error) ** 2)
-                    idx = idx[keep_k]
-                    seps_k = seps_k[keep_k]
+                keep_k = _pair_keep(
+                    matcher,
+                    max_error,
+                    float(centre_ra[bi]),
+                    float(centre_dec[bi]),
+                    _err_row(centre_err, matcher, bi),
+                    ra,
+                    dec,
+                    pool_errs[k] if pool_errs is not None else None,
+                    idx,
+                    seps_k,
+                )
+                idx = idx[keep_k]
+                seps_k = seps_k[keep_k]
                 nbrs.append((idx, seps_k))
             else:
                 nbrs.append((idx, np.array([], dtype=float)))
 
         # ---- row-level ownership gate ----------------------------------------
-        # A centre row of a non-hub catalogue that also has a LOWER-indexed
-        # mate is owned by that lower centre (which feeds its higher pools):
-        # skip the row here entirely — otherwise its {j, k} row sets would
-        # also star from this chunk and the row would participate twice.
+        # A centre row of a non-hub catalogue with a mate that LEADS a lower
+        # row set is owned by that lower centre (which feeds its higher
+        # pools): skip the row here entirely — otherwise its {j, k} row sets
+        # would also star from this chunk and the row would participate
+        # twice.  A lower mate that is itself folded into an even lower row
+        # does not own it: the sequential union compares this row with the
+        # folded row's lowest-member position, so the row leads its own sets.
         # Rest rows provably have no lower-indexed mates (the cone-coverage
-        # proof), so this only gates non-rest centre chunks; hub chunks
-        # (centre_cat == 0) never gate.
-        if any(cat_labels[k] - 1 < centre_cat and nbrs[k][0].size for k in range(n_partner)):
+        # proof); hub chunks (centre_cat == 0) never gate.
+        lower = [k for k in range(n_partner) if cat_labels[k] - 1 < centre_cat]
+        if any(
+            nbrs[k][0].size
+            and (
+                pool_leads is None
+                or pool_leads[k] is None
+                or bool(np.asarray(pool_leads[k])[nbrs[k][0]].any())
+            )
+            for k in lower
+        ):
             continue
+        for k in lower:
+            nbrs[k] = (np.array([], dtype=np.int64), np.array([], dtype=float))
 
         # ---- combos: (candidate | null) per partner --------------------------
         lists: list[np.ndarray] = []
@@ -1049,8 +1159,6 @@ def _block_combos(
                         continue  # row has a mate: the oracle keeps no singleton
                     always.append(combo)  # unmatched centre-only rows survive
                     continue
-                if any(cat_labels[k] - 1 < centre_cat for k, c in enumerate(combo) if c >= 0):
-                    continue  # canonical emission lives in a lower-indexed centre
                 sep = sep_of(combo)
                 if sep is None:
                     continue
@@ -1205,6 +1313,7 @@ def _run_chunk(plan: UnionPlan, chunk: ChunkPlan) -> dict[str, Any]:
         labels.append(k + 1)
 
     sep_chord = _effective_pair_chord(plan, centre_err, pool_errs)
+    pool_leads = _lower_position_rows(plan, chunk.center, partner_globals, pools, pool_errs)
     drop_singles = (chunk.center, chunk.center_idx) in plan.rest_keys
     # The candidate-pool guard in build_union_plan caps inputs; a dense field
     # can still expand the OUTPUT far past memory (every hub row times
@@ -1243,6 +1352,7 @@ def _run_chunk(plan: UnionPlan, chunk: ChunkPlan) -> dict[str, Any]:
             pool_errs=pool_errs,
             max_block_rows=block_row_budget,
             block_label=f"chunk {chunk.key} rows {b0}-{b1}",
+            pool_leads=pool_leads,
         )
         if not len(seps):
             continue
@@ -1323,46 +1433,23 @@ def _run_rest(plan: UnionPlan, rest: RestPlan) -> dict[str, Any]:
             p_xyz = matchers._radec_to_xyz(ra, dec)
             tree = cKDTree(p_xyz)
             hits = tree.query_ball_point(h_xyz, sep_chord)
-            pe = pool_errs[pk]
             for i, hs in enumerate(hits):
-                if not hs:
+                if not hs or not keep[b0 + i]:
                     continue
-                if plan.matcher == "sky":
-                    keep[b0 + i] = False
-                elif plan.matcher == "skyerr" and centre_err is not None and pe is not None:
-                    idx = np.asarray(hs, dtype=np.int64)
-                    chord = np.linalg.norm(p_xyz[idx] - h_xyz[i], axis=1)
-                    seps_k = matchers._chord_to_arcsec(chord)
-                    limit = float(plan.max_error) * (
-                        float(centre_err[b0 + i]) + np.asarray(pe, dtype=float)[idx]
-                    )
-                    if np.any(np.isfinite(limit) & np.isfinite(seps_k) & (seps_k <= limit)):
-                        keep[b0 + i] = False
-                elif plan.matcher == "skyellipse" and centre_err is not None and pe is not None:
-                    idx = np.asarray(hs, dtype=np.int64)
-                    sra2_c, sde2_c, rho_c = centre_err
-                    sra2_p, sde2_p, rho_p = pe
-                    mean_dec = 0.5 * (float(dec_full[b0 + i]) + dec[idx])
-                    cos_dec = np.cos(np.radians(mean_dec))
-                    delta_ra = (
-                        ((float(ra_full[b0 + i]) - ra[idx] + 180.0) % 360.0 - 180.0)
-                        * 3600.0
-                        * cos_dec
-                    )
-                    delta_dec = (float(dec_full[b0 + i]) - dec[idx]) * 3600.0
-                    d2 = matchers._mahalanobis_pairwise(
-                        delta_ra,
-                        delta_dec,
-                        np.full(idx.size, float(sra2_c[b0 + i])),
-                        np.full(idx.size, float(sde2_c[b0 + i])),
-                        np.full(idx.size, float(rho_c[b0 + i])),
-                        sra2_p[idx],
-                        sde2_p[idx],
-                        rho_p[idx],
-                    )
-                    if np.any(np.isfinite(d2) & (d2 <= float(plan.max_error) ** 2)):
-                        keep[b0 + i] = False
-                else:
+                idx = np.asarray(hs, dtype=np.int64)
+                seps_k = matchers._chord_to_arcsec(np.linalg.norm(p_xyz[idx] - h_xyz[i], axis=1))
+                if _pair_keep(
+                    plan.matcher,
+                    plan.max_error,
+                    float(ra_full[b0 + i]),
+                    float(dec_full[b0 + i]),
+                    _err_row(centre_err, plan.matcher, b0 + i),
+                    ra,
+                    dec,
+                    pool_errs[pk],
+                    idx,
+                    seps_k,
+                ).any():
                     keep[b0 + i] = False
 
     kept_ids = np.flatnonzero(keep)
@@ -1383,38 +1470,47 @@ def _run_rest(plan: UnionPlan, rest: RestPlan) -> dict[str, Any]:
     return {"key": f"rest-{rest.cat}-{rest.part_idx:05d}", "rows": table.height}
 
 
-def _rest_hub_keys(
-    frame: pl.DataFrame,
-    cat: CataloguePlan,
-    hub_parts: list[PartitionPlan],
-    max_hub_order: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Per-row ``(hub partition index, outside pixel)`` for rest rows.
+def _hub_router(
+    hub_parts: Sequence[PartitionPlan], max_hub_order: int
+) -> Callable[[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray]]:
+    """Return ``route(ra, dec) -> (hub partition index, outside pixel)``.
 
-    ``outside pixel`` = the row's pixel at ``max_hub_order`` when no hub
+    ``outside pixel`` is the row's pixel at ``max_hub_order`` when no hub
     partition contains it (``-1`` otherwise); hub index ``-1`` marks rows
-    outside the hub footprint.
-    """
-    import cdshealpix  # noqa: PLC0415
-    from astropy.coordinates import Latitude, Longitude  # noqa: PLC0415
+    outside the hub footprint.  The deepest containing partition wins.
 
-    ra = frame[cat.ra].cast(pl.Float64).to_numpy()
-    dec = frame[cat.dec].cast(pl.Float64).to_numpy()
-    if not len(ra):
-        return np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
-    npix = cdshealpix.nested.lonlat_to_healpix(
-        Longitude(ra, unit="deg"),
-        Latitude(dec, unit="deg"),
-        np.full(len(ra), max_hub_order, dtype=np.uint64),
-    )
-    hub_idx = np.full(len(ra), -1, dtype=np.int64)
-    for i, p in sorted(enumerate(hub_parts), key=lambda t: (-t[1].order, t[1].pix)):
-        shift = max_hub_order - p.order
-        anc = npix >> (2 * shift)
-        hit = (anc == p.pix) & (hub_idx < 0)
-        hub_idx[hit] = i
-    outside = np.where(hub_idx < 0, npix.astype(np.int64), -1)
-    return hub_idx, outside
+    One sorted pixel table per hub order, built once: testing every hub
+    partition against every row cost O(P x N) per chunk file, i.e.
+    O(P x total rows) for the assembly (~10^4 x 10^9 at full-sky scale).
+    """
+    tables = []
+    for order in sorted({p.order for p in hub_parts}, reverse=True):
+        members = [(i, p.pix) for i, p in enumerate(hub_parts) if p.order == order]
+        idx = np.asarray([i for i, _ in members], dtype=np.int64)
+        pix = np.asarray([px for _, px in members], dtype=np.int64)
+        sort = np.argsort(pix, kind="stable")
+        tables.append((2 * (max_hub_order - order), pix[sort], idx[sort]))
+
+    def route(ra: np.ndarray, dec: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        if not len(ra):
+            return np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
+        import cdshealpix  # noqa: PLC0415
+        from astropy.coordinates import Latitude, Longitude  # noqa: PLC0415
+
+        npix = cdshealpix.nested.lonlat_to_healpix(
+            Longitude(ra, unit="deg"),
+            Latitude(dec, unit="deg"),
+            np.full(len(ra), max_hub_order, dtype=np.uint64),
+        ).astype(np.int64)
+        hub_idx = np.full(len(ra), -1, dtype=np.int64)
+        for shift, pix, idx in tables:
+            anc = npix >> shift
+            pos = np.minimum(np.searchsorted(pix, anc), len(pix) - 1)
+            hit = (pix[pos] == anc) & (hub_idx < 0)
+            hub_idx[hit] = idx[pos[hit]]
+        return hub_idx, np.where(hub_idx < 0, npix, -1)
+
+    return route
 
 
 # --------------------------------------------------------------------------- #
@@ -1549,14 +1645,22 @@ def _write_hats_tree(
 ) -> dict[str, int]:
     """Write the HATS metadata for a tree whose partitions are already on disk.
 
-    Shared by ``ray-anchor`` and ``project-hats``: both write one partition
-    file per HEALPix pixel and then need the same root/``dataset`` copies of
-    ``partition_info`` and ``properties`` plus Arrow footer metadata.  The
-    ``file_loc`` values in ``info_rows`` are relative to ``dataset/`` and omit
-    the ``.parquet`` suffix.
+    Shared by ``ray-anchor`` and ``project-hats``: both write one
+    ``Npix=<pix>.parquet`` file per HEALPix pixel, so ``hats_npix_suffix`` is
+    always ``.parquet`` whatever the source tree used.  The ``file_loc``
+    values in ``info_rows`` are relative to ``dataset/`` and omit the
+    ``.parquet`` suffix.
+
+    Layout follows the HATS spec (and ``hats.io.validation`` strict mode):
+    root ``properties`` and ``partition_info.csv``; ``dataset/`` holds only
+    the pixel files, ``_common_metadata`` and a ``_metadata`` that carries
+    every partition's row-group footers.  Anything else under ``dataset/``
+    makes it unreadable as a plain Parquet dataset.
 
     Returns ``{"rows": total, "partitions": n}``.
     """
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
     dataset = out / "dataset"
     dataset.mkdir(parents=True, exist_ok=True)
     schema = {
@@ -1568,67 +1672,78 @@ def _write_hats_tree(
         "file_size": pl.Int64,
         "count": pl.Int64,
     }
-    info = pl.DataFrame(list(info_rows), schema=schema)
-    _atomic_write_csv(info, dataset / "partition_info.csv")
+    info = pl.DataFrame(list(info_rows), schema=schema).sort(["Norder", "Npix"])
+    sizes = []
+    for loc in info["file_loc"]:
+        path = dataset / f"{loc}.parquet"
+        if pq.read_metadata(path).num_row_groups == 0:
+            # Polars writes a zero-row frame with no row group, so `_metadata`
+            # could not name the partition; pyarrow writes one empty row group.
+            tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+            pq.write_table(pq.read_table(path), tmp)
+            os.replace(tmp, path)
+        sizes.append(path.stat().st_size)
+    info = info.with_columns(pl.Series("file_size", sizes, dtype=pl.Int64))
     _atomic_write_csv(info, out / "partition_info.csv")
-    _atomic_write_parquet(info, dataset / "partition_info.parquet")
     total = int(info["count"].sum()) if info.height else 0
     tree_props = dict(props)
     tree_props["hats_nrows"] = str(total)
-    text = _props_text(tree_props)
-    _atomic_write_text(text, out / "properties")
-    _atomic_write_text(text, dataset / "properties")
+    tree_props["hats_npix_suffix"] = ".parquet"
+    _atomic_write_text(_props_text(tree_props), out / "properties")
     if info.height:
-        try:
-            import pyarrow.parquet as pq  # noqa: PLC0415
-
-            first = dataset / f"{info['file_loc'][0]}.parquet"
-            arrow_schema = pq.read_schema(first)
-            pq.write_metadata(arrow_schema, dataset / "_common_metadata")
-            pq.write_metadata(arrow_schema, dataset / "_metadata")
-        except Exception:  # noqa: BLE001 - metadata is advisory
-            logger.warning("skipping HATS metadata for %s", out)
+        arrow_schema = None
+        footers = []
+        first = ""
+        for loc in info["file_loc"]:
+            rel = f"{loc}.parquet"
+            footer = pq.read_metadata(dataset / rel)
+            part_schema = footer.schema.to_arrow_schema()
+            if arrow_schema is None:
+                arrow_schema, first = part_schema, rel
+            elif not part_schema.equals(arrow_schema):
+                raise CrossMatchError(
+                    f"HATS partition {rel} has a different schema from {first}; "
+                    "a HATS catalogue needs one schema for every partition"
+                )
+            footer.set_file_path(rel)
+            footers.append(footer)
+        pq.write_metadata(arrow_schema, dataset / "_common_metadata")
+        pq.write_metadata(arrow_schema, dataset / "_metadata", metadata_collector=footers)
     return {"rows": total, "partitions": info.height}
 
 
 def _assemble(plan: UnionPlan) -> dict[str, Any]:
-    """Turn the per-chunk parquets into a HATS catalogue at ``plan.out_dir``."""
+    """Turn the per-chunk parquets into a HATS catalogue at ``plan.out_dir``.
+
+    Two passes with linear I/O: every chunk file is split by output pixel into
+    staged pieces, then each output pixel is written once from its pieces,
+    already cast to the shared partition schema.  Merging piece by piece into
+    the destination re-read and rewrote it for every chunk that touched it
+    (quadratic in the chunks per pixel), and a separate harmonisation pass
+    rewrote most partitions again.
+
+    The chunk parquets are kept: they are the resume points.
+    """
     out = Path(plan.out_dir)
     dataset = out / "dataset"
     dataset.mkdir(parents=True, exist_ok=True)
-    # Insertion-ordered set: a list made the membership test below a linear
-    # scan, i.e. O(P^2) for a full-sky output (P ~ 10^5-10^6 pixels).
-    seen: dict[Path, None] = {}
+    staging = out / "chunks" / ".assemble"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
+    pieces: dict[tuple[int, int], list[Path]] = {}
 
-    def add_partition(part: PartitionPlan, src: Path) -> None:
-        relf = f"Norder={part.order}/Dir={_hats_dir(part.pix)}/Npix={part.pix}.parquet"
-        dest = dataset / relf
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest in seen:
-            # several chunks can carry rows of the same output pixel
-            # (one per input catalogue); merge them deterministically.
-            # ``vertical_relaxed``: a chunk that matched no row of a catalogue
-            # contributes all-null columns (Null dtype when the input schema was
-            # unreadable, e.g. a vos: cache root), and a strict vertical concat
-            # refuses to stack Null next to the typed column another chunk wrote.
-            merged = pl.concat(
-                [pl.read_parquet(dest), pl.read_parquet(src)], how="vertical_relaxed"
-            )
-            _atomic_write_parquet(merged, dest)
-        else:
-            # `src` is our own staging file (rest-routing tmp): the move is
-            # the rename, and it consumes the tmp -> no litter.
-            os.replace(src, dest)
-            seen[dest] = None
-        # NOTE: the source chunk parquet is deliberately NOT removed — they
-        # are the resume points (a rerun skips existing chunk files).
+    def stage(order: int, pix: int, frame: pl.DataFrame) -> None:
+        paths = pieces.setdefault((order, pix), [])
+        path = staging / f"{order}-{pix}-{len(paths):06d}.parquet"
+        frame.write_parquet(path)
+        paths.append(path)
 
     # Keep catalogue labels stable when the first input has no footprint.
     hub_parts = next(
         (cat.partitions for cat in plan.catalogues if cat.partitions), [PartitionPlan(0, 0, "")]
     )
     max_hub_order = max(p.order for p in hub_parts)
-    routing_cat = CataloguePlan("union", "", "", "_union_ra", "_union_dec")
+    route = _hub_router(hub_parts, max_hub_order)
     files = [out / "chunks" / f"{chunk.key}.parquet" for chunk in plan.chunks]
     files += [out / "chunks" / f"rest-{rest.cat}-{rest.part_idx:05d}.parquet" for rest in plan.rest]
     for src in files:
@@ -1639,85 +1754,89 @@ def _assemble(plan: UnionPlan) -> dict[str, Any]:
         # Route all chunks (including moved sources and secondary-only rows)
         # through the hub tiling; copying each input's tile creates overlapping
         # parent/child output pixels and null advertised coordinate columns.
-        hub_idx, outside_pix = _rest_hub_keys(frame, routing_cat, hub_parts, max_hub_order)
-        groups = frame.with_columns(pl.Series("_route", hub_idx)).partition_by(
-            "_route", as_dict=True
+        hub_idx, outside_pix = route(
+            frame["_union_ra"].cast(pl.Float64).to_numpy(),
+            frame["_union_dec"].cast(pl.Float64).to_numpy(),
         )
-        for key, sub in groups.items():
-            h = int(key[0])
-            if h < 0:
-                continue
-            tmp = out / "chunks" / f".{src.stem}-h{h}.tmp"
-            try:
-                sub.drop("_route").write_parquet(tmp)
-                add_partition(hub_parts[h], tmp)
-            finally:
-                tmp.unlink(missing_ok=True)
-        groups = frame.with_columns(pl.Series("_route", outside_pix)).partition_by(
-            "_route", as_dict=True
-        )
-        for key, sub in groups.items():
-            px = int(key[0])
-            if px < 0:
-                continue
-            tmp = out / "chunks" / f".{src.stem}-o{px}.tmp"
-            try:
-                sub.drop("_route").write_parquet(tmp)
-                add_partition(PartitionPlan(max_hub_order, px, ""), tmp)
-            finally:
-                tmp.unlink(missing_ok=True)
+        for key, sub in (
+            frame.with_columns(pl.Series("_hub", hub_idx))
+            .partition_by("_hub", as_dict=True)
+            .items()
+        ):
+            if int(key[0]) >= 0:
+                part = hub_parts[int(key[0])]
+                stage(part.order, part.pix, sub.drop("_hub"))
+        for key, sub in (
+            frame.with_columns(pl.Series("_out", outside_pix))
+            .partition_by("_out", as_dict=True)
+            .items()
+        ):
+            if int(key[0]) >= 0:
+                stage(max_hub_order, int(key[0]), sub.drop("_out"))
 
-    if not seen:
+    if not pieces:
         # A zero-row catalogue still carries a readable schema and HATS metadata.
-        tmp = out / "chunks" / ".empty.tmp"
-        tmp.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            _empty_union(plan).write_parquet(tmp)
-            add_partition(hub_parts[0], tmp)
-        finally:
-            tmp.unlink(missing_ok=True)
+        stage(hub_parts[0].order, hub_parts[0].pix, _empty_union(plan))
 
-    if seen:
-        info: list[dict[str, Any]] = []
-        total_rows = 0
-        for dest in seen:
-            order = int(dest.parent.parent.name.removeprefix("Norder="))
-            pix = int(dest.name.removeprefix("Npix=").removesuffix(".parquet"))
-            count = _parquet_row_count(dest)
-            total_rows += count
-            info.append(
-                {
-                    "Norder": order,
-                    "Dir": int(_hats_dir(pix)),
-                    "Npix": int(pix),
-                    "Nfiles": 1,
-                    "file_loc": f"Norder={order}/Dir={_hats_dir(pix)}/Npix={pix}",
-                    "file_size": dest.stat().st_size,
-                    "count": count,
-                }
+    schemas = {path: pl.read_parquet_schema(path) for paths in pieces.values() for path in paths}
+    target = _partition_schema(schemas.values(), plan)
+    info: list[dict[str, Any]] = []
+    for (order, pix), paths in sorted(pieces.items()):
+        loc = f"Norder={order}/Dir={_hats_dir(pix)}/Npix={pix}"
+        dest = dataset / f"{loc}.parquet"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if len(paths) == 1 and list(schemas[paths[0]].items()) == list(target.items()):
+            os.replace(paths[0], dest)
+            rows = _parquet_row_count(dest)
+        else:
+            # ``vertical_relaxed``: a chunk that matched no row of a catalogue
+            # contributes all-null columns (Null dtype when the input schema
+            # was unreadable, e.g. a vos: cache root).
+            frame = pl.concat([pl.read_parquet(p) for p in paths], how="vertical_relaxed")
+            frame = frame.select(
+                [
+                    pl.col(c).cast(dtype) if c in frame.columns else pl.lit(None, dtype).alias(c)
+                    for c, dtype in target.items()
+                ]
             )
-        info_df = pl.DataFrame(info).sort(["Norder", "Npix", "file_loc"])
-        _atomic_write_parquet(info_df, dataset / "partition_info.parquet")
-        # hats 0.7.x reads the root copy; the dataset copy is the classic spec.
-        _atomic_write_csv(info_df, dataset / "partition_info.csv")
-        _atomic_write_csv(info_df, out / "partition_info.csv")
-        props = _read_hub_props(plan)
-        # the union's row count, never the hub's inherited hats_nrows
-        props["hats_nrows"] = str(total_rows)
-        props_text = _props_text(props)
-        _atomic_write_text(props_text, out / "properties")
-        _atomic_write_text(props_text, dataset / "properties")
-        try:
-            import pyarrow as pa  # noqa: PLC0415
-            import pyarrow.parquet as pq  # noqa: PLC0415
+            _atomic_write_parquet(frame, dest)
+            rows = frame.height
+        info.append(
+            {
+                "Norder": order,
+                "Dir": _hats_dir(pix),
+                "Npix": pix,
+                "Nfiles": 1,
+                "file_loc": loc,
+                "file_size": dest.stat().st_size,
+                "count": rows,
+            }
+        )
+    shutil.rmtree(staging)
+    # the union's row count (set by the writer), never the hub's inherited one
+    stats = _write_hats_tree(out, info, _read_hub_props(plan))
+    return {"chunks": len(info), "rows": stats["rows"]}
 
-            schemas = [pq.read_schema(f) for f in seen]
-            unified = pa.unify_schemas(list(schemas))
-            pq.write_metadata(unified, dataset / "_common_metadata")
-            pq.write_metadata(unified, dataset / "_metadata")
-        except Exception:  # noqa: BLE001
-            logger.warning("heterogeneous parquet schemas; skipping _metadata")
-    return {"chunks": len(seen), "rows": total_rows if seen else 0}
+
+def _partition_schema(schemas: Iterable[pl.Schema], plan: UnionPlan) -> pl.Schema:
+    """The one schema every output partition gets, as a HATS catalogue requires.
+
+    Pieces written by a chunk that saw no row of a catalogue can hold
+    Null-typed columns.  Each column takes its planned dtype, or the first
+    concrete dtype found on disk when the plan could not read the input
+    schema; planned columns come first, in plan order.
+    """
+    planned = _empty_union(plan).schema
+    target: dict[str, pl.DataType] = {}
+    for schema in schemas:
+        for column, dtype in schema.items():
+            planned_dtype = planned.get(column)
+            if planned_dtype is not None and planned_dtype != pl.Null:
+                target[column] = planned_dtype
+            elif target.get(column, pl.Null) == pl.Null:
+                target[column] = dtype
+    order = [c for c in planned if c in target] + [c for c in target if c not in planned]
+    return pl.Schema({c: target[c] for c in order})
 
 
 # --------------------------------------------------------------------------- #
@@ -1747,10 +1866,10 @@ def _append_event(out: Path, event: str, **fields: Any) -> None:
         pass
 
 
-def _input_fingerprint(plan: UnionPlan) -> list[dict[str, Any]]:
+def _input_fingerprint(catalogues: Sequence[CataloguePlan]) -> list[dict[str, Any]]:
     """Local stat freshness; content digests for roots without reliable mtimes."""
     files = []
-    for cat in plan.catalogues:
+    for cat in catalogues:
         storage = open_storage(cat.root)
         for part in cat.partitions:
             entry: dict[str, Any] = {"root": cat.root, "rel": part.rel}
@@ -1767,6 +1886,29 @@ def _input_fingerprint(plan: UnionPlan) -> list[dict[str, Any]]:
                         entry["sha256"] = hashlib.file_digest(stream, "sha256").hexdigest()
             files.append(entry)
     return files
+
+
+def _init_ray(ray: Any, *, engine: str, fallback_policy: str) -> None:
+    """Join ``RAY_ADDRESS`` when set (CANFAR ray-manager), else start a private cluster.
+
+    ``address="auto"`` (Ray's default discovery) attaches to whatever cluster
+    another process on this host started last; the run then shares its CPUs
+    and dies when that unrelated cluster stops.
+    """
+    address = os.environ.get("RAY_ADDRESS")
+    if address:
+        try:
+            ray.init(address=address, ignore_reinit_error=True)
+            return
+        except ConnectionError as exc:
+            if fallback_policy == "error":
+                raise CrossMatchError(
+                    f"engine='{engine}' could not connect to RAY_ADDRESS under "
+                    "fallback_policy='error'"
+                ) from exc
+            logger.warning("Cannot connect to RAY_ADDRESS; starting a local Ray cluster.")
+    # Explicit 'local' bypasses RAY_ADDRESS without changing caller env.
+    ray.init(address="local", ignore_reinit_error=True)
 
 
 def ray_union_match(
@@ -1828,20 +1970,25 @@ def ray_union_match(
     )
     _LAST_PLAN = plan
     fingerprint: dict[str, Any] = {
+        # Only what changes the output: --task-rows, --chunk-memory-gb and
+        # --hats-threshold are sizing guards, and the run-time guard asks the
+        # user to raise --chunk-memory-gb, which must not discard finished
+        # chunks.  est_rows depends on --hats-threshold for remote roots.
         "sep_arcsec": sep_arcsec,
-        "hats_threshold": int(hats_threshold),
-        "task_rows": task_rows,
-        "chunk_memory_gb": chunk_memory_gb,
         "max_tuples": max_tuples,
-        "plan_version": 3,
+        "plan_version": 4,
         "fallback_policy": fallback_policy,
         "inputs": [
-            {**asdict(cat), "dtypes": {col: str(dtype) for col, dtype in cat.dtypes.items()}}
+            {
+                **asdict(cat),
+                "partitions": [[p.order, p.pix, p.rel] for p in cat.partitions],
+                "dtypes": {col: str(dtype) for col, dtype in cat.dtypes.items()},
+            }
             for cat in plan.catalogues
         ],
-        # ponytail: local freshness uses stat, not a full O(bytes) digest;
+        # Local freshness uses stat, not a full O(bytes) digest;
         # nonlocal files require content hashes because their mtimes are unknown.
-        "input_files": _input_fingerprint(plan),
+        "input_files": _input_fingerprint(plan.catalogues),
     }
     if matcher != "sky":
         fingerprint["matcher"] = matcher
@@ -1886,23 +2033,9 @@ def ray_union_match(
 
     import ray  # noqa: PLC0415
 
-    # join a running head (CANFAR: `ray start --head` + RAY_ADDRESS); on a
-    # laptop with no cluster, "auto" raises and we fall back to a fresh local
-    # cluster (Ray 2.x does not auto-start one for address="auto").
     owns_ray = not ray.is_initialized()
     if owns_ray:
-        address = os.environ.get("RAY_ADDRESS")
-        try:
-            ray.init(address=address or "auto", ignore_reinit_error=True)
-        except ConnectionError as exc:
-            if address and fallback_policy == "error":
-                raise CrossMatchError(
-                    "engine='ray-union' could not connect to RAY_ADDRESS under fallback_policy='error'"
-                ) from exc
-            if address:
-                logger.warning("Cannot connect to RAY_ADDRESS; starting a local Ray cluster.")
-            # Explicit 'local' bypasses RAY_ADDRESS without changing caller env.
-            ray.init(address="local", ignore_reinit_error=True)
+        _init_ray(ray, engine="ray-union", fallback_policy=fallback_policy)
     try:
         plan_ref = ray.put(plan)
         chunk_fn = _chunk_task_factory()

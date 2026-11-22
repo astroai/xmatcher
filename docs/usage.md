@@ -12,10 +12,10 @@ For dedicated reference manuals, see the [CLI Reference](cli.md), [Python API Re
 ### Standard: Pip
 
 ```bash
-# Core package (fast cKDTree, Polars, Astropy, PyVO)
+# Core package (torchsky zone index, Polars, Astropy, PyVO)
 pip install xmatcher
 
-# All optional features (Ray distributed, HATS, CDS, ML, Torchfits)
+# All optional features (Ray distributed, HATS, CDS, ML)
 pip install "xmatcher[all]"
 ```
 
@@ -49,16 +49,22 @@ If you only need specific optional backends rather than `[all]`:
 
 | Extra | Packages | Purpose |
 |---|---|---|
-| `[all]` | `astroquery`, `cdshealpix`, `hats`, `ray`, `torchfits`, `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | All optional features in one install. |
+| `[all]` | `astroquery`, `cdshealpix`, `hats`, `ray`, `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | All optional features in one install. |
 | `[cds]` | `astroquery` | CDS VizieR and CDS XMatch remote service backends. |
-| `[zone]` | `cdshealpix` | HEALPix spatial zoning engine. |
+| `[zone]` | `cdshealpix` | Kept for compatibility; `engine="zone"` runs on torchsky and no longer needs it. |
 | `[hats]` | `hats`, `cdshealpix` | HATS native reading and spatial partitioning. |
 | `[hats-ray]` | `hats`, `ray`, `cdshealpix` | Native HATS + Ray pixel matcher and `ray-union` engine. |
 | `[ray]` | `ray`, `cdshealpix` | Distributed parallel HEALPix matching across Ray clusters. |
-| `[torchfits]` | `torchfits` | Fast, Arrow/Polars-native local FITS table reader. |
 | `[ml]` | `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | Machine-learning (`ml`) and gradient-boosted (`xgb`) matchers. |
 
-The experimental tensor-native `torchsky` engine is not a PyPI package: it requires a compatible Torchsky checkout installed alongside xmatcher.
+[torchsky](https://github.com/astroai/torchsky) (>=0.6.0, with PyTorch) and
+[torchfits](https://github.com/astroai/torchfits) are core dependencies:
+torchsky does the matching, association statistics, epoch propagation and
+HEALPix work; torchfits reads FITS tables. An installed torchsky older than
+0.6.0 is refused with an upgrade message. In a conda or Pixi environment, take
+CPU PyTorch from conda-forge (the default Pixi environment does): the PyPI wheel
+bundles its own OpenMP runtime, which aborts a conda environment on macOS.
+torchsky's wheels need macOS 14 or later and Python 3.12 or 3.13.
 
 ---
 
@@ -89,7 +95,7 @@ df = cm.crossmatch(
     "optical.parquet",
     "infrared.csv",
     radius_arcsec=1.5,
-    engine="fast",  # SciPy cKDTree on 3D unit sphere
+    engine="fast",  # torchsky exact declination-zone index
     join_type="1and2",  # Inner join
 )
 
@@ -490,6 +496,27 @@ result = cm.crossmatch_request(
 # Result includes 'lr' and 'reliability' columns in [0, 1]
 ```
 
+`lr_color_column="g_mag"` (a primary column) turns the magnitude term into the
+colour secondary − primary. With three or more catalogues, `matcher="lr"` is one
+$N$-way association (torchsky `associate_many`): each primary row's hypotheses
+combine one counterpart or none per catalogue, with a magnitude term per
+secondary (`lr_magnitude_column`, or `lr_magnitude_column_<n>` for catalogue
+`n`). Every catalogue needs positional errors.
+
+```python
+result = cm.crossmatch_multi(
+    ["gaia.parquet", "allwise.parquet", "twomass.parquet"],
+    radius_arcsec=5.0,
+    matcher="lr",
+    lr_magnitude_column_2="W1mag",
+    lr_magnitude_column_3="Jmag",
+    lr_color_column="phot_g_mean_mag",  # W1 - G and J - G
+    lr_q=0.8,
+)
+# One row per primary (its MAP hypothesis): sep_arcsec_2, sep_arcsec_3,
+# reliability, lr, p_any, nway_best; absent members are null.
+```
+
 ### G. Machine Learning Classifiers (`matcher="ml"`, `matcher="xgb"`)
 
 Trained on-the-fly with nearest-neighbour pseudo-labels using normalized separations, multi-band color differences, and local source densities:
@@ -728,8 +755,9 @@ projection workflow, and CANFAR local-product aliases.
 To hand a HATS tree to tools that only read ordinary tables, flatten it with
 `xmatcher export-hats <source> <out.parquet|out.fits>` (or
 `xmatcher.export_hats` / `xmatcher.scan_hats`). Parquet scans Npix partitions
-lazily; FITS materializes. Huge catalogues may OOM — prefer keeping the HATS
-layout when a single file is not required.
+lazily and FITS streams in bounded memory. `xmatcher convert` converts in any
+direction between FITS, Parquet, HATS and CSV. Prefer keeping the HATS layout
+when a single file is not required.
 
 ## 9. Friends-of-Friends output policy
 
@@ -738,10 +766,22 @@ then forms connected components. This lets an A–B and B–C chain place all
 three detections in one component even if A and C are farther apart than the
 link radius. Output is primary-anchored: only components containing a source
 from the first catalogue are emitted, and secondary-only components are
-omitted. Isolated first-catalogue rows are retained. Numeric attributes are
-aggregated by mean and nonnumeric attributes use the first value; inspect the
-source membership (`_src_cats`) before interpreting an aggregate as one
-measurement.
+omitted. Isolated first-catalogue rows are retained.
+
+Each output row carries the columns of the first first-catalogue row in its
+bundle, unchanged. Columns from the other catalogues are aggregated over the
+bundle's members from that catalogue:
+
+- float columns: mean, ignoring NaN;
+- the catalogue's RA/Dec pair: unit-vector mean, so bundles across RA=0/360
+  and near the poles stay where they are;
+- every other column (integer IDs such as a Gaia `source_id`, strings,
+  booleans): the first member's value, with its original dtype.
+
+A column name that collides with one already in the output gets a `_<k>`
+suffix (`k` is the catalogue's 1-based position), repeated until unique.
+Inspect the source membership (`_src_cats`) before interpreting an aggregate
+as one measurement.
 
 ## 10. Configuration health and shell completion
 

@@ -39,6 +39,8 @@ store), and the converted HATS catalogue lives under
 
 from __future__ import annotations
 
+import calendar
+import contextlib
 import hashlib
 import http.client
 import io as _io
@@ -55,7 +57,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -66,6 +68,7 @@ import polars as pl
 from . import io_utils
 from .exceptions import CrossMatchError, TapError
 from .hf import HFRemote, is_hf_uri
+from .http_retry import DEFAULT_DELAY_S, backoff_sleep, retry_after_seconds
 from .remote_tap import _quote_id, _select_columns, _table_ref
 from .s3 import S3Remote, is_s3_uri, split_s3_uri
 from .sources import CatalogueSource, is_remote_hats_uri
@@ -88,7 +91,9 @@ _HATS_METADATA_NAMES = frozenset(
     }
 )
 _HTTP_RETRIES = 3
-_HTTP_BACKOFF_CAP_S = 60.0
+# A remote HATS sync rewrites its manifest at least this often (seconds), so an
+# interrupted or killed multi-day sync resumes instead of starting over.
+_MANIFEST_CHECKPOINT_S = 30.0
 _DEFAULT_MIN_FREE_GB = 10.0
 # Auxiliary HATS trees published beside a catalogue: HEALPix margin caches and
 # id indexes.  They are real HATS trees but not the survey catalogue.
@@ -194,7 +199,8 @@ def _version_dir(src: CatalogueSource) -> str:
         host = urllib.parse.urlparse(src.tap_url or "").netloc or "tap"
         table = (src.access_identifier or "table").replace("/", ".")
         return f"tap-{_safe_name(host)}-{_safe_name(table)}-{_sha1_str(f'{src.tap_url}/{src.access_identifier}', 8)}"
-    ident = src.access_identifier or ""
+    # A trailing slash names the same tree; it must not mirror it a second time.
+    ident = (src.access_identifier or "").rstrip("/")
     if is_s3_uri(ident):
         scheme = "s3"
     elif is_hf_uri(ident):
@@ -230,10 +236,14 @@ def _http_request(
     *,
     head: bool = False,
     range_probe: bool = False,
+    dest: Path | None = None,
 ) -> tuple[bytes | None, int | None]:
-    """GET (or HEAD) ``url`` under the token bucket with 429/503 backoff.
+    """GET (or HEAD) ``url`` under the token bucket with 429/5xx backoff.
 
-    Returns ``(body, content_length)`` (body ``None`` for HEAD).  Raises the
+    Returns ``(body, content_length)``; the body is ``None`` for HEAD and when
+    ``dest`` is given, in which case it is streamed to that file in 1 MiB
+    chunks (a multi-GiB partition never sits in memory) and a body shorter
+    than ``Content-Length`` is retried like a dropped connection.  Raises the
     underlying exception after retries are exhausted.
     """
     last_exc: Exception | None = None
@@ -252,26 +262,31 @@ def _http_request(
                         size = int(match.group(1))
                 if head:
                     return None, size
+                if dest is not None:
+                    with open(dest, "wb") as out:
+                        # read(amt) returns b"" instead of raising when a sized
+                        # body ends early, so check the length explicitly.
+                        shutil.copyfileobj(resp, out, length=1 << 20)
+                        received = out.tell()
+                    if size is not None and received != size:
+                        raise http.client.IncompleteRead(b"", size - received)
+                    return None, size
                 body = resp.read(1) if range_probe else resp.read()
                 return body, size
         except urllib.error.HTTPError as exc:
             last_exc = exc
             # Retry rate-limits and transient 5xx (archive politeness + failover).
             if exc.code in (429, 502, 503, 504):
-                retry_after = exc.headers.get("Retry-After")
-                try:
-                    delay = float(retry_after) if retry_after else 1.0
-                except ValueError:
-                    delay = 1.0
+                delay = retry_after_seconds(exc.headers.get("Retry-After") if exc.headers else None)
             else:
                 raise
         except (http.client.IncompleteRead, urllib.error.URLError, OSError) as exc:
             # Truncated chunked/identity bodies are common on long HATS parquet
             # GETs; IncompleteRead is an HTTPException, not a URLError/OSError.
             last_exc = exc
-            delay = 1.0
+            delay = DEFAULT_DELAY_S
         if attempt < _HTTP_RETRIES - 1:
-            time.sleep(min(delay * (2**attempt) + 0.1, _HTTP_BACKOFF_CAP_S))
+            backoff_sleep(delay, attempt)
     assert last_exc is not None
     raise last_exc
 
@@ -333,7 +348,7 @@ def _http_hats_properties(root: str, bucket: TokenBucket) -> tuple[dict[str, Any
             continue
         row_count = _hats_property_count(body)
         if row_count is not None:
-            return {"rel": rel, "size": size}, row_count
+            return {"rel": rel, "size": size, "sha256": hashlib.sha256(body).hexdigest()}, row_count
     return None
 
 
@@ -361,6 +376,22 @@ def _properties_dict(body: bytes) -> dict[str, str]:
     return props
 
 
+def _collection_primary(body: bytes, root: str) -> str | None:
+    """Relative primary-tree path named by a ``collection.properties`` body.
+
+    ``hats_primary_table_url`` is relative to the collection; an absolute URL
+    or a path that climbs out of the collection is refused rather than
+    followed.
+    """
+    primary = (_properties_dict(body).get("hats_primary_table_url") or "").strip().strip("/")
+    if not primary:
+        return None
+    if "://" in primary or any(part in ("", ".", "..") for part in primary.split("/")):
+        logger.warning("HATS collection %s names an unsafe primary table %r", root, primary)
+        return None
+    return primary
+
+
 def _resolve_reader_tree_root(url: str, reader: Any) -> str:
     """Descend a remote HATS *collection* root to the catalogue tree it holds.
 
@@ -377,8 +408,7 @@ def _resolve_reader_tree_root(url: str, reader: Any) -> str:
 
     primary = None
     if reader.exists(_COLLECTION_PROPERTIES):
-        props = _properties_dict(reader.read_bytes(_COLLECTION_PROPERTIES))
-        primary = (props.get("hats_primary_table_url") or "").strip().strip("/") or None
+        primary = _collection_primary(reader.read_bytes(_COLLECTION_PROPERTIES), root)
     if primary:
         candidate = f"{root}/{primary}"
         if _tree_properties_rel(reader.child(primary)) is not None:
@@ -418,9 +448,11 @@ def resolve_hats_tree_root(url: str, *, bucket: TokenBucket | None = None) -> st
     LSDB and the IVOA registry publish collection roots
     (``https://data.lsdb.io/hats/gaia_dr3/``) whose child directories are the
     HATS trees (``…/gaia_dr3/gaia/``).  xmatcher mirrors one tree, so a
-    collection URL is resolved once here.  The URL is returned unchanged when
-    it already is a tree, when the listing is unavailable, or when the
-    collection holds several catalogues — guessing between them would match
+    collection URL is resolved once here: the tree named by
+    ``collection.properties`` (``hats_primary_table_url``) wins, then a single
+    non-auxiliary child tree in the listing.  The URL is returned unchanged
+    when it already is a tree, when neither source names a tree, or when the
+    listing holds several catalogues — guessing between them would match
     the wrong sky, so the caller gets the normal "no HATS partitions" error
     instead.
     """
@@ -434,6 +466,27 @@ def resolve_hats_tree_root(url: str, *, bucket: TokenBucket | None = None) -> st
     bucket = bucket or TokenBucket(1.0)
     if _http_hats_properties(root, bucket) is not None:
         return url  # already a tree: keep the caller's exact URL
+
+    # collection.properties is authoritative, as on S3 and Hugging Face. LSDB
+    # serves collection roots as landing pages whose links are absolute, so
+    # the directory listing below finds no trees there.
+    try:
+        body, _ = _http_request(f"{root}/{_COLLECTION_PROPERTIES}", bucket)
+    except (urllib.error.HTTPError, urllib.error.URLError, OSError):
+        body = None
+    primary_rel = (
+        _collection_primary(body, root) if body and not body.lstrip().startswith(b"<") else None
+    )
+    if primary_rel:
+        candidate = f"{root}/{primary_rel}"
+        if _http_hats_properties(candidate, bucket) is not None:
+            logger.info("HATS collection %s resolves to its primary tree %s", root, candidate)
+            return candidate
+        logger.warning(
+            "HATS collection %s names a primary table %r without HATS properties",
+            root,
+            primary_rel,
+        )
 
     names, complete = _http_listing(f"{root}/", bucket)
     if not complete:
@@ -539,8 +592,14 @@ def _http_partition_files_from_info(
     row_count: int,
     bucket: TokenBucket,
     probe_pixels: bool,
+    generation: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Build an HTTP HATS file list from a parsed partition_info table."""
+    """Build an HTTP HATS file list from a parsed partition_info table.
+
+    Unprobed pixels have no size to compare on re-sync, so they carry
+    ``generation`` (a digest of the properties and partition table): the
+    manifest skips them while the tree they were fetched from is unchanged.
+    """
     info = _partition_info_with_file_locs(info, context=info_rel)
     _validate_hats_partition_info(info, row_count, info_rel)
     # Root-level CSV (common on LIneA) still stores pixels under dataset/.
@@ -607,7 +666,13 @@ def _http_partition_files_from_info(
             # CSV listings on large trees (e.g. PS1 otmo, ~27k pixels) would spend
             # hours on HEAD probes before any GET; trust the HATS path convention.
             candidate = candidates[-1] if not rel.endswith(".parquet") else rel
-            files.append({"rel": candidate, "size": _as_size(row.get("file_size"))})
+            files.append(
+                {
+                    "rel": candidate,
+                    "size": _as_size(row.get("file_size")),
+                    "generation": generation,
+                }
+            )
 
     files.append(properties)
     metadata_files = (
@@ -706,6 +771,9 @@ def _remote_hats_listing(
         if properties_info is None:
             continue
         properties, row_count = properties_info
+        generation = hashlib.sha256(
+            f"{properties['sha256']}:{hashlib.sha256(body).hexdigest()}".encode()
+        ).hexdigest()
         try:
             return _http_partition_files_from_info(
                 root=root,
@@ -716,6 +784,7 @@ def _remote_hats_listing(
                 row_count=row_count,
                 bucket=bucket,
                 probe_pixels=False,
+                generation=generation,
             )
         except (ImportError, OSError, ValueError):
             raise
@@ -1168,6 +1237,7 @@ def _mirror_remote_hats(
     workers: int,
     progress_cb: Callable[[str], None] | None,
     stats: SyncStats,
+    min_free_gb: float,
     endpoint: CatalogueSource | None = None,
 ) -> None:
     """Mirror every remote HATS partition file into ``cache/<name>/<version>``.
@@ -1175,6 +1245,8 @@ def _mirror_remote_hats(
     ``endpoint`` (fallback copy) swaps the fetching URL while ``src`` keeps
     the cache identity (name + version dir), so a mirror served by a
     different copy still lands where ``locate_mirrored(src)`` looks.
+    Before any transfer, a local cache must hold the listed bytes still to
+    fetch plus ``min_free_gb`` GiB (see :func:`_assert_fits`).
     """
     fetch = endpoint or src
     version = _version_dir(src)
@@ -1183,9 +1255,28 @@ def _mirror_remote_hats(
     failed_before = stats.failed
     manifest_rel = f"{prefix}/{_MANIFEST_NAME}"
     manifest = _read_json(cache, manifest_rel)
+    previous_fetched_at = manifest.get("fetched_at")
     downloaded_before = stats.files_downloaded
+    # Workers update the manifest and counters; checkpoints serialize it.
+    lock = threading.Lock()
+    last_checkpoint = time.monotonic()
+    rewriting = False
+
+    def checkpoint() -> None:
+        """Persist per-file progress; the caller holds ``lock``.
+
+        The tree is being rewritten in place, so a checkpoint never claims
+        ``fetched_at``: an interrupted mirror stays visibly incomplete.
+        """
+        nonlocal last_checkpoint
+        manifest["version"] = version
+        manifest["source"] = src.access_identifier
+        manifest.pop("fetched_at", None)
+        _write_json(cache, manifest_rel, manifest)
+        last_checkpoint = time.monotonic()
 
     def do_fetch(entry: dict[str, Any]) -> None:
+        nonlocal rewriting
         rel = entry["rel"]
         tmpdir = Path(tempfile.mkdtemp(prefix="xmatcher-"))
         local_tmp = tmpdir / Path(rel).name
@@ -1201,10 +1292,7 @@ def _mirror_remote_hats(
                 # transfer through the tree reader to a temp file, then publish.
                 reader.stage_in(rel, local_tmp)
             else:
-                body, _ = _http_request(_remote_url(fetch, rel), bucket)
-                if body is None:
-                    raise CrossMatchError(f"empty body for {rel}")
-                local_tmp.write_bytes(body)
+                _http_request(_remote_url(fetch, rel), bucket, dest=local_tmp)
             # LocalStorage publishes each file with os.replace. VOSpace lacks
             # that guarantee, so keep one prior file beside the staged update
             # for rollback if its upload fails.
@@ -1212,16 +1300,28 @@ def _mirror_remote_hats(
             if had_old:
                 cache.stage_in(cache_rel, backup)
                 backup_ready = True
+            with lock:
+                if not rewriting:
+                    # The first publication invalidates the previous fetched_at.
+                    checkpoint()
+                    rewriting = True
             upload_started = True
             cache.stage_out(local_tmp, cache_rel)
             stored = cache.size(cache_rel)
-            stats.files_downloaded += 1
-            stats.bytes_downloaded += max(0, stored) if stored >= 0 else 0
-            manifest.setdefault("files", {})[rel] = {"size": stored}
+            record: dict[str, Any] = {"size": stored}
+            if entry.get("generation"):
+                record["generation"] = entry["generation"]
+            with lock:
+                stats.files_downloaded += 1
+                stats.bytes_downloaded += max(0, stored) if stored >= 0 else 0
+                manifest.setdefault("files", {})[rel] = record
+                if time.monotonic() - last_checkpoint >= _MANIFEST_CHECKPOINT_S:
+                    checkpoint()
             if progress_cb:
                 progress_cb(f"sync {src.name}: fetched {rel}")
         except Exception as exc:  # noqa: BLE001
-            stats.failed += 1
+            with lock:
+                stats.failed += 1
             logger.warning("sync %s: failed to fetch %s: %s", src.name, rel, exc)
             if backup_ready:
                 try:
@@ -1251,16 +1351,17 @@ def _mirror_remote_hats(
     metadata_todo: list[dict[str, Any]] = []
     for entry in remote:
         rel = entry["rel"]
-        old = manifest.get("files", {}).get(rel)
-        old_size = (old or {}).get("size")
+        old = manifest.get("files", {}).get(rel) or {}
+        old_size = old.get("size")
         new_size = entry.get("size")
-        if (
-            not force
-            and old is not None
-            and old_size is not None
-            and old_size >= 0
-            and old_size == new_size
-        ):
+        generation = entry.get("generation")
+        if new_size is None and generation is not None:
+            # Size-less listing (partition_info.csv): unchanged while the tree
+            # generation it was downloaded under is unchanged.
+            unchanged = old.get("generation") == generation
+        else:
+            unchanged = old_size == new_size
+        if not force and isinstance(old_size, int) and old_size >= 0 and unchanged:
             stats.files_skipped += 1
         elif Path(rel).name in _HATS_METADATA_NAMES:
             metadata_todo.append(entry)
@@ -1275,12 +1376,20 @@ def _mirror_remote_hats(
             for entry in entries:
                 do_fetch(entry)
 
+    _assert_fits(cache, src, data_todo + metadata_todo, manifest.get("files", {}), min_free_gb)
     if progress_cb:
         progress_cb(f"sync {src.name}: {len(data_todo) + len(metadata_todo)} file(s) to fetch")
-    fetch_phase(data_todo)
-    data_phase_succeeded = stats.failed == failed_before
-    if data_phase_succeeded:
-        fetch_phase(metadata_todo)
+    try:
+        fetch_phase(data_todo)
+        data_phase_succeeded = stats.failed == failed_before
+        if data_phase_succeeded:
+            fetch_phase(metadata_todo)
+    except BaseException:
+        # Interrupted (Ctrl-C, worker shutdown): keep what already landed.
+        with lock:
+            if rewriting:
+                checkpoint()
+        raise
 
     files_manifest = manifest.setdefault("files", {})
     pruned = False
@@ -1311,6 +1420,10 @@ def _mirror_remote_hats(
         manifest.pop("fetched_at", None)
     if stats.files_downloaded > downloaded_before or stats.failed == failed_before or pruned:
         _write_json(cache, manifest_rel, manifest)
+    elif rewriting and previous_fetched_at:
+        # Every publication failed, so the previous complete tree still stands.
+        manifest["fetched_at"] = previous_fetched_at
+        _write_json(cache, manifest_rel, manifest)
     logger.info(
         "sync %s: %d bytes, %d files (%d skipped, %d failed)",
         src.name,
@@ -1319,6 +1432,71 @@ def _mirror_remote_hats(
         stats.files_skipped,
         stats.failed,
     )
+
+
+def _assert_fits(
+    cache: Storage,
+    src: CatalogueSource,
+    todo: list[dict[str, Any]],
+    previous: dict[str, Any],
+    min_free_gb: float,
+) -> None:
+    """Refuse a sync whose remaining downloads would cross the free-space floor.
+
+    The floor check in :func:`sync_catalogue` only sees the disk as it is; a
+    700 GiB tree on a disk with 50 GiB free would otherwise fill it days in.
+    Each listed file counts its growth over the copy it replaces.  Files the
+    listing gives no size for (``partition_info.csv`` trees without
+    ``file_size``) cannot be counted, so the estimate is a lower bound there.
+    A ``vos:`` cache has no visible quota and is not checked.
+    """
+    if not isinstance(cache, LocalStorage):
+        return
+    need = 0
+    for entry in todo:
+        size = entry.get("size")
+        if isinstance(size, int) and size > 0:
+            old = (previous.get(entry["rel"]) or {}).get("size")
+            need += size - old if isinstance(old, int) and 0 < old <= size else size
+    if not need:
+        return
+    free = shutil.disk_usage(cache.root).free
+    gib = 1024**3
+    if free - need < min_free_gb * gib:
+        raise CrossMatchError(
+            f"sync {src.name}: {need / gib:.1f} GiB still to download but {cache.root} has "
+            f"{free / gib:.1f} GiB free, which would leave less than the --min-free-gb "
+            f"floor of {min_free_gb:g} GiB; free space or point --cache-root elsewhere."
+        )
+
+
+@contextlib.contextmanager
+def _sync_lock(cache: Storage, src: CatalogueSource) -> Iterator[None]:
+    """Hold an exclusive per-tree lock for the whole sync of ``src``.
+
+    Two concurrent syncs of one tree (a cron job and a manual run, or two
+    sessions on a shared ``/arc`` cache) interleave partition writes and the
+    last ``sync.json`` write wins, so a mirror can be marked complete over
+    the other run's half-written files.  The lock is a ``flock`` on
+    ``<name>/.<version>.lock``, released by the kernel if the process dies.
+    VOSpace has no lock primitive, so ``vos:`` caches are not locked.
+    """
+    if not isinstance(cache, LocalStorage):
+        yield
+        return
+    import fcntl  # noqa: PLC0415 - POSIX only, like the supported platforms
+
+    path = cache.root / _safe_name(src.name) / f".{_version_dir(src)}.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise CrossMatchError(
+                f"Another 'xmatcher sync' of '{src.name}' is running against {cache.root} "
+                f"(lock {path}); wait for it to finish."
+            ) from None
+        yield
 
 
 def _remote_reader(
@@ -1684,9 +1862,10 @@ def _write_hats_native(
     """Convert ``frame`` into a valid HATS catalogue at ``out_dir``.
 
     Adaptive NESTED tiling: any cell holding more than ``threshold`` rows is
-    split until ``max_order``.  Layout matches the `hats` reader contract:
-    ``dataset/Norder=…/Dir=…/Npix=….parquet`` pixel files, a root
-    ``partition_info.csv`` (and parquet copy), and ``properties``.
+    split until ``max_order``.  The pixel files are written as
+    ``dataset/Norder=…/Dir=…/Npix=….parquet``; the metadata comes from
+    :func:`xmatcher.ray_union._write_hats_tree` (root ``properties`` and
+    ``partition_info.csv``, ``dataset/_metadata`` with every footer).
 
     cdshealpix computes every row's pixel per level (O(N·orders));
     fine for mirror-sized frames, replace with an index scan when a frame
@@ -1750,52 +1929,25 @@ def _write_hats_native(
             }
         )
 
-    total = frame.height
-    # An empty catalogue is legal (a region / query with no rows) and must
-    # still produce a readable HATS dir.  Building from ``info`` alone left the
-    # frame with no columns, so ``.select`` raised ColumnNotFoundError.
-    info_schema = {
-        "Norder": pl.Int64,
-        "Dir": pl.Int64,
-        "Npix": pl.Int64,
-        "Nfiles": pl.Int64,
-        "file_loc": pl.Utf8,
-        "file_size": pl.Int64,
-        "count": pl.Int64,
-    }
-    info_df = pl.DataFrame(info, schema=info_schema).select(list(info_schema))
-    # hats 0.7.x reads the root copy; the dataset copy is the classic spec.
-    info_df.write_csv(dataset / "partition_info.csv")
-    info_df.write_csv(out_dir / "partition_info.csv")
-    info_df.write_parquet(dataset / "partition_info.parquet")
-
     props = {
         "obs_collection": out_dir.name or "xmatcher",
         "dataproduct_type": "object",
-        "hats_nrows": str(total),
         "hats_col_ra": ra_column,
         "hats_col_dec": dec_column,
         "hats_epoch": "J2000",
         "hats_ordering": "NESTED",
         "hats_max_depth": str(max(segments, default=(0, 0, None))[0]),
     }
-    lines = "".join(f"{k}={v}\n" for k, v in sorted(props.items()))
-    (out_dir / "properties").write_text(lines)
-    (dataset / "properties").write_text(lines)
-    try:  # schema checkpoint for `hats.read_hats` (silences its warning)
-        import pyarrow as pa  # noqa: PLC0415
+    # One writer for every tree xmatcher produces, so `.hats` output and TAP
+    # mirrors pass `hats` strict validation like ray-anchor/project-hats trees.
+    from .ray_union import _write_hats_tree  # noqa: PLC0415 - ray_union imports Ray lazily
+
+    _write_hats_tree(out_dir, info, props)
+    if not info:
+        # No partitions: the input frame's own schema is still known.
         import pyarrow.parquet as pq  # noqa: PLC0415
 
-        if info:
-            schemas = [pq.read_schema(dataset / f"{e['file_loc']}.parquet") for e in info]
-            unified = pa.unify_schemas(schemas)
-        else:
-            # No partitions: the input frame's own schema is still known.
-            unified = frame.to_arrow().schema
-        pq.write_metadata(unified, dataset / "_common_metadata")
-        pq.write_metadata(unified, dataset / "_metadata")
-    except Exception:  # noqa: BLE001
-        logger.warning("skipping _metadata for %s (heterogeneous schemas)", out_dir)
+        pq.write_metadata(frame.to_arrow().schema, dataset / "_common_metadata")
 
 
 def _rebuild_tap_hats(
@@ -1899,6 +2051,7 @@ def _sync_with_failover(
     auth_session: Any,
     progress_cb: Callable[[str], None] | None,
     stats: SyncStats,
+    min_free_gb: float,
 ) -> None:
     """Mirror ``src``, retrying endpoint-class failures across its fallbacks.
 
@@ -1937,6 +2090,7 @@ def _sync_with_failover(
                     workers=workers,
                     progress_cb=progress_cb,
                     stats=stats,
+                    min_free_gb=min_free_gb,
                     endpoint=cand,
                 )
                 d_fail = stats.failed - fa0
@@ -2109,7 +2263,10 @@ def sync_catalogue(
     and trust the copy — the day-scale re-union pattern ("synced Monday,
     union Tuesday…") never re-pays the probe hours.  ``min_free_gb`` floors
     the free space on ``root`` before any fetch begins (default 10 GiB; env
-    ``XMATCHER_MIN_FREE_GB`` or config ``cache.min_free_gb`` override).
+    ``XMATCHER_MIN_FREE_GB`` or config ``cache.min_free_gb`` override), and
+    a remote HATS sync also refuses to start when the listed bytes still to
+    download would cross it.  A local cache is locked per tree for the whole
+    sync: a second concurrent sync of the same tree fails fast.
     """
     from .storage import assert_headroom, default_cache_root
 
@@ -2125,50 +2282,53 @@ def sync_catalogue(
 
     min_free = _min_free_gb(min_free_gb)
     assert_headroom(root, min_free, f"cache root '{root}'")
-
-    if fresh_after is not None and not force:
-        name = _safe_name(src.name)
-        prefix = f"{name}/{_version_dir(src)}"
-        manifest_rel = (
-            f"{prefix}/{_MANIFEST_NAME}"
-            if src.access_method == "hats"
-            else f"{name}/raw/{_MANIFEST_NAME}"
+    with _sync_lock(cache, src):
+        if fresh_after is not None and not force:
+            name = _safe_name(src.name)
+            prefix = f"{name}/{_version_dir(src)}"
+            manifest_rel = (
+                f"{prefix}/{_MANIFEST_NAME}"
+                if src.access_method == "hats"
+                else f"{name}/raw/{_MANIFEST_NAME}"
+            )
+            manifest = _read_json(cache, manifest_rel)
+            fetched = manifest.get("fetched_at") if manifest else None
+            if fetched and cache.exists(f"{prefix}/properties"):
+                try:
+                    fetched_ts = float(
+                        calendar.timegm(time.strptime(fetched, "%Y-%m-%dT%H:%M:%SZ"))
+                    )
+                except (ValueError, OverflowError):
+                    fetched_ts = 0.0
+                age_days = (time.time() - fetched_ts) / 86400.0
+                if 0.0 <= age_days < fresh_after:
+                    logger.info(
+                        "sync %s: mirror fetched %s (%.1f days ago, < fresh-after %.1f); "
+                        "skipping the change probe",
+                        src.name,
+                        fetched,
+                        age_days,
+                        fresh_after,
+                    )
+                    return stats
+        bucket = TokenBucket(rate_limit_rps) if rate_limit_rps else TokenBucket(0.0)
+        _sync_with_failover(
+            src,
+            cache,
+            bucket=bucket,
+            force=force,
+            workers=workers,
+            page_size=page_size,
+            hats_threshold=hats_threshold,
+            estimated_size=estimated_size or DEFAULT_ESTIMATED_SIZE,
+            auth_session=auth_session,
+            progress_cb=progress_cb,
+            stats=stats,
+            min_free_gb=min_free,
         )
-        manifest = _read_json(cache, manifest_rel)
-        fetched = manifest.get("fetched_at") if manifest else None
-        if fetched and cache.exists(f"{prefix}/properties"):
-            try:
-                fetched_ts = time.mktime(time.strptime(fetched, "%Y-%m-%dT%H:%M:%SZ"))
-            except (ValueError, OverflowError):
-                fetched_ts = 0.0
-            age_days = (time.time() - fetched_ts) / 86400.0
-            if 0.0 <= age_days < fresh_after:
-                logger.info(
-                    "sync %s: mirror fetched %s (%.1f days ago, < fresh-after %.1f); "
-                    "skipping the change probe",
-                    src.name,
-                    fetched,
-                    age_days,
-                    fresh_after,
-                )
-                return stats
-    bucket = TokenBucket(rate_limit_rps) if rate_limit_rps else TokenBucket(0.0)
-    _sync_with_failover(
-        src,
-        cache,
-        bucket=bucket,
-        force=force,
-        workers=workers,
-        page_size=page_size,
-        hats_threshold=hats_threshold,
-        estimated_size=estimated_size or DEFAULT_ESTIMATED_SIZE,
-        auth_session=auth_session,
-        progress_cb=progress_cb,
-        stats=stats,
-    )
-    if stats.failed == 0:
-        _replicate_to_roots(cache, src, list(replica_roots or []))
-    return stats
+        if stats.failed == 0:
+            _replicate_to_roots(cache, src, list(replica_roots or []))
+        return stats
 
 
 def locate_mirrored(
@@ -2183,7 +2343,8 @@ def locate_mirrored(
     replicated cache roots.  ``cache_root`` still wins when both are given
     (single-root callers are unchanged).  Raises :class:`CrossMatchError`
     when no mirror exists on any probed root (run ``xmatcher sync`` or drop
-    ``--no-sync``).
+    ``--no-sync``), or when a remote HATS mirror's last sync did not complete
+    (no ``fetched_at`` in its manifest).
     """
     from .storage import default_cache_root
 
@@ -2206,12 +2367,27 @@ def locate_mirrored(
         )
     version = _version_dir(src)
     rel = f"{_safe_name(src.name)}/{version}"
+    incomplete: list[str] = []
     for root in cache_roots:
         cache = open_storage(root)
-        if cache.exists(f"{rel}/properties") or cache.exists(
-            f"{rel}/dataset/partition_info.parquet"
+        if not (
+            cache.exists(f"{rel}/properties")
+            or cache.exists(f"{rel}/dataset/partition_info.parquet")
         ):
-            return root, rel
+            continue
+        if src.access_method == "hats" and not _read_json(cache, f"{rel}/{_MANIFEST_NAME}").get(
+            "fetched_at"
+        ):
+            # A remote HATS tree is rewritten in place; without fetched_at the
+            # last sync failed or was interrupted and may mix two upstream builds.
+            incomplete.append(root)
+            continue
+        return root, rel
+    if incomplete:
+        raise CrossMatchError(
+            f"The mirror of '{src.name}' is incomplete on {', '.join(incomplete)} (its last "
+            f"sync failed or was interrupted); re-run 'xmatcher sync {src.name}'."
+        )
     raise CrossMatchError(
         f"Catalogue '{src.name}' is not mirrored yet (probed: {', '.join(cache_roots)}); "
         f"run 'xmatcher sync {src.name}' or drop --no-sync."
@@ -2288,6 +2464,7 @@ def ensure_mirrored(
         hats_threshold=hats_threshold,
         estimated_size=estimated_size,
         fresh_after=fresh_after,
+        min_free_gb=min_free_gb,
     )
     if stats.failed:
         raise CrossMatchError(

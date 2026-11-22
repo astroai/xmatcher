@@ -217,12 +217,13 @@ def test_scheme_helpers_agree_on_hugging_face_identifiers() -> None:
 
 
 def test_split_hf_uri_normalizes_the_dataset_path() -> None:
-    assert split_hf_uri("hf://datasets/owner/name") == ("owner/name", "")
+    assert split_hf_uri("hf://datasets/owner/name") == ("owner/name", "", "main")
     assert split_hf_uri("hf://datasets/owner/name/hats/cat/") == (
         "owner/name",
         "hats/cat",
+        "main",
     )
-    assert split_hf_uri("hf://datasets//owner//name//hats") == ("owner/name", "hats")
+    assert split_hf_uri("hf://datasets//owner//name//hats") == ("owner/name", "hats", "main")
 
 
 @pytest.mark.parametrize(
@@ -232,6 +233,8 @@ def test_split_hf_uri_normalizes_the_dataset_path() -> None:
         "hf://datasets/owner",
         "hf://datasets/owner/name/../other",
         "hf://datasets/owner/name/./cat",
+        "hf://datasets/owner/name@",
+        "hf://datasets/owner/@v1",
         "s3://bucket/key",
     ],
 )
@@ -393,14 +396,14 @@ def test_hats_over_hf_mirrors_directory_partitions_and_reads_back(
 
     # The mmu_* layout: single-file pixels become `Npix=N/part0.snappy.parquet`,
     # and the CSV keeps only the pixel numbers (no file_loc, no Nfiles).
-    (tree / "dataset" / "partition_info.parquet").unlink()
+    # Moving the pixels would leave _metadata naming the old paths; drop it.
+    (tree / "dataset" / "_metadata").unlink()
     for pixel in sorted((tree / "dataset").glob("Norder=*/Dir=*/Npix=*.parquet")):
         target = pixel.with_suffix("") / "part0.snappy.parquet"
         target.parent.mkdir(parents=True, exist_ok=True)
         pixel.replace(target)
-    for name in ("dataset/partition_info.csv", "partition_info.csv"):
-        csv = tree / name
-        pl.read_csv(csv).select(["Norder", "Dir", "Npix", "count"]).write_csv(csv)
+    csv = tree / "partition_info.csv"
+    pl.read_csv(csv).select(["Norder", "Dir", "Npix", "count"]).write_csv(csv)
 
     files = _tree_files(tree)
     with fake_hub(files, page_size=2) as endpoint:

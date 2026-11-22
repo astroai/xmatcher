@@ -15,7 +15,7 @@ flowchart TD
     end
 
     subgraph ENG["Spatial & Distributed Engines"]
-        E1["fast<br/>Vectorized 3D Unit Sphere cKDTree"]
+        E1["fast<br/>torchsky exact declination-zone index"]
         E2["zone<br/>HEALPix-Sharded Spatial Zoning"]
         E3["ray-union / ray-anchor<br/>Distributed Multi-Node Ray Cluster"]
     end
@@ -46,7 +46,7 @@ flowchart TD
 - **[User Guide & Practical Cookbooks](usage.md)**
   End-to-end guide covering installation, local and remote crossmatching, memory-bounded disk spilling, and distributed execution.
 - **[CLI Reference Manual](cli.md)**
-  Complete documentation for all command-line interface subcommands (`match`, `list`, `describe`, `discover`, `search`, `adopt`, `sync`, `project-hats`, `export-hats`, `completion`, `doctor`) and arguments.
+  Complete documentation for all command-line interface subcommands (`match`, `list`, `describe`, `discover`, `search`, `adopt`, `sync`, `project-hats`, `export-hats`, `convert`, `completion`, `doctor`) and arguments.
 - **[Python API Reference](api.md)**
   Comprehensive reference for `CrossMatch`, `MatchRequest`, `MatchSpec`, engine configurations, relational join modes, and exceptions.
 
@@ -83,6 +83,7 @@ flowchart TD
 
 ### 5. Historical Archive & Benchmark Reports
 
+- **[0.7.0 Release Notes](archive/release-0.7.0.md)** — torchsky matching engine, FITS/Parquet/HATS converter, release audit.
 - **[0.6.0 Release Notes](archive/release-0.6.0.md)** — Named catalogues, S3/HF HATS streaming, `skyerr` radius bounds, and upgrade guide.
 - **[0.5.1 Migration Notes](archive/release-0.5.1.md)** — Namespace migration from `xmatch` to `xmatcher`.
 - **[0.5.0 Release Notes](archive/release-0.5.0.md)** — Initial 0.5.0 release features.

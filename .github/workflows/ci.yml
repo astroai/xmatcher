@@ -30,12 +30,14 @@ jobs:
       - name: Install the locked Pixi environment
         uses: prefix-dev/setup-pixi@d3f436a425481402e6a95a1d1fc10331c708cd9e # v0.10.2
         with:
-          pixi-version: v0.81.0
+          pixi-version: v0.82.0
           run-install: true
           locked: true
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
 
+      # torchsky is a core dependency: the default environment runs every
+      # torchsky path (XMATCHER_EXPECT_TORCHSKY=1 makes a missing one an error).
       - name: Run lint, type checks, and offline tests
         run: pixi run ci-local
 
@@ -68,7 +70,7 @@ jobs:
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         run: |
           pixi run --as-is python scripts/check_release.py --dist dist --tag "$GITHUB_REF_NAME"
-          cp "docs/release-${GITHUB_REF_NAME#v}.md" dist/RELEASE_NOTES.md
+          cp "docs/archive/release-${GITHUB_REF_NAME#v}.md" dist/RELEASE_NOTES.md
           cd dist
           sha256sum *.whl *.tar.gz > SHA256SUMS
 
@@ -83,7 +85,7 @@ jobs:
   release:
     name: Publish GitHub release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: linux
+    needs: [linux]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:

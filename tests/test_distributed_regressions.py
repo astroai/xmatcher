@@ -278,18 +278,25 @@ def test_cli_invalid_ranking_weights_fail_loudly():
         _parse_extra_distance_cols("mag:oops")
 
 
+def _capture_nway_covariances(monkeypatch) -> list[np.ndarray]:
+    """Record each catalogue's position covariance (mas^2) passed to associate_many."""
+    import torchsky.catalogs as ts_catalogs
+
+    captured: list[np.ndarray] = []
+    original = ts_catalogs.associate_many
+
+    def capture(catalogs, *args, **kwargs):
+        captured.extend(c.astrometry.position_cov().numpy() for c in catalogs)
+        return original(catalogs, *args, **kwargs)
+
+    monkeypatch.setattr(ts_catalogs, "associate_many", capture)
+    return captured
+
+
 def test_nway_uses_per_axis_uncertainty(monkeypatch):
-    import xmatcher.crossmatch as module
     from xmatcher import CrossMatch
 
-    captured = []
-    original = module.compute_nway_p_match
-
-    def capture(ras, decs, sigmas, *args, **kwargs):
-        captured.extend(sigmas)
-        return original(ras, decs, sigmas, *args, **kwargs)
-
-    monkeypatch.setattr(module, "compute_nway_p_match", capture)
+    captured = _capture_nway_covariances(monkeypatch)
     frame = pl.DataFrame({"ra": [42.0], "dec": [5.0], "err": [1.0]})
     CrossMatch().nway_match(
         [frame, frame],
@@ -299,7 +306,8 @@ def test_nway_uses_per_axis_uncertainty(monkeypatch):
         ra_err_column_2="err",
         dec_err_column_2="err",
     )
-    np.testing.assert_allclose(captured, np.ones((2, 1)))
+    # 1 arcsec per axis, as declared: no radial-to-axis rescaling.
+    np.testing.assert_allclose(captured, np.full((2, 1, 2, 2), 1e6 * np.eye(2)))
 
 
 def test_mirrored_cone_keeps_exact_centres_at_tiny_radii():
@@ -438,19 +446,12 @@ def test_empty_union_is_readable_hats_with_schema(tmp_path):
     assert result.height == 0
 
 
-def test_native_hats_margin_honours_radii_larger_than_adjacent_pixels(monkeypatch):
-    import sys
-    import types
-
+def test_native_hats_margin_honours_radii_larger_than_adjacent_pixels():
+    # A 4-degree radius must reach pixels well beyond the immediate neighbours
+    # (an earlier healpy path returned only those, whatever the radius).
     import cdshealpix
     from astropy.coordinates import Latitude, Longitude
 
-    monkeypatch.setitem(sys.modules, "torchsky.catalogs", None)
-    # Previously the optional healpy path returned only immediate neighbours,
-    # regardless of the requested match radius.
-    monkeypatch.setitem(
-        sys.modules, "healpy", types.SimpleNamespace(get_all_neighbours=lambda *a, **k: [])
-    )
     order = 6
     centre = int(
         cdshealpix.lonlat_to_healpix(Longitude(42.0, unit="deg"), Latitude(5.0, unit="deg"), order)[
@@ -487,15 +488,16 @@ def test_nway_empty_result_retains_input_schema():
 
     left = pl.DataFrame({"ra": [0.0], "dec": [0.0], "id": ["a"]})
     right = pl.DataFrame({"ra": [1.0], "dec": [0.0], "id": ["b"]})
-    out = CrossMatch().nway_match([left, right])
+    errors = {f"default_pos_error_arcsec_{i}": 0.1 for i in (1, 2)}
+    out = CrossMatch().nway_match([left, right], **errors)
     assert out.schema["id"] == out.schema["id_2"] == pl.String
     assert out.is_empty()
 
 
 def test_nway_scores_use_propagated_covariance(monkeypatch):
-    from xmatcher import CrossMatch, crossmatch
+    from xmatcher import CrossMatch
 
-    captured = []
+    captured = _capture_nway_covariances(monkeypatch)
 
     def propagate(left, right, *args, propagate_covariance=False, **kwargs):
         assert propagate_covariance
@@ -505,16 +507,12 @@ def test_nway_scores_use_propagated_covariance(monkeypatch):
             pl.lit(0.0).alias(matchers._PROPAGATED_COV_EN),
         ), right
 
-    def score(ras, decs, sigmas, *args, **kwargs):
-        captured.extend(sigmas)
-        return np.ones(len(ras[0]))
-
     monkeypatch.setattr(matchers, "_apply_proper_motion", propagate)
-    monkeypatch.setattr(crossmatch, "compute_nway_p_match", score)
     frame = pl.DataFrame({"ra": [42.0], "dec": [5.0], "err": [1.0]})
     params = {f"{coord}_err_column_{side}": "err" for side in (1, 2) for coord in ("ra", "dec")}
     CrossMatch().nway_match([frame, frame], target_epoch=2020.0, **params)
-    np.testing.assert_allclose(captured, np.full((2, 1), np.sqrt(10.0)))
+    # The full propagated covariance (4 and 16 arcsec^2), not an isotropic average.
+    np.testing.assert_allclose(captured, np.full((2, 1, 2, 2), np.diag([4e6, 16e6])))
 
 
 def test_mirrored_cone_does_not_inflate_tiny_requested_radius():
@@ -605,9 +603,9 @@ def test_nonlocal_partition_fingerprint_detects_same_size_edits(tmp_path, monkey
     )
     plan = ray_union.UnionPlan([cat], 1.0, 0.0, 10, [], str(tmp_path / "out"))
     monkeypatch.setattr(ray_union, "open_storage", lambda root: Remote())
-    first = ray_union._input_fingerprint(plan)
+    first = ray_union._input_fingerprint(plan.catalogues)
     file.write_bytes(b"other")
-    assert ray_union._input_fingerprint(plan) != first
+    assert ray_union._input_fingerprint(plan.catalogues) != first
 
 
 def test_tap_same_service_best_uses_canonical_matcher(monkeypatch):
@@ -668,23 +666,21 @@ def test_cds_uncertainty_request_uses_canonical_matcher(monkeypatch):
 
 
 def test_nway_accepts_explicit_uncertainties_for_every_catalogue(monkeypatch):
-    from xmatcher import CrossMatch, crossmatch
+    from xmatcher import CrossMatch
 
-    captured = []
-
-    def score(ras, decs, sigmas, *args, **kwargs):
-        captured.extend(sigmas)
-        return np.ones(len(ras[0]))
-
-    monkeypatch.setattr(crossmatch, "compute_nway_p_match", score)
+    captured = _capture_nway_covariances(monkeypatch)
 
     frame = pl.DataFrame({"ra": [42.0], "dec": [5.0]})
     result = CrossMatch().nway_match(
         [frame, frame, frame],
         **{f"default_pos_error_arcsec_{i}": i * 0.1 for i in (1, 2, 3)},
     )
-    np.testing.assert_allclose(captured, [[0.1], [0.2], [0.3]])
-    assert result.height == 1
+    sigma_mas = [np.sqrt(np.diagonal(cov[0])) for cov in captured]
+    np.testing.assert_allclose(sigma_mas, [[100.0] * 2, [200.0] * 2, [300.0] * 2])
+    # Hypotheses with one or both counterparts; the MAP one holds both.
+    assert result.height == 3
+    best = result.filter(pl.col("nway_best"))
+    assert best.height == 1 and best["ra_3"].null_count() == 0
     assert result["p_match"].is_finite().all()
 
 
@@ -752,45 +748,39 @@ def test_remote_variable_halos_require_explicit_region(monkeypatch, spec):
 
 
 @pytest.mark.parametrize("find", ["best", "all"])
-def test_ray_pixel_tree_respects_one_cpu_allocation(monkeypatch, find):
-    from types import SimpleNamespace
-
+def test_ray_pixel_task_uses_one_cpu(monkeypatch, find):
     import ray
-    import scipy.spatial
+    import torch
 
     from xmatcher import matchers, ray_engine
 
-    real_tree = scipy.spatial.cKDTree
     calls = []
+    real = torch.set_num_threads
+    before = torch.get_num_threads()
 
-    def tree(points):
-        actual = real_tree(points)
+    def set_threads(n):
+        calls.append(n)
+        real(n)
 
-        def query(*args, **kwargs):
-            calls.append(kwargs["workers"])
-            return actual.query(*args, **kwargs)
-
-        def query_ball_point(*args, **kwargs):
-            calls.append(kwargs["workers"])
-            return actual.query_ball_point(*args, **kwargs)
-
-        return SimpleNamespace(n=actual.n, query=query, query_ball_point=query_ball_point)
-
-    monkeypatch.setattr(scipy.spatial, "cKDTree", tree)
+    monkeypatch.setattr(torch, "set_num_threads", set_threads)
     monkeypatch.setattr(ray, "get", lambda value: value)
     monkeypatch.setattr(ray_engine, "_RAY_PIXEL_BATCH", None)
     function = ray_engine._get_ray_pixel_batch()._function
     xyz = np.array([[1.0, 0.0, 0.0]])
-    left, right, _ = function(
-        0,
-        np.array([0]),
-        xyz,
-        {0: xyz},
-        {0: np.array([0])},
-        matchers.MatchSpec(find=find),
-        0.01,
-    )
+    try:
+        left, right, _ = function(
+            0,
+            np.array([0]),
+            xyz,
+            {0: xyz},
+            {0: np.array([0])},
+            matchers.MatchSpec(find=find),
+            0.01,
+        )
+    finally:
+        real(before)
     assert left.tolist() == right.tolist() == [0]
+    # One torch thread per Ray task: tasks parallelise across pixels.
     assert calls == [1]
 
 
@@ -798,14 +788,14 @@ def test_native_hats_ray_worker_limits_tree_threads(monkeypatch):
     from xmatcher import hats_native, matchers
     from xmatcher.sources import CatalogueSource
 
-    actual_match = matchers._scipy_match
+    actual_match = matchers._local_match
     calls = []
 
     def match(*args, **kwargs):
         calls.append(kwargs.get("workers"))
         return actual_match(*args, **kwargs)
 
-    monkeypatch.setattr(matchers, "_scipy_match", match)
+    monkeypatch.setattr(matchers, "_local_match", match)
     frame = pl.DataFrame({"id": [1], "ra": [10.0], "dec": [0.0]})
     source = CatalogueSource(name="test", is_local=True, ra_column="ra", dec_column="dec")
     result = hats_native._match_frames(

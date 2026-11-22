@@ -9,8 +9,11 @@ catalogue.  It reports:
 * per survey: matched rows, crowded rows, PM warnings, and quality counts;
 * the output ``hats_nrows`` from ``properties``.
 
-Use ``--expected-rows`` to fail when the master does not match the anchor row
-count (the defining contract of ``engine=ray-anchor``).
+The exit status is 1 when ``hats_nrows`` disagrees with the partitions, an ID
+is null, or an ID repeats within a partition (one row per anchor is the
+defining contract of ``engine=ray-anchor``). ``--expected-rows`` also fails a
+master whose row count differs from the anchor's. Every failure is listed in
+the report's ``error`` field.
 
 Example:
     python scripts/validate_anchor_output.py gaia_master.hats \\
@@ -137,12 +140,17 @@ def validate(
             **dict(per_survey[survey]),
             "quality": dict(quality[survey]),
         }
+    errors = []
     if advertised is not None and advertised != total:
-        report["error"] = f"properties hats_nrows={advertised} but partitions sum to {total}"
+        errors.append(f"properties hats_nrows={advertised} but partitions sum to {total}")
     if null_ids:
-        report["error"] = f"{null_ids} anchor rows have a null {id_column}"
+        errors.append(f"{null_ids} anchor rows have a null {id_column}")
+    if duplicate_ids:
+        errors.append(f"{duplicate_ids} anchor rows share a {id_column} within a partition")
     if expected_rows is not None and total != expected_rows:
-        report["error"] = f"expected {expected_rows} rows, found {total}"
+        errors.append(f"expected {expected_rows} rows, found {total}")
+    if errors:
+        report["error"] = "; ".join(errors)
     return report
 
 

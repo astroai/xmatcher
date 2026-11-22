@@ -21,6 +21,8 @@ dict twice.
 
 from __future__ import annotations
 
+import difflib
+import re
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,109 @@ import polars as pl
 from .matchers import MatchSpec
 
 FrameInput = str | Path | pl.DataFrame | pl.LazyFrame
+
+# Per-catalogue keyword parameters, spelled ``<key>_<n>`` for catalogue n.
+_SIDE_PARAM_KEYS = frozenset(
+    {
+        "ra_column",
+        "dec_column",
+        "id_column",
+        "frame",
+        "ra_err_column",
+        "dec_err_column",
+        "corr_column",
+        "astrometric_covariance_columns",
+        "pos_err_units",
+        "default_pos_error_arcsec",
+        "epoch",
+        "epoch_column",
+        "pm_ra_column",
+        "pm_dec_column",
+        "parallax_column",
+        "radial_velocity_column",
+        # Secondary catalogue n's magnitude column for matcher="lr" / nway_match.
+        "lr_magnitude_column",
+    }
+)
+# Every other keyword the ``CrossMatch`` match methods read from ``**params``.
+_MATCH_PARAM_KEYS = frozenset(
+    {
+        # MatchSpec
+        "radius_arcsec",
+        "matcher",
+        "max_error",
+        "join_type",
+        "find",
+        "prior_columns",
+        "probabilistic",
+        "target_epoch",
+        "filter_expr",
+        "extra_distance_cols",
+        "batch_size",
+        "lr_magnitude_column",
+        "lr_color_column",
+        "lr_q",
+        "ml_color_columns",
+        "ml_model_path",
+        "xgb_model_path",
+        "macauff_flux_columns",
+        "pm_prior",
+        "pm_prior_magnitude_column",
+        "fallback_policy",
+        # MatchRequest
+        "engine",
+        "id_join",
+        "columns_1",
+        "columns_2",
+        "endpoint",
+        "ra",
+        "dec",
+        "radius_deg",
+        "memory_budget_bytes",
+        "scratch_dir",
+        "partition_order",
+        "hats_threshold",
+        # ray-union / ray-anchor and their mirrors
+        "no_sync",
+        "force_sync",
+        "synclimit",
+        "threads",
+        "task_rows",
+        "cache_root",
+        "max_tuples",
+        "chunk_memory_gb",
+        "anchor_id_name",
+        "retries",
+        "fresh_after",
+        "min_free_gb",
+    }
+)
+_SIDE_PARAM_RE = re.compile(r"^(?P<key>[a-z_]+)_(?P<side>[1-9][0-9]*)$")
+
+
+def check_match_params(params: dict[str, Any], *, method: str, n_catalogues: int) -> None:
+    """Reject keyword parameters no match method reads.
+
+    ``**params`` would otherwise swallow a misspelling (``radius=5`` instead of
+    ``radius_arcsec=5``) and run with the default. Per-catalogue keys must name
+    an existing catalogue (``ra_column_3`` needs three inputs).
+    """
+    unknown = []
+    for key in params:
+        if key in _MATCH_PARAM_KEYS:
+            continue
+        side = _SIDE_PARAM_RE.match(key)
+        if side and side["key"] in _SIDE_PARAM_KEYS and int(side["side"]) <= n_catalogues:
+            continue
+        unknown.append(key)
+    if not unknown:
+        return
+    known = [*_MATCH_PARAM_KEYS, *(f"{k}_{n}" for k in _SIDE_PARAM_KEYS for n in (1, 2))]
+    details = []
+    for key in unknown:
+        close = difflib.get_close_matches(key, known, n=3)
+        details.append(f"{key!r} (did you mean {', '.join(close)}?)" if close else repr(key))
+    raise TypeError(f"{method}() got unexpected keyword argument(s): {'; '.join(details)}")
 
 
 @dataclass
@@ -159,8 +264,8 @@ class MatchRequest:
     # ---------------------------------------------------------------- matching
     engine: str = "auto"
     """Sky-match engine: ``"auto"`` → STILTS if available else fast,
-    ``"astropy"``, ``"fast"`` (cKDTree), ``"torchsky"`` (tensor-native
-    nearest-neighbour), ``"zone"`` (HEALPix sharded), or ``"stilts"``."""
+    ``"astropy"``, ``"fast"`` (torchsky zone index), ``"torchsky"``
+    (``crossmatch_sky``), ``"zone"`` (same search as fast), or ``"stilts"``."""
 
     id_join: bool = False
     """Switch from sky-matching to a pure polars relational ID join."""
@@ -193,6 +298,9 @@ class MatchRequest:
     """Signal that Tier-3 Bayesian qualification should be attempted."""
 
     def __post_init__(self) -> None:
+        region = (self.ra, self.dec, self.radius_deg)
+        if any(value is not None for value in region) and None in region:
+            raise ValueError("ra, dec and radius_deg must be given together")
         if not isinstance(self.probabilistic, bool):
             raise ValueError("probabilistic must be a boolean")
         if self.probabilistic or self.spec.probabilistic:
@@ -233,7 +341,9 @@ class MatchRequest:
             filter_expr=params.get("filter_expr"),
             extra_distance_cols=extra_distance,
             batch_size=params.get("batch_size"),
-            lr_magnitude_column=params.get("lr_magnitude_column"),
+            lr_magnitude_column=params.get("lr_magnitude_column_2")
+            or params.get("lr_magnitude_column"),
+            lr_color_column=params.get("lr_color_column"),
             lr_q=float(params.get("lr_q", 0.8)),
             ml_color_columns=list(params.get("ml_color_columns") or []),
             ml_model_path=params.get("ml_model_path"),

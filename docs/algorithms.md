@@ -27,7 +27,7 @@ flowchart TD
     end
 
     subgraph S2["Stage 2: Spatial Candidate Pruning"]
-        EMB --> TREE["cKDTree / HEALPix Zoning"]
+        EMB --> TREE["torchsky Declination-Zone Index"]
         TREE --> PRUNE["Fast Chord Radius Pruning<br/>d &le; 2·sin(θ_max / 2)"]
     end
 
@@ -65,7 +65,7 @@ Choose the appropriate matcher based on your input catalogue properties and scie
 | `matcher="skyellipse"` | RA, Dec, Covariance $\mathbf{C}$ | Mahalanobis distance $d_{\text{M}}^2$ | $O(N \log M + K)$ | Anisotropic errors (drift-scans, slitless spectroscopy, Chandra/XMM). |
 | `matcher="lr"` | RA, Dec, $\sigma_{\text{pos}}$, Magnitude | Likelihood Ratio $LR$ and Reliability $R_j$ | $O(N \log M + K)$ | Cross-identifying low-resolution (Radio/X-ray) with dense Optical/IR catalogues. |
 | `probabilistic=True` | RA, Dec, Errors, Photometry | Bayesian posterior $p_{\text{match}}$ | $O(N \log M + K)$ | Rigorous hypothesis testing ($H_{\text{match}}$ vs. $H_{\text{bg}}$) with empirical flux priors. |
-| `nway_match()` | RA, Dec, Errors ($N \ge 2$) | Joint $N$-way Bayes factor $B$ | $O(N \cdot K_{\text{tuple}})$ | Simultaneous multi-survey matching (Budavári & Szalay 2008). |
+| `nway_match()`, `matcher="lr"` with $N \ge 3$ | RA, Dec, Errors ($N \ge 2$), optional magnitudes | Hypothesis posterior and $N$-way $LR$ | $O(N \log M + K_{\text{hyp}})$ | Simultaneous multi-survey association (Budavári & Szalay 2008, nway) via torchsky `associate_many`. |
 | `matcher="ml"` | RA, Dec, Photometry/Colors | Random Forest pseudo-label score | $O(N \log M + K_{\text{infer}})$ | Multi-band optical/infrared matching with complex color distributions. |
 | `matcher="xgb"` | RA, Dec, Photometry/Colors | Gradient Boosted tree score | $O(N \log M + K_{\text{infer}})$ | Non-linear photometric feature interactions and fast C++ inference. |
 | `matcher="auf"` | RA, Dec | Empirical Annular Residual Score | $O(N \log M + K)$ | Heuristic background-subtracted candidate scoring. |
@@ -84,7 +84,7 @@ Spherical trigonometry on individual celestial coordinates $(\alpha, \delta)$ re
 ```mermaid
 flowchart LR
     A["Celestial Sphere<br/>RA (α), Dec (δ)"] -->|"Vectorized Projection"| B["3D Unit Vectors<br/>r = (x, y, z) &isin; S²"]
-    B -->|"scipy.spatial.cKDTree"| C["3D Euclidean Distance<br/>d = ||r₁ - r₂||₂"]
+    B -->|"torchsky SkyIndex (declination zones)"| C["3D Euclidean Distance<br/>d = ||r₁ - r₂||₂"]
     C -->|"Exact Inversion"| D["Great-Circle Separation<br/>θ = 2·arcsin(d / 2)"]
 ```
 
@@ -125,11 +125,11 @@ At an astronomical search radius of $\theta = 2'' \approx 9.7 \times 10^{-6}\tex
 > d_{\text{search}} = 2 \sin\left(\frac{\theta_{\text{radius}}}{2}\right)
 > $$
 >
-> The C++ `cKDTree` retrieves all points satisfying $\|\mathbf{r}_1 - \mathbf{r}_2\|_2 \le d_{\text{search}}$, and `xmatcher` converts the exact chord lengths back to great-circle arcseconds.
+> torchsky's native zone index retrieves all points satisfying $\|\mathbf{r}_1 - \mathbf{r}_2\|_2 \le d_{\text{search}}$, and `xmatcher` converts the exact chord lengths back to great-circle arcseconds.
 
 ### Multimodal $N$-Dimensional Ranking
 
-When non-spatial columns are supplied via `extra_distance_cols={"phot_g_mean_mag": 0.5}`, `xmatcher` queries spatial candidates with `cKDTree`, then ranks candidates using an $N$-dimensional Euclidean metric:
+When non-spatial columns are supplied via `extra_distance_cols={"phot_g_mean_mag": 0.5}`, `xmatcher` queries spatial candidates with the zone index, then ranks candidates using an $N$-dimensional Euclidean metric:
 
 $$
 D_{\text{total}}^2 = \left(\frac{\theta}{\theta_{\text{radius}}}\right)^2 + \sum_{k} w_k \left(\frac{c_{1, k} - c_{2, k}}{\sigma_{c, k}}\right)^2
@@ -207,11 +207,13 @@ $$
 \theta \le \min\left(\theta_{\text{radius}}, \, N_\sigma \cdot \sigma_{\text{pair}}\right)
 $$
 
-For `find="best"`, candidates are ranked by their normalized separation tension:
+For `find="best"`, candidates are ranked by their separation relative to the admission limit:
 
 $$
-\text{rank} = \frac{\theta}{\sigma_{\text{pair}}}
+\text{rank} = \frac{\theta}{\min\left(\theta_{\text{radius}}, \, N_\sigma \cdot \sigma_{\text{pair}}\right)}
 $$
+
+This equals $\theta / (N_\sigma \sigma_{\text{pair}})$, the normalised separation tension, whenever the radius cap is not in effect.
 
 > [!CAUTION]
 > **Corrupted Error Protection**: The user's `radius_arcsec` acts as a strict ceiling. If a catalogue contains corrupt or unbounded error values (e.g. Pan-STARRS1 DR1 contains rows with `e_RAJ2000` exceeding hundreds of arcseconds), `xmatcher` ensures candidates outside the physical search aperture are never accepted.
@@ -341,7 +343,7 @@ Designed for cross-identifying catalogues with disparate spatial resolutions—s
 
 ```mermaid
 flowchart LR
-    A["Positional Offset r"] --> B["Rayleigh PDF<br/>f(r)"]
+    A["Positional Offset r"] --> B["2-D Gaussian density<br/>f(r)"]
     C["Candidate Mag m"] --> D["Counterpart PDF<br/>q(m)"]
     E["Optical Density"] --> F["Background PDF<br/>n(m)"]
     B --> G["Likelihood Ratio<br/>LR = q(m)·f(r) / n(m)"]
@@ -359,12 +361,14 @@ $$
 
 where:
 
-**Radial Positional Probability Density $f(r)$**:
-Modeled as a 2D circularly symmetric Gaussian on the tangent plane:
+**Positional Probability Density $f(r)$**:
+The surface density (per arcsec², the same units as $n(m)$) of a 2D circularly symmetric Gaussian on the tangent plane:
 
 $$
-f(r) = \frac{r}{\sigma_{\text{pos}}^2} \exp\left(-\frac{r^2}{2\sigma_{\text{pos}}^2}\right)
+f(r) = \frac{1}{2\pi\sigma^2} \exp\left(-\frac{r^2}{2\sigma^2}\right), \qquad \sigma^2 = \frac{\sigma_1^2 + \sigma_2^2}{2}
 $$
+
+$\sigma_1$ and $\sigma_2$ are the radial positional uncertainties defined for `skyerr` above, so $\sigma^2$ is the combined per-axis variance. $f$ peaks at zero offset; the Rayleigh radial distribution $r f(r) \cdot 2\pi$ is the density of $r$ itself and must not be used here, because $LR$ would then vanish for a coincident counterpart.
 
 **Background Surface Density $n(m)$**:
 Surface density of background objects per square arcsecond per magnitude bin:
@@ -435,36 +439,29 @@ $$
 
 ---
 
-### C. Simultaneous $N$-Way Bayesian Matching (`nway_match`)
+### C. Simultaneous $N$-Way Association (`nway_match`, `matcher="lr"` with $N \ge 3$)
 
 #### Intuition
-Chaining sequential pairwise matches ($A \times B \times C$) leads to accumulated false associations and depends on catalogue order. The $N$-way matcher implements the Budavári & Szalay (2008) formulation to jointly evaluate the mutual astrometric agreement of $N \ge 2$ catalogues simultaneously.
+Chaining sequential pairwise matches ($A \times B \times C$) accumulates false associations and depends on catalogue order. The $N$-way association (nway-style, computed by torchsky's `associate_many`) scores, for each primary source (catalogue 1), every combination of one gated counterpart **or none** per other catalogue, so a source missing from one survey is a hypothesis, not a lost match.
 
 #### Mathematical Formulation
-Let $N$ catalogues report coordinates $\mathbf{x}_i$ with isotropic per-axis uncertainties $\sigma_i$ (in radians). Define the astrometric precision weights:
+A hypothesis $h$ with present catalogues $S$ has weight
 
 $$
-w_i = \frac{1}{\sigma_i^2}, \qquad W = \sum_{i=1}^N w_i
+w_h = \prod_{c \in S} \frac{\pi_c\, \rho_c}{\nu_c} \prod_{c \notin S} (1 - \pi_c)\; M_S
 $$
 
-The simultaneous spatial Bayes factor $B$ is:
+- $M_S$ is the exact Gaussian marginal likelihood that all present positions (the primary's included) come from one true position with a flat prior, with each row's full $2\times 2$ covariance in the primary's tangent plane (Budavári & Szalay 2008, eq. 18, generalised from isotropic errors).
+- $\pi_c$ is catalogue $c$'s completeness: `lr_q` when given, otherwise fitted by EM.
+- $\nu_c$ is catalogue $c$'s background surface density over its footprint.
+- $\rho_c = q_c/n_c$ is the photometric likelihood ratio of the member (1 without terms): a histogram ratio of the secondary's magnitude (`lr_magnitude_column`), or of the colour secondary − primary (`lr_color_column`, or `prior_columns` for one band measured in every catalogue), learnt by EM from the hypothesis posteriors.
 
-$$
-B = 2^{N-1} \frac{\prod_{i=1}^N w_i}{W} \exp\left(-\frac{1}{2} \sum_{i < j} \frac{w_i w_j}{W} \psi_{ij}^2\right)
-$$
+Candidates pass a $\chi^2_2$ gate ($p = 10^{-4}$) and the `radius_arcsec` ceiling. Each secondary source is the counterpart of at most one primary (Bethe posteriors of that constraint). Primaries with more than `max_tuples_per_source` (4096 for `matcher="lr"`) hypotheses are enumerated best-first, and the posterior mass left out is bounded instead of being truncated silently.
 
-where $\psi_{ij}$ is the great-circle separation between catalogue $i$ and catalogue $j$ in radians.
-
-#### Breakdown of Terms
-- **Precision Concentration Factor**: The prefactor $2^{N-1} \frac{\prod w_i}{W}$ represents the volume compression of the joint parameter space under the match hypothesis.
-- **Pairwise Astrometric Tension Penalty**: The exponential term $\sum_{i<j} \frac{w_i w_j}{W} \psi_{ij}^2$ penalizes mutual coordinate divergence across all catalogue pairs simultaneously.
-
-#### Posterior Probability
-Applying prior probability $P_0$ (default: $0.5$):
-
-$$
-p_{\text{match}} = \frac{1}{1 + \exp\left(-\left(\ln B + \ln \frac{P_0}{1 - P_0}\right)\right)}
-$$
+#### Outputs
+- `p_match` (`nway_match`) or `reliability` (`matcher="lr"`): the hypothesis posterior, normalised over all of the primary's hypotheses including "no counterpart".
+- `lr`: $w_h / w_\emptyset$ with the completeness priors divided out, $\rho \, M_S / \prod_{c\in S} \nu_c$. With two catalogues this is the pairwise `matcher="lr"` likelihood ratio, and the posterior equals its reliability.
+- `p_any`: probability that the primary has at least one counterpart; `nway_best`: the hypothesis is the primary's MAP one.
 
 ---
 
@@ -535,13 +532,12 @@ graph TD
 
 ### Algorithmic Procedure
 1. **Edge Formation**: Construct an undirected graph $G = (V, E)$ where vertices $V$ are sources and edges $E$ connect any pair with $\theta \le \theta_{\text{radius}}$.
-2. **Disjoint-Set Union-Find**:
-   - Compute connected components using disjoint-set forests with **path compression** and **union by rank**.
-   - Amortized complexity is nearly linear: $O(|V| \cdot \alpha(|V|))$, where $\alpha$ is the inverse Ackermann function.
+2. **Connected Components**:
+   - Label the components of the sparse edge graph (`scipy.sparse.csgraph.connected_components`, $O(|V| + |E|)$).
+   - Components are numbered by their lowest node, so a bundle's id is fixed by its first primary row.
 3. **Bundle Aggregation**:
-   - Assign a persistent `bundle_id` to each connected component.
    - Retain components containing at least one source from the primary catalogue.
-   - Aggregate numerical attributes by mean and categorical attributes by priority order.
+   - Keep the first primary row's columns unchanged. For each other catalogue, average float columns (ignoring NaN), average RA/Dec as unit vectors, and take the first member's value, with its dtype, for every other column (so int64 IDs are never cast to float).
 
 ---
 
@@ -607,5 +603,6 @@ When $\pi R^2 \rho \approx 1$, spatial proximity alone fails completely.
 | `d2_mahalanobis` | $[0, \infty)$ | Covariance-weighted squared distance; distributed as $\chi^2$ with 2 d.o.f. |
 | `lr` | $[0, \infty)$ | Sutherland & Saunders Likelihood Ratio. Higher values indicate greater match odds. |
 | `reliability` | $[0, 1]$ | Candidate reliability under explicit model distribution estimates. |
-| `p_match` | $[0, 1]$ | Bayesian posterior probability under declared equal prior odds and uniform background. |
+| `p_match` | $[0, 1]$ | Pairwise: Bayesian posterior probability under declared equal prior odds and uniform background. `nway_match`: posterior of the $N$-way hypothesis. |
+| `p_any` | $[0, 1]$ | $N$-way: probability that the primary has at least one counterpart. |
 | `ml_score` / `xgb_score` | $[0, 1]$ | Supervised classifier ranking score. Excellent for ordering; not calibrated probabilities. |

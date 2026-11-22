@@ -9,7 +9,7 @@ import polars as pl
 
 from .exceptions import CrossMatchError
 from .io_utils import astropy_table_to_polars
-from .matchers import MatchSpec
+from .matchers import _RIGHT_SUFFIX, SEP_COLUMN, MatchSpec
 from .sources import CatalogueSource
 
 logger = logging.getLogger(__name__)
@@ -88,12 +88,20 @@ def cds_xmatch_local_remote(
     remote_src: CatalogueSource,
     local_lf: pl.LazyFrame,
     spec: MatchSpec,
+    *,
+    local_first: bool = True,
 ) -> pl.DataFrame:
     """Crossmatch a local catalogue against a VizieR table via the CDS XMatch service.
 
     A surrogate row id is attached before the upload so the service results can be
     reliably joined back to the original local rows (no fragile float-equality
     merge on RA/Dec).
+
+    The result has the local engines' schema: the first catalogue's columns,
+    then the second's (``_2`` on name collisions), then ``sep_arcsec``.
+    ``local_first=False`` means the remote catalogue was the first operand.
+    An empty match keeps that schema (remote columns are known only when the
+    service returns a table).
     """
     if not remote_src.access_identifier:
         raise CrossMatchError(f"Missing access_identifier for CDS catalogue '{remote_src.name}'.")
@@ -147,10 +155,10 @@ def cds_xmatch_local_remote(
         colRA1=ra_col,
         colDec1=dec_col,
     )
-    if result_table is None or len(result_table) == 0:
-        return local.drop(key_col).clear()
-
-    matched = astropy_table_to_polars(result_table)
+    if result_table is None:
+        matched = pl.DataFrame(schema={key_col: local[key_col].dtype, "angDist": pl.Float64})
+    else:
+        matched = astropy_table_to_polars(result_table)
     if key_col not in matched.columns:
         raise CrossMatchError(
             "CDS XMatch result lacks its local-row identifier; cannot rejoin rows."
@@ -159,5 +167,12 @@ def cds_xmatch_local_remote(
     # Join remote match columns back onto the full local rows via the surrogate id.
     matched = matched.with_columns(pl.col(key_col).cast(local[key_col].dtype))
     remote_only = matched.drop([c for c in (ra_col, dec_col) if c in matched.columns])
-    joined = local.join(remote_only, on=key_col, how="inner", suffix="_remote")
-    return joined.drop(key_col)
+    # Same schema as the local engines: CDS reports the separation as angDist.
+    remote_only = remote_only.rename({"angDist": SEP_COLUMN}, strict=False)
+    left, right = (local, remote_only) if local_first else (remote_only, local)
+    joined = left.join(
+        right, on=key_col, how="inner", suffix=_RIGHT_SUFFIX, maintain_order="left"
+    ).drop(key_col)
+    if SEP_COLUMN in joined.columns:
+        joined = joined.select(pl.exclude(SEP_COLUMN), pl.col(SEP_COLUMN))
+    return joined

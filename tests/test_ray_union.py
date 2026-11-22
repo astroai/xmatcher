@@ -72,7 +72,8 @@ def _oracle_union3(
     * B rows that have NO A match star their own sets (``2`` / ``2+3``) —
       a B row with an A match is folded into A's sets and never appears
       again, exactly the engine's chunk-ownership rule.
-    * C rows with no A or B match are ``3`` singles.
+    * C rows with no match among the A rows or the *unfolded* B rows are
+      ``3`` singles (a folded B row offers its A position, not its own).
     """
     a_rows = a.to_dicts()
     b_rows = b.to_dicts()
@@ -108,9 +109,12 @@ def _oracle_union3(
             results.append(("2", (br["id"],), nan))
         for co, cs in cm:
             results.append(("2+3", (br["id"], co["id"]), cs))
+    leading_b = [br for br in b_rows if not any(_sep_arcsec(ar, br) <= sep_arcsec for ar in a_rows)]
     for cr in c_rows:
+        # A B row folded into an A set sits at the A position in the
+        # sequential union, so it cannot absorb a C row on its own.
         if any(_sep_arcsec(ar, cr) <= sep_arcsec for ar in a_rows) or any(
-            _sep_arcsec(br, cr) <= sep_arcsec for br in b_rows
+            _sep_arcsec(br, cr) <= sep_arcsec for br in leading_b
         ):
             continue
         results.append(("3", (cr["id"],), nan))
@@ -911,8 +915,9 @@ def test_union_ring_input_converted(tmp_path: Path) -> None:
     assert b_pix == expected_nested, (b_pix, expected_nested)
 
 
-def test_ray_init_falls_back_local_on_connection_error(tmp_path: Path, monkeypatch) -> None:
-    """RAY_ADDRESS unset + 'auto' unreachable -> a fresh local cluster."""
+def test_ray_init_without_address_starts_private_local_cluster(tmp_path: Path, monkeypatch) -> None:
+    """RAY_ADDRESS unset -> a private local cluster, never 'auto' discovery
+    (which attaches to an unrelated cluster another process started)."""
     import ray
 
     monkeypatch.delenv("RAY_ADDRESS", raising=False)
@@ -921,9 +926,7 @@ def test_ray_init_falls_back_local_on_connection_error(tmp_path: Path, monkeypat
 
     def fake_init(**kw) -> object:
         calls.append(kw)
-        if kw.get("address") == "auto":
-            raise ConnectionError("no running cluster")
-        return real_init(**kw)
+        return real_init(**kw, num_cpus=2, include_dashboard=False)
 
     monkeypatch.setattr(ray, "init", fake_init)
     try:
@@ -941,8 +944,7 @@ def test_ray_init_falls_back_local_on_connection_error(tmp_path: Path, monkeypat
             hats_threshold=1_000_000,
             max_tuples=100_000,
         )
-        assert calls[0]["address"] == "auto"
-        assert [call["address"] for call in calls] == ["auto", "local"]
+        assert [call["address"] for call in calls] == ["local"]
         result = _read_output(out)
         assert result.select("id", "id_2").rows() == [("a0", "b0")]
     finally:
@@ -1264,3 +1266,92 @@ def test_dense_union_fails_at_run_time_with_the_memory_knob(tmp_path: Path) -> N
     message = str(excinfo.value)
     assert "--chunk-memory-gb" in message
     assert "output rows" in message
+
+
+def test_ray_union_output_is_a_strictly_valid_hats_catalogue(tmp_path: Path) -> None:
+    """The union tree must pass `hats` strict validation and read back in full."""
+    import pyarrow.dataset as pds
+
+    hats = pytest.importorskip("hats")
+    from hats.io.validation import is_valid_catalog
+
+    rng = np.random.default_rng(7)
+    n = 400
+    ra = rng.uniform(0.0, 360.0, n)
+    dec = np.degrees(np.arcsin(rng.uniform(-1.0, 1.0, n)))
+    a = _catalogue(
+        tmp_path / "cata",
+        "cata",
+        pl.DataFrame({"ra": ra, "dec": dec, "id": [f"a{i}" for i in range(n)]}),
+    )
+    # Half of B sits on A, half far away; B also carries a column A lacks, so
+    # merged pixels exercise the Null-typed columns of unmatched chunks.
+    b_ra = np.concatenate([ra[: n // 2] + 1e-5, (ra[n // 2 :] + 90.0) % 360.0])
+    b = _catalogue(
+        tmp_path / "catb",
+        "catb",
+        pl.DataFrame(
+            {"ra": b_ra, "dec": dec, "id": [f"b{i}" for i in range(n)], "mag": rng.normal(20, 1, n)}
+        ),
+    )
+    out = tmp_path / "union.hats"
+    ray_union.ray_union_match([a, b], sep_arcsec=1.0, output_file=str(out), hats_threshold=50)
+
+    assert is_valid_catalog(out, strict=True)
+    rows = hats.read_hats(out).catalog_info.total_rows
+    assert rows == _read_output(out).height
+    assert pds.parquet_dataset(str(out / "dataset" / "_metadata")).count_rows() == rows
+    assert pds.dataset(str(out / "dataset"), format="parquet").count_rows() == rows
+
+
+def test_ray_union_reads_coordinate_names_from_hats_properties(tmp_path: Path) -> None:
+    """A tree such as PS1 (raMean/decMean) names its coordinates in `properties`."""
+
+    def tree(path: Path, name: str, ra: list[float], ids: list[str]) -> CatalogueSource:
+        df = pl.DataFrame({"raMean": ra, "decMean": [0.0] * len(ra), "objID": ids})
+        (path / "dataset" / "Norder=0" / "Dir=0").mkdir(parents=True)
+        df.write_parquet(path / "dataset" / "Norder=0" / "Dir=0" / "Npix=4.parquet")
+        (path / "properties").write_text(
+            "dataproduct_type=object\nobs_collection=ps1-like\nhats_col_ra=raMean\n"
+            f"hats_col_dec=decMean\nhats_ordering=NESTED\nhats_nrows={df.height}\n"
+        )
+        return CatalogueSource(name=name, is_local=True, path=path)
+
+    a = tree(tmp_path / "a", "a", [10.0, 20.0], ["a0", "a1"])
+    b = tree(tmp_path / "b", "b", [10.0 + 0.5 / 3600, 30.0], ["b0", "b1"])
+    out = tmp_path / "union.hats"
+    ray_union.ray_union_match([a, b], sep_arcsec=1.0, output_file=str(out))
+
+    union = _read_output(out)
+    assert sorted(union["_src_cats"].to_list()) == ["1", "1+2", "2"]
+
+
+@pytest.mark.parametrize("matcher", ["skyerr", "skyellipse"])
+def test_ray_union_error_matchers_never_exceed_the_radius(tmp_path: Path, matcher: str) -> None:
+    """sep_arcsec is the hard ceiling, as in the serial engines: 10" errors do
+    not merge a pair 5" apart at a 1" radius."""
+    row = {"id": ["a0"], "ra": [10.0], "dec": [0.0], "rae": [10.0], "dee": [10.0], "corr": [0.0]}
+    a = pl.DataFrame(row)
+    b = a.with_columns(pl.lit("b0").alias("id"), (pl.col("ra") + 5.0 / 3600.0).alias("ra"))
+    src_a = dataclasses_replace_err(_catalogue(tmp_path / "a", "a", a))
+    src_b = dataclasses_replace_err(_catalogue(tmp_path / "b", "b", b))
+    out = tmp_path / "out.hats"
+    ray_union.ray_union_match(
+        [src_a, src_b], sep_arcsec=1.0, output_file=str(out), matcher=matcher, max_error=3.0
+    )
+    assert sorted(_read_output(out)["_src_cats"].to_list()) == ["1", "2"]
+
+
+def test_ray_union_skyellipse_merges_a_close_pair_across_the_pole(tmp_path: Path) -> None:
+    """0.72" apart across the pole with 0.5" errors: d2 = 1.04 <= 1.5**2."""
+    dec = 90.0 - 0.36 / 3600.0
+    row = {"id": ["a0"], "ra": [0.0], "dec": [dec], "rae": [0.5], "dee": [0.5], "corr": [0.0]}
+    a = pl.DataFrame(row)
+    b = a.with_columns(pl.lit("b0").alias("id"), pl.lit(180.0).alias("ra"))
+    src_a = dataclasses_replace_err(_catalogue(tmp_path / "a", "a", a))
+    src_b = dataclasses_replace_err(_catalogue(tmp_path / "b", "b", b))
+    out = tmp_path / "out.hats"
+    ray_union.ray_union_match(
+        [src_a, src_b], sep_arcsec=5.0, output_file=str(out), matcher="skyellipse", max_error=1.5
+    )
+    assert _read_output(out)["_src_cats"].to_list() == ["1+2"]

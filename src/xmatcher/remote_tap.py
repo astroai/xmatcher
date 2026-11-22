@@ -9,7 +9,7 @@ import polars as pl
 
 from .exceptions import CrossMatchError, TapError
 from .io_utils import astropy_table_to_polars
-from .matchers import MatchSpec
+from .matchers import _RIGHT_SUFFIX, SEP_COLUMN, MatchSpec
 from .sources import CatalogueSource
 from .tap import execute_tap_query, get_tap_service
 
@@ -21,6 +21,11 @@ def _quote_id(name: str) -> str:
     # If the name contains a dot, it might be a schema-qualified table name (e.g. gaiadr3.gaia_source).
     # We should quote the parts separately so the database parser doesn't treat the dot as part of the name.
     return ".".join('"' + part.replace('"', '""') + '"' for part in name.split("."))
+
+
+def _quote_alias(name: str) -> str:
+    """Quote an output column alias; unlike a table name it is never dot-split."""
+    return '"' + name.replace('"', '""') + '"'
 
 
 def _select_columns(src: CatalogueSource, requested: list[str] | None) -> str:
@@ -206,9 +211,21 @@ def tap_self_join(
     b_dec_q = _quote_id(src2.dec_column)
     a_table_q = _table_ref(src1.access_identifier, tap_url=src1.tap_url)
     b_table_q = _table_ref(src2.access_identifier, tap_url=src2.tap_url)
-    cols1 = ", ".join(f"a.{_quote_id(c)} AS {_quote_id(f'a_{c}')}" for c in list1)
-    cols2 = ", ".join(f"b.{_quote_id(c)} AS {_quote_id(f'b_{c}')}" for c in list2)
-    sep_col_q = _quote_id(f"{spec.find}_sep_arcsec")
+    # Same schema as the local engines: left names unchanged, right-hand
+    # collisions suffixed, separation in ``sep_arcsec``.
+    taken = set(list1)
+    names2 = []
+    for column in list2:
+        name = column
+        while name in taken:
+            name += _RIGHT_SUFFIX
+        taken.add(name)
+        names2.append(name)
+    cols1 = ", ".join(f"a.{_quote_id(c)} AS {_quote_alias(c)}" for c in list1)
+    cols2 = ", ".join(
+        f"b.{_quote_id(c)} AS {_quote_alias(name)}" for c, name in zip(list2, names2, strict=True)
+    )
+    sep_col_q = _quote_alias(SEP_COLUMN)
     query = (
         f"SELECT {cols1}, {cols2}, "
         f"DISTANCE(POINT('ICRS', a.{a_ra_q}, a.{a_dec_q}),"

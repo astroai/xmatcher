@@ -15,6 +15,7 @@ Covers the ``xmatcher sync`` data plane behind :func:`xmatcher.mirror.sync_catal
 from __future__ import annotations
 
 import functools
+import hashlib
 import http.client
 import shutil
 import threading
@@ -73,7 +74,10 @@ def test_http_listing_uses_partition_info_csv_without_pixel_heads(monkeypatch) -
     monkeypatch.setattr(
         mirror,
         "_http_hats_properties",
-        lambda root, bucket: ({"rel": "properties", "size": len(props)}, 3),
+        lambda root, bucket: (
+            {"rel": "properties", "size": len(props), "sha256": hashlib.sha256(props).hexdigest()},
+            3,
+        ),
     )
 
     def _no_html_walk(*args, **kwargs):
@@ -96,6 +100,8 @@ def test_http_listing_uses_partition_info_csv_without_pixel_heads(monkeypatch) -
     assert not any(
         url.startswith("HEAD ") and "Npix=" in url and url.endswith(".parquet") for url in requests
     )
+    pixels = [entry for entry in files if "Npix=" in entry["rel"]]
+    assert all(entry["size"] is None and entry["generation"] for entry in pixels)
 
 
 def test_http_walk_hats_skips_missing_listed_metadata(monkeypatch) -> None:
@@ -219,7 +225,6 @@ def test_csv_only_http_hats_fallback_mirrors_catalogue_metadata(
     serve_dir.mkdir()
     catalogue = serve_dir / "cat"
     mirror._write_hats_native(frame, catalogue, ra_column="ra", dec_column="dec")
-    (catalogue / "dataset" / "partition_info.parquet").unlink()
 
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0), functools.partial(SimpleHTTPRequestHandler, directory=str(serve_dir))
@@ -241,7 +246,7 @@ def test_csv_only_http_hats_fallback_mirrors_catalogue_metadata(
         assert stats.failed == 0
         local_root, local_rel = mirror.locate_mirrored(src, cache_root=cache)
         local_cat = Path(local_root) / local_rel
-        assert (local_cat / "dataset" / "partition_info.csv").is_file()
+        assert (local_cat / "partition_info.csv").is_file()
         assert (local_cat / "dataset" / "_common_metadata").is_file()
         loaded = hats_native.load_hats_all(
             CatalogueSource(name="cached", is_local=True, path=local_cat)
@@ -528,6 +533,11 @@ def test_hats_over_http_mirror(tmp_path: Path, monkeypatch, scenario: str) -> No
     mirror._write_hats_native(
         frame, serve_dir / "cat", ra_column="ra", dec_column="dec", threshold=threshold
     )
+    if scenario == "missing_partition":
+        # Publish a Parquet listing: its partitions are probed, so an advertised
+        # but unavailable one is caught before any download (CSV listings are not).
+        info = pl.read_csv(serve_dir / "cat" / "partition_info.csv")
+        info.write_parquet(serve_dir / "cat" / "dataset" / "partition_info.parquet")
     httpd = ThreadingHTTPServer(
         ("127.0.0.1", 0),
         functools.partial(SimpleHTTPRequestHandler, directory=str(serve_dir)),
@@ -639,10 +649,10 @@ def test_hats_over_http_mirror(tmp_path: Path, monkeypatch, scenario: str) -> No
             if scenario == "failed_get":
                 real_request = mirror._http_request
 
-                def fail_partition_download(url, bucket, *, head=False):
+                def fail_partition_download(url, bucket, *, head=False, **kwargs):
                     if not head and "/Norder=" in url and url.endswith(".parquet"):
                         raise urllib.error.URLError("simulated partition download failure")
-                    return real_request(url, bucket, head=head)
+                    return real_request(url, bucket, head=head, **kwargs)
 
                 monkeypatch.setattr(mirror, "_http_request", fail_partition_download)
             else:
@@ -684,13 +694,13 @@ def test_remote_hats_zero_row_partition_is_mirrored_with_schema(tmp_path: Path) 
     [(order, pixel, partition)] = hats_native.list_hats_pixels(catalogue)
     expected_pixel = (order, pixel)
     pl.read_parquet(partition).head(0).write_parquet(partition)
-    info_path = catalogue / "dataset" / "partition_info.parquet"
-    info = pl.read_parquet(info_path).with_columns(
+    info_path = catalogue / "partition_info.csv"
+    info = pl.read_csv(info_path).with_columns(
         pl.lit(0).alias("count"), pl.lit(partition.stat().st_size).alias("file_size")
     )
-    info.write_parquet(info_path)
-    for properties in (catalogue / "properties", catalogue / "dataset" / "properties"):
-        properties.write_text(properties.read_text().replace("hats_nrows=1", "hats_nrows=0"))
+    info.write_csv(info_path)
+    properties = catalogue / "properties"
+    properties.write_text(properties.read_text().replace("hats_nrows=1", "hats_nrows=0"))
 
     server = ThreadingHTTPServer(
         ("127.0.0.1", 0), functools.partial(SimpleHTTPRequestHandler, directory=str(serve_dir))
@@ -742,8 +752,8 @@ def test_hats_over_vos_mirror(tmp_path: Path, monkeypatch) -> None:
     )
     # Exercise the valid CSV-only HATS export shape, where partition paths are
     # derived from Norder/Npix because file_loc and Parquet metadata are absent.
-    (vos_root / "cat" / "dataset" / "partition_info.parquet").unlink()
-    csv_info = vos_root / "cat" / "dataset" / "partition_info.csv"
+    (vos_root / "cat" / "dataset" / "_metadata").unlink()
+    csv_info = vos_root / "cat" / "partition_info.csv"
     pl.read_csv(csv_info).drop("file_loc").write_csv(csv_info)
 
     from xmatcher.storage import LocalStorage
@@ -1064,7 +1074,7 @@ def test_sync_hats_partial_transfer_fails_over(tmp_path: Path, monkeypatch) -> N
     """
     calls: list = []
 
-    def flaky(src, cache, *, bucket, force, workers, progress_cb, stats, endpoint):
+    def flaky(src, cache, *, bucket, force, workers, progress_cb, stats, min_free_gb, endpoint):
         calls.append(endpoint.access_identifier)
         if len(calls) == 1:
             stats.files_downloaded += 3
@@ -1209,8 +1219,18 @@ def test_http_listing_drops_absolute_and_external_links(monkeypatch) -> None:
     assert names == ["Npix=1.parquet"]
 
 
+def _no_collection_properties(monkeypatch) -> None:
+    """Answer the collection.properties probe with 404 (offline listing tests)."""
+
+    def missing(url, bucket, **_kwargs):
+        raise urllib.error.HTTPError(url, 404, "missing", hdrs=None, fp=None)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(mirror, "_http_request", missing)
+
+
 def test_resolve_hats_tree_root_descends_a_collection_past_margin_and_index(monkeypatch) -> None:
     root = "https://example.test/hats/gaia_dr3"
+    _no_collection_properties(monkeypatch)
     trees = {
         f"{root}/gaia": True,
         f"{root}/gaia_10arcs": True,
@@ -1235,6 +1255,7 @@ def test_resolve_hats_tree_root_descends_a_collection_past_margin_and_index(monk
 
 def test_resolve_hats_tree_root_keeps_an_ambiguous_collection(monkeypatch) -> None:
     root = "https://example.test/hats/delve"
+    _no_collection_properties(monkeypatch)
     monkeypatch.setattr(
         mirror,
         "_http_hats_properties",
