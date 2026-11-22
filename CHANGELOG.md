@@ -55,15 +55,12 @@ without it. Requires torchsky 0.6.0 (released first).
 
 ### Changed (behaviour)
 
-- **torchsky (>=0.6.0) and torchfits (>=1.3.1) are core dependencies.**
+- **torchsky (>=0.6.0) and torchfits (>=1.3.3) are core dependencies.**
   - The `torchsky` and `torchfits` extras are gone. The default Pixi
-    environment carries torchsky with conda-forge CPU PyTorch, and CI runs
-    every torchsky path there.
-  - Until torchsky 0.6.0 is on PyPI, Pixi builds it from its release-candidate
-    commit (`sfabbro/torchsky` main, 243eb04f: `associate_many` with
-    photometric terms).
+    environment carries the torchsky wheel from PyPI with conda-forge CPU
+    PyTorch, and CI runs every torchsky path there.
   - Python 3.11 support (proposed for this release) is dropped: torchsky
-    supports 3.12 and 3.13 only.
+    requires Python 3.12 or later.
   - An installed torchsky older than 0.6.0 is refused with an upgrade
     message.
 - `engine="fast"` (the default in-memory engine) finds candidates with

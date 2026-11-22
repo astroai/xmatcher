@@ -34,12 +34,6 @@ mypy = "*"
 # and on Linux pulls the multi-GB CUDA toolkit. cpu_generic, not cpu_mkl: MKL
 # would switch the environment from OpenBLAS.
 pytorch = { version = "2.14.*", build = "cpu_generic*" }
-# Build tools for torchsky from source (until its 0.6.0 wheels are published).
-cxx-compiler = "*"
-cmake = ">=3.21"
-ninja = "*"
-scikit-build-core = ">=1.0"
-nanobind = ">=2.10.2"
 
 [pypi-dependencies]
 xmatcher = { path = ".", editable = true }
@@ -49,13 +43,9 @@ hats = "*"
 ray = "*"
 cdshealpix = "*"
 
-torchsky = { git = "https://github.com/sfabbro/torchsky.git", rev = "243eb04fd47c278f5dcaf8cea1df772f43c3642e" }
-
-# torchsky is xmatcher's matching and statistics engine. Until torchsky 0.6.0 is
-# on PyPI it is built from the fork's release-candidate commit, against this
-# environment's own PyTorch (no build isolation), with the tools below.
-[pypi-options]
-no-build-isolation = ["torchsky"]
+# xmatcher's matching and statistics engine. Its abi3 wheel does not link
+# libtorch, so it runs on the conda-forge PyTorch above.
+torchsky = ">=0.6.0"
 
 [activation.env]
 # Tests assert torchsky is importable instead of skipping its paths.

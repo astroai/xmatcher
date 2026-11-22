@@ -9,15 +9,9 @@ three parts:
 - A release audit of correctness, HATS conformance, remote acquisition, the
   Ray engines and the install path is folded in.
 
-The full list is in the [changelog](../../CHANGELOG.md).
-
-**Prerequisite:** torchsky 0.6.0 must be on PyPI before this tag is built.
-Then:
-
-1. set `torchsky >= 0.6.0` in `pyproject.toml`;
-2. replace the `pixi.toml` git pin with the PyPI requirement (and drop the
-   build tools and `no-build-isolation`);
-3. run `pixi lock`.
+The full list is in the [changelog](../../CHANGELOG.md). It requires
+[torchsky 0.6.0](https://pypi.org/project/torchsky/0.6.0/) or later and
+torchfits 1.3.3 or later, both from PyPI.
 
 ## Highlights
 
@@ -101,13 +95,15 @@ These are the audit's fixes. Each has a regression test that fails without it.
 
 - **Dependencies.** `pip install xmatcher` now pulls torchsky and PyTorch. The
   `[torchsky]` and `[torchfits]` extras are gone. Python stays at 3.13 or
-  later; the proposed 3.11 support was dropped because torchsky ships wheels
-  for 3.12 and 3.13 only.
+  later; the proposed 3.11 support was dropped because torchsky requires
+  Python 3.12 or later.
 - **Engine names.** `engine="zone"` no longer needs `cdshealpix` and never
   falls back.
 - **Changed LR values.** `matcher="lr"` reliabilities and likelihood ratios
   change value, for the reasons listed above.
-- **Not yet ported.** `nway_match` with photometric `prior_columns`, the Bayes
-  and KDE `probabilistic` scoring, and the ML, AUF and macauff scorers keep
-  their current statistics, applied to torchsky candidates. Porting the N-way
-  photometric priors needs `terms=` in torchsky's `associate_many`.
+- **Changed N-way values.** `nway_match` scores come from `associate_many`
+  (above), and `prior_columns` become pair-colour likelihood ratios learnt by
+  EM instead of KDE priors.
+- **Not yet ported.** The pairwise Bayes and KDE `probabilistic` scoring and
+  the ML, AUF and macauff scorers keep their current statistics, applied to
+  torchsky candidates.
