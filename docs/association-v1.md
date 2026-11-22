@@ -19,7 +19,20 @@ association ID.
 `separation_arcsec` is the non-negative great-circle separation evaluated after
 any declared epoch propagation. `evaluation_epoch_jyear` records that epoch; a
 missing epoch requires the `epoch_unknown` flag. Flags are an open, preserved
-list so producers can add qualified diagnostics without changing existing fields.
+list so producers can add qualified diagnostics without changing existing fields;
+they are stored sorted and must not repeat.
+
+A serialised record has exactly these keys: `schema_version`
+(`"xmatch.association.v1"`), `association_id`, `evidence_id`, `source_id`,
+`candidate_id`, `method`, `method_version`, `separation_arcsec`,
+`evaluation_epoch_jyear`, `decision` (`candidate`, `selected` or `rejected`),
+`score` (`name`, `value`, `semantics`, `calibration_id`), `flags`, and
+`provenance` (`input_release_ids`, at least two distinct and stored sorted;
+`software_version`; `parameters_sha256` as `sha256:` plus 64 hex digits).
+`association_id` is `xmatch.association.v1:` followed by the hex SHA-256 of the
+canonical JSON (sorted keys, no whitespace) of `schema_version`, the three IDs,
+`method`, `method_version`, `evaluation_epoch_jyear`, and the three provenance
+fields. Separation, decision, score and flags are not part of the identity.
 
 Scores must declare one of three semantics:
 
@@ -28,7 +41,9 @@ Scores must declare one of three semantics:
 - `calibrated_probability`: constrained to `[0, 1]` and paired with a non-empty
   `calibration_id` naming the calibration artifact.
 
-The packaged `fixtures/association_v1.json` file includes a unique selection,
+`calibration_id` must be null for the other two semantics.
+
+The packaged `xmatcher/fixtures/association_v1.json` file includes a unique selection,
 an ambiguous crowded-field candidate pair, and an unpropagated-epoch example.
 Consumers must parse every record with `AssociationRecord.from_mapping` and
 must preserve unknown flags.
@@ -42,7 +57,8 @@ exactly two authoritative files:
 - `associations.jsonl`: canonical `association.v1` records, strictly ordered by
   `association_id` so duplicate IDs and nondeterministic ordering fail closed;
 - `manifest.json`: the record count and SHA-256, shared input/software/parameter
-  provenance, optional `parent_release_id`, and a content-derived `release_id`.
+  provenance, optional `parent_release_id`, and a content-derived `release_id`
+  (`xmatch.association.release.v1:` plus the SHA-256 of that identity).
 
 Every record in one release must carry the manifest's exact provenance. The
 parent is lineage between immutable releases; it does not assert that graph
@@ -127,7 +143,9 @@ verified = verify_association_component_release(
 For a child release, pass `parent_component_directory` to the writer and list
 the applicable parent IDs on each `AssociationComponent`. Publication rejects
 dangling parents, association/parent lineage mismatches, duplicate membership,
-mixed input releases, nondeterministic component ordering, and overwrite.
+components of a different association release, members whose input release is
+absent from the association provenance, nondeterministic component ordering,
+and overwrite.
 Verification rejects byte-level tampering. It streams the file but retains one
 global membership set so it can prove that every namespaced member belongs to
 at most one component.
@@ -183,7 +201,12 @@ not infer catalogue namespaces or acceptance policy. If a verified parent
 component release is supplied, exact namespaced-member overlap becomes each
 new component's declared parent lineage. When input-release namespaces changed,
 pass the reviewed `member_equivalence_directory` to construction, delta
-publication, and endpoint-aware delta verification.
+publication, and endpoint-aware delta verification. `additional_members`
+(`AssociationComponentMember` values, for example from a source inventory)
+retains isolated sources and sources whose edges the decision policy excluded.
+`construct_association_components_from_edge_shards` applies the same
+component-ID rule to Parquet edge shards without reading or verifying an
+association release; every edge is included.
 
 ```python
 from xmatcher.association import (

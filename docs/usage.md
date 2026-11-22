@@ -1,112 +1,20 @@
-# xmatcher User Guide & Cookbooks
+# xmatcher user guide
 
-A practical, end-to-end user manual for astronomical catalogue crossmatching using `xmatcher`.
-For dedicated reference manuals, see the [CLI Reference](cli.md), [Python API Reference](api.md), and [Algorithms & Mathematics](algorithms.md).
-
----
-
-## 1. Installation & Environment Setup
-
-`xmatcher` requires Python 3.13+.
-
-### Standard: Pip
-
-```bash
-# Core package (torchsky zone index, Polars, Astropy, PyVO)
-pip install xmatcher
-
-# All optional features (Ray distributed, HATS, CDS, ML)
-pip install "xmatcher[all]"
-```
-
-For source checkouts:
-
-```bash
-git clone https://github.com/astroai/xmatcher.git
-cd xmatcher
-pip install -e ".[all]"
-```
-
-### Reproducible Developer Workflow: Pixi
-
-For contributors or reproducibility with locked compiled dependencies (`cdshealpix`, `ray`, `numpy`):
-
-```bash
-git clone https://github.com/astroai/xmatcher.git
-cd xmatcher
-
-# Install locked development environment
-pixi install
-
-# Run lint, formatting, and offline test checks
-pixi run preflight-push
-pixi run ci-local
-```
-
-### Granular Optional Dependency Extras
-
-If you only need specific optional backends rather than `[all]`:
-
-| Extra | Packages | Purpose |
-|---|---|---|
-| `[all]` | `astroquery`, `cdshealpix`, `hats`, `ray`, `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | All optional features in one install. |
-| `[cds]` | `astroquery` | CDS VizieR and CDS XMatch remote service backends. |
-| `[zone]` | `cdshealpix` | Kept for compatibility; `engine="zone"` runs on torchsky and no longer needs it. |
-| `[hats]` | `hats`, `cdshealpix` | HATS native reading and spatial partitioning. |
-| `[hats-ray]` | `hats`, `ray`, `cdshealpix` | Native HATS + Ray pixel matcher and `ray-union` engine. |
-| `[ray]` | `ray`, `cdshealpix` | Distributed parallel HEALPix matching across Ray clusters. |
-| `[ml]` | `scikit-learn`, `xgboost`, `lightgbm`, `joblib` | Machine-learning (`ml`) and gradient-boosted (`xgb`) matchers. |
-
-[torchsky](https://github.com/astroai/torchsky) (>=0.6.0, with PyTorch) and
-[torchfits](https://github.com/astroai/torchfits) are core dependencies:
-torchsky does the matching, association statistics, epoch propagation and
-HEALPix work; torchfits reads FITS tables. An installed torchsky older than
-0.6.0 is refused with an upgrade message. In a conda or Pixi environment, take
-CPU PyTorch from conda-forge (the default Pixi environment does): the PyPI wheel
-bundles its own OpenMP runtime, which aborts a conda environment on macOS.
-torchsky's wheels need macOS 14 or later and Python 3.12 or 3.13.
+Workflows for astronomical catalogue crossmatching with `xmatcher`: formats,
+remote archives, local mirrors, matchers, joins and execution paths.
+Install the package first ([install.md](install.md)); for a first run see the
+[README quickstart](../README.md#quickstart). Reference material lives in the
+[CLI Reference](cli.md), [Python API Reference](api.md) and
+[Algorithms & Mathematics](algorithms.md).
 
 ---
 
-## 2. 2-Minute Quickstart
+## 1. Formats & storage
 
-### Command Line Interface (CLI)
-
-```bash
-# 1. Match two local files with a 1.5 arcsecond radius
-xmatcher match catalog1.parquet catalog2.csv -o matches.parquet -r 1.5
-
-# 2. Match a local file against remote Gaia DR3 (auto-downloads cone from TAP)
-xmatcher match my_targets.csv gaia -o my_gaia.parquet -r 1.0
-
-# 3. Full-outer join (union) of three catalogues into a partitioned HATS directory
-xmatcher match survey1.parquet survey2.csv survey3.fits --union -o /data/master.hats
-```
-
-### Python API
-
-```python
-from xmatcher import CrossMatch
-
-cm = CrossMatch()
-
-# High-performance pairwise match
-df = cm.crossmatch(
-    "optical.parquet",
-    "infrared.csv",
-    radius_arcsec=1.5,
-    engine="fast",  # torchsky exact declination-zone index
-    join_type="1and2",  # Inner join
-)
-
-print(f"Matched {len(df)} pairs. Output columns include: {df.columns[:5]}")
-```
-
----
-
-## 3. Formats & Storage
-
-`xmatcher` reads supported formats through Polars and Astropy-backed adapters. File scanning and output serialization can be lazy or streaming, but most match engines collect coordinates and candidate pairs in memory.
+`xmatcher` reads Parquet and CSV lazily through Polars and FITS through
+torchfits. Output can be written by a streaming sink, but the local match
+engines collect coordinates and candidate pairs in memory; see
+[§6](#6-choosing-an-execution-path) for the paths that bound memory.
 
 ```mermaid
 flowchart LR
@@ -134,38 +42,51 @@ flowchart LR
     A1 & A2 & A3 & A4 & A5 --> B1 --> B2 --> C1 & C2 & C3 & C4 & C5
 ```
 
-### Supported Formats Overview
+### Supported formats for `xmatcher match`
 
-| Format | Extension | Read Engine | Write Engine | Memory Footprint |
+| Format | Extension | Read | Write | Memory |
 |---|---|---|---|---|
-| **Parquet** | `.parquet` | `pl.scan_parquet` | Polars streaming sink | Input scan/output can stream; matching may materialize |
-| **CSV** | `.csv` | `pl.scan_csv` | Polars streaming sink | Input scan/output can stream; matching may materialize |
-| **TSV / Tab** | `.tsv`, `.tab` | `pl.scan_csv(separator="\t")` | Polars streaming sink | Input scan/output can stream; matching may materialize |
-| **FITS** | `.fits`, `.fit` | `torchfits` (fallback Astropy) | `polars_to_astropy().write()` | Eager |
+| **Parquet** | `.parquet` | `pl.scan_parquet` | Polars streaming sink | Scan and output can stream; matching materializes coordinates and pairs |
+| **CSV** | `.csv` | `pl.scan_csv` | Polars streaming sink | As Parquet |
+| **TSV / Tab** | `.tsv`, `.tab` | `pl.scan_csv(separator="\t")` | Polars sink | As Parquet |
+| **FITS** | `.fits`, `.fit` | torchfits, with an Astropy fallback for masked or unsupported tables | `polars_to_astropy().write()` | Eager |
 | **HATS** | directory | Native HATS pixel reader | `write_hats()` / `ray_union` | Partitioned input; matching memory depends on engine and path |
-| **VOSpace** | `vos:*` | `storage.py` staging | Staged upload to VOSpace node | Bounded |
-| **S3 (HATS)** | `s3://bucket/prefix` | Anonymous HTTPS listing/GET (`s3.py`) | Mirrored into the local cache, then written as usual | Bounded (streamed) |
-| **Hugging Face (HATS)** | `hf://datasets/owner/name` | Hub tree API listing + `/resolve` download (`hf.py`) | Mirrored into the local cache, then written as usual | Bounded (streamed) |
+| **VOSpace** | `vos:*` | Staged locally (`storage.py`) | Written locally, then uploaded to the VOSpace node | As the local format |
+| **S3 (HATS)** | `s3://bucket/prefix` | Anonymous HTTPS listing/GET (`s3.py`) into the local mirror | Not a write target | Streamed transfer |
+| **Hugging Face (HATS)** | `hf://datasets/owner/name` | Hub tree API listing + `/resolve` download (`hf.py`) into the local mirror | Not a write target | Streamed transfer |
 
-### Lazy output and bounded-memory matching
+A remote HATS tree (HTTP(S), `vos:`, `s3://`, `hf://`) is matched from its
+local mirror: run `xmatcher sync` first ([§3](#3-local-mirroring--offline-caching-xmatcher-sync)),
+or use `engine="ray-union"` / `engine="ray-anchor"`, which mirror their inputs
+on demand. Writing a `.hats` match output, and mirroring a TAP catalogue to
+HATS, need the optional `cdshealpix` package
+([install.md](install.md#optional-extras)).
+
+### Lazy results and output files
 
 ```python
-# Output serialization can stream; this alone does not bound matching memory.
+import polars as pl
+
+from xmatcher import CrossMatch
+
+cm = CrossMatch()
+
+# Write the result through the output sink; returns None.
+# The sink streams, but the match itself still runs in memory.
 cm.crossmatch(
-    "huge_catalog_100M.parquet",
+    "catalog_a.parquet",
     "reference_survey.parquet",
-    output_file="out_streamed.parquet",
-    lazy=False,
+    output_file="out.parquet",
 )
 
-# Return as LazyFrame for further Polars query transformations
+# lazy=True returns a LazyFrame over the result for further Polars queries.
+# The match has already run when the call returns.
 lazy_result = cm.crossmatch(
     "catalog_a.parquet",
     "catalog_b.csv",
     lazy=True,
 )
 
-# Chain Polars expressions before collecting
 filtered = (
     lazy_result.filter(pl.col("sep_arcsec") < 0.5)
     .select(["ra", "dec", "phot_g_mean_mag"])
@@ -173,88 +94,105 @@ filtered = (
 )
 ```
 
-For pairwise local CSV/Parquet matching, `--memory-budget-bytes` enables a
-partitioned spill path when projected inputs exceed the budget:
+Every positional result carries a great-circle `sep_arcsec` column. Columns of
+the second catalogue that collide with the first take a `_2` suffix.
+
+### Converting and flattening catalogues
+
+`xmatcher convert <source> <output>` converts between FITS, Parquet, HATS and
+CSV in any direction; the output suffix names the format. Rows stream in Arrow
+batches (`--batch-rows`, default 262,144), so memory stays bounded. FITS is
+written by a streaming binary-table writer rather than Astropy; a HATS output
+takes three passes over the input (count, tile, write), with the tiling set by
+`--hats-max-rows` and `--hats-max-order`. Reading a HATS tree drops its
+`_healpix_29` index column unless `--keep-healpix29` is given.
 
 ```bash
-xmatcher match large_a.parquet large_b.parquet \
-  --memory-budget-bytes 1073741824 --scratch-dir /scratch/xmatcher \
-  --matcher sky --join 1or2 -o matches.parquet
+xmatcher convert gaia_field.fits gaia_field.hats
+xmatcher convert survey.parquet survey.hats --ra-col RA_ICRS --dec-col DE_ICRS
+xmatcher convert gaia_field.hats gaia_field.parquet --columns source_id,ra,dec
+xmatcher convert survey.hats survey.fits --overwrite
 ```
 
-This path currently supports pairwise `sky` and `skyerr`, inner or full-outer
-joins, and CSV/Parquet inputs and outputs. It rejects ID joins, `skyellipse`,
-N-way operations, priors, extra-distance features, post-filters, and the missing
-motion prior. Its budget bounds an internal batch-memory proxy, not all process
-memory; temporary disk space is required. Convert large FITS inputs to Parquet
-first. `--batch-size` controls HEALPix pixel groups in the zone path; it is not
-a general memory limit.
+To hand a HATS tree to tools that read only ordinary tables, flatten it with
+`xmatcher export-hats <source> <out.parquet|out.fits>` (Python:
+`xmatcher.export_hats`, or `xmatcher.scan_hats` for a lazy Polars scan).
+Parquet export scans the Npix partitions lazily; FITS export goes through the
+`convert` writer in one bounded-memory pass. `_healpix_29` is dropped unless
+`--keep-healpix29` is given. A flat file of a survey-scale tree is still
+large; keep the HATS layout when a single file is not required.
 
 ---
 
-## 4. Remote Archive Federation & Discovery
+## 2. Remote archives & discovery
 
-`xmatcher` includes catalogue and endpoint configurations for several TAP services. Availability, access policy, table schemas, and service limits can change; verify them with `xmatcher search` / `xmatcher describe` before large queries.
+`xmatcher` ships catalogue and endpoint configurations for several TAP
+services. Availability, access policy, table schemas and service limits change;
+check them with `xmatcher search` / `xmatcher describe` before large queries.
 
 ### Catalogue identifiers
 
-Every catalogue position accepts one of these forms, resolved in this order:
+Every catalogue position accepts a local file or HATS directory, a configured
+name or alias (`gaia`, `ps1`; `xmatcher list --aliases` prints them all), or an
+explicit identifier: `vizier:<id>` (`vizier:II/349/ps1`),
+`tap:<endpoint>/<table>` (`tap:noirlab/nsc_dr2.object`) or `hats:<url-or-name>`
+(`hats:two_mass`, `hats:s3://stpubdata/gaia/gaia_dr3/public/hats`). Explicit
+prefixes are checked first and configured names before the filesystem, so a
+local file named like a catalogue needs a path prefix (`./gaia`).
+[naming.md](naming.md) gives the full resolution order and naming grammar;
+[hats-sources.md](hats-sources.md) covers `hats:` lookups.
 
-1. A local file or HATS directory.
-2. A configured name or alias, matched case-insensitively. `xmatcher list --aliases`
-   prints every short name and what it resolves to.
-3. An explicit identifier:
-   - `vizier:<id>` — a VizieR catalogue/table id, e.g. `vizier:II/349/ps1`.
-   - `tap:<endpoint>/<table>` — a table on a supported public TAP endpoint
-     (`vizier`, `noirlab`, `gaia`, `cadc`), e.g. `tap:noirlab/nsc_dr2.object`.
-   - `hats:<url>` — a remote HATS tree over HTTP(S), VOSpace, S3 or Hugging
-     Face, e.g. `hats:https://example.org/hats/my_survey/`,
-     `hats:s3://stpubdata/gaia/gaia_dr3/public/hats` or
-     `hats:hf://datasets/UniverseTBD/mmu_jwst_gds`. A collection root is
-     descended to its primary tree; `s3://` buckets and `hf://` datasets must
-     allow anonymous reads (see [hats-sources.md](hats-sources.md)).
-4. A bare remote table id such as `II/349/ps1` (legacy convenience; prefer
-   `vizier:` so the access route is unambiguous).
+### Matching against a remote TAP catalogue
 
-Bare names, releases, and provider suffixes are described in
-[naming.md](naming.md). HATS short-name registry lookup (`hats:<name>`) is
-cached for seven days and works offline after the first resolution; the
-resolved URL is logged.
-
-### Querying Remote Archives Automatically
-
-When a remote catalogue name is supplied as an input, `xmatcher` calculates the bounding spatial cone of the local catalogue, queries the remote archive via TAP/ADQL, downloads the candidate region, and performs local spatial matching:
+When one input is local and the other is a remote TAP or CDS catalogue,
+`xmatcher` computes a cone enclosing the local catalogue (its sky extent plus
+the match radius), downloads the remote rows in that cone, and matches
+locally. If the remote catalogue has been mirrored with `xmatcher sync` and the
+mirror holds every requested column, the cone is read from the mirror instead.
 
 ```bash
-# Query Gaia DR3 within the footprint of my_sources.csv
+# Gaia DR3 within the footprint of my_sources.csv
 xmatcher match my_sources.csv gaia -r 1.0 -o matches.parquet
 
-# Query with explicit celestial coordinates (e.g. 0.05 degree cone around Vega)
+# Explicit cone: 0.05 deg around Vega
 xmatcher match gaia my_catalog.csv --ra 279.23 --dec 38.78 --radius-deg 0.05 -r 1.5
 ```
 
-The optimized server-side CDS/TAP crossmatch route is limited to simple
-`sky`/`find="all"` inner matches with automatic engine selection and no
-explicit region, post-filter, N-D feature, projection, or photometric prior.
-Other requests use a regional download followed by local matching. Two remote
-TAP catalogues cannot infer a query region from local coordinates; provide an
-explicit `ra`, `dec`, and `radius_deg` cone (especially for `find="best"`).
-Remote `skyerr`, `skyellipse`, and `target_epoch` requests also require that
-explicit cone, even when the other input is local: the remote service's
-uncertainty or motion halo is not known well enough to derive a safe region.
-Choose a cone that covers the requested match area and its uncertainty or
-motion margin.
+Two server-side routes skip the download: a local-vs-CDS match uses the CDS
+XMatch service, and two remote tables on the same TAP endpoint are joined
+there. Both apply only to `matcher="sky"`, `find="all"`, inner joins
+(`1and2`), automatic engine selection, and no explicit region, ID join,
+post-filter, N-D feature, column projection, target epoch or
+probabilistic/photometric scoring. Other requests download a region and match
+locally.
 
-### Pre-Computed Crossmatch Tables (Fast-Path)
+Explicit `ra`, `dec` and `radius_deg` (`--ra`, `--dec`, `--radius-deg`) are
+required when:
 
-NOIRLab Data Lab provides pre-computed crossmatch tables (e.g., NSC × Gaia, DES × Gaia, AllWISE × Gaia). `xmatcher` can match directly against these pre-computed tables, downloading only the matched pairs:
+- both inputs are remote and the server-side join does not apply (there is no
+  local catalogue to derive a region from);
+- the request uses `skyerr`, `skyellipse` or `target_epoch` with a remote
+  input, even when the other input is local: the remote catalogue's
+  uncertainty or motion halo is not known in advance, so no safe region can be
+  derived. Choose a cone that covers the match area plus that margin.
+
+### Pre-computed crossmatch tables
+
+NOIRLab Data Lab publishes pre-computed 1.5″ nearest-neighbour crossmatch
+tables, configured as `nsc_x_gaia`, `des_x_gaia`, `decals_x_gaia`,
+`allwise_x_gaia` and `ukidss_x_gaia`. Each row is one survey–Gaia pair
+(`ra1`/`dec1`, `ra2`/`dec2`, `id1`, `id2`, `distance`). `xmatcher` treats such a
+table as an ordinary TAP catalogue positioned at the survey coordinates
+(`ra1`, `dec1`): matching your sources against it returns both the survey ID
+and the Gaia `source_id` without downloading either full catalogue. The
+products carry no per-pair errors; a 0.75″ default positional error is
+configured.
 
 ```bash
-# Instant NSC × Gaia match without downloading full survey catalogues
 xmatcher match nsc_x_gaia my_stars.csv --ra 279.2 --dec 38.8 --radius-deg 0.01 -r 1.5
 ```
 
-### Interactive Remote Archive Discovery
+### Discovering remote tables
 
 ```bash
 # List configured catalogues (add --aliases for short-name mappings)
@@ -264,73 +202,82 @@ xmatcher list --aliases
 # List HATS catalogues registered in the IVOA registry (see hats-sources.md)
 xmatcher list --hats
 
-# Search remote TAP endpoints for datasets matching a keyword
+# Full metadata for one configured catalogue
+xmatcher describe gaia
+
+# Search every known TAP endpoint for table names containing a substring
 xmatcher search rubin
 xmatcher search unWISE
 
-# Inspect tables on a specific remote archive (e.g. NOIRLab Data Lab)
+# Browse the tables of one endpoint (e.g. NOIRLab Data Lab)
 xmatcher discover noirlab
 
-# Inspect column schema and generate YAML configuration snippet
+# Column schema of one table, with a suggested YAML snippet
 xmatcher discover noirlab --schema nsc_dr2.object
 
-# Adopt a discovered table into your local xmatcher configuration
+# Probe a table and append it to ~/.config/xmatcher/xmatcher.yaml
 xmatcher adopt vizier II/349/ps1 --name ps1
 ```
 
+`xmatcher adopt --dry-run` prints the YAML snippet without writing it.
+
 ---
 
-## 5. Local Mirroring & Offline Caching (`xmatcher sync`)
+## 3. Local mirroring & offline caching (`xmatcher sync`)
 
-For repeated analysis or full-sky union operations, `xmatcher` can mirror remote catalogues into a local, durable HATS cache (`~/.cache/xmatcher` or CANFAR `/arc/projects/hats`). Use `/arc/projects/hats/xmatcher` for the documented working/output directory.
+`xmatcher sync` mirrors remote catalogues into a durable HATS cache. The cache
+root is `--cache-root`, else `$XMATCHER_CACHE_ROOT`, else `/arc/projects/hats`
+on AstroAI/CANFAR sessions, else `~/.cache/xmatcher`. On CANFAR, write match
+outputs under `/arc/projects/hats/xmatcher`.
 
 ```bash
-# Mirror full remote surveys into local HATS cache
+# Mirror three configured catalogues
 xmatcher sync gaia allwise twomass
 
-# Re-sync checks TAP page windows or advertised remote HATS partition sizes.
+# Re-sync: checks TAP page windows or advertised remote HATS partition sizes
 xmatcher sync gaia
 
-# Force full re-download
+# Refetch everything, ignoring the incremental manifest
 xmatcher sync gaia --force
 
 # Mirror a catalogue the registry publishes only on S3 (anonymous read)
 xmatcher sync hats:euclid_q1_ipac
 
-# Mirror a model catalogue the registry publishes on Hugging Face
+# Mirror a catalogue the registry publishes on Hugging Face
 xmatcher sync hats:mmu_cfa_seccsn
 ```
 
-### Benefits of Local Mirroring:
-1. **Network Immunity**: Queries execute locally without hitting external archive rate limits or downtime.
-2. **High-Speed I/O**: Mirrored data is partitioned into spatial HATS parquet files, allowing fast spatial queries.
-3. **Distributed union**: Mirrored HATS inputs can feed `engine="ray-union"`; the cache path must be visible to the Ray workers.
+Other options: `--rate-limit` (requests per second per host, default 1.0; 0
+disables throttling), `--threads` (parallel download workers, default 8),
+`--fresh-after DAYS` (skip the change probe for copies fully synced within that
+many days), and `--min-free-gb` (fail early when the cache filesystem has less
+free space; default 10 GiB, or `XMATCHER_MIN_FREE_GB`).
+
+What a mirror provides:
+
+1. **Fewer remote queries.** Cone downloads for a mirrored TAP catalogue are
+   served from the mirror when it holds every requested column, so repeated
+   analyses avoid archive rate limits and outages.
+2. **Partitioned local reads.** The mirror is a spatially partitioned HATS
+   tree, so a cone reads only the partitions it overlaps.
+3. **Distributed matching.** Mirrored HATS trees feed `engine="ray-union"` and
+   `engine="ray-anchor"`; the cache path must be visible to the Ray workers.
 
 TAP resume requires a stable, unique, non-null key. The page-window row-count
-check does not detect edits that preserve the page's count; use `--force` after
-such mutations or when expanding the page window. Append-only growth is checked
-with a maximum-key probe. Remote HATS synchronization compares advertised
-partition sizes with the mirror manifest. Use `--force` to detect upstream
-edits that keep the same size.
+check does not detect edits that preserve a page's row count; use `--force`
+after such changes or when expanding the page window. Append-only growth is
+checked with a maximum-key probe. Remote HATS synchronization compares
+advertised partition sizes with the mirror manifest; use `--force` to pick up
+upstream edits that keep the same size.
 
-An `s3://` source is read anonymously over plain HTTPS (ListObjectsV2 for the
-listing and sizes, GET for partitions), so no credentials or AWS configuration
-are involved. A bucket that needs signed or requester-pays access is reported as
-denied instead of being treated as an empty catalogue. `XMATCHER_S3_ENDPOINT`
-points the reader at an S3-compatible service (path-style URLs). The mirror
-always writes to the local cache: S3 has no rename, so a partially transferred
-tree is never published back into the bucket.
-
-An `hf://datasets/<owner>/<name>` source is read anonymously through the
-Hugging Face Hub API: one paginated tree listing supplies names and sizes, and
-files are streamed from `/resolve/<revision>/<path>`. No token, no
-`huggingface_hub` and no clone are involved, and the mirror is written to the
-local cache rather than to the dataset. A private or gated dataset is reported
-as denied. `XMATCHER_HF_ENDPOINT` selects a Hub-compatible endpoint.
+`s3://` and `hf://` sources are read anonymously and always mirrored into the
+local cache; see [hats-sources.md](hats-sources.md#s3-hosted-sources) for
+access rules and the `XMATCHER_S3_ENDPOINT` / `XMATCHER_HF_ENDPOINT`
+overrides.
 
 ---
 
-## 6. Crossmatch algorithm cookbook
+## 4. Crossmatch algorithm cookbook
 
 ```python
 from xmatcher import CrossMatch, MatchRequest, MatchSpec, SideOverrides
@@ -338,50 +285,66 @@ from xmatcher import CrossMatch, MatchRequest, MatchSpec, SideOverrides
 cm = CrossMatch()
 ```
 
-### CLI error-model and fallback controls
+`radius_arcsec` (CLI `-r`, default 1.0) is a hard ceiling on separation for
+every matcher, including the error-scaled ones: `skyerr` and `skyellipse` can
+only narrow it. Set it to the largest separation you are willing to accept.
+
+### Per-catalogue column and error settings
 
 Small local files rarely carry the column metadata that `skyerr`,
-`skyellipse`, and probabilistic scoring need. The CLI exposes the same
-per-side settings as `SideOverrides` through repeatable `--side1` / `--side2`
-`KEY=VALUE` pairs:
+`skyellipse` and probabilistic scoring need. In Python, pass a
+`SideOverrides` per side. On the CLI, the same keys go in repeatable
+`--side1` / `--side2` comma-separated `KEY=VALUE` pairs, and `--side N KEY=VALUE`
+addresses catalogue `N` of an N-way run:
 
 ```bash
-xmatcher match xray.fits optical.parquet --matcher skyerr \
+xmatcher match xray.fits optical.parquet --matcher skyerr -r 5 \
   --side1 ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \
   --side2 ra_err_column=e_RAJ2000,dec_err_column=e_DEJ2000,pos_err_units=arcsec
 ```
 
 Accepted keys are `ra_column`, `dec_column`, `id_column`, `ra_err_column`,
-`dec_err_column`, `corr_column`, `pos_err_units`, `default_pos_error_arcsec`,
-`epoch`, `epoch_column`, `pm_ra_column`, `pm_dec_column`, `parallax_column`,
-`radial_velocity_column`, and `frame`. These override YAML metadata and
-auto-detection for that catalogue only.
+`dec_err_column`, `corr_column`, `pos_err_units` (`arcsec`, `mas`, `arcmin` or
+`deg`), `default_pos_error_arcsec`, `epoch`, `epoch_column`, `pm_ra_column`,
+`pm_dec_column`, `parallax_column`, `radial_velocity_column`, `frame` and
+`lr_magnitude_column`. They override YAML metadata and auto-detection for that
+catalogue only. In the Python multi-catalogue methods (`crossmatch_multi`,
+`union_match`, `fof_match`) the same keys are keyword arguments with a
+catalogue suffix, e.g. `ra_err_column_3="e_ra"`.
+
+### Fallback policy
 
 If a requested matcher or engine cannot honour the request, the default
-`--fallback-policy warn` logs a warning and substitutes a supported path;
-this can change the selection criterion. Add `--fallback-policy error` for
-reproducible runs that must fail loudly instead.
+`--fallback-policy warn` (`MatchSpec(fallback_policy="warn")`) logs a warning
+and substitutes a supported path. This can change the selection criterion:
+for example, `skyerr` without positional errors on both sides falls back to a
+fixed-radius `sky` match. Use `--fallback-policy error` for reproducible
+science runs that must fail instead. Target-epoch `skyerr` without positional
+errors is an error under either policy.
 
-### A. Simple Positional Matching (`matcher="sky"`)
+### A. Simple positional matching (`matcher="sky"`)
 
-Standard great-circle angular distance criterion: $\text{sep} \le \theta_{\text{radius}}$.
+Fixed great-circle radius: $\text{sep} \le \theta_{\text{radius}}$.
 
 ```python
 spec = MatchSpec(radius_arcsec=1.2, matcher="sky", find="best")
 result = cm.crossmatch_request(MatchRequest(cat1="cat_a.parquet", cat2="cat_b.parquet", spec=spec))
 ```
 
-### B. Adaptive Astrometric Uncertainties (`matcher="skyerr"`)
+`find="best"` keeps the nearest counterpart per row of the first catalogue
+(ties go to the lowest row index of the second); `find="all"` keeps every pair
+within the radius.
 
-Adapts the match radius per row based on positional error columns:
+### B. Per-row error radius (`matcher="skyerr"`)
 
-$$
-\text{sep} \le N_{\sigma} \cdot (\sigma_1 + \sigma_2)
-$$
+A pair is accepted when its separation is within `max_error` (default 3)
+times the sum of the two rows' radial errors, and within `radius_arcsec`.
+`find="best"` ranks by separation over that limit. Formulas and error sources:
+[algorithms §4B](algorithms.md#b-sigma-adaptive-matching-matcherskyerr).
 
 ```python
 # Supply per-side columns/units, or configure equivalent metadata in xmatcher.yaml.
-spec = MatchSpec(matcher="skyerr", max_error=3.0, find="best")
+spec = MatchSpec(radius_arcsec=2.0, matcher="skyerr", max_error=3.0, find="best")
 req = MatchRequest(
     cat1="gaia_dr3.parquet",
     cat2="hst_sources.csv",
@@ -394,16 +357,15 @@ req = MatchRequest(
 result = cm.crossmatch_request(req)
 ```
 
-### C. 2D Gaussian Error Ellipses (`matcher="skyellipse"`)
+### C. Error ellipses (`matcher="skyellipse"`)
 
-Evaluates full 2D positional covariance matrices ($\mathbf{C}_{\text{joint}} = \mathbf{C}_1 + \mathbf{C}_2$) via the Mahalanobis distance:
-
-$$
-d_{\text{M}}^2 = \Delta \mathbf{r}^T \mathbf{C}_{\text{joint}}^{-1} \Delta \mathbf{r} \le N_{\sigma}^2
-$$
+Uses each row's full 2-D positional covariance (with a declared RA/Dec
+correlation column) and accepts a pair when its Mahalanobis distance is at most
+`max_error` and its separation within `radius_arcsec`; see
+[algorithms §4C](algorithms.md#c-sky-ellipse--mahalanobis-distance-matcherskyellipse).
 
 ```python
-spec = MatchSpec(matcher="skyellipse", max_error=3.0, find="best")
+spec = MatchSpec(radius_arcsec=5.0, matcher="skyellipse", max_error=3.0, find="best")
 req = MatchRequest(
     cat1="chandra_xray.fits",
     cat2="vla_radio.parquet",
@@ -424,9 +386,10 @@ req = MatchRequest(
 result = cm.crossmatch_request(req)
 ```
 
-### D. Proper Motions & Target Epoch Propagation (`target_epoch`)
+### D. Proper motions and target-epoch propagation (`target_epoch`)
 
-Propagates coordinates across epoch baselines to a common Julian-year target epoch:
+Propagates coordinates of both catalogues to a common Julian-year epoch before
+matching:
 
 ```python
 spec = MatchSpec(
@@ -443,19 +406,23 @@ req = MatchRequest(
 result = cm.crossmatch_request(req)
 ```
 
-Rows away from the requested epoch need a known reference epoch and finite
-proper motions (unless the explicit `pm_prior` model is enabled). Coordinates
-must have compatible declared frames; `xmatcher` does not convert frames.
+Rows away from the target epoch need a known reference epoch (`epoch` or a
+per-row `epoch_column`) and finite proper motions, unless the `pm_prior` model
+below is enabled. Target-epoch propagation requires both catalogues in ICRS.
+More generally, both inputs must declare the same coordinate frame:
+`xmatcher` does not convert frames.
 
-### E. Assumed Proper-Motion Drift Model (Wilson 2023-inspired)
+### E. Assumed proper-motion drift model (Wilson 2023-inspired)
 
-When some rows lack measured motion and have a known epoch, the explicitly
-requested Wilson (2023)-inspired model adds an assumed drift uncertainty based on
-Galactic latitude:
-
-$$
-\sigma_\mu(b) = 3 + 7 \exp\left(-\frac{|b|}{20^\circ}\right) \quad [\text{mas/yr}], \qquad \sigma_{\text{drift}} = \sigma_\mu(b) \cdot \frac{|\Delta t|}{1000} \quad [\text{arcsec}]
-$$
+For a catalogue that has a known epoch but no proper-motion columns,
+`pm_prior=True` (CLI `--pm-prior`, which requires `--target-epoch`) adds an
+assumed drift uncertainty, in quadrature, to each row's positional error. The
+dispersion depends on Galactic latitude and, with `pm_prior_magnitude_column`
+(CLI `--pm-prior-mag-col`), on a magnitude used as a distance proxy; the model
+is in [algorithms §5B](algorithms.md#b-assumed-kinematic-drift-prior-pm_priortrue-wilson-2023).
+Catalogues with measured proper motions are propagated as in D and left
+unchanged by the prior. The drift enters error-aware matchers, so combine it
+with `skyerr` or `skyellipse` and positional errors on both sides:
 
 ```python
 spec = MatchSpec(
@@ -463,11 +430,25 @@ spec = MatchSpec(
     matcher="skyerr",
     target_epoch=2016.0,
     pm_prior=True,
-    pm_prior_magnitude_column="phot_g_mean_mag",  # Optional magnitude proxy
+    pm_prior_magnitude_column="rmag",  # optional magnitude proxy, catalogue 1
 )
-result = cm.crossmatch_request(
-    MatchRequest(cat1="usno_b1.parquet", cat2="gaia_dr3.parquet", spec=spec)
+req = MatchRequest(
+    cat1="usno_b1.parquet",
+    cat2="gaia_dr3.parquet",
+    spec=spec,
+    side1=SideOverrides(
+        epoch_column="epoch", ra_err_column="e_ra", dec_err_column="e_dec", pos_err_units="mas"
+    ),
+    side2=SideOverrides(
+        epoch=2016.0,
+        pm_ra_column="pmra",
+        pm_dec_column="pmdec",
+        ra_err_column="ra_error",
+        dec_err_column="dec_error",
+        pos_err_units="mas",
+    ),
 )
+result = cm.crossmatch_request(req)
 ```
 
 This is a population model, not measured motion or a substitute for a
@@ -475,13 +456,16 @@ catalogue-specific uncertainty model. Generic TAP schema discovery does not
 invent positional errors; configure errors or supply per-side error columns for
 uncertainty-aware matching.
 
-### F. Likelihood Ratio Counterpart Identification (`matcher="lr"`)
+### F. Likelihood-ratio counterpart identification (`matcher="lr"`)
 
-Sutherland & Saunders (1992) method for cross-identifying surveys with disparate resolutions (e.g. radio to optical):
-
-$$
-LR = \frac{q(m) \, f(r)}{n(m)}, \qquad R_j = \frac{LR_j}{\sum_{k} LR_k + (1 - Q)}
-$$
+The Sutherland & Saunders (1992) method, for cross-identification between
+surveys of different resolution (e.g. radio to optical), computed by torchsky
+(`catalogs.associate`). The ratio combines a Gaussian offset density with the
+second catalogue's magnitude distribution of counterparts against background,
+learnt by EM; `lr_q` (default 0.8) is the prior probability that a source in
+the first catalogue has a counterpart. `lr_magnitude_column` (a column of the
+second catalogue) is required. Formulas, gate and defaults:
+[algorithms §6A](algorithms.md#a-sutherland--saunders-1992-likelihood-ratio-matcherlr).
 
 ```python
 spec = MatchSpec(
@@ -493,15 +477,21 @@ spec = MatchSpec(
 result = cm.crossmatch_request(
     MatchRequest(cat1="radio_catalog.csv", cat2="optical_catalog.parquet", spec=spec)
 )
-# Result includes 'lr' and 'reliability' columns in [0, 1]
+# Adds 'lr' (the likelihood ratio, unbounded) and 'reliability' (R, in [0, 1]);
+# find="best" keeps the highest-reliability counterpart per primary row.
 ```
 
-`lr_color_column="g_mag"` (a primary column) turns the magnitude term into the
-colour secondary − primary. With three or more catalogues, `matcher="lr"` is one
-$N$-way association (torchsky `associate_many`): each primary row's hypotheses
-combine one counterpart or none per catalogue, with a magnitude term per
-secondary (`lr_magnitude_column`, or `lr_magnitude_column_<n>` for catalogue
-`n`). Every catalogue needs positional errors.
+`lr_color_column="g_mag"` (a column of the first catalogue) replaces the
+magnitude term with the colour secondary − primary.
+
+With three or more catalogues, `matcher="lr"` is one $N$-way association
+(torchsky `associate_many`), not a chain of pairwise matches. Each primary
+row's hypotheses combine one counterpart or none per catalogue, with a
+magnitude term per secondary (`lr_magnitude_column`, or
+`lr_magnitude_column_<n>` for catalogue `n`). Every catalogue needs positional
+errors or an explicit `default_pos_error_arcsec`. Only `join_type="1and2"` and
+`"all1"` are accepted, and `filter_expr`, `extra_distance_cols`,
+`prior_columns` and probabilistic scoring are rejected.
 
 ```python
 result = cm.crossmatch_multi(
@@ -512,32 +502,57 @@ result = cm.crossmatch_multi(
     lr_magnitude_column_3="Jmag",
     lr_color_column="phot_g_mean_mag",  # W1 - G and J - G
     lr_q=0.8,
+    # every catalogue needs positional errors
+    ra_err_column_1="ra_error",
+    dec_err_column_1="dec_error",
+    pos_err_units_1="mas",
+    default_pos_error_arcsec_2=0.3,
+    default_pos_error_arcsec_3=0.3,
 )
-# One row per primary (its MAP hypothesis): sep_arcsec_2, sep_arcsec_3,
-# reliability, lr, p_any, nway_best; absent members are null.
+# find="best" (the default): one row per primary with at least one counterpart,
+# its MAP hypothesis, with sep_arcsec_2, sep_arcsec_3, reliability, lr, p_any
+# and nway_best; absent members are null. join_type="all1" also keeps
+# primaries without a counterpart; find="all" keeps every hypothesis.
 ```
 
-### G. Machine Learning Classifiers (`matcher="ml"`, `matcher="xgb"`)
+On the CLI, `--lr-magnitude-column` takes one name for every secondary or a
+comma-separated list with one per secondary (e.g. `W1mag,Jmag`).
 
-Trained on-the-fly with nearest-neighbour pseudo-labels using normalized separations, multi-band color differences, and local source densities:
+### G. Machine-learning classifiers (`matcher="ml"`, `matcher="xgb"`)
+
+`ml` uses a scikit-learn random forest; `xgb` uses XGBoost, falling back to
+LightGBM, then scikit-learn gradient boosting. Both need the `ml` extra; if no
+suitable library is installed, a fixed weighted heuristic is used instead
+(logged at INFO level). Without a saved model, the classifier is trained on
+the fly with nearest-neighbour pseudo-labels, so the score reproduces a
+nearest-neighbour choice refined by the `ml_color_columns` photometry; it is
+not a calibrated match probability. Features and training:
+[algorithms §7](algorithms.md#7-machine-learning-matchers-matcherml-matcherxgb).
 
 ```python
 spec = MatchSpec(
     radius_arcsec=2.0,
     matcher="xgb",
     ml_color_columns=["g", "r", "i"],
-    xgb_model_path="trained_crossmatch_model.joblib",  # Save/load model artifact
+    xgb_model_path="trained_crossmatch_model.joblib",
 )
 result = cm.crossmatch_request(
     MatchRequest(cat1="survey_a.parquet", cat2="survey_b.parquet", spec=spec)
 )
-# Result includes 'xgb_score' column in [0, 1]
+# Adds 'xgb_score' in [0, 1] ('ml_score' for matcher="ml")
 ```
+
+`ml_model_path` / `xgb_model_path` (CLI `--ml-model-path`, `--xgb-model-path`):
+if the file exists, the model is loaded with joblib and applied without
+retraining (a file that cannot be loaded is an error); otherwise the model is
+trained and saved there. joblib files are pickles, so load only model files
+you trust.
 
 ### H. AUF-inspired empirical scores (`matcher="auf"`, `matcher="macauff"`)
 
-These lightweight heuristics estimate a positional score by subtracting an
-estimated background from the observed candidate-separation distribution.
+These estimate a positional score by subtracting an estimated background from
+the observed candidate-separation distribution,
+$P(r) = f_{\text{AUF}}(r) / (f_{\text{AUF}}(r) + n_{\text{bg}})$.
 `macauff` additionally multiplies by approximate per-column magnitude
 likelihood ratios. They are not full reproductions of Wilson & Naylor's
 published AUF/macauff methods and their scores are not calibrated probabilities.
@@ -551,16 +566,16 @@ spec = MatchSpec(
 result = cm.crossmatch_request(
     MatchRequest(cat1="ground_based.parquet", cat2="space_telescope.parquet", spec=spec)
 )
-# Result includes a heuristic 'macauff_prob' score in [0, 1], not a calibrated probability
+# Adds a heuristic 'macauff_prob' score in [0, 1] ('auf_prob' for matcher="auf")
 ```
 
 ### I. Bayesian pairwise qualification
 
-Set `probabilistic=True` for a positional-only `p_match`, or set nonempty
-`prior_columns` to enable the score with empirical photometric KDE terms. Both
-inputs must provide declared positional errors or explicit per-side error
-floors; every prior column must be present in both catalogues and have the same
-physical meaning:
+Set `probabilistic=True` (CLI `--probabilistic`) for a positional-only
+`p_match`, or set nonempty `prior_columns` (CLI `--priors`) to add empirical
+photometric KDE terms. Both inputs must provide declared positional errors or
+explicit per-side error floors; every prior column must be present in both
+catalogues and have the same physical meaning:
 
 ```python
 spec = MatchSpec(radius_arcsec=1.5, prior_columns=["g_mag"])
@@ -579,23 +594,43 @@ The score uses equal prior odds and an assumed uniform background inside the
 search disc; it is not calibrated to population prevalence or local sky density.
 See [Bayesian score assumptions](algorithms.md#6-probabilistic--bayesian-matchers).
 
----
+### J. Post-filters and feature-weighted ranking
 
-## 7. Relational Joins & Multi-Catalogue Chains
+`filter_expr` (CLI `--filter-expr`) is a Polars SQL `WHERE` clause evaluated
+on the matched pairs after selection; second-catalogue columns that collide
+with the first carry the `_2` suffix. A `find="best"` match rejected by the
+filter is not replaced by the next candidate.
 
-### Join Modes
-
-| `join_type` | Conventional Name | Rows Emitted |
-|---|---|---|
-| `"1and2"` | Inner Join | Only matched pairs. |
-| `"all1"` | Left Outer Join | All left rows; right rows matched or filled with `null`. |
-| `"all2"` | Right Outer Join | All right rows; left rows matched or filled with `null`. |
-| `"1or2"` / `"all"` | Full Outer Join (Union) | Every source from both catalogues (unmatched slots `null`). |
-| `"1not2"` | Left Anti-Join | Left sources with **no** counterpart in the right catalogue. |
-| `"2not1"` | Right Anti-Join | Right sources with **no** counterpart in the left catalogue. |
+`extra_distance_cols` (CLI `--extra-distance-cols 'g:0.5,bp_rp:0.3'`) maps
+columns to nonnegative weights. The columns are z-scored over both catalogues
+and appended to the unit-sphere embedding; among candidates inside
+`radius_arcsec`, the nearest in that combined space is chosen.
 
 ```python
-# Anti-join: Find transient candidates with NO archival Gaia counterpart
+spec = MatchSpec(
+    radius_arcsec=2.0,
+    extra_distance_cols={"g": 0.5, "bp_rp": 0.3},
+    filter_expr="abs(g - g_2) < 0.5",
+)
+```
+
+---
+
+## 5. Relational joins & multi-catalogue chains
+
+### Join modes
+
+| `join_type` (CLI `--join`) | Conventional name | Rows emitted |
+|---|---|---|
+| `"1and2"` | Inner join | Only matched pairs (default). |
+| `"all1"` | Left outer join | All left rows; right columns matched or `null`. |
+| `"all2"` | Right outer join | All right rows; left columns matched or `null`. |
+| `"1or2"` / `"all"` | Full outer join (union) | Every source from both catalogues (unmatched slots `null`). |
+| `"1not2"` | Left anti-join | Left sources with **no** counterpart in the right catalogue. |
+| `"2not1"` | Right anti-join | Right sources with **no** counterpart in the left catalogue. |
+
+```python
+# Anti-join: new detections with no Gaia counterpart within 2″
 transients = cm.crossmatch(
     "new_detections.parquet",
     "gaia",
@@ -604,9 +639,10 @@ transients = cm.crossmatch(
 )
 ```
 
-### Relational ID Join (`id_join=True`)
+### Relational ID join (`id_join=True`)
 
-Performs a pure relational join on identifier columns (e.g. `source_id`, `objid`) without coordinate calculations:
+A relational join on identifier columns (e.g. `source_id`, `objid`), with no
+positional matching (CLI `--id-join --id1 COL --id2 COL`):
 
 ```python
 result = cm.crossmatch(
@@ -618,10 +654,19 @@ result = cm.crossmatch(
 )
 ```
 
-### Multi-Catalogue Sequential Chains (`crossmatch_multi`)
+### Sequential multi-catalogue chains (`crossmatch_multi`)
+
+`crossmatch_multi` matches catalogue 1 with 2, then the result with 3, and so
+on, with one `MatchSpec` for every step. The first catalogue's coordinates are
+the positional reference throughout, and colliding column names get `_2`,
+`_3`, … suffixes. With the default inner join, a row survives only if it
+matches in every catalogue. Remote catalogues in positions 3 and later need
+an explicit `ra`, `dec` and `radius_deg`. (`matcher="lr"` with three or more
+catalogues is the N-way association of [§4 F](#f-likelihood-ratio-counterpart-identification-matcherlr)
+instead.)
 
 ```python
-# 4-survey crossmatch chain: Gaia × AllWISE × 2MASS × Pan-STARRS
+# Gaia × AllWISE × 2MASS × Pan-STARRS, inner joins
 multi_match = cm.crossmatch_multi(
     ["gaia_dr3.parquet", "allwise.parquet", "twomass.parquet", "panstarrs.parquet"],
     radius_arcsec=1.5,
@@ -629,17 +674,48 @@ multi_match = cm.crossmatch_multi(
 )
 ```
 
+### Union catalogues (`union_match`, `--union`)
+
+`union_match` (CLI `--union`) runs the same chain with full outer joins at
+every step, so every source of every catalogue appears in the output. A
+`_src_cats` column records which catalogues contributed to each row
+(`"1+2"`, `"1+2+3"`, `"3"`), and `sep_arcsec` holds the latest pairwise
+separation. This runs in memory; for full-sky unions use
+[`ray-union`](#distributed-full-sky-union-ray-union).
+
+```bash
+xmatcher match survey1.parquet survey2.csv survey3.fits --union -o master.parquet
+```
+
+A row found only in a later catalogue has null first-catalogue `ra`/`dec`, so
+the in-memory union cannot be written as a `.hats` tree in 0.7.0 (the writer
+rejects the non-finite coordinates); write Parquet, CSV or FITS, or use
+`ray-union` for HATS output.
+
 ---
 
-## 8. Choosing an execution path
+## 6. Choosing an execution path
 
 Engine selection changes where candidate queries run; it does not by itself make
 all inputs or outputs out-of-core.
 
+### In-memory engines
+
+`engine="auto"` (the default) uses STILTS `tmatch2` when a STILTS command is
+available and the request is one STILTS supports, and otherwise `fast`,
+torchsky's exact declination-zone index, which supports every matcher. The
+other in-memory engines (`zone`, `torchsky`, `astropy`, `stilts`) and their
+limits are listed in the
+[engine table](api.md#execution-engines). All engines produce the same schema
+and, for `find="best"`, the same tie rule. `--batch-size`
+(`MatchSpec.batch_size`) is accepted and validated but no engine reads it in
+0.7.0; it does not limit memory.
+
 ### Pairwise spill matching on one machine
 
-For large local CSV or Parquet pairs, `--memory-budget-bytes` enables the
-partitioned spill path when projected input size exceeds the requested budget:
+For large local CSV or Parquet pairs, `--memory-budget-bytes` enables a
+partitioned spill path when the projected input size (file size scaled by the
+fraction of columns the match needs) exceeds the budget:
 
 ```bash
 xmatcher match large_a.parquet large_b.parquet \
@@ -647,25 +723,31 @@ xmatcher match large_a.parquet large_b.parquet \
   --matcher sky --join 1or2 -o matches.parquet
 ```
 
-The current spill path supports `sky` and `skyerr`, inner (`1and2`) and full
-outer (`1or2`/`all`) joins, and local CSV/Parquet files. It rejects ID joins,
-`skyellipse`, N-way matching, post-filters, Bayesian priors, extra-distance
-columns, and the missing-motion prior. Convert FITS inputs to Parquet first.
-The memory budget applies to an internal batch proxy; it does not cap all Python,
-Polars, or OS memory. Scratch space is required. `--batch-size` only controls
-HEALPix pixel groups for the zone path and is not a general memory limit.
+The spill path supports:
+
+- `sky` and `skyerr`, including `target_epoch`;
+- inner (`1and2`) and full-outer (`1or2`/`all`) joins, and two-catalogue
+  `--union` output;
+- local CSV/Parquet inputs and a `.csv`/`.parquet` output file (required;
+  `lazy=True` is rejected).
+
+It rejects ID joins, `skyellipse` and the scoring matchers, N-way matching,
+post-filters, Bayesian priors and probabilistic scoring, extra-distance
+columns, and the missing-motion prior. Convert FITS inputs to Parquet first
+(`xmatcher convert`). The budget bounds an internal batch-memory proxy, not all
+Python, Polars or OS memory, and scratch disk space is required.
+`--partition-order` (`auto`, or 0–12) sets the sky-zone partitioning.
 
 ### Ray pairwise matching
 
-`engine="ray"` distributes HEALPix candidate queries. The driver reads both
-inputs into frames and assembles the final candidate result, so coordinator
-memory still grows with the input and output. Use it when parallel candidate
-search is useful and the coordinator can hold those data. This engine does not
-turn an arbitrary flat-file match into an out-of-core operation.Optional matchers and Ray behaviour depend on the selected matcher and installed
-extras. By default (`fallback_policy="warn"`) an unsupported combination logs a
-warning and substitutes a supported path; this can change the science criteria.
-Set `--fallback-policy error` (or `MatchSpec(fallback_policy="error")`) to fail
-instead, and use that setting for reproducible science runs.
+`engine="ray"` groups both inputs by HEALPix pixel (order 5, via
+`cdshealpix`) and runs one Ray task per pixel group; without `cdshealpix` it
+falls back to the single-machine `fast` search, or fails under
+`fallback_policy="error"`. The driver reads both inputs into frames and
+assembles the final candidate result, so coordinator memory still grows with
+the input and output. Use it when parallel candidate search is useful and the
+coordinator can hold those data; it does not turn a flat-file match into an
+out-of-core operation.
 
 ```python
 from xmatcher import CrossMatch, MatchRequest, MatchSpec
@@ -681,13 +763,16 @@ matches = CrossMatch().crossmatch_request(request)
 
 ### HATS-native matching
 
-The native HATS matcher can use partition-neighbor scans for fixed-radius
-`sky` matching when both inputs have uniform-order NESTED partitions. Mixed
-orders, RING ordering, adaptive positional uncertainties, and target-epoch
-alignment use a global materialization path that currently has an O(N) memory
-requirement. Native HATS matching can still use Ray for pairwise work after
-materialization. Do not treat HATS partitioning alone as a promise of bounded
-memory.
+When an input is a HATS tree, the native HATS matcher processes one left
+partition at a time against the matching right partition and its HEALPix
+neighbours. That partitioned path requires a HATS left input, a join of
+`1and2`, `all1` or `1not2`, fixed-radius `sky` matching with no scoring
+matcher, priors, probabilistic scoring, extra-distance columns or
+`target_epoch`, and, when both inputs are HATS, one common NESTED partition
+order. Any other request (mixed orders, RING ordering, `skyerr`/`skyellipse`,
+target-epoch alignment, outer joins) materializes both catalogues and runs one
+global match, which needs O(N) memory. Do not treat HATS partitioning alone as
+a promise of bounded memory.
 
 ### Distributed full-sky union (`ray-union`)
 
@@ -708,6 +793,8 @@ The output uses a coherent NESTED partition tree. Input measurements are
 preserved, and `_union_ra` / `_union_dec` provide non-null routing coordinates
 from the lowest-indexed catalogue member in each output row; these columns are
 additional to input columns and are the output tree's declared spatial columns.
+`_src_cats` records the contributing catalogues and `sep_arcsec` the
+separation of the closest edge used.
 
 ```bash
 xmatcher sync gaia allwise twomass
@@ -715,6 +802,12 @@ xmatcher match gaia allwise twomass \
   --union --engine ray-union \
   -o /arc/projects/hats/xmatcher/master_union.hats
 ```
+
+Tuning options: `--task-rows` (target rows per Ray chunk, default 2,000,000),
+`--max-tuples` (output tuples per hub row, default 10,000),
+`--chunk-memory-gb` (per-chunk candidate-pool guard, default 8.0),
+`--retries` (driver-level reruns after a failure; finished chunks are skipped),
+and `--no-sync` (require existing mirrors instead of syncing).
 
 Resume state is tied to source identity and metadata. Change the inputs or
 configuration and start a new output directory rather than expecting an old
@@ -727,13 +820,13 @@ access and has no synthetic row-count oracle.
 ### Gaia-anchored master (`ray-anchor`)
 
 `engine="ray-anchor"` keeps one row per source in the first catalogue (the
-anchor) and attaches the best counterpart from every later catalogue. It is
-the right engine when Gaia is the master list and no Gaia source may be
-dropped. The output is a HATS tree with the anchor's selected columns
-preserved, its coordinates at `--target-epoch` when one is given, and, for
-each survey, `<survey>_sep_arcsec`, `<survey>_sep_second`,
-`<survey>_n_within`, `<survey>_crowded`, `<survey>_pm_warn`, and
-`<survey>_quality`.
+anchor) and attaches the best counterpart from every later catalogue. Use it
+when Gaia is the master list and no Gaia source may be dropped. The output is
+a HATS tree with the anchor's selected columns preserved, its coordinates at
+`--target-epoch` when one is given, and, for each survey,
+`<survey>_sep_arcsec`, `<survey>_sep_second`, `<survey>_n_within`,
+`<survey>_crowded`, `<survey>_pm_warn`, and `<survey>_quality`.
+`--anchor-id-name` renames the anchor's ID column (default `source_id`).
 
 ```bash
 xmatcher match gaia_hats sdss_hats ps1_hats catwise_hats \
@@ -741,36 +834,35 @@ xmatcher match gaia_hats sdss_hats ps1_hats catwise_hats \
   -o gaia_master.hats
 ```
 
-Only `matcher="sky"` is currently supported. The engine rejects options it
-would otherwise ignore (ID joins, filters, probabilistic scoring, regions,
-extra-distance columns, `find="all"`). Use `ray-union` for `skyerr` or
+Only `matcher="sky"` and `find="best"` are supported. The engine rejects
+options it would otherwise ignore (ID joins, filters, probabilistic scoring,
+regions, extra-distance columns). Use `ray-union` for `skyerr` or
 `skyellipse`, or when secondary-only sources must survive.
 
 Narrow wide inputs first with `xmatcher project-hats <source> <out> --columns
 …`; it writes a new HATS tree with the same partition layout and only the
 requested columns, streaming an HTTPS tree without a full mirror. See
 [ray-anchor.md](ray-anchor.md) for the full schema, epoch/PM policy,
-projection workflow, and CANFAR local-product aliases.
+projection workflow, and CANFAR local-product aliases. To flatten the
+resulting tree for other tools, see
+[Converting and flattening catalogues](#converting-and-flattening-catalogues).
 
-To hand a HATS tree to tools that only read ordinary tables, flatten it with
-`xmatcher export-hats <source> <out.parquet|out.fits>` (or
-`xmatcher.export_hats` / `xmatcher.scan_hats`). Parquet scans Npix partitions
-lazily and FITS streams in bounded memory. `xmatcher convert` converts in any
-direction between FITS, Parquet, HATS and CSV. Prefer keeping the HATS layout
-when a single file is not required.
+---
 
-## 9. Friends-of-Friends output policy
+## 7. Friends-of-Friends output policy
 
-`fof_match` searches cross-catalogue edges across all input catalogue pairs,
-then forms connected components. This lets an A–B and B–C chain place all
-three detections in one component even if A and C are farther apart than the
-link radius. Output is primary-anchored: only components containing a source
-from the first catalogue are emitted, and secondary-only components are
-omitted. Isolated first-catalogue rows are retained.
+`fof_match` (CLI `--fof`) searches cross-catalogue edges across all input
+catalogue pairs, then forms connected components. An A–B and B–C chain
+therefore places all three detections in one component even if A and C are
+farther apart than the link radius. Output is primary-anchored: only
+components containing a source from the first catalogue are emitted, and
+secondary-only components are omitted. Isolated first-catalogue rows are
+retained.
 
-Each output row carries the columns of the first first-catalogue row in its
-bundle, unchanged. Columns from the other catalogues are aggregated over the
-bundle's members from that catalogue:
+Each output row has a `bundle_id`, `n_cats` (the number of contributing
+catalogues) and `_src_cats` (e.g. `"1+2+3"`), and carries the columns of the
+first first-catalogue row in its bundle, unchanged. Columns from the other
+catalogues are aggregated over the bundle's members from that catalogue:
 
 - float columns: mean, ignoring NaN;
 - the catalogue's RA/Dec pair: unit-vector mean, so bundles across RA=0/360
@@ -783,25 +875,13 @@ suffix (`k` is the catalogue's 1-based position), repeated until unique.
 Inspect the source membership (`_src_cats`) before interpreting an aggregate
 as one measurement.
 
-## 10. Configuration health and shell completion
+---
 
-`xmatcher doctor` compares the active configuration with the bundled baseline
-and reports structural drift (a renamed column, a moved table, a changed
-alias). The default exit code is nonzero only when a structural field differs;
-`--strict` treats any topology change as failure, `--json` is machine-readable,
-and `--quiet` emits one summary line.
+## 8. Configuration health and shell completion
 
-```bash
-xmatcher doctor
-xmatcher doctor --json
-xmatcher doctor --strict --quiet
-```
-
-`xmatcher completion` emits a completion script populated from the active
-configuration:
-
-```bash
-xmatcher completion bash > ~/.local/share/bash-completion/completions/xmatcher
-xmatcher completion zsh > "${ZDOTDIR:-$HOME}/.zsh/completions/_xmatcher"
-xmatcher completion fish > ~/.config/fish/completions/xmatcher.fish
-```
+Run `xmatcher doctor` after editing `~/.config/xmatcher/xmatcher.yaml`: it
+compares the active configuration with the bundled baseline and reports drift
+(a renamed column, a moved table, a changed alias). `xmatcher completion
+{bash,zsh,fish}` emits a shell completion script that includes the configured
+catalogue names. Options, exit codes and installation paths are in the
+[CLI reference](cli.md#xmatcher-doctor).

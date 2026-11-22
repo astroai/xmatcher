@@ -1,524 +1,403 @@
-# Crossmatch Algorithms & Mathematical Foundations
+# Crossmatch algorithms & mathematical foundations
 
-A comprehensive guide to the astrometric, statistical, and machine-learning algorithms implemented in `xmatcher`.
+The candidate search, matchers, scores and epoch handling implemented in `xmatcher`, with the formulas the code evaluates.
 
 ---
 
-## 1. Introduction & Architecture
+## 1. Introduction & architecture
 
-### The Astronomical Challenge
+### The astronomical challenge
 
-Crossmatching astronomical catalogues is fundamentally different from a relational database `JOIN`. In astronomy:
+Crossmatching catalogues differs from a relational `JOIN`:
 
-- **Spherical Geometry**: Sources lie on the two-dimensional celestial sphere where Euclidean coordinate arithmetic does not apply.
-- **Astrometric Uncertainties**: Every detection has measurement errors—ranging from sub-milliarcsecond precision in space astrometry (Gaia) to arcsecond uncertainties in ground-based seeing or radio interferometry.
-- **Proper Motions & Kinematics**: Stars move over time. Decade-long baselines between surveys shift positions by arcseconds.
-- **Disparate Resolutions & Bandpasses**: An optical source ($0.5''$ PSF) might correspond to an extended radio lobe ($5''$ beam) or a blended infrared centroid (WISE $6''$).
-- **Crowded Fields & Blending**: In dense regions (Galactic bulge, globular clusters, Magellanic clouds), the chance of random spatial alignment approaches unity.
+- **Spherical geometry**: sources lie on the celestial sphere, where planar coordinate arithmetic fails near the poles and across RA = 0/360.
+- **Astrometric uncertainties**: errors range from sub-milliarcsecond (Gaia) to arcseconds (ground-based seeing, radio, X-ray).
+- **Proper motion**: decade-long baselines between surveys move stars by arcseconds.
+- **Different resolutions and bandpasses**: an optical source (0.5″ PSF) may correspond to a radio component (5″ beam) or a blended WISE centroid (6″).
+- **Crowded fields**: in dense regions (Galactic bulge, globular clusters, Magellanic Clouds) chance alignments become likely.
 
-`xmatcher` solves these challenges through a modular, four-stage pipeline designed for both desktop laptops and multi-node distributed Ray clusters.
-
-### The 4-Stage Processing Pipeline
+### Processing pipeline
 
 ```mermaid
 flowchart TD
-    subgraph S1["Stage 1: Geometric Embedding"]
-        C1["RA (α), Dec (δ)"] --> EMB["Vectorized 3D Unit Sphere<br/>r = (x, y, z)"]
-    end
-
-    subgraph S2["Stage 2: Spatial Candidate Pruning"]
-        EMB --> TREE["torchsky Declination-Zone Index"]
-        TREE --> PRUNE["Fast Chord Radius Pruning<br/>d &le; 2·sin(θ_max / 2)"]
-    end
-
-    subgraph S3["Stage 3: Statistical Qualification & Scoring"]
-        PRUNE --> M_CHOICE{"Matcher Selection"}
-        M_CHOICE -->|"sky"| SC_POS["Astrometric Distance θ"]
-        M_CHOICE -->|"skyerr"| SC_SIG["Adaptive N-Sigma Distance"]
-        M_CHOICE -->|"skyellipse"| SC_MAH["Covariance Mahalanobis d²"]
-        M_CHOICE -->|"lr"| SC_LR["Sutherland & Saunders LR"]
-        M_CHOICE -->|"probabilistic"| SC_BAYES["Budavári & Szalay Bayes Factor"]
-        M_CHOICE -->|"ml / xgb"| SC_ML["Gradient Boosted / RF Classifier"]
-    end
-
-    subgraph S4["Stage 4: Topology & Provenance"]
-        SC_POS --> TOP["Topology Resolution<br/>find='best' | find='all' | fof_match"]
-        SC_SIG --> TOP
-        SC_MAH --> TOP
-        SC_LR --> TOP
-        SC_BAYES --> TOP
-        SC_ML --> TOP
-        TOP --> ASSOC["Deterministic Provenance<br/>xmatch.association.v1 SHA-256"]
-    end
+    IN["Catalogues<br/>RA, Dec, errors, motion, photometry"] --> EP["Optional epoch alignment<br/>(target_epoch, torchsky)"]
+    EP --> CS["Candidate search<br/>torchsky declination-zone index (exact)"]
+    CS --> M{"Matcher"}
+    M -->|"sky"| S1["θ ≤ R"]
+    M -->|"skyerr"| S2["θ ≤ min(R, N·(σ₁+σ₂))"]
+    M -->|"skyellipse"| S3["Mahalanobis d² ≤ N²"]
+    M -->|"lr"| S4["Sutherland & Saunders LR<br/>(torchsky associate / associate_many)"]
+    M -->|"ml / xgb / auf / macauff"| S5["Score candidates"]
+    S1 --> OUT["find = best | all, join_type<br/>optional p_match, filter_expr"]
+    S2 --> OUT
+    S3 --> OUT
+    S4 --> OUT
+    S5 --> OUT
 ```
+
+Publishing evaluated pairs as content-addressed records is a separate step ([section 9](#9-provenance-identity-deterministic-association-xmatchassociationv1)).
 
 ---
 
-## 2. Algorithm Capabilities & Selection Guide
+## 2. Algorithm capabilities & selection guide
 
-Choose the appropriate matcher based on your input catalogue properties and scientific goals:
-
-| Matcher Flag | Primary Inputs | Scoring Metric | Computational Complexity | Recommended Scientific Use Case |
+| Matcher | Required inputs | Criterion or score | Output columns | Typical use |
 |---|---|---|---|---|
-| `matcher="sky"` | RA, Dec | Great-circle separation $\theta$ | $O(N \log M)$ | Fast spatial aperture matching with uniform search radius. |
-| `matcher="skyerr"` | RA, Dec, $\sigma_{\text{pos}}$ | Normalised separation $\frac{\theta}{\sigma_1 + \sigma_2}$ | $O(N \log M)$ | Surveys with widely varying positional errors (e.g. Gaia vs. ground-based). |
-| `matcher="skyellipse"` | RA, Dec, Covariance $\mathbf{C}$ | Mahalanobis distance $d_{\text{M}}^2$ | $O(N \log M + K)$ | Anisotropic errors (drift-scans, slitless spectroscopy, Chandra/XMM). |
-| `matcher="lr"` | RA, Dec, $\sigma_{\text{pos}}$, Magnitude | Likelihood Ratio $LR$ and Reliability $R_j$ | $O(N \log M + K)$ | Cross-identifying low-resolution (Radio/X-ray) with dense Optical/IR catalogues. |
-| `probabilistic=True` | RA, Dec, Errors, Photometry | Bayesian posterior $p_{\text{match}}$ | $O(N \log M + K)$ | Rigorous hypothesis testing ($H_{\text{match}}$ vs. $H_{\text{bg}}$) with empirical flux priors. |
-| `nway_match()`, `matcher="lr"` with $N \ge 3$ | RA, Dec, Errors ($N \ge 2$), optional magnitudes | Hypothesis posterior and $N$-way $LR$ | $O(N \log M + K_{\text{hyp}})$ | Simultaneous multi-survey association (Budavári & Szalay 2008, nway) via torchsky `associate_many`. |
-| `matcher="ml"` | RA, Dec, Photometry/Colors | Random Forest pseudo-label score | $O(N \log M + K_{\text{infer}})$ | Multi-band optical/infrared matching with complex color distributions. |
-| `matcher="xgb"` | RA, Dec, Photometry/Colors | Gradient Boosted tree score | $O(N \log M + K_{\text{infer}})$ | Non-linear photometric feature interactions and fast C++ inference. |
-| `matcher="auf"` | RA, Dec | Empirical Annular Residual Score | $O(N \log M + K)$ | Heuristic background-subtracted candidate scoring. |
-| `matcher="macauff"` | RA, Dec, Magnitudes | Multi-band Magnitude Odds Ratio | $O(N \log M + K)$ | Heuristic joint positional and photometric candidate re-weighting. |
-| `fof_match()` | RA, Dec ($N \ge 2$) | Graph Connected Component | $O(V + E)$ | Grouping blended sources, galaxy cluster members, or multi-catalogue bundles. |
+| `matcher="sky"` | RA, Dec | Great-circle separation $\theta \le R$ | `sep_arcsec` | Uniform search radius. |
+| `matcher="skyerr"` | RA/Dec errors or `default_pos_error_arcsec` | $\theta \le \min(R, N_\sigma(\sigma_1+\sigma_2))$ | `sep_arcsec` | Positional errors that vary row to row. |
+| `matcher="skyellipse"` | Errors plus correlation, or 5-parameter covariance | Mahalanobis $d_{\text{M}}^2 \le N_\sigma^2$ | `sep_arcsec` | Anisotropic or correlated errors. |
+| `matcher="lr"`, two catalogues | `lr_magnitude_column`; errors optional | Likelihood ratio and reliability | `lr`, `reliability` | Low-resolution (radio, X-ray) against dense optical/IR catalogues. |
+| `matcher="lr"` with $\ge 3$ catalogues, `nway_match()` | Errors in every catalogue; magnitudes (required for `matcher="lr"`) | $N$-way hypothesis posterior | `reliability` or `p_match`, `lr`, `p_any`, `nway_best`, `sep_arcsec_<k>` | Simultaneous multi-survey association. |
+| `probabilistic=True` or `prior_columns` | Errors on both sides | Pairwise Bayesian posterior | `p_match` | Extra score on the final pairs of any pairwise matcher. |
+| `matcher="ml"` | `ml_color_columns` | Random-forest score | `ml_score` | Ranking with colour features. |
+| `matcher="xgb"` | `ml_color_columns` | Gradient-boosted-tree score | `xgb_score` | As `ml`, with boosted trees. |
+| `matcher="auf"` | RA, Dec | Background-subtracted separation histogram | `auf_prob` | Empirical radial offset model. |
+| `matcher="macauff"` | RA, Dec; optional `macauff_flux_columns` | `auf` odds times magnitude-difference ratios | `macauff_prob` | `auf` with photometric re-weighting. |
+| `fof_match()` | RA, Dec, $\ge 2$ catalogues | Connected components of the match graph | `bundle_id`, `n_cats`, `_src_cats` | Grouping blends or multi-catalogue bundles. |
 
-> [!NOTE]
-> In the table above, $N$ and $M$ denote row counts of the primary and secondary catalogues, $K$ is the number of spatial candidate pairs within the bounding radius, and $E$ is the number of graph edges.
-
----
-
-## 3. Geometric Foundation: 3D Unit-Sphere Embedding
-
-Spherical trigonometry on individual celestial coordinates $(\alpha, \delta)$ requires expensive trigonometric evaluations ($\cos$, $\sin$, $\arccos$) for every candidate pair. `xmatcher`'s `engine="fast"` bypasses spherical trigonometry by vectorizing coordinates onto the 3D Cartesian unit sphere.
-
-```mermaid
-flowchart LR
-    A["Celestial Sphere<br/>RA (α), Dec (δ)"] -->|"Vectorized Projection"| B["3D Unit Vectors<br/>r = (x, y, z) &isin; S²"]
-    B -->|"torchsky SkyIndex (declination zones)"| C["3D Euclidean Distance<br/>d = ||r₁ - r₂||₂"]
-    C -->|"Exact Inversion"| D["Great-Circle Separation<br/>θ = 2·arcsin(d / 2)"]
-```
-
-### Mathematical Formulation
-
-Given Right Ascension $\alpha$ and Declination $\delta$ in radians, the 3D unit vector $\mathbf{r} = (x, y, z)^T \in \mathbb{R}^3$ on the unit sphere $\mathbb{S}^2$ is:
-
-$$
-x = \cos(\delta)\cos(\alpha), \qquad y = \cos(\delta)\sin(\alpha), \qquad z = \sin(\delta)
-$$
-
-The 3D Euclidean chord distance $d = \|\mathbf{r}_1 - \mathbf{r}_2\|_2$ between two points on the unit sphere relates directly to their great-circle angular separation $\theta$ via an isosceles triangle:
-
-$$
-d = 2 \sin\left(\frac{\theta}{2}\right)
-$$
-
-The exact angular separation is recovered via the inverse mapping:
-
-$$
-\theta = 2 \arcsin\left(\frac{d}{2}\right)
-$$
-
-### Small-Angle Approximation & Zero False Negatives
-
-For small separations ($\theta \ll 1\text{ rad}$), the Taylor series expansion yields:
-
-$$
-d = \theta \left(1 - \frac{\theta^2}{24} + \mathcal{O}(\theta^4)\right)
-$$
-
-At an astronomical search radius of $\theta = 2'' \approx 9.7 \times 10^{-6}\text{ rad}$, the relative difference between chord distance $d$ and arc distance $\theta$ is less than $4 \times 10^{-12}$.
-
-> [!IMPORTANT]
-> To guarantee **zero false negatives**, `xmatcher` computes the exact chord search radius:
->
-> $$
-> d_{\text{search}} = 2 \sin\left(\frac{\theta_{\text{radius}}}{2}\right)
-> $$
->
-> torchsky's native zone index retrieves all points satisfying $\|\mathbf{r}_1 - \mathbf{r}_2\|_2 \le d_{\text{search}}$, and `xmatcher` converts the exact chord lengths back to great-circle arcseconds.
-
-### Multimodal $N$-Dimensional Ranking
-
-When non-spatial columns are supplied via `extra_distance_cols={"phot_g_mean_mag": 0.5}`, `xmatcher` queries spatial candidates with the zone index, then ranks candidates using an $N$-dimensional Euclidean metric:
-
-$$
-D_{\text{total}}^2 = \left(\frac{\theta}{\theta_{\text{radius}}}\right)^2 + \sum_{k} w_k \left(\frac{c_{1, k} - c_{2, k}}{\sigma_{c, k}}\right)^2
-$$
-
-where $w_k$ is the user-specified column weight and $\sigma_{c, k}$ is the population standard deviation of that property.
+$R$ is `radius_arcsec` and $N_\sigma$ is `max_error` (default 3). `matcher="lr"` (two catalogues) requires `lr_magnitude_column`; `skyerr` and `skyellipse` without error metadata on both sides fall back to `sky` with a warning, or fail under `fallback_policy="error"` (and always for target-epoch `skyerr`).
 
 ---
 
-## 4. Astrometric & Distance Matchers
+## 3. Candidate search
 
-### A. Simple Positional Matching (`matcher="sky"`)
+The engines and their limits are listed in the [API reference](api.md#execution-engines). The `fast` and `zone` engines, the Ray tasks of `engine="ray"` and `ray-anchor` all use torchsky's declination-zone index (`SkyIndex`); `astropy` uses `match_to_catalog_sky` for `sky` with `find="best"` and `search_around_sky` otherwise.
 
-#### Intuition
-Finds all candidate pairs within a fixed angular search aperture $\theta_{\text{radius}}$. Suitable when positional uncertainties are uniform or small compared to the search radius.
+### Declination-zone index
 
-#### Invocation
-```python
-spec = MatchSpec(radius_arcsec=1.5, matcher="sky", find="best")
-df = cm.crossmatch("optical.parquet", "infrared.csv", spec=spec)
-```
+`SkyIndex.build` sorts the right catalogue once by (zone, right ascension), where zones are declination bands of height $h$. A left row with window radius $W$ scans the zones that meet $[\delta - W, \delta + W]$ and, in each, one right-ascension interval of half-width $\arcsin(\sin W / \cos\delta)$; a window that reaches a pole scans the full circle, and an interval crossing RA 0/360 is split. The candidate set is always a superset of the true pairs, whatever $h$ is; $h$ changes only the cost, $O((N + M)\log M + K)$ for $K$ candidates, which are processed in bounded batches.
 
-```bash
-xmatcher match optical.parquet infrared.csv -r 1.5 -o matched.parquet
-```
+Each candidate passes a padded chord prefilter, $\|\mathbf{r}_1 - \mathbf{r}_2\|^2 \le 4\sin^2(W/2)$ (see the chord relation below), and is accepted on its exact great-circle separation (atan2 form, float64). torchsky returns these exact separations; `xmatcher` reports them in arcseconds as `sep_arcsec`. Every engine applies the same matcher filters and tie-breaks, so `find="best"` keeps the lowest right-row index among equally good counterparts.
 
-#### Mathematical Formulation
-A candidate pair $(i, j)$ is admitted if the great-circle separation $\theta$ satisfies:
+### Search radius per matcher
 
-$$
-\theta(i, j) \le \theta_{\text{radius}}
-$$
+The radius passed to the search depends on the matcher:
 
-For `find="best"`, the counterpart is the nearest neighbor:
+- `sky`, `lr`, `ml`, `xgb`, `auf`, `macauff`: $R$.
+- `skyerr`: $\min\left(R,\; N_\sigma(\max_i \sigma_{1,i} + \max_j \sigma_{2,j})\right)$, followed by the per-pair test in [section 4B](#b-sigma-adaptive-matching-matcherskyerr).
+- `skyellipse`: the covariance bound of [section 4C](#c-sky-ellipse--mahalanobis-distance-matcherskyellipse), capped at $R$.
+
+For `matcher="lr"` torchsky's `associate` runs its own gated search; the engine's candidate list is not used.
+
+### Unit-vector chord search (scipy cKDTree paths)
+
+`fof_match` with `matcher="sky"`, the `ray-union` neighbourhood search and the local-density feature of `ml`/`xgb` use a scipy `cKDTree` on 3-D unit vectors (the same chord relation gives the zone index's prefilter):
 
 $$
-j^* = \arg\min_{j} \theta(i, j)
+\mathbf{r} = (\cos\delta\cos\alpha,\; \cos\delta\sin\alpha,\; \sin\delta)
 $$
 
-For `find="all"`, all candidates within the aperture are retained.
+A chord $d = \|\mathbf{r}_1 - \mathbf{r}_2\|$ and the great-circle angle $\theta$ satisfy
+
+$$
+d = 2\sin\left(\frac{\theta}{2}\right), \qquad \theta = 2\arcsin\left(\frac{d}{2}\right).
+$$
+
+The search chord is $2\sin(\theta_{\text{radius}}/2)$, with $\theta_{\text{radius}}$ capped at $180^\circ$, so the chord ball contains exactly the points within the angular radius.
+
+### Multi-dimensional ranking (`extra_distance_cols`)
+
+With `find="best"` and `extra_distance_cols={"phot_g_mean_mag": 0.5}`, the `fast`, `zone` and `ray` engines collect every candidate that passes the matcher's spatial test and keep, per primary row, the one with the smallest
+
+$$
+D^2 = \|\mathbf{r}_1 - \mathbf{r}_2\|^2 + \sum_k \left(w_k\,\frac{c_{1,k} - c_{2,k}}{s_k}\right)^2
+$$
+
+where $w_k$ is the column weight and $s_k$ the population standard deviation of column $k$ over both catalogues combined (1 when it is zero). The spatial term is the squared chord in radians, which is negligible next to any non-zero photometric term at arcsecond scales: within the radius, the choice is effectively photometric.
 
 ---
 
-### B. Sigma-Adaptive Matching (`matcher="skyerr"`)
+## 4. Astrometric & distance matchers
 
-#### Intuition
-Fixed apertures penalize high-precision sources while admitting false positives for uncertain sources. The sigma-adaptive matcher scales the search radius per pair using the measured positional errors of both catalogues.
+### A. Simple positional matching (`matcher="sky"`)
 
-#### Invocation
-```python
-spec = MatchSpec(radius_arcsec=3.0, matcher="skyerr", max_error=3.0, find="best")
-df = cm.crossmatch("gaia.parquet", "survey.csv", spec=spec)
-```
+A pair $(i, j)$ is a candidate when $\theta(i, j) \le R$. `find="best"` keeps $j^* = \arg\min_j \theta(i, j)$; `find="all"` keeps every candidate.
 
-```bash
-xmatcher match gaia.parquet survey.csv --matcher skyerr --max-error 3.0 -r 3.0
-```
+Worked examples for every matcher in this section, with the per-side error columns they need, are in the [user guide cookbook](usage.md#4-crossmatch-algorithm-cookbook).
 
-#### Mathematical Formulation
-Each catalogue's 1D radial positional uncertainty is computed from Right Ascension and Declination errors:
+---
+
+### B. Sigma-adaptive matching (`matcher="skyerr"`)
+
+The admission radius scales with the positional errors of each pair. Each row's radial error is
 
 $$
-\sigma_1 = \sqrt{\sigma_{\alpha*, 1}^2 + \sigma_{\delta, 1}^2}, \qquad \sigma_2 = \sqrt{\sigma_{\alpha*, 2}^2 + \sigma_{\delta, 2}^2}
+\sigma = \sqrt{\sigma_{\alpha*}^2 + \sigma_\delta^2}
 $$
 
-where $\sigma_{\alpha*} \equiv \sigma_\alpha \cos\delta$. The pair uncertainty is the sum of both errors:
+The RA error column is used as given, as the tangent-plane (east) error $\sigma_{\alpha*}$; it is not multiplied by $\cos\delta$. Errors are converted with the catalogue's `pos_err_units`. Other sources of $\sigma$:
+
+- `default_pos_error_arcsec` $= \sigma_0$ is a per-axis floor: $\sigma \leftarrow \max(\sigma, \sqrt{2}\,\sigma_0)$, or $\sqrt{2}\,\sigma_0$ alone when the catalogue has no error columns.
+- With only 5-parameter covariance columns, $\sigma = \sqrt{C_{\alpha*\alpha*} + C_{\delta\delta}}$.
+- At a target epoch, $\sigma = \sqrt{\operatorname{tr} \mathbf{C}_{\text{pos}}(t)}$ from the propagated covariance ([section 5A](#a-epoch-propagation-target_epoch)).
+- A drift prior ([section 5B](#b-assumed-kinematic-drift-prior-pm_priortrue-wilson-2023)) is added in quadrature.
+
+A pair is admitted when
 
 $$
-\sigma_{\text{pair}} = \sigma_1 + \sigma_2
+\theta \le \min\left(R,\; N_\sigma(\sigma_1 + \sigma_2)\right)
 $$
 
-A candidate pair is admitted if it satisfies both the statistical threshold and the bounding search radius:
+The two errors add linearly, not in quadrature. Rows with a non-finite limit are rejected. For `find="best"` candidates are ranked by
 
 $$
-\theta \le \min\left(\theta_{\text{radius}}, \, N_\sigma \cdot \sigma_{\text{pair}}\right)
+\text{rank} = \frac{\theta}{\min\left(R,\; N_\sigma(\sigma_1 + \sigma_2)\right)}
 $$
 
-For `find="best"`, candidates are ranked by their separation relative to the admission limit:
-
-$$
-\text{rank} = \frac{\theta}{\min\left(\theta_{\text{radius}}, \, N_\sigma \cdot \sigma_{\text{pair}}\right)}
-$$
-
-This equals $\theta / (N_\sigma \sigma_{\text{pair}})$, the normalised separation tension, whenever the radius cap is not in effect.
+which is $\theta / (N_\sigma(\sigma_1+\sigma_2))$ whenever the radius cap is inactive. The rank is used internally and is not written to the output.
 
 > [!CAUTION]
-> **Corrupted Error Protection**: The user's `radius_arcsec` acts as a strict ceiling. If a catalogue contains corrupt or unbounded error values (e.g. Pan-STARRS1 DR1 contains rows with `e_RAJ2000` exceeding hundreds of arcseconds), `xmatcher` ensures candidates outside the physical search aperture are never accepted.
+> `radius_arcsec` is a hard ceiling. Some catalogues contain corrupt errors (Pan-STARRS1 DR1 has rows with `e_RAJ2000` of hundreds of arcseconds); the ceiling keeps such rows from accepting counterparts outside the requested radius.
 
 ---
 
-### C. Sky Ellipse & Mahalanobis Distance (`matcher="skyellipse"`)
+### C. Sky ellipse & Mahalanobis distance (`matcher="skyellipse"`)
 
-#### Intuition
-In many astronomical instruments (slitless grisms, high-airmass atmospheric dispersion, radio interferometry, or Chandra off-axis PSFs), astrometric uncertainties are strongly anisotropic. The `skyellipse` matcher evaluates the full 2D error covariance matrix via the Mahalanobis distance.
+The full $2\times 2$ positional covariance of each row is used.
 
-#### Invocation
-```python
-spec = MatchSpec(radius_arcsec=3.0, matcher="skyellipse", max_error=3.0)
-df = cm.crossmatch("chandra.fits", "vla.parquet", spec=spec)
-```
+#### Covariance of each row
 
-#### Mathematical Formulation
-Coordinates are projected onto the local tangent plane at the pair's mean declination $\bar{\delta} = \frac{\delta_1 + \delta_2}{2}$:
+In arcsec², on the row's own (east, north) axes:
 
 $$
-\Delta \mathbf{r} = \begin{pmatrix} \Delta x \\ \Delta y \end{pmatrix} = \begin{pmatrix} (\alpha_1 - \alpha_2)\cos\bar{\delta} \\ \delta_1 - \delta_2 \end{pmatrix}
+\mathbf{C}_i = \begin{pmatrix} \sigma_{\alpha*,i}^2 & \rho_i\sigma_{\alpha*,i}\sigma_{\delta,i} \\ \rho_i\sigma_{\alpha*,i}\sigma_{\delta,i} & \sigma_{\delta,i}^2 \end{pmatrix}
 $$
 
-Each catalogue provides an astrometric covariance matrix $\mathbf{C}_i$ with cross-correlation coefficient $\rho_i \in [-1, 1]$:
+taken from, in order of preference: RA/Dec error columns with the optional `corr_column` ($\rho = 0$ without it); the positional block of the 5-parameter `astrometric_covariance_columns`; or the isotropic floor $\sigma_0^2$. The floor also bounds each diagonal term from below, a propagated target-epoch covariance replaces the reference-epoch one where it is valid, and a drift prior adds $\sigma_{\text{drift}}^2/2$ to each diagonal term.
+
+#### Pair offset and joint covariance
+
+The offset is resolved on the tangent plane at the pair's midpoint $\hat{\mathbf{m}} = (\mathbf{r}_1 + \mathbf{r}_2)/\|\mathbf{r}_1 + \mathbf{r}_2\|$, with east and north axes $(\hat{\mathbf{e}}_m, \hat{\mathbf{n}}_m)$, and scaled so that its length is the exact arc:
 
 $$
-\mathbf{C}_i = \begin{pmatrix} \sigma_{\alpha*, i}^2 & \rho_i \sigma_{\alpha*, i} \sigma_{\delta, i} \\ \rho_i \sigma_{\alpha*, i} \sigma_{\delta, i} & \sigma_{\delta, i}^2 \end{pmatrix}
+\Delta\mathbf{r} = \frac{\theta}{\|\mathbf{r}_1 - \mathbf{r}_2\|}\begin{pmatrix} (\mathbf{r}_1 - \mathbf{r}_2)\cdot\hat{\mathbf{e}}_m \\ (\mathbf{r}_1 - \mathbf{r}_2)\cdot\hat{\mathbf{n}}_m \end{pmatrix}
 $$
 
-The joint covariance matrix of the difference vector $\Delta \mathbf{r}$ is:
+Each covariance is rotated from its row's axes to the midpoint axes, $\mathbf{C}_i' = \mathbf{M}_i \mathbf{C}_i \mathbf{M}_i^T$, where $\mathbf{M}_i$ holds the projections of $(\hat{\mathbf{e}}_m, \hat{\mathbf{n}}_m)$ on the row's own east and north vectors. This stays correct near the poles, where $\Delta\alpha\cos\bar\delta$ does not. The joint covariance is
 
 $$
-\mathbf{C}_{\text{joint}} = \mathbf{C}_1 + \mathbf{C}_2 = \begin{pmatrix} C_{11} & C_{12} \\ C_{12} & C_{22} \end{pmatrix}
+\mathbf{C} = \mathbf{C}_1' + \mathbf{C}_2' = \begin{pmatrix} C_{11} & C_{12} \\ C_{12} & C_{22} \end{pmatrix}
 $$
 
-The squared Mahalanobis distance $d_{\text{M}}^2$ evaluates the positional tension in units of joint covariance:
+and
 
 $$
-d_{\text{M}}^2 = \Delta \mathbf{r}^T \mathbf{C}_{\text{joint}}^{-1} \Delta \mathbf{r}
+d_{\text{M}}^2 = \Delta\mathbf{r}^T\mathbf{C}^{-1}\Delta\mathbf{r} = \frac{C_{22}\Delta x^2 - 2C_{12}\Delta x\Delta y + C_{11}\Delta y^2}{C_{11}C_{22} - C_{12}^2}
 $$
 
-Using the closed-form $2 \times 2$ inverse:
+A pair is admitted when $d_{\text{M}}^2 \le N_\sigma^2$ and $\theta \le R$. Pairs with a singular joint covariance (determinant $\le 10^{-30}$ arcsec⁴) are rejected. `find="best"` keeps the smallest $d_{\text{M}}^2$.
+
+#### Search radius
+
+With $A = \max\sigma_{\alpha*,1}^2 + \max\sigma_{\alpha*,2}^2$ and $D = \max\sigma_{\delta,1}^2 + \max\sigma_{\delta,2}^2$ over all rows, the candidate radius is
 
 $$
-d_{\text{M}}^2 = \frac{C_{22} \Delta x^2 - 2 C_{12} \Delta x \Delta y + C_{11} \Delta y^2}{C_{11} C_{22} - C_{12}^2}
+\min\left(R,\; N_\sigma\sqrt{A + D + \sqrt{AD}}\right)
 $$
 
-A candidate pair is admitted if:
-
-$$
-d_{\text{M}}^2 \le N_\sigma^2
-$$
-
-#### Algorithmic Procedure
-1. **Candidate Query**: Query $k$ spatial neighbors within a conservative chord distance derived from the maximum possible semi-major axis $\sqrt{\lambda_{\max}(\mathbf{C}_{\text{joint}})}$.
-2. **Tangent Projection**: Compute $\Delta \mathbf{r}$ in arcseconds.
-3. **Metric Evaluation**: Evaluate $d_{\text{M}}^2$ in vectorized NumPy/Polars batches.
-4. **Ranking & Filtering**: Drop pairs with $d_{\text{M}}^2 > N_\sigma^2$ and rank survivors by $d_{\text{M}}^2$.
+which bounds the largest eigenvalue of any joint covariance, so no admissible pair is missed.
 
 ---
 
-## 5. Kinematics & Proper Motion Propagation
+## 5. Kinematics & proper motion propagation
 
-### A. Linear Epoch Propagation (`target_epoch`)
+### A. Epoch propagation (`target_epoch`)
 
-When crossmatching catalogues observed at different epochs (e.g. USNO-B1.0 at 1975 vs. Gaia DR3 at 2016.0), proper motions shift stellar coordinates across the sky.
+All epoch propagation calls torchsky (`torchsky.wcs`); coordinates must be ICRS.
 
-Given reference epoch $t_0$, target epoch $t$, and proper motions $(\mu_{\alpha*}, \mu_\delta)$ in $\text{mas/yr}$:
-
-$$
-\alpha(t) = \alpha(t_0) + \frac{\mu_{\alpha*}}{\cos\delta} \left(\frac{t - t_0}{1000 \times 3600}\right)
-$$
+- **Angular motion** (`propagate_proper_motion`): proper motions $(\mu_{\alpha*}, \mu_\delta)$ in mas/yr, with $\mu_{\alpha*}$ already including $\cos\delta$, are applied by unit-distance Cartesian propagation, as astropy's `SkyCoord.apply_space_motion` does without distance and radial velocity. To first order in $\Delta t = t - t_0$ (years), $\Delta\alpha\cos\delta \approx \mu_{\alpha*}\Delta t$ and $\Delta\delta \approx \mu_\delta\Delta t$; the propagation itself stays exact at the poles.
+- **Space motion** (`propagate_space_motion`): used for rows with finite parallax $> 0$ and radial velocity when the catalogue declares both columns and the implied speed is below $c/2$; other rows take the angular path.
+- **Covariance** (`skyellipse` and `skyerr`): the five-parameter covariance $\mathbf{C}_5$ of $(\alpha*, \delta, \mu_{\alpha*}, \mu_\delta, \varpi)$ is transported with the Jacobian $\mathbf{J}$ of the propagated position,
 
 $$
-\delta(t) = \delta(t_0) + \mu_\delta \left(\frac{t - t_0}{1000 \times 3600}\right)
+\mathbf{C}_{\text{pos}}(t) = \mathbf{J}\,\mathbf{C}_5\,\mathbf{J}^T
 $$
 
-The positional covariance matrix is transported forward in time, accounting for the uncertainty in proper motion $\mathbf{\Sigma}_\mu$:
+  using the first four parameters on the angular path. Target-epoch `skyerr` requires this covariance and, for the space-motion path, `release_metadata["radial_velocity_uncertainty"] = "deterministic"`; missing motion on rows away from the target epoch is an error.
 
-$$
-\mathbf{C}(t) = \mathbf{C}(t_0) + (\Delta t)^2 \mathbf{\Sigma}_\mu
-$$
-
-where $\Delta t = t - t_0$ is the epoch baseline in years.
+For matchers other than `skyerr`, a NaN proper motion on the angular path is treated as zero and a NaN reference epoch as the target epoch, and a catalogue without proper-motion columns or epoch is left at its stored positions (unless `pm_prior` applies).
 
 ---
 
-### B. Assumed Kinematic Drift Prior (`pm_prior=True`, Wilson 2023)
+### B. Assumed kinematic drift prior (`pm_prior=True`, Wilson 2023)
 
-#### Intuition
-Faint stars often lack measured proper motions. When matching historical plates or deep imaging against modern surveys across multi-decade baselines, assuming zero proper motion produces false rejections. The Wilson (2023)-inspired drift model adds an assumed kinematic dispersion budget based on Galactic latitude.
+Faint stars often lack measured proper motions. With `pm_prior=True` and a `target_epoch`, catalogues that declare an epoch but no proper-motion columns receive an assumed drift uncertainty, following the approach of Wilson (2023). The coefficients below are `xmatcher`'s own assumed model; they have not been checked against that paper.
 
-#### Mathematical Formulation
-Stellar velocity dispersions increase toward the Galactic plane. The assumed 1D proper motion dispersion $\sigma_\mu(b)$ as a function of Galactic latitude $b$ is:
+The assumed 1-D proper-motion dispersion at Galactic latitude $b$ (computed from the J2000 Galactic pole) is
 
 $$
-\sigma_\mu(b) = 3 + 7 \exp\left(-\frac{|b|}{20^\circ}\right) \quad [\text{mas/yr}]
+\sigma_\mu(b) = 3 + 7\exp\left(-\frac{|b|}{20^\circ}\right) \quad [\text{mas/yr}]
 $$
 
-The resulting positional drift uncertainty across epoch difference $\Delta t$ is:
+With `pm_prior_magnitude_column`, it is multiplied by a distance proxy (missing magnitudes count as 15):
 
 $$
-\sigma_{\text{drift}} = \sigma_\mu(b) \cdot \frac{|\Delta t|}{1000} \cdot S(m) \quad [\text{arcsec}]
+S(m) = \operatorname{clip}\left(10^{-0.2(m - 15)},\; 0.3,\; 3.0\right)
 $$
 
-where $S(m)$ is an optional magnitude-distance proxy scaling:
+The drift over the baseline is
 
 $$
-S(m) = \operatorname{clip}\left(10^{-0.2(m - 15)}, \, 0.3, \, 3.0\right)
+\sigma_{\text{drift}} = \sigma_\mu(b)\,S(m)\,\frac{|\Delta t|}{1000} \quad [\text{arcsec}]
 $$
 
-The drift uncertainty is added isotropically in quadrature to each tangent-plane axis:
-
-$$
-\sigma_{\text{axis, total}}^2 = \sigma_{\text{axis, astrometric}}^2 + \frac{1}{2} \sigma_{\text{drift}}^2
-$$
+It is added in quadrature to the radial error used by `skyerr`, `lr`, `ml`, `xgb`, `auf` and `p_match`, and as $\sigma_{\text{drift}}^2/2$ to each tangent-plane variance for `skyellipse` and the $N$-way association. A catalogue whose baselines are all below 0.01 yr is left unchanged. The bounded-memory (spill) path rejects `pm_prior`.
 
 ---
 
-## 6. Probabilistic & Bayesian Matchers
+## 6. Probabilistic & Bayesian matchers
 
-### A. Sutherland & Saunders (1992) Likelihood Ratio (`matcher="lr"`)
+### A. Sutherland & Saunders (1992) likelihood ratio (`matcher="lr"`)
 
-#### Intuition
-Designed for cross-identifying catalogues with disparate spatial resolutions—such as matching a low-resolution Radio or X-ray survey against a dense optical catalogue. Spatial proximity alone is insufficient because bright optical counterparts are physically preferred over faint background contaminants near the beam center.
+The two-catalogue LR matcher calls torchsky's `associate` with the primary as the left catalogue. It suits cross-identification of a low-resolution catalogue against a dense optical/IR one, where a candidate's magnitude carries information beyond its offset.
 
 ```mermaid
 flowchart LR
-    A["Positional Offset r"] --> B["2-D Gaussian density<br/>f(r)"]
-    C["Candidate Mag m"] --> D["Counterpart PDF<br/>q(m)"]
-    E["Optical Density"] --> F["Background PDF<br/>n(m)"]
-    B --> G["Likelihood Ratio<br/>LR = q(m)·f(r) / n(m)"]
+    A["Offset Δ"] --> B["2-D Gaussian density<br/>f(Δ)"]
+    C["Candidate magnitude m"] --> D["Counterpart distribution<br/>q(m), learnt by EM"]
+    E["Secondary catalogue"] --> F["Background density<br/>n(m)"]
+    B --> G["LR = q(m)·f(Δ) / n(m)"]
     D --> G
     F --> G
-    G --> H["Counterpart Reliability<br/>R_j = LR_j / (&Sigma; LR_k + 1 - Q)"]
+    G --> H["Reliability<br/>π·LR_j / ((1-π) + π·Σ LR_k)"]
 ```
 
-#### Mathematical Formulation
-The Likelihood Ratio $LR$ of candidate $j$ at separation $r$ with magnitude $m$ is defined as:
+#### Likelihood ratio
 
 $$
-LR = \frac{q(m) \, f(r)}{n(m)}
+LR_{ij} = \frac{q(m_j)\,f(\Delta_{ij})}{n(m_j)}
 $$
 
-where:
-
-**Positional Probability Density $f(r)$**:
-The surface density (per arcsec², the same units as $n(m)$) of a 2D circularly symmetric Gaussian on the tangent plane:
+**Positional density $f$**: the surface density (per arcsec²) of an isotropic 2-D Gaussian,
 
 $$
-f(r) = \frac{1}{2\pi\sigma^2} \exp\left(-\frac{r^2}{2\sigma^2}\right), \qquad \sigma^2 = \frac{\sigma_1^2 + \sigma_2^2}{2}
+f(\Delta) = \frac{1}{2\pi\sigma^2}\exp\left(-\frac{\Delta^2}{2\sigma^2}\right), \qquad \sigma^2 = \frac{\sigma_1^2 + \sigma_2^2}{2}
 $$
 
-$\sigma_1$ and $\sigma_2$ are the radial positional uncertainties defined for `skyerr` above, so $\sigma^2$ is the combined per-axis variance. $f$ peaks at zero offset; the Rayleigh radial distribution $r f(r) \cdot 2\pi$ is the density of $r$ itself and must not be used here, because $LR$ would then vanish for a coincident counterpart.
+where $\sigma_1, \sigma_2$ are the radial errors of [section 4B](#b-sigma-adaptive-matching-matcherskyerr) (0.5″ when a catalogue has none), so $\sigma^2$ is the combined per-axis variance. $f$ peaks at zero offset. The Rayleigh density $2\pi\Delta f(\Delta)$ is the density of the offset length, not a surface density, and would make $LR$ vanish for a coincident counterpart.
 
-**Background Surface Density $n(m)$**:
-Surface density of background objects per square arcsecond per magnitude bin:
+**Background $n(m)$**: the secondary catalogue's surface density $\nu$ over its footprint (a HEALPix order-10 coverage map built from its positions) times the magnitude distribution of all its sources, $n(m) = \nu\,b(m)$.
 
-$$
-n(m) = \frac{N_{\text{bg}}(m)}{\text{Area}_{\text{survey}}}
-$$
+**Counterpart distribution $q(m)$**: learnt by EM from the match posteriors. $b$ and $q$ are histograms of the secondary's `lr_magnitude_column` with $\min(50, \lfloor\sqrt{n}\rfloor)$ bins spanning its finite values. With fewer than 10 finite magnitudes the LR is positional only (a warning is logged). With `lr_color_column`, the feature is the colour $m_2 - m_1$ (secondary magnitude minus that primary column), and both distributions are learnt from the candidate pairs.
 
-**Counterpart Magnitude Distribution $q(m)$**:
-Probability distribution of true counterparts possessing magnitude $m$, estimated empirically by subtracting the expected background counts from observed candidate counts:
+#### Gate and reliability
+
+Candidates pass a $\chi^2_2$ gate, $d_{\text{M}}^2 \le k^2$ with $k^2$ the $1 - 10^{-4}$ quantile, and $\theta \le R$. The reliability of candidate $j$ of primary $i$ is the posterior
 
 $$
-q(m) = \frac{\max\left(0, \, N_{\text{cand}}(m) - \pi R^2 N_{\text{prim}} n(m)\right)}{\sum_{m'} \max\left(0, \, N_{\text{cand}}(m') - \pi R^2 N_{\text{prim}} n(m')\right)}
+R_{ij} = \frac{\pi\,LR_{ij}}{(1 - \pi) + \pi\sum_k LR_{ik}}, \qquad \pi = Q\,(1 - 10^{-4})
 $$
 
-#### Counterpart Reliability
-When multiple candidates fall within the search aperture, the reliability $R_j$ of candidate $j$ is:
-
-$$
-R_j = \frac{LR_j}{\sum_{k} LR_k + (1 - Q)}
-$$
-
-where $Q \in (0, 1]$ is the prior probability that a primary source possesses an observable counterpart above the detection limit (default: $Q = 0.8$).
+where $Q$ = `lr_q` (default 0.8) is the prior probability that a primary has a counterpart in the secondary catalogue. torchsky's default exclusive model also discounts $LR_{ij}$ by the probability that no other primary takes $j$ (belief propagation); this changes the result only where primaries share candidates. `find="best"` keeps each primary's highest-reliability candidate.
 
 ---
 
-### B. Bayesian Pairwise Probabilistic Qualifier (`probabilistic=True`)
+### B. Bayesian pairwise probabilistic qualifier (`probabilistic=True`)
 
-#### Intuition
-Evaluates the posterior probability that two detections represent the same physical entity by comparing the match hypothesis $H_{\text{match}}$ against the background chance-alignment hypothesis $H_{\text{bg}}$ inside search disc $\Omega = \pi R^2$.
+`p_match` compares the hypothesis that a pair is one source, $H_{\text{match}}$, with chance alignment inside the search disc, $H_{\text{bg}}$. It is computed on the final pairs of the pairwise matcher (after `find` and `filter_expr`), each pair on its own: it is not normalised over competing candidates. Both catalogues need positional errors or `default_pos_error_arcsec`. `prior_columns` alone also requests it.
 
-#### Mathematical Formulation
+#### 1. Positional likelihoods
 
-##### 1. Positional Likelihoods
-The match hypothesis models separation under joint isotropic Gaussian uncertainty $\sigma_{\text{eff}}^2 = \sigma_1^2 + \sigma_2^2$:
+With the radial errors $\sigma_1, \sigma_2$ of [section 4B](#b-sigma-adaptive-matching-matcherskyerr), the per-axis variance is $\sigma_{\text{eff}}^2 = (\sigma_1^2 + \sigma_2^2)/2$ and
 
 $$
-p(\Delta \mathbf{r} \mid H_{\text{match}}) = \frac{1}{2\pi \sigma_{\text{eff}}^2} \exp\left(-\frac{\theta^2}{2\sigma_{\text{eff}}^2}\right)
+p(\theta \mid H_{\text{match}}) = \frac{1}{2\pi\sigma_{\text{eff}}^2}\exp\left(-\frac{\theta^2}{2\sigma_{\text{eff}}^2}\right), \qquad p(\theta \mid H_{\text{bg}}) = \frac{1}{\pi R^2}
 $$
 
-The background hypothesis models a uniform spatial distribution across the search aperture:
+#### 2. Photometric KDE terms
+
+For each `prior_columns` entry present in both catalogues, a Gaussian KDE (scipy, Scott bandwidth) is fit to the finite values of both full catalogues combined, subsampled to 50,000 values. Under $H_{\text{match}}$ the KDE is evaluated at the pair midpoint; under $H_{\text{bg}}$ the two values are independent draws:
 
 $$
-p(\Delta \mathbf{r} \mid H_{\text{bg}}) = \frac{1}{\pi R^2}
-$$
-
-##### 2. Empirical Photometric KDE Priors
-When `prior_columns` are provided, empirical Kernel Density Estimators (KDE) are fit on an unconditional sample of the survey union (up to 50,000 sources).
-- Under $H_{\text{match}}$, both measurements stem from the same source; the KDE is evaluated at their midpoint $\bar{m} = \frac{m_1 + m_2}{2}$.
-- Under $H_{\text{bg}}$, the two measurements are independent draws from the background population.
-
-The combined log-likelihoods are:
-
-$$
-\mathcal{L}_{\text{match}} = \ln p(\Delta \mathbf{r} \mid H_{\text{match}}) + \sum_{k} \ln \text{KDE}_k\left(\frac{m_{1, k} + m_{2, k}}{2}\right)
+\mathcal{L}_{\text{match}} = \ln p(\theta \mid H_{\text{match}}) + \sum_k \ln\text{KDE}_k\left(\frac{m_{1,k} + m_{2,k}}{2}\right)
 $$
 
 $$
-\mathcal{L}_{\text{bg}} = \ln p(\Delta \mathbf{r} \mid H_{\text{bg}}) + \sum_{k} \left[\ln \text{KDE}_k(m_{1, k}) + \ln \text{KDE}_k(m_{2, k})\right]
+\mathcal{L}_{\text{bg}} = \ln p(\theta \mid H_{\text{bg}}) + \sum_k\left[\ln\text{KDE}_k(m_{1,k}) + \ln\text{KDE}_k(m_{2,k})\right]
 $$
 
-##### 3. Numerically Stable Posterior Probability
-Using equal prior odds ($P(H_{\text{match}}) = P(H_{\text{bg}}) = 0.5$):
+The midpoint term is an empirical heuristic, not a calibrated likelihood. A column missing on one side is skipped; a KDE that cannot be fit counts as a uniform prior.
+
+#### 3. Posterior
+
+With equal prior odds,
 
 $$
-p_{\text{match}} = \frac{1}{1 + \exp\left(-\left(\mathcal{L}_{\text{match}} - \mathcal{L}_{\text{bg}}\right)\right)}
+p_{\text{match}} = \frac{1}{1 + \exp\left(-(\mathcal{L}_{\text{match}} - \mathcal{L}_{\text{bg}})\right)}
 $$
 
 ---
 
-### C. Simultaneous $N$-Way Association (`nway_match`, `matcher="lr"` with $N \ge 3$)
+### C. Simultaneous $N$-way association (`nway_match`, `matcher="lr"` with $N \ge 3$)
 
-#### Intuition
-Chaining sequential pairwise matches ($A \times B \times C$) accumulates false associations and depends on catalogue order. The $N$-way association (nway-style, computed by torchsky's `associate_many`) scores, for each primary source (catalogue 1), every combination of one gated counterpart **or none** per other catalogue, so a source missing from one survey is a hypothesis, not a lost match.
+Chaining pairwise matches ($A \times B \times C$) accumulates false associations and depends on catalogue order. The $N$-way association (nway-style, computed by torchsky's `associate_many`) scores, for each primary source (catalogue 1), every combination of one gated counterpart **or none** per other catalogue. A source missing from one survey is a hypothesis, not a lost match.
 
-#### Mathematical Formulation
-A hypothesis $h$ with present catalogues $S$ has weight
+#### Hypothesis weight
+
+A hypothesis $h$ with present secondary catalogues $S$ has weight
 
 $$
-w_h = \prod_{c \in S} \frac{\pi_c\, \rho_c}{\nu_c} \prod_{c \notin S} (1 - \pi_c)\; M_S
+w_h = \prod_{c \in S}\frac{\pi_c\,\rho_c}{\nu_c}\prod_{c \notin S}(1 - \pi_c)\; M_S
 $$
 
-- $M_S$ is the exact Gaussian marginal likelihood that all present positions (the primary's included) come from one true position with a flat prior, with each row's full $2\times 2$ covariance in the primary's tangent plane (Budavári & Szalay 2008, eq. 18, generalised from isotropic errors).
-- $\pi_c$ is catalogue $c$'s completeness: `lr_q` when given, otherwise fitted by EM.
+- $M_S$ is the exact Gaussian marginal likelihood that all present positions (the primary's included) come from one true position with a flat prior, using each row's full $2\times 2$ covariance (Budavári & Szalay 2008, eq. 18, generalised from isotropic errors). Every catalogue needs positional errors or `default_pos_error_arcsec`.
+- $\pi_c$ is catalogue $c$'s completeness times the gate acceptance $1 - 10^{-4}$. With `matcher="lr"` the completeness is `lr_q` (default 0.8); `nway_match` fits it by EM unless `lr_q` is given.
 - $\nu_c$ is catalogue $c$'s background surface density over its footprint.
-- $\rho_c = q_c/n_c$ is the photometric likelihood ratio of the member (1 without terms): a histogram ratio of the secondary's magnitude (`lr_magnitude_column`), or of the colour secondary − primary (`lr_color_column`, or `prior_columns` for one band measured in every catalogue), learnt by EM from the hypothesis posteriors.
+- $\rho_c = q_c/b_c$ is the photometric ratio of the member (1 without terms): the secondary's magnitude (`lr_magnitude_column`, or `lr_magnitude_column_<n>` for catalogue $n$), the colour against `lr_color_column`, and, for `nway_match`, one colour term secondary − primary per `prior_columns` entry. Each is a histogram ratio learnt by EM, as in [section 6A](#a-sutherland--saunders-1992-likelihood-ratio-matcherlr).
 
-Candidates pass a $\chi^2_2$ gate ($p = 10^{-4}$) and the `radius_arcsec` ceiling. Each secondary source is the counterpart of at most one primary (Bethe posteriors of that constraint). Primaries with more than `max_tuples_per_source` (4096 for `matcher="lr"`) hypotheses are enumerated best-first, and the posterior mass left out is bounded instead of being truncated silently.
+Candidates pass the same $\chi^2_2$ gate ($p = 10^{-4}$) and the `radius_arcsec` ceiling. A secondary catalogue with no gated pair is left out (completeness 0). Each secondary source is the counterpart of at most one primary (Bethe posteriors of that constraint). Primaries with more hypotheses than the budget (4096 for `matcher="lr"`; `max_tuples_per_source`, default 10,000, for `nway_match`, where 0 means no limit) are enumerated best-first, and the posterior mass left out is bounded rather than silently dropped.
+
+`matcher="lr"` with three or more catalogues accepts `join_type="1and2"` or `"all1"` (which adds a null-score row for each primary without a counterpart) and rejects `filter_expr`, `extra_distance_cols`, `prior_columns` and `probabilistic`.
 
 #### Outputs
+
+One row per hypothesis with at least one counterpart (`find="best"`: the primary's MAP hypothesis only), ordered by primary and decreasing posterior:
+
 - `p_match` (`nway_match`) or `reliability` (`matcher="lr"`): the hypothesis posterior, normalised over all of the primary's hypotheses including "no counterpart".
-- `lr`: $w_h / w_\emptyset$ with the completeness priors divided out, $\rho \, M_S / \prod_{c\in S} \nu_c$. With two catalogues this is the pairwise `matcher="lr"` likelihood ratio, and the posterior equals its reliability.
+- `lr`: $w_h / w_\emptyset$ with the completeness priors divided out, $\prod_{c\in S}\rho_c\, M_S / \prod_{c\in S}\nu_c$. With two catalogues this is the pairwise `matcher="lr"` likelihood ratio, and the posterior equals its reliability.
 - `p_any`: probability that the primary has at least one counterpart; `nway_best`: the hypothesis is the primary's MAP one.
+- `sep_arcsec_<k>`: separation of catalogue $k$'s member from the primary ($k \ge 2$; null when absent).
 
 ---
 
-## 7. Machine Learning Matchers (`matcher="ml"`, `matcher="xgb"`)
+## 7. Machine learning matchers (`matcher="ml"`, `matcher="xgb"`)
 
-### Intuition
-When multi-band photometry, colors, and local stellar density provide rich discriminative information, ML classifiers learn non-linear decision boundaries between true counterparts and chance background alignments.
+The classifiers are trained on the fly from pseudo-labels derived from the candidates themselves, or loaded from a saved model. Their scores rank candidates; they are not calibrated probabilities.
 
 ```mermaid
 flowchart TD
-    A["Candidate Pair (i, j)"] --> B["Feature Extraction"]
-    B --> F1["Astrometric Tension: θ / σ_comb"]
-    B --> F2["Color Residuals: |c_1k - c_2k| / σ_color"]
-    B --> F3["Crowding Metric: ln(1 + ρ_local)"]
-    F1 --> C["Trained Model (RF / XGBoost)"]
+    A["Candidate pair (i, j)"] --> B["Features"]
+    B --> F1["θ / sqrt(σ₁² + σ₂²)"]
+    B --> F2["|m₁ₖ - m₂ₖ| / s_k"]
+    B --> F3["ln(1 + primary density)"]
+    F1 --> C["Classifier (RF / boosted trees)"]
     F2 --> C
     F3 --> C
-    C --> D["Ranking Score &isin; [0, 1]"]
+    C --> D["Score in [0, 1]"]
 ```
 
-### Feature Engineering
-For each candidate pair $(i, j)$, features are computed in vectorized batches:
+### Features
 
-**1. Normalized Separation**:
+For each candidate pair:
 
-$$
-\chi_{\text{sep}} = \frac{\theta}{\sqrt{\sigma_1^2 + \sigma_2^2}}
-$$
+1. **Normalised separation**: $\theta / \sqrt{\sigma_1^2 + \sigma_2^2}$, with the radial errors of [section 4B](#b-sigma-adaptive-matching-matcherskyerr) (0.5″ when a catalogue has none).
+2. **Colour differences**: for each `ml_color_columns` entry present in both catalogues, $|m_{1,k} - m_{2,k}| / s_k$, where $s_k$ is the standard deviation of that absolute difference over the candidate pairs.
+3. **Local density**: the number of primary-catalogue sources within $2R$ of the primary (itself included), divided by $\pi(2R)^2$, entered as $\ln(1 + \rho)$.
 
-**2. Normalized Photometric Color Differences**:
-For each user-specified color column $k$:
+### Training
 
-$$
-\Delta c_k = \frac{|m_{1, k} - m_{2, k}|}{\sigma_{c, k}}
-$$
+- **Pseudo-labels**: per primary, the candidate with the smallest normalised separation is positive; every other candidate is negative. Up to 1000 random primary/secondary pairings separated by more than $10R$ (fixed seed) are added as further negatives.
+- **Models**: `matcher="ml"` uses scikit-learn's `RandomForestClassifier` (balanced class weights). `matcher="xgb"` uses XGBoost, else LightGBM, else scikit-learn's `GradientBoostingClassifier`. Both use $\min(100, \max(10, n_{\text{pairs}}/5))$ trees of depth $\min(5, \max(2, \lfloor\log_2(n_{\text{features}} + 1)\rfloor))$.
+- **Fallbacks**: without colour columns on both sides, or with fewer than two positive labels, the nearest candidate is kept with score $1/(1 + \theta)$. Without any classifier library, the score is $1/(1 + 2x_0 + \sum_{k>0} x_k)$ over the features $x$.
+- **Model files**: `ml_model_path` / `xgb_model_path` (CLI `--ml-model-path` / `--xgb-model-path`). An existing file is loaded with `joblib` and used without retraining (a file that cannot be used is an error); otherwise the trained model is saved there.
 
-**3. Local Surface Density**:
-Local source density $\rho_{\text{local}}$ is computed via $k$-nearest neighbor distance $d_k$:
-
-$$
-\rho_{\text{local}} = \frac{k}{\pi d_k^2}, \qquad \text{Feature} = \ln\left(1 + \rho_{\text{local}}\right)
-$$
-
-### Training Procedure
-- **Positive Labels ($y = 1$)**: Drawn from high-confidence, tight-aperture nearest-neighbor pairs ($\theta < 0.3''$).
-- **Negative Labels ($y = 0$)**: Synthesized by pairing primary sources with random distant sources ($2'' < \theta < 10''$).
-- **Models**:
-  - `matcher="ml"`: Scikit-learn `RandomForestClassifier`.
-  - `matcher="xgb"`: XGBoost / LightGBM gradient boosted decision trees.
-- **Model Persistence**: Serialized via `joblib` (`--ml-model-path` / `--xgb-model-path`) for reuse across massive batches without retraining overhead.
+Because the positive labels are nearest neighbours, a trained model largely learns to reproduce the nearest-neighbour choice, adjusted by colour and density.
 
 ---
 
-## 8. Graph Clustering: Friends-of-Friends (`fof_match`)
+## 8. Graph clustering: Friends-of-Friends (`fof_match`)
 
-### Intuition
-In complex environments or multi-catalogue merges, pairwise matches form interconnected graphs. Friends-of-Friends computes the transitive closure: if source $A$ matches $B$, and $B$ matches $C$, all three are grouped into an object bundle.
+Friends-of-Friends takes the transitive closure of pairwise matches: if $A$ matches $B$ and $B$ matches $C$, all three form one bundle.
 
 ```mermaid
 graph TD
@@ -530,79 +409,110 @@ graph TD
     style C fill:#e8f5e9,stroke:#388e3c
 ```
 
-### Algorithmic Procedure
-1. **Edge Formation**: Construct an undirected graph $G = (V, E)$ where vertices $V$ are sources and edges $E$ connect any pair with $\theta \le \theta_{\text{radius}}$.
-2. **Connected Components**:
-   - Label the components of the sparse edge graph (`scipy.sparse.csgraph.connected_components`, $O(|V| + |E|)$).
-   - Components are numbered by their lowest node, so a bundle's id is fixed by its first primary row.
-3. **Bundle Aggregation**:
-   - Retain components containing at least one source from the primary catalogue.
-   - Keep the first primary row's columns unchanged. For each other catalogue, average float columns (ignoring NaN), average RA/Dec as unit vectors, and take the first member's value, with its dtype, for every other column (so int64 IDs are never cast to float).
+### Procedure
+
+1. **Edges**: for every pair of catalogues, all matches with `find="all"`: a scipy `cKDTree` chord search for `matcher="sky"`, the `fast` engine with the matcher's filter otherwise, or the `ray` engine with `engine="ray"`. Edges join sources of different catalogues only.
+2. **Components**: `scipy.sparse.csgraph.connected_components`, $O(|V| + |E|)$. Components are numbered in order of their lowest node, so a bundle's id is fixed by its first primary row.
+3. **Bundles**: components with at least one primary source are kept, one row each. The first primary row's columns are kept unchanged. For each other catalogue, float columns are NaN-ignoring means, RA/Dec are averaged as unit vectors, and every other column takes the first member's value with its dtype (so int64 IDs are never cast to float).
 
 ---
 
-## 9. Provenance Identity: Deterministic Association (`xmatch.association.v1`)
+## 9. Provenance identity: deterministic association (`xmatch.association.v1`)
 
-A fundamental hazard in astronomical data engineering is the conflation of **ephemeral graph components** with **permanent celestial object identities**. As new survey releases are incorporated, candidate graphs split, merge, and drift.
-
-`xmatcher` implements the `xmatch.association.v1` normative contract to guarantee reproducible, content-addressed identity across data releases (see [Association Contract v1](association-v1.md)).
+Graph components change as releases are added: they split, merge and drift. `xmatch.association.v1` therefore records evaluated source/candidate pairs, not permanent object identities. The normative contract, including release directories, component memberships and crosswalks, is [Association Contract v1](association-v1.md).
 
 ```mermaid
 flowchart LR
-    A["Matched Pair Evidence"] --> B["SHA-256 Content-Addressed Hash"]
-    B --> C["Canonical associations.jsonl<br/>Sorted strictly by association_id"]
-    C --> D["Immutable Release Manifest<br/>Row counts & Byte-level Checksums"]
-    D --> E["Sidecar memberships.jsonl<br/>Bijective Equivalence Crosswalks"]
+    A["Evaluated pair record"] --> B["association_id<br/>(SHA-256 of canonical identity JSON)"]
+    B --> C["associations.jsonl<br/>strictly ordered by association_id"]
+    C --> D["manifest.json<br/>record count, checksum, release_id"]
+    D --> E["Component release<br/>memberships.jsonl"]
+    D --> F["Member-equivalence release<br/>equivalences.jsonl"]
 ```
 
-### Mathematical Formulation
-The `association_id` is a 64-character hexadecimal SHA-256 digest computed deterministically over normalized record fields:
+### Record identity
 
 $$
-\text{association\_id} = \text{SHA-256}\left(\text{evidence\_id} \,\|\, \text{source\_id} \,\|\, \text{candidate\_id} \,\|\, t_{\text{eval}} \,\|\, \text{release\_ids} \,\|\, \text{params}\right)
+\texttt{association\_id} = \texttt{"xmatch.association.v1:"} \,\|\, \operatorname{hex}\left(\operatorname{SHA\text{-}256}(\operatorname{JSON}_{\text{canonical}}(I))\right)
 $$
 
-### Integrity Guarantees
-- **Byte-Level Checksums**: Manifest files record row counts and SHA-256 digests of all association and membership files.
-- **Fail-Closed Validation**: Any file modification, missing record, or ordering violation fails with an immediate error.
-- **Bijective Crosswalks**: Tracks object splits and merges between data releases without relying on mutable string identifiers.
+where $I$ holds `schema_version`, `evidence_id`, `source_id`, `candidate_id`, `method`, `method_version`, `evaluation_epoch_jyear`, the sorted `input_release_ids`, `software_version` and `parameters_sha256`, serialised with sorted keys and no whitespace. Changing any of them gives a new ID. The separation, decision, score and flags are not part of the identity.
+
+### Integrity
+
+- **Checksums**: each release manifest records the row count and SHA-256 of its JSONL file, and its own ID is the SHA-256 of that identity.
+- **Fail-closed validation**: a modified byte, a non-canonical line, a count mismatch, or an ordering violation is an error.
+- **Lineage**: component releases name parent components explicitly; a member-equivalence release maps members one-to-one between input-release namespaces, so splits and merges are not hidden behind changed identifiers.
 
 ---
 
-## 10. Astronomer's Observational Reality & Systematics
+## 10. Systematics & score interpretation
 
-Real-world astronomical data contains physical systematics that must be considered when evaluating matches:
+### 1. Non-Gaussian error tails
 
-### 1. Non-Gaussian Astrometric Error Tails
-Classical matchers assume Gaussian astrometric noise. In ground-based imaging, atmospheric turbulence, blended diffraction spikes, and unmodeled telescope jitter introduce power-law wings.
+Gaussian matchers (`skyerr`, `skyellipse`, `lr`, `p_match`) underweight outliers produced by turbulence, blends, diffraction spikes and unmodelled jitter.
 > [!TIP]
-> When matching ground-based surveys, configure a conservative `radius_arcsec` bound alongside `skyerr` to prevent outliers with underestimated errors from escaping candidate selection.
+> For ground-based surveys, combine `skyerr` with a conservative `radius_arcsec` so that rows with underestimated errors are still bounded.
 
-### 2. Differential Chromatic Refraction (DCR)
-Atmospheric refraction bends blue light more strongly than red light. At high airmass ($z > 45^\circ$), centroids between $u$-band and $z$-band observations of the exact same star can shift by up to $0.1'' - 0.3''$.
+### 2. Differential chromatic refraction (DCR)
+
+Refraction is stronger in blue than in red, so at high airmass ($z > 45^\circ$) the $u$- and $z$-band centroids of one star can differ by a few tenths of an arcsecond.
 > [!NOTE]
-> When crossmatching blue-sensitive surveys (e.g. GALEX, SDSS $u$) against red/infrared surveys (e.g. WISE, 2MASS), ensure search radii are not narrower than the expected chromatic dispersion.
+> When matching blue surveys (GALEX, SDSS $u$) against red or infrared ones (WISE, 2MASS), keep search radii wider than the expected chromatic offset.
 
-### 3. Crowded Fields & Blending Limits
-In dense fields (stellar surface density $\rho$), the probability of finding at least one unrelated background object within search radius $R$ is given by the Poisson distribution:
+### 3. Crowded fields
+
+For a source density $\rho$, the probability of at least one unrelated source within radius $R$ is
 
 $$
-P(\ge 1 \text{ false match}) = 1 - \exp\left(-\pi R^2 \rho\right)
+P(\ge 1 \text{ false match}) = 1 - \exp\left(-\pi R^2\rho\right)
 $$
 
-When $\pi R^2 \rho \approx 1$, spatial proximity alone fails completely.
+When $\pi R^2\rho \approx 1$, position alone does not identify counterparts.
 > [!IMPORTANT]
-> In crowded fields, do not rely on `find="best"` spatial distance alone. Use `extra_distance_cols`, `matcher="lr"`, or `matcher="xgb"` to incorporate multi-band flux and color priors.
+> In crowded fields, do not rely on `find="best"` by distance alone. Use `extra_distance_cols`, `matcher="lr"`, or `matcher="xgb"` to add photometric information.
 
-### 4. Semantic Score Interpretation Guide
+### 4. Score columns
 
-| Score Column | Scale | Meaning & Validity |
+| Column | Range | Meaning |
 |---|---|---|
-| `sep_arcsec` | $[0, \infty)$ | True great-circle angular distance on the celestial sphere. |
-| `rank` (`skyerr`) | $[0, \infty)$ | Positional tension normalized by combined $1\sigma$ uncertainty. |
-| `d2_mahalanobis` | $[0, \infty)$ | Covariance-weighted squared distance; distributed as $\chi^2$ with 2 d.o.f. |
-| `lr` | $[0, \infty)$ | Sutherland & Saunders Likelihood Ratio. Higher values indicate greater match odds. |
-| `reliability` | $[0, 1]$ | Candidate reliability under explicit model distribution estimates. |
-| `p_match` | $[0, 1]$ | Pairwise: Bayesian posterior probability under declared equal prior odds and uniform background. `nway_match`: posterior of the $N$-way hypothesis. |
+| `sep_arcsec` | $[0, 648000]$ | Great-circle separation in arcsec after any epoch propagation. |
+| `sep_arcsec_<k>` | $[0, 648000]$ | $N$-way: separation of catalogue $k$'s member from the primary. |
+| `lr` | $[0, \infty)$ | Likelihood ratio of the counterpart (or $N$-way hypothesis) against "no counterpart"; higher favours a match. |
+| `reliability` | $[0, 1]$ | `matcher="lr"` posterior under the stated completeness prior and background model. |
+| `p_match` | $[0, 1]$ | Pairwise: posterior under equal prior odds and a uniform background in the search disc, not normalised over competing candidates. `nway_match`: posterior of the $N$-way hypothesis. |
 | `p_any` | $[0, 1]$ | $N$-way: probability that the primary has at least one counterpart. |
-| `ml_score` / `xgb_score` | $[0, 1]$ | Supervised classifier ranking score. Excellent for ordering; not calibrated probabilities. |
+| `nway_best` | boolean | $N$-way: the row is the primary's MAP hypothesis. |
+| `ml_score` / `xgb_score` | $[0, 1]$ | Classifier score from pseudo-labels; useful for ordering, not a calibrated probability. |
+| `auf_prob` | $[0, 1]$ | `matcher="auf"` empirical score ([section 11](#11-empirical-separation-model-matcherauf-matchermacauff)). |
+| `macauff_prob` | $[0, 1]$ | `matcher="macauff"` score combining `auf_prob` odds with magnitude-difference ratios. |
+
+`skyerr` and `skyellipse` rank internally by normalised separation and $d_{\text{M}}^2$ but write only `sep_arcsec`.
+
+---
+
+## 11. Empirical separation model (`matcher="auf"`, `matcher="macauff"`)
+
+These matchers are named after the astrometric uncertainty function (AUF) of Wilson & Naylor (2017) and the macauff package, but they implement a simpler empirical model, described here. They do not perturb sources or model blends.
+
+### `auf`
+
+1. The background density is $n_{\text{bg}} = N_2 / (\pi r_{\text{ext}}^2)$ per arcsec², where $r_{\text{ext}}$ is the radius of the circle enclosing the secondary catalogue's positions.
+2. The candidate separations are histogrammed in $\min(100, \max(20, \lfloor\sqrt{K}\rfloor))$ logarithmic bins up to $\max(\theta_{\max}, R)$, for $K$ candidate pairs. The expected background count in a bin of centre $r$ and width $\Delta r$ is $N_1\,n_{\text{bg}}\,2\pi r\,\Delta r$; subtracting it (clipped at zero) and normalising gives the counterpart offset density $f(r)$.
+3. Each pair scores
+
+$$
+P(r) = \frac{f(r)/(2\pi r)}{f(r)/(2\pi r) + n_{\text{bg}}}
+$$
+
+with $f$ interpolated in log–log space. If no counts remain above background, the nearest candidate is kept with score $1/(1+\theta)$.
+
+### `macauff`
+
+For each `macauff_flux_columns` entry present in both catalogues, with $\Delta m = |m_1 - m_2|$:
+
+- $P(\Delta m \mid \text{match})$ is a Gaussian density with $\sigma = \sqrt{\sigma_{m,1}^2 + \sigma_{m,2}^2}$ from `<column>_err` columns when both exist, otherwise 0.1 mag;
+- $P(\Delta m \mid \text{no match})$ is a histogram of $|m_1 - m_2|$ over 5000 random pairings (fixed seed);
+- their ratio, clipped to $[10^{-10}, 10^{10}]$, multiplies the odds $P/(1-P)$ from `auf`.
+
+The score is $\text{odds}/(1 + \text{odds})$. Without usable flux columns it equals `auf_prob`.
