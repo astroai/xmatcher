@@ -187,7 +187,7 @@ where the table says otherwise.
 |---|---|---|
 | `--no-sync` | off | Do not mirror remote inputs; require existing cached HATS copies. |
 | `--synclimit FLOAT` | `cache.rate_limit_rps`, else `1.0` | Requests/sec rate limit when mirroring remote catalogues. |
-| `--cache-root PATH` | `$XMATCHER_CACHE_ROOT`; on AstroAI/CANFAR sessions `/arc/projects/hats`; else `~/.cache/xmatcher` | Durable cache root for mirrored HATS catalogues. |
+| `--cache-root PATH` | `$XMATCHER_CACHE_ROOT`; on AstroAI/CANFAR sessions `/arc/projects/astroai/hats`; else `~/.cache/xmatcher` | Durable cache root for mirrored HATS catalogues. |
 | `--task-rows INT` | `2000000` | Target rows per Ray chunk task. |
 | `--max-tuples INT` | `10000` | Maximum output tuples per hub source row (`ray-union` only). |
 | `--chunk-memory-gb FLOAT` | `8.0` | Per-chunk candidate-pool memory guard in GiB. |

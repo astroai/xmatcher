@@ -4,7 +4,7 @@ Backs the ``engine=ray-union`` pipeline: every remote input (a TAP table, or a
 HATS catalogue served over HTTP / ``vos:`` / ``s3://`` / ``hf://``) is mirrored
 into a per-catalogue
 cache dir under the cache root (``XMATCHER_CACHE_ROOT``; on AstroAI/CANFAR
-sessions ``/arc/projects/hats``, else ``~/.cache/xmatcher``), stored through
+sessions ``/arc/projects/astroai/hats``, else ``~/.cache/xmatcher``), stored through
 :class:`xmatcher.storage.Storage` (POSIX dir or VOSpace ``vos:`` URI).  Re-syncs
 are incremental:
 

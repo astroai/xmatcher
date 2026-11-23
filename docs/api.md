@@ -729,9 +729,10 @@ from xmatcher.storage import open_storage
   `open_storage(root)` returns a storage backend for a POSIX path or a `vos:`
   URI.
 - **Cache root.** `XMATCHER_CACHE_ROOT` if set; on AstroAI/CANFAR sessions
-  `/arc/projects/hats`; otherwise `~/.cache/xmatcher`. A catalogue is stored
-  under `<cache>/<name>/<version>/`. The CANFAR working and output directory
-  is `/arc/projects/hats/xmatcher`.
+  `/arc/projects/astroai/hats`; otherwise `~/.cache/xmatcher`. A catalogue is
+  stored under `<cache>/<name>/<version>/`. The CANFAR working and output
+  directory is `/arc/projects/astroai/xmatcher`. `/arc/projects/hats` is the
+  community HATS tree: xmatcher reads it and never writes to it.
 - **Remote HATS.** Trees over HTTP(S), `vos:`, `s3://` or `hf://` are
   mirrored into the cache. The manifest records each file's size; a file whose
   advertised size is unchanged is skipped, so use `--force` to pick up

@@ -197,10 +197,10 @@ def test_cli_resolves_bare_output_under_platform_root(monkeypatch) -> None:
     from xmatcher.cli import _resolve_output_path
 
     monkeypatch.setattr(
-        "xmatcher.storage.default_output_root", lambda: "/arc/projects/hats/xmatcher"
+        "xmatcher.storage.default_output_root", lambda: "/arc/projects/astroai/xmatcher"
     )
-    assert _resolve_output_path("full.hats") == "/arc/projects/hats/xmatcher/full.hats"
-    assert _resolve_output_path("out.parquet") == "/arc/projects/hats/xmatcher/out.parquet"
+    assert _resolve_output_path("full.hats") == "/arc/projects/astroai/xmatcher/full.hats"
+    assert _resolve_output_path("out.parquet") == "/arc/projects/astroai/xmatcher/out.parquet"
     assert _resolve_output_path("/abs/full.hats") == "/abs/full.hats"
     assert _resolve_output_path("sub/full.hats") == "sub/full.hats"
     assert _resolve_output_path(None) is None

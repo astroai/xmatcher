@@ -1068,7 +1068,7 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "--cache-root",
         dest="cache_root",
         help="Durable cache root for mirrored HATS catalogues (default: $XMATCHER_CACHE_ROOT "
-        "or, on AstroAI/CANFAR sessions, /arc/projects/hats; else ~/.cache/xmatcher).",
+        "or, on AstroAI/CANFAR sessions, /arc/projects/astroai/hats; else ~/.cache/xmatcher).",
     )
     g_ray.add_argument(
         "--task-rows",
@@ -1279,7 +1279,7 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
         "--cache-root",
         dest="cache_root",
         help="Durable cache root for mirrored HATS catalogues (default: $XMATCHER_CACHE_ROOT "
-        "or, on AstroAI/CANFAR sessions, /arc/projects/hats; else ~/.cache/xmatcher).",
+        "or, on AstroAI/CANFAR sessions, /arc/projects/astroai/hats; else ~/.cache/xmatcher).",
     )
     parser.add_argument(
         "--threads",
@@ -2427,7 +2427,7 @@ def _resolve_output_path(output_file: str | None) -> str | None:
     """Resolve a bare relative output name against the platform output root.
 
     On AstroAI/CANFAR sessions (shared ``/arc``) bare names like
-    ``full.hats`` land under ``/arc/projects/hats/xmatcher/`` — never a
+    ``full.hats`` land under ``/arc/projects/astroai/xmatcher/`` — never a
     pod-local home or cwd.  Explicit paths (absolute or containing a
     directory) are respected verbatim; ``XMATCHER_OUTPUT_ROOT`` overrides the
     platform default (empty disables it).  Off the platform this is a

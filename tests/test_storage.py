@@ -514,14 +514,14 @@ def test_all_cache_roots_precedence_and_dedup(monkeypatch) -> None:
 
 
 def test_default_cache_root_prefers_platform_arc(monkeypatch) -> None:
-    """On AstroAI/CANFAR sessions the cache defaults to /arc/projects/hats —
+    """On AstroAI/CANFAR sessions the cache defaults to /arc/projects/astroai/hats —
     never a home directory — and XMATCHER_CACHE_ROOT still wins."""
     key = "XMATCHER_CACHE_ROOT"
     monkeypatch.delenv(key, raising=False)
     home_default = str(Path.home() / ".cache" / "xmatcher")
 
     monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: "/arc")
-    assert default_cache_root() == "/arc/projects/hats"
+    assert default_cache_root() == "/arc/projects/astroai/hats"
 
     monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: None)
     assert default_cache_root() == home_default
@@ -533,7 +533,7 @@ def test_default_cache_root_prefers_platform_arc(monkeypatch) -> None:
 
 
 def test_default_output_root_platform_and_env(monkeypatch) -> None:
-    """Outputs default to /arc/projects/hats/xmatcher on the platform, stay
+    """Outputs default to /arc/projects/astroai/xmatcher on the platform, stay
     cwd-relative off it, and XMATCHER_OUTPUT_ROOT (incl. empty=off) wins."""
     key = "XMATCHER_OUTPUT_ROOT"
     monkeypatch.delenv(key, raising=False)
@@ -542,7 +542,7 @@ def test_default_output_root_platform_and_env(monkeypatch) -> None:
     assert default_output_root() is None
 
     monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: "/arc")
-    assert default_output_root() == "/arc/projects/hats/xmatcher"
+    assert default_output_root() == "/arc/projects/astroai/xmatcher"
 
     monkeypatch.setenv(key, "vos:hats/xmatcher")
     assert default_output_root() == "vos:hats/xmatcher"

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- CANFAR defaults: the cache root for mirrored catalogues is now
+  `/arc/projects/astroai/hats` (was `/arc/projects/hats`) and the default output
+  root is `/arc/projects/astroai/xmatcher` (was `/arc/projects/hats/xmatcher`).
+  `/arc/projects/hats` is the community HATS tree: xmatcher reads it and never
+  writes to it. Cached catalogues under `/arc/projects/astroai/hats` can later be
+  promoted to community-ready HATS. `XMATCHER_CACHE_ROOT` and
+  `XMATCHER_OUTPUT_ROOT` still override both.
+
 ### Removed
 
 - The `zone` extra. It only installed `cdshealpix`, which `engine="zone"` no

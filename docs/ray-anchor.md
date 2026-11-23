@@ -18,7 +18,7 @@ xmatcher match gaia_hats sdss_hats ps1_hats catwise_hats \
   --engine ray-anchor \
   -r 1.5 \
   --target-epoch 2016.0 \
-  -o /arc/projects/hats/xmatcher/gaia_master.hats
+  -o /arc/projects/astroai/xmatcher/gaia_master.hats
 ```
 
 The first catalogue is the anchor. Every later catalogue is a survey. Remote

@@ -493,19 +493,29 @@ def platform_arc_root() -> str | None:
     return "/arc" if os.path.isdir("/arc") else None
 
 
+#: Platform cache root for mirrored catalogues. ``/arc/projects/hats`` is the
+#: community tree (read it, never write to it); xmatcher's own mirrors live under
+#: ``/arc/projects/astroai/hats`` until they are promoted to community-ready HATS.
+PLATFORM_CACHE_ROOT = "/arc/projects/astroai/hats"
+#: Platform root for crossmatch outputs (bare relative output names).
+PLATFORM_OUTPUT_ROOT = "/arc/projects/astroai/xmatcher"
+
+
 def default_cache_root() -> str:
     """Effective default cache root.
 
     ``XMATCHER_CACHE_ROOT`` wins; on AstroAI/CANFAR sessions (shared ``/arc``
-    volume) the default is ``/arc/projects/hats`` — never a home directory,
-    which is pod-local and lost; off the platform it falls back to
+    volume) the default is :data:`PLATFORM_CACHE_ROOT`
+    (``/arc/projects/astroai/hats``) — never a home directory, which is
+    pod-local and lost, and never the community tree ``/arc/projects/hats``,
+    which is read-only for xmatcher; off the platform it falls back to
     ``~/.cache/xmatcher``.
     """
     env = os.environ.get("XMATCHER_CACHE_ROOT")
     if env:
         return env
     if platform_arc_root():
-        return "/arc/projects/hats"
+        return PLATFORM_CACHE_ROOT
     return str(Path.home() / ".cache" / "xmatcher")
 
 
@@ -513,7 +523,8 @@ def default_output_root() -> str | None:
     """Root for crossmatch outputs.
 
     ``XMATCHER_OUTPUT_ROOT`` wins (empty string disables); on
-    AstroAI/CANFAR sessions the default is ``/arc/projects/hats/xmatcher``;
+    AstroAI/CANFAR sessions the default is :data:`PLATFORM_OUTPUT_ROOT`
+    (``/arc/projects/astroai/xmatcher``; never the community ``/arc/projects/hats``);
     off the platform there is no default and relative outputs stay
     cwd-relative.  The CLI resolves bare relative output names under this
     root; explicit paths are always respected verbatim.
@@ -522,7 +533,7 @@ def default_output_root() -> str | None:
     if env is not None:
         return env.strip() or None
     if platform_arc_root():
-        return "/arc/projects/hats/xmatcher"
+        return PLATFORM_OUTPUT_ROOT
     return None
 
 

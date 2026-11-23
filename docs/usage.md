@@ -226,9 +226,11 @@ xmatcher adopt vizier II/349/ps1 --name ps1
 ## 3. Local mirroring & offline caching (`xmatcher sync`)
 
 `xmatcher sync` mirrors remote catalogues into a durable HATS cache. The cache
-root is `--cache-root`, else `$XMATCHER_CACHE_ROOT`, else `/arc/projects/hats`
-on AstroAI/CANFAR sessions, else `~/.cache/xmatcher`. On CANFAR, write match
-outputs under `/arc/projects/hats/xmatcher`.
+root is `--cache-root`, else `$XMATCHER_CACHE_ROOT`, else
+`/arc/projects/astroai/hats` on AstroAI/CANFAR sessions, else
+`~/.cache/xmatcher`. On CANFAR, write match outputs under
+`/arc/projects/astroai/xmatcher`. `/arc/projects/hats` is the community HATS
+tree: xmatcher reads it and never writes to it.
 
 ```bash
 # Mirror three configured catalogues
@@ -803,7 +805,7 @@ separation of the closest edge used.
 xmatcher sync gaia allwise twomass
 xmatcher match gaia allwise twomass \
   --union --engine ray-union \
-  -o /arc/projects/hats/xmatcher/master_union.hats
+  -o /arc/projects/astroai/xmatcher/master_union.hats
 ```
 
 Tuning options: `--task-rows` (target rows per Ray chunk, default 2,000,000),
