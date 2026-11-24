@@ -208,11 +208,13 @@ Each task also reserves Ray `memory` equal to its estimated peak
 schedulable memory; `0` schedules by CPU only), so the few partitions with a
 large candidate survey are not packed onto one node. The estimate is the
 output frame (anchor rows × the full output width) plus the largest single
-survey (projected rows plus its sky index, and propagation arrays when it
-moves); surveys are read and matched one at a time. On the Gaia-master pilot
-it was within 10% of the measured peak for a coarse, many-survey partition and
-conservative for a fine one; `memory_estimate_gib` sits next to `peak_rss_gib`
-in `task_stats`. Within a task, `--read-threads` (default 8) partition files
+survey (its projected rows counted twice, since the per-file frames and their
+concatenation can coexist, plus its sky index, and propagation arrays when it
+moves); surveys are read and matched one at a time. On the Gaia-master pilots
+it was 1.17× the measured peak of the largest task (59.5 GiB: 289M Euclid DR1
+candidate rows) and 1.5× that of a many-survey HSC partition (19.6 GiB), so
+reservations are conservative; `memory_estimate_gib` sits next to
+`peak_rss_gib` in `task_stats`. Within a task, `--read-threads` (default 8) partition files
 are read concurrently and concatenated in partition order. A survey without
 proper-motion metadata is not propagated (it cannot move), so
 `--target-epoch` costs nothing for it.

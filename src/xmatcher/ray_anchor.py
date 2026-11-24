@@ -95,7 +95,7 @@ _BYTES_PER_ROW = 96.0
 DEFAULT_READ_THREADS = 8
 #: Task memory model (see :func:`_task_memory_bytes`): process baseline, the
 #: per-row cost of a survey's sky index and match arrays, and the per-row cost
-#: of propagating a survey that moves.  Calibrated on the Gaia-master pilot.
+#: of propagating a survey that moves.  Calibrated on the Gaia-master pilots.
 _TASK_BASE_BYTES = 2 * 1024**3
 _INDEX_BYTES_PER_ROW = 40
 _MOTION_BYTES_PER_ROW = 56
@@ -188,16 +188,19 @@ def _task_memory_bytes(
 
     Surveys are read and matched one at a time, so the peak is the output
     frame (anchor rows x the full output width) plus the largest single
-    survey: its projected rows, sky index and, when it moves, the
-    propagation arrays.  On the pilot this tracked the measured peak RSS
-    within ~15%.
+    survey: its projected rows counted twice (the per-file frames and their
+    concatenation can coexist), its sky index and, when it moves, the
+    propagation arrays.  On the Gaia-master pilots this was 1.17x the
+    measured peak RSS of the largest task (59.5 GiB, 289M Euclid DR1
+    candidate rows) and 1.5x that of a many-survey HSC partition (19.6 GiB):
+    conservative, so reservations do not overcommit a node.
     """
     out_width = _row_bytes(anchor.dtypes) + sum(
         _row_bytes(s.dtypes) + _META_BYTES_PER_ROW for s in surveys
     )
     largest = 0
     for survey, rows in zip(surveys, survey_rows, strict=True):
-        per_row = _row_bytes(survey.dtypes) + _INDEX_BYTES_PER_ROW
+        per_row = 2 * _row_bytes(survey.dtypes) + _INDEX_BYTES_PER_ROW
         if _moves(survey, target_epoch):
             per_row += _MOTION_BYTES_PER_ROW
         largest = max(largest, int(rows) * per_row)
