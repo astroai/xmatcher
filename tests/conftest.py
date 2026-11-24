@@ -23,6 +23,25 @@ def _isolate_disk_headroom(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("XMATCHER_MIN_FREE_GB", "0")
 
 
+@pytest.fixture(autouse=True)
+def _isolate_from_host_platform(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the suite off the AstroAI/CANFAR platform defaults.
+
+    ``storage.platform_arc_root`` switches the cache, output and community-root
+    defaults to ``/arc/projects/...`` whenever ``/arc`` exists. On a CANFAR
+    session (or any host with a stray ``/arc``) the suite would then write test
+    files into shared project space and read the community HATS tree. Tests that
+    exercise the platform defaults monkeypatch ``platform_arc_root`` themselves
+    (their patch runs after this fixture), so the default here is "not on the
+    platform", and the platform environment overrides are cleared.
+    """
+    import xmatcher.storage as storage
+
+    monkeypatch.setattr(storage, "platform_arc_root", lambda: None)
+    for var in ("XMATCHER_CACHE_ROOT", "XMATCHER_OUTPUT_ROOT", "XMATCHER_COMMUNITY_ROOTS"):
+        monkeypatch.delenv(var, raising=False)
+
+
 # --------------------------------------------------------------------------- #
 # Custom CLI options
 # --------------------------------------------------------------------------- #
