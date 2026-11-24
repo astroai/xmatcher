@@ -1650,6 +1650,9 @@ def _write_hats_tree(
     out: Path,
     info_rows: Sequence[dict[str, Any]],
     props: dict[str, str],
+    *,
+    verify_counts: bool = False,
+    create_metadata: bool = True,
 ) -> dict[str, int]:
     """Write the HATS metadata for a tree whose partitions are already on disk.
 
@@ -1661,9 +1664,8 @@ def _write_hats_tree(
 
     Layout follows the HATS spec (and ``hats.io.validation`` strict mode):
     root ``properties`` and ``partition_info.csv``; ``dataset/`` holds only
-    the pixel files, ``_common_metadata`` and a ``_metadata`` that carries
-    every partition's row-group footers.  Anything else under ``dataset/``
-    makes it unreadable as a plain Parquet dataset.
+    the pixel files and ``_common_metadata``. By default it also writes
+    ``_metadata``, which carries every partition's row-group footers.
 
     Returns ``{"rows": total, "partitions": n}``.
     """
@@ -1682,14 +1684,35 @@ def _write_hats_tree(
     }
     info = pl.DataFrame(list(info_rows), schema=schema).sort(["Norder", "Npix"])
     sizes = []
-    for loc in info["file_loc"]:
-        path = dataset / f"{loc}.parquet"
-        if pq.read_metadata(path).num_row_groups == 0:
+    footers = []
+    arrow_schema = None
+    first = ""
+    for loc, count in zip(info["file_loc"], info["count"], strict=True):
+        rel = f"{loc}.parquet"
+        path = dataset / rel
+        footer = pq.read_metadata(path)
+        if verify_counts and footer.num_rows != count:
+            raise CrossMatchError(
+                f"HATS partition {rel} contains {footer.num_rows} rows but expected {count}"
+            )
+        if create_metadata and footer.num_row_groups == 0:
             # Polars writes a zero-row frame with no row group, so `_metadata`
             # could not name the partition; pyarrow writes one empty row group.
             tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
             pq.write_table(pq.read_table(path), tmp)
             os.replace(tmp, path)
+            footer = pq.read_metadata(path)
+        part_schema = footer.schema.to_arrow_schema()
+        if arrow_schema is None:
+            arrow_schema, first = part_schema, rel
+        elif not part_schema.equals(arrow_schema):
+            raise CrossMatchError(
+                f"HATS partition {rel} has a different schema from {first}; "
+                "a HATS catalogue needs one schema for every partition"
+            )
+        if create_metadata:
+            footer.set_file_path(rel)
+            footers.append(footer)
         sizes.append(path.stat().st_size)
     info = info.with_columns(pl.Series("file_size", sizes, dtype=pl.Int64))
     _atomic_write_csv(info, out / "partition_info.csv")
@@ -1698,25 +1721,12 @@ def _write_hats_tree(
     tree_props["hats_nrows"] = str(total)
     tree_props["hats_npix_suffix"] = ".parquet"
     _atomic_write_text(_props_text(tree_props), out / "properties")
-    if info.height:
-        arrow_schema = None
-        footers = []
-        first = ""
-        for loc in info["file_loc"]:
-            rel = f"{loc}.parquet"
-            footer = pq.read_metadata(dataset / rel)
-            part_schema = footer.schema.to_arrow_schema()
-            if arrow_schema is None:
-                arrow_schema, first = part_schema, rel
-            elif not part_schema.equals(arrow_schema):
-                raise CrossMatchError(
-                    f"HATS partition {rel} has a different schema from {first}; "
-                    "a HATS catalogue needs one schema for every partition"
-                )
-            footer.set_file_path(rel)
-            footers.append(footer)
+    if arrow_schema is not None:
         pq.write_metadata(arrow_schema, dataset / "_common_metadata")
-        pq.write_metadata(arrow_schema, dataset / "_metadata", metadata_collector=footers)
+        if create_metadata:
+            pq.write_metadata(arrow_schema, dataset / "_metadata", metadata_collector=footers)
+        else:
+            (dataset / "_metadata").unlink(missing_ok=True)
     return {"rows": total, "partitions": info.height}
 
 
