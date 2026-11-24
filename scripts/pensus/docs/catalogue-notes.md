@@ -6,6 +6,10 @@ object tables. The live catalogue inventory and the schema preflight
 remain inputs to each run. The pipeline checks the catalogue version,
 layout and projected schema when planning and reading tiles.
 
+The [November 24 HATS audit](../audits/hats_survey_audit_20261124/README.md)
+records the full-scan and sampled evidence, survey decisions, and CANFAR
+repair procedures.
+
 ## Pilot inputs
 
 The [pilot manifest](../config/full-union-canfar-pilot.yaml) declares the

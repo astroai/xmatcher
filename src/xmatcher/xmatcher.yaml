@@ -534,7 +534,8 @@ catalogues:
   # contracts were read from each tree's properties and _common_metadata.
 
   sdss_dr16_photoprimary:
-    # unverified: `id` (int64) is assumed to be the packed SDSS objID; fluxes are nanomaggies, IVAR in nmgy^-2
+    # id is THING_ID and can repeat. The PENSUS pilot uses RERUN/RUN/CAMCOL/FIELD/ID as its imaging key.
+    # Fluxes are nanomaggies, IVAR in nmgy^-2.
     # epoch: imaging spans 1998-2009 and the tree has no per-row epoch; 2000.0 matches sdss_dr16_hats
     # no positional-error columns in this tree
     description: "SDSS DR16 photoPrimary imaging (community tree; directory says dr13, properties and build record say DR16)"

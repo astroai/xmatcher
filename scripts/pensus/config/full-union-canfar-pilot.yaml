@@ -165,7 +165,7 @@ surveys:
       z: {"filter": "SkyMapper z", "value": "z_psf", "uncertainty": "e_z_psf", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["flags"]}
 
   - tag: sdss
-    release: sdss_arc_photoprimary
+    release: sdss_dr16_photoprimary
     path: sdss/photoprimary_dr13
     # The mounted id is THING_ID and repeats. Preserve it as a foreign key.
     id: [RERUN, RUN, CAMCOL, FIELD, ID]
