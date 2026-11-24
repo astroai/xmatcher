@@ -389,7 +389,10 @@ def normalize_photometry(source: CatalogueSource) -> pl.LazyFrame:
                 .otherwise(pl.lit("invalid"))
             )
         if missing:
-            status = pl.when(value.is_in(missing)).then(pl.lit("missing")).otherwise(status)
+            # The measurement expression is Float64. Polars requires the
+            # membership values to have the same type.
+            is_missing = value.is_in([float(item) for item in missing])
+            status = pl.when(is_missing).then(pl.lit("missing")).otherwise(status)
         status = (
             pl.when(status.is_in(["measured", "upper_limit"]) & ~valid_value)
             .then(pl.lit("invalid"))

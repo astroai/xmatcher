@@ -71,7 +71,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         for step, command in CHECKS.items():
             print(f"STEP {step}", flush=True)
-            with (args.results / f"{step}.log").open("w") as log:
+            log_path = args.results / f"{step}.log"
+            with log_path.open("w") as log:
                 try:
                     code = subprocess.run(
                         [pixi, *command],
@@ -88,6 +89,15 @@ def main(argv: list[str] | None = None) -> int:
                     log.write(f"{type(exc).__name__}: {exc}\n")
                     code = 1
             report["checks"][step] = code
+            if code or step == "regressions":
+                with log_path.open("rb") as log:
+                    length = log.seek(0, os.SEEK_END)
+                    log.seek(max(0, length - 8192))
+                    tail = log.read().decode("utf-8", errors="replace")
+                if code:
+                    report.setdefault("failures", {})[step] = tail
+                else:
+                    report["regressions_summary"] = tail.strip().rsplit("\n", 1)[-1]
             work = result_file.with_suffix(".tmp")
             work.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
             work.replace(result_file)
