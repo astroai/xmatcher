@@ -190,9 +190,9 @@ def _task_memory_bytes(
     frame (anchor rows x the full output width) plus the largest single
     survey: its projected rows counted twice (the per-file frames and their
     concatenation can coexist), its sky index and, when it moves, the
-    propagation arrays.  On the Gaia-master pilots this was 1.17x the
+    propagation arrays.  On the Gaia-master pilots this was ~1.1x the
     measured peak RSS of the largest task (59.5 GiB, 289M Euclid DR1
-    candidate rows) and 1.5x that of a many-survey HSC partition (19.6 GiB):
+    candidate rows) and ~1.4x that of a many-survey HSC partition (19.6 GiB):
     conservative, so reservations do not overcommit a node.
     """
     out_width = _row_bytes(anchor.dtypes) + sum(
@@ -501,6 +501,21 @@ def _candidate_partitions(
     return sorted(seen)
 
 
+def _prefetch_est_rows(
+    parts: Sequence[tuple[PartitionPlan, Any]], fallback: int, *, threads: int
+) -> None:
+    """Fill ``est_rows`` (footer row counts) of ``parts`` with a thread pool."""
+    todo = [(part, storage) for part, storage in parts if not part.est_rows]
+    if not todo:
+        return
+    if threads <= 1 or len(todo) == 1:
+        for part, storage in todo:
+            _est_rows(part, storage, fallback)
+        return
+    with ThreadPoolExecutor(max_workers=threads) as pool:
+        list(pool.map(lambda item: _est_rows(item[0], item[1], fallback), todo))
+
+
 def build_anchor_plan(
     anchor: CatalogueSource,
     surveys: Sequence[CatalogueSource],
@@ -596,16 +611,31 @@ def build_anchor_plan(
         out_columns.extend(_survey_meta_columns(tag))
 
     storages = [open_storage(cat.root) for cat in (anchor_plan, *survey_plans)]
+    selected: list[dict[str, list[int]]] = []
+    for part in anchor_plan.partitions:
+        cone = anchor_cone_radius_deg(part, float(sep_arcsec), delta)
+        selected.append(
+            {
+                tag: _candidate_partitions(part, survey, cone_radius_deg=cone)
+                for survey, tag in zip(survey_plans, tags, strict=True)
+            }
+        )
+    # One footer read per selected partition, concurrently (a full-sky plan
+    # selects ~36k partitions; serial reads on a network filesystem take most
+    # of an hour).
+    needed = [(part, storages[0]) for part in anchor_plan.partitions]
+    for survey, tag, storage in zip(survey_plans, tags, storages[1:], strict=True):
+        wanted = sorted({i for cand in selected for i in cand[tag]})
+        needed.extend((survey.partitions[i], storage) for i in wanted)
+    _prefetch_est_rows(needed, hats_threshold, threads=max(1, int(read_threads)) * 2)
+
     candidates: list[dict[str, list[int]]] = []
     task_memory: list[int] = []
-    for part in anchor_plan.partitions:
-        cand: dict[str, list[int]] = {}
+    for part, cand in zip(anchor_plan.partitions, selected, strict=True):
         est = 0
         survey_rows: list[int] = []
-        cone = anchor_cone_radius_deg(part, float(sep_arcsec), delta)
         for survey, tag, storage in zip(survey_plans, tags, storages[1:], strict=True):
-            idxs = _candidate_partitions(part, survey, cone_radius_deg=cone)
-            cand[tag] = idxs
+            idxs = cand[tag]
             rows = sum(_est_rows(survey.partitions[i], storage, hats_threshold) for i in idxs)
             survey_rows.append(rows)
             est += rows

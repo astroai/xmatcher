@@ -620,3 +620,25 @@ def test_surveys_without_motion_skip_propagation(survey_tree: Path, monkeypatch)
     assert calls == []  # no motion columns: nothing to propagate
     _read_frame(plan.anchor, [0], plan)
     assert calls  # the anchor moves
+
+
+def test_prefetch_est_rows_reads_every_footer(mixed_order_trees: Path) -> None:
+    from xmatcher.ray_anchor import _prefetch_est_rows
+    from xmatcher.ray_union import _footer_row_count
+    from xmatcher.storage import open_storage
+
+    plan = build_anchor_plan(
+        _source("anchor", mixed_order_trees / "anchor"),
+        [_source("deep", mixed_order_trees / "deep", id_column="sid")],
+        sep_arcsec=2.0,
+        out_dir=str(mixed_order_trees / "out"),
+    )
+    survey = plan.surveys[0]
+    storage = open_storage(survey.root)
+    for part in survey.partitions:
+        part.est_rows = 0
+    _prefetch_est_rows([(p, storage) for p in survey.partitions], 100_000, threads=4)
+    assert [p.est_rows for p in survey.partitions] == [
+        _footer_row_count(storage, p.rel) for p in survey.partitions
+    ]
+    assert sum(p.est_rows for p in survey.partitions) == 3000

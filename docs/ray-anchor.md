@@ -194,7 +194,7 @@ for example a pilot on one coarse and one fine Gaia partition
 (a later full run into the same directory starts over) and the output
 `properties` name it as `xmatcher_anchor_partitions`. An unknown partition is
 an error. Row estimates (one Parquet footer per partition) are read only for
-the partitions a plan selects.
+the partitions a plan selects, concurrently (2 × `--read-threads`).
 
 Each task reports its wall time, peak resident memory and, per survey, the
 candidate partitions, rows read, invalid rows dropped, matched anchor rows and
@@ -211,8 +211,8 @@ output frame (anchor rows × the full output width) plus the largest single
 survey (its projected rows counted twice, since the per-file frames and their
 concatenation can coexist, plus its sky index, and propagation arrays when it
 moves); surveys are read and matched one at a time. On the Gaia-master pilots
-it was 1.17× the measured peak of the largest task (59.5 GiB: 289M Euclid DR1
-candidate rows) and 1.5× that of a many-survey HSC partition (19.6 GiB), so
+it was ~1.1× the measured peak of the largest task (59.5 GiB: 289M Euclid DR1
+candidate rows) and ~1.4× that of a many-survey HSC partition (19.6 GiB), so
 reservations are conservative; `memory_estimate_gib` sits next to
 `peak_rss_gib` in `task_stats`. Within a task, `--read-threads` (default 8) partition files
 are read concurrently and concatenated in partition order. A survey without
