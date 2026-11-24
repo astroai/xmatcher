@@ -1970,6 +1970,8 @@ class CrossMatch:
             matcher=matcher,
             fallback_policy=str(params.get("fallback_policy", "warn")),
             anchor_partitions=params.get("anchor_partitions"),
+            read_threads=params.get("read_threads"),
+            task_memory_scale=params.get("task_memory_scale"),
         )
         self.last_ray_anchor_plan = ray_anchor.last_plan()
 

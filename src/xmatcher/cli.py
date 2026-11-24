@@ -818,6 +818,8 @@ def _build_params(args) -> dict:
         chunk_memory_gb=getattr(args, "chunk_memory_gb", None),
         anchor_id_name=getattr(args, "anchor_id_name", "source_id"),
         anchor_partitions=getattr(args, "anchor_partitions", None),
+        read_threads=getattr(args, "read_threads", None),
+        task_memory_scale=getattr(args, "task_memory_scale", None),
         retries=getattr(args, "retries", None),
         fresh_after=getattr(args, "fresh_after", None),
         min_free_gb=getattr(args, "min_free_gb", None),
@@ -1106,6 +1108,19 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         help="engine=ray-anchor only: process just these anchor HATS partitions "
         "(e.g. a pilot: --anchor-partitions 2/69,6/42837). The output's properties "
         "name the subset (xmatcher_anchor_partitions).",
+    )
+    g_ray.add_argument(
+        "--read-threads",
+        dest="read_threads",
+        type=int,
+        help="engine=ray-anchor: partition files read concurrently per task (default 8).",
+    )
+    g_ray.add_argument(
+        "--task-memory-scale",
+        dest="task_memory_scale",
+        type=float,
+        help="engine=ray-anchor: reserve this multiple of each task's estimated peak "
+        "memory as Ray memory (default 1.0; 0 schedules by CPU only).",
     )
     g_ray.add_argument(
         "--retries",

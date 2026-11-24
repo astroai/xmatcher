@@ -227,13 +227,21 @@ def _cone_ranges(order: int, pix: int, radius_deg: float, depth: int) -> list[tu
 # plan builder
 # --------------------------------------------------------------------------- #
 def _footer_row_count(storage: Storage, rel: str) -> int | None:
-    """Parquet footer row count (None when unavailable, e.g. remote)."""
+    """Parquet footer row count (None when unavailable, e.g. remote).
+
+    A partition may be one ``Npix=N.parquet`` file or an ``Npix=N/``
+    directory of Parquet files (e.g. Euclid DR1 MER); the latter sums its
+    files' footers.
+    """
     if isinstance(storage, LocalStorage):
         try:
             import pyarrow.parquet as pq  # noqa: PLC0415
 
-            md = pq.read_metadata(Path(storage.root) / rel)
-            return int(sum(md.row_group(r).num_rows for r in range(md.num_row_groups)))
+            path = Path(storage.root) / rel
+            files = sorted(path.glob("*.parquet")) if path.is_dir() else [path]
+            if not files:
+                return None
+            return int(sum(pq.read_metadata(f).num_rows for f in files))
         except Exception:  # noqa: BLE001
             return None
     return None

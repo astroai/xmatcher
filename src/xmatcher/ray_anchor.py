@@ -49,6 +49,7 @@ import shutil
 import sys
 import time
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -90,6 +91,15 @@ DEFAULT_CHUNK_MEMORY_GB = 8.0
 #: to a target epoch: the anchor and survey motions may each use half of it.
 DEFAULT_MOTION_HALO_ARCSEC = 600.0
 _BYTES_PER_ROW = 96.0
+#: Partition files read concurrently within one task (I/O latency bound).
+DEFAULT_READ_THREADS = 8
+#: Task memory model (see :func:`_task_memory_bytes`): process baseline, the
+#: per-row cost of a survey's sky index and match arrays, and the per-row cost
+#: of propagating a survey that moves.  Calibrated on the Gaia-master pilot.
+_TASK_BASE_BYTES = 2 * 1024**3
+_INDEX_BYTES_PER_ROW = 40
+_MOTION_BYTES_PER_ROW = 56
+_META_BYTES_PER_ROW = 40
 _STATE_NAME = "resume.state"
 
 _LAST_PLAN: AnchorPlan | None = None
@@ -127,6 +137,71 @@ class AnchorPlan:
     #: ``(order, pix)`` of the anchor partitions this plan is restricted to
     #: (``None``: every anchor partition).
     anchor_subset: list[tuple[int, int]] | None = None
+    #: Estimated peak resident bytes per anchor partition (same order as
+    #: ``anchor.partitions``); used to reserve Ray memory per task.
+    task_memory: list[int] = field(default_factory=list)
+    read_threads: int = DEFAULT_READ_THREADS
+
+
+_DTYPE_BYTES = {
+    pl.Boolean: 1,
+    pl.Int8: 1,
+    pl.UInt8: 1,
+    pl.Int16: 2,
+    pl.UInt16: 2,
+    pl.Int32: 4,
+    pl.UInt32: 4,
+    pl.Float32: 4,
+    pl.Int64: 8,
+    pl.UInt64: 8,
+    pl.Float64: 8,
+}
+
+
+def _row_bytes(dtypes: dict[str, Any]) -> int:
+    """In-memory bytes per row of a projection (strings as 16-byte views)."""
+    total = 0
+    for dtype in dtypes.values():
+        base = dtype.base_type() if hasattr(dtype, "base_type") else dtype
+        total += _DTYPE_BYTES.get(base, 16)
+    return total
+
+
+def _moves(cat: CataloguePlan, target_epoch: float | None) -> bool:
+    """Whether propagation to ``target_epoch`` can move this catalogue's rows."""
+    return bool(
+        target_epoch is not None
+        and cat.pm_ra_column
+        and cat.pm_dec_column
+        and (cat.epoch_column or cat.epoch is not None)
+    )
+
+
+def _task_memory_bytes(
+    anchor: CataloguePlan,
+    anchor_rows: int,
+    surveys: Sequence[CataloguePlan],
+    survey_rows: Sequence[int],
+    target_epoch: float | None,
+) -> int:
+    """Estimated peak resident bytes of one anchor task.
+
+    Surveys are read and matched one at a time, so the peak is the output
+    frame (anchor rows x the full output width) plus the largest single
+    survey: its projected rows, sky index and, when it moves, the
+    propagation arrays.  On the pilot this tracked the measured peak RSS
+    within ~15%.
+    """
+    out_width = _row_bytes(anchor.dtypes) + sum(
+        _row_bytes(s.dtypes) + _META_BYTES_PER_ROW for s in surveys
+    )
+    largest = 0
+    for survey, rows in zip(surveys, survey_rows, strict=True):
+        per_row = _row_bytes(survey.dtypes) + _INDEX_BYTES_PER_ROW
+        if _moves(survey, target_epoch):
+            per_row += _MOTION_BYTES_PER_ROW
+        largest = max(largest, int(rows) * per_row)
+    return int(_TASK_BASE_BYTES + anchor_rows * out_width + largest)
 
 
 def parse_anchor_partitions(
@@ -439,6 +514,7 @@ def build_anchor_plan(
     fallback_policy: str = "warn",
     motion_halo_arcsec: float | None = None,
     anchor_partitions: str | Sequence[str] | Sequence[tuple[int, int]] | None = None,
+    read_threads: int = DEFAULT_READ_THREADS,
 ) -> AnchorPlan:
     """Build a picklable anchor plan; every source must point at a local HATS tree.
 
@@ -463,6 +539,8 @@ def build_anchor_plan(
         )
     if task_rows <= 0 or chunk_memory_gb <= 0:
         raise CrossMatchError("task_rows and chunk_memory_gb must be positive")
+    if read_threads < 1:
+        raise CrossMatchError(f"read_threads must be >= 1, got {read_threads}")
     if anchor_id_name.strip() == "":
         raise CrossMatchError("anchor_id_name must not be empty")
 
@@ -516,15 +594,23 @@ def build_anchor_plan(
 
     storages = [open_storage(cat.root) for cat in (anchor_plan, *survey_plans)]
     candidates: list[dict[str, list[int]]] = []
+    task_memory: list[int] = []
     for part in anchor_plan.partitions:
         cand: dict[str, list[int]] = {}
         est = 0
+        survey_rows: list[int] = []
         cone = anchor_cone_radius_deg(part, float(sep_arcsec), delta)
         for survey, tag, storage in zip(survey_plans, tags, storages[1:], strict=True):
             idxs = _candidate_partitions(part, survey, cone_radius_deg=cone)
             cand[tag] = idxs
-            est += sum(_est_rows(survey.partitions[i], storage, hats_threshold) for i in idxs)
-        est += _est_rows(part, storages[0], hats_threshold)
+            rows = sum(_est_rows(survey.partitions[i], storage, hats_threshold) for i in idxs)
+            survey_rows.append(rows)
+            est += rows
+        anchor_rows = _est_rows(part, storages[0], hats_threshold)
+        est += anchor_rows
+        task_memory.append(
+            _task_memory_bytes(anchor_plan, anchor_rows, survey_plans, survey_rows, target_epoch)
+        )
         if est > task_rows:
             raise CrossMatchError(
                 f"anchor partition {part.rel} needs ~{est} rows of candidate data, above "
@@ -555,6 +641,8 @@ def build_anchor_plan(
         chunk_memory_gb=float(chunk_memory_gb),
         task_rows=int(task_rows),
         anchor_subset=subset,
+        task_memory=task_memory,
+        read_threads=int(read_threads),
     )
 
 
@@ -589,28 +677,46 @@ def _read_frame(
         return pl.DataFrame(
             {name: pl.Series(name, [], dtype=dtype) for name, dtype in cat.dtypes.items()}
         )
-    frames: list[pl.DataFrame] = []
     storage = open_storage(cat.root)
-    for index in idxs:
+
+    def read_one(index: int) -> tuple[int, pl.DataFrame, int]:
         part = cat.partitions[index]
         if isinstance(storage, LocalStorage):
             frame = pl.read_parquet(Path(storage.root) / part.rel, columns=cat.cols)
         else:
             frame = storage.read_parquet(part.rel).select(cat.cols)
         frame = frame.rename(dict(zip(cat.cols, cat.final_cols, strict=True)))
+        bad = 0
         if invalid is not None and frame.height:
             ok = _valid_coords(frame, cat.ra, cat.dec)
             bad = int(frame.height - int(ok.sum()))
             if bad:
-                invalid[int(index)] = bad
                 frame = frame.filter(pl.Series(ok))
+        return int(index), frame, bad
+
+    # Files are read concurrently (I/O latency bound) and concatenated in
+    # partition order, so the result and tie-breaking do not depend on timing.
+    threads = max(1, min(int(plan.read_threads), len(idxs)))
+    if threads == 1:
+        results = [read_one(i) for i in idxs]
+    else:
+        with ThreadPoolExecutor(max_workers=threads) as pool:
+            results = list(pool.map(read_one, idxs))
+    frames: list[pl.DataFrame] = []
+    for index, frame, bad in results:
+        if bad and invalid is not None:
+            invalid[index] = bad
         frames.append(frame)
+    del results
     frame = pl.concat(frames, how="diagonal_relaxed")
+    del frames
     if stats is not None:
         stats.update(rows=int(frame.height), read_s=round(time.perf_counter() - started, 3))
     if invalid is None:
         _check_coords(frame, cat.ra, cat.dec, f"catalogue '{cat.name}'")
-    if plan.target_epoch is not None and frame.height:
+    # A catalogue without motion metadata cannot move: skip the propagation and
+    # its full-size coordinate copies.
+    if _moves(cat, plan.target_epoch) and frame.height:
         src_meta = _plan_source(cat)
         empty_src = CatalogueSource(
             name="_empty", is_local=True, ra_column="_ra", dec_column="_dec"
@@ -805,6 +911,8 @@ def run_anchor_partition(plan: AnchorPlan, index: int) -> dict[str, Any]:
     def finish(result: dict[str, Any]) -> dict[str, Any]:
         stats["seconds"] = round(time.perf_counter() - started, 3)
         stats["peak_rss_gib"] = _peak_rss_gib()
+        if plan.task_memory:
+            stats["memory_estimate_gib"] = round(plan.task_memory[index] / 1024**3, 3)
         stats["anchor_read_s"] = anchor_stats.get("read_s", 0.0)
         result["stats"] = stats
         return result
@@ -842,6 +950,26 @@ def run_anchor_partition(plan: AnchorPlan, index: int) -> dict[str, Any]:
     return finish(
         {"index": index, "rows": output.height, "rel": _output_rel(part), "invalid": invalid}
     )
+
+
+def _node_memory_cap(ray: Any) -> int:
+    """90% of the largest alive node's schedulable Ray memory (0 if unknown)."""
+    try:
+        sizes = [
+            float((node.get("Resources") or {}).get("memory", 0.0))
+            for node in ray.nodes()
+            if node.get("Alive", node.get("alive", True))
+        ]
+    except Exception:  # noqa: BLE001 - scheduling hint only
+        return 0
+    return int(0.9 * max(sizes, default=0.0))
+
+
+def _task_reservation(plan: AnchorPlan, index: int, scale: float, cap: int) -> int:
+    """Ray ``memory`` to reserve for one task (0: no reservation)."""
+    if scale <= 0 or cap <= 0 or not plan.task_memory:
+        return 0
+    return int(min(plan.task_memory[index] * scale, cap))
 
 
 def _anchor_task_factory() -> Any:
@@ -992,6 +1120,8 @@ def ray_anchor_match(
     fallback_policy: str = "warn",
     motion_halo_arcsec: float | None = None,
     anchor_partitions: str | Sequence[str] | Sequence[tuple[int, int]] | None = None,
+    read_threads: int | None = None,
+    task_memory_scale: float | None = None,
 ) -> None:
     """Build a Gaia-anchored master HATS catalogue at ``output_file``.
 
@@ -1000,7 +1130,16 @@ def ray_anchor_match(
     ``xmatcher_invalid_survey_rows`` and in ``resume.state``); invalid anchor
     rows still abort, since every anchor row must appear in the master.
     ``anchor_partitions`` restricts the run to those anchor partitions.
+
+    Under Ray each task reserves ``task_memory_scale`` x its estimated peak
+    memory (:func:`_task_memory_bytes`; capped at 90% of the largest node's
+    schedulable memory), so memory-heavy partitions are not packed onto one
+    node; ``task_memory_scale=0`` schedules by CPU only.  ``read_threads``
+    partition files are read concurrently within a task.
     """
+    scale = 1.0 if task_memory_scale is None else float(task_memory_scale)
+    if not math.isfinite(scale) or scale < 0:
+        raise CrossMatchError(f"task_memory_scale must be >= 0, got {task_memory_scale}")
     out = Path(str(output_file))
     out.mkdir(parents=True, exist_ok=True)
     for source in (anchor, *surveys):
@@ -1027,6 +1166,7 @@ def ray_anchor_match(
         fallback_policy=fallback_policy,
         motion_halo_arcsec=motion_halo_arcsec,
         anchor_partitions=anchor_partitions,
+        read_threads=int(read_threads or DEFAULT_READ_THREADS),
     )
     _LAST_PLAN = plan
 
@@ -1125,7 +1265,21 @@ def ray_anchor_match(
         try:
             plan_ref = ray.put(plan)
             task = _anchor_task_factory()
-            refs = [task.remote(plan_ref, index) for index in todo]
+            cap = _node_memory_cap(ray)
+            refs = []
+            for index in todo:
+                memory = _task_reservation(plan, index, scale, cap)
+                refs.append(
+                    task.options(memory=memory).remote(plan_ref, index)
+                    if memory
+                    else task.remote(plan_ref, index)
+                )
+            if progress_cb and scale > 0 and cap:
+                need = max(plan.task_memory[i] for i in todo) * scale
+                progress_cb(
+                    f"anchor: reserving task memory (largest {need / 1024**3:.1f} GiB, "
+                    f"node cap {cap / 1024**3:.1f} GiB)"
+                )
             done = 0
             while refs:
                 ready, refs = ray.wait(refs, num_returns=min(32, len(refs)), timeout=5.0)

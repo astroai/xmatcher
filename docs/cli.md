@@ -193,6 +193,8 @@ where the table says otherwise.
 | `--chunk-memory-gb FLOAT` | `8.0` | Per-chunk candidate-pool memory guard in GiB. |
 | `--anchor-id-name COL` | `source_id` | Output name of the anchor catalogue's ID column (`ray-anchor` only). |
 | `--anchor-partitions ORDER/PIX,…` | all | Process only these anchor HATS partitions, e.g. a pilot (`ray-anchor` only); `properties` names the subset as `xmatcher_anchor_partitions`. |
+| `--read-threads INT` | `8` | Partition files read concurrently within one task (`ray-anchor` only). |
+| `--task-memory-scale FLOAT` | `1.0` | Reserve this multiple of each task's estimated peak memory as Ray `memory`, capped at 90% of the largest node's (`ray-anchor` only); `0` schedules by CPU only. |
 | `--retries INT` | `0` | Driver-level retries after a backoff; mirror gaps refill incrementally and finished chunks are skipped (`ray-union` only). |
 | `--fresh-after DAYS` | always probe | Skip the mirror change-probe for copies fully synced within this many days. |
 | `--min-free-gb FLOAT` | `10.0` | Fail fast when the cache root or output filesystem has less free space than this many GiB. `XMATCHER_MIN_FREE_GB` overrides the default. |

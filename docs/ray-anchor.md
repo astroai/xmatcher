@@ -203,6 +203,20 @@ records under `task_stats` in `resume.state`, keyed by output partition. Under
 Ray each task runs in a fresh worker process (`max_calls=1`), so the peak is
 per task; on the serial path it is the running maximum of the process.
 
+Each task also reserves Ray `memory` equal to its estimated peak
+(`--task-memory-scale`, default 1.0; capped at 90% of the largest node's
+schedulable memory; `0` schedules by CPU only), so the few partitions with a
+large candidate survey are not packed onto one node. The estimate is the
+output frame (anchor rows × the full output width) plus the largest single
+survey (projected rows plus its sky index, and propagation arrays when it
+moves); surveys are read and matched one at a time. On the Gaia-master pilot
+it was within 10% of the measured peak for a coarse, many-survey partition and
+conservative for a fine one; `memory_estimate_gib` sits next to `peak_rss_gib`
+in `task_stats`. Within a task, `--read-threads` (default 8) partition files
+are read concurrently and concatenated in partition order. A survey without
+proper-motion metadata is not propagated (it cannot move), so
+`--target-epoch` costs nothing for it.
+
 The driver joins the cluster at `RAY_ADDRESS` when it is set; if that
 connection fails it starts a local cluster with a warning, or stops under
 `--fallback-policy error`. Without `RAY_ADDRESS` it starts a private local

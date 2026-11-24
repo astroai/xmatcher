@@ -3,6 +3,7 @@ from __future__ import annotations
 import functools
 import sys
 import threading
+from dataclasses import replace
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -476,6 +477,8 @@ def test_cli_anchor_partitions_reach_the_engine(monkeypatch, tmp_path: Path) -> 
 
     def spy(self, catalogues, output_file, progress_cb=None, **params):
         seen["anchor_partitions"] = params.get("anchor_partitions")
+        seen["read_threads"] = params.get("read_threads")
+        seen["task_memory_scale"] = params.get("task_memory_scale")
 
     monkeypatch.setattr(CrossMatch, "_ray_anchor_multi", spy)
     code = cli.main(
@@ -495,7 +498,125 @@ def test_cli_anchor_partitions_reach_the_engine(monkeypatch, tmp_path: Path) -> 
     assert seen["anchor_partitions"] == "2/69,6/42837"
     assert (
         cli.main(
+            [
+                "match",
+                "anchor",
+                "survey",
+                "--engine",
+                "ray-anchor",
+                "--read-threads",
+                "4",
+                "--task-memory-scale",
+                "1.5",
+                "-o",
+                str(tmp_path / "subset2.hats"),
+            ]
+        )
+        == 0
+    )
+    assert (seen["read_threads"], seen["task_memory_scale"]) == (4, 1.5)
+    assert (
+        cli.main(
             ["match", "a.parquet", "b.parquet", "--engine", "fast", "--anchor-partitions", "2/69"]
         )
         == 2
     )
+
+
+def test_footer_row_count_sums_npix_directories(tmp_path: Path) -> None:
+    from xmatcher.ray_union import _footer_row_count
+    from xmatcher.storage import LocalStorage
+
+    part = tmp_path / "dataset" / "Norder=3" / "Dir=0" / "Npix=158"
+    part.mkdir(parents=True)
+    pl.DataFrame({"a": [1, 2]}).write_parquet(part / "part0.parquet")
+    pl.DataFrame({"a": [3, 4, 5]}).write_parquet(part / "part1.parquet")
+    pl.DataFrame({"a": [9]}).write_parquet(part.parent / "Npix=159.parquet")
+    storage = LocalStorage(str(tmp_path))
+    assert _footer_row_count(storage, "dataset/Norder=3/Dir=0/Npix=158") == 5
+    assert _footer_row_count(storage, "dataset/Norder=3/Dir=0/Npix=159.parquet") == 1
+    assert _footer_row_count(storage, "dataset/Norder=3/Dir=0/missing.parquet") is None
+
+
+# --------------------------------------------------------------------------- #
+# task memory model, concurrent reads, no-op propagation
+# --------------------------------------------------------------------------- #
+def test_task_memory_estimate_tracks_the_largest_survey(mixed_order_trees: Path) -> None:
+    from xmatcher.ray_anchor import _TASK_BASE_BYTES, _task_memory_bytes
+
+    root = mixed_order_trees
+    plan = build_anchor_plan(
+        _source("anchor", root / "anchor"),
+        [
+            _source("s0", root / "s0", id_column="sid"),
+            _source("deep", root / "deep", id_column="sid"),
+        ],
+        sep_arcsec=2.0,
+        out_dir=str(root / "out"),
+    )
+    assert len(plan.task_memory) == len(plan.anchor.partitions)
+    assert all(m > _TASK_BASE_BYTES for m in plan.task_memory)
+    small = _task_memory_bytes(plan.anchor, 10, plan.surveys, [10, 10], None)
+    big = _task_memory_bytes(plan.anchor, 10, plan.surveys, [10, 10_000_000], None)
+    assert big - small > 10_000_000 * 24  # >= coordinates + id per survey row
+    # a survey that moves pays for its propagation arrays
+    moving = replace(plan.surveys[1], pm_ra_column="ra", pm_dec_column="dec", epoch=2000.0)
+    moved = _task_memory_bytes(plan.anchor, 10, [plan.surveys[0], moving], [10, 10_000_000], 2016.0)
+    assert moved > big
+
+
+def test_task_reservation_caps_and_disables() -> None:
+    from xmatcher.ray_anchor import AnchorPlan, _task_reservation
+
+    plan = AnchorPlan.__new__(AnchorPlan)
+    plan.task_memory = [10 * 1024**3, 200 * 1024**3]
+    cap = 100 * 1024**3
+    assert _task_reservation(plan, 0, 1.0, cap) == 10 * 1024**3
+    assert _task_reservation(plan, 0, 1.5, cap) == 15 * 1024**3
+    assert _task_reservation(plan, 1, 1.0, cap) == cap
+    assert _task_reservation(plan, 0, 0.0, cap) == 0
+    assert _task_reservation(plan, 0, 1.0, 0) == 0
+
+
+def test_concurrent_reads_match_serial_reads(mixed_order_trees: Path) -> None:
+    from xmatcher.ray_anchor import _read_frame
+
+    root = mixed_order_trees
+    plan = build_anchor_plan(
+        _source("anchor", root / "anchor"),
+        [_source("deep", root / "deep", id_column="sid")],
+        sep_arcsec=2.0,
+        out_dir=str(root / "out"),
+    )
+    survey = plan.surveys[0]
+    idxs = list(range(len(survey.partitions)))
+    assert len(idxs) > 2
+    serial = _read_frame(survey, idxs, replace(plan, read_threads=1), invalid={})
+    threaded = _read_frame(survey, idxs, replace(plan, read_threads=4), invalid={})
+    assert serial.equals(threaded)
+
+
+def test_surveys_without_motion_skip_propagation(survey_tree: Path, monkeypatch) -> None:
+    from xmatcher import matchers
+    from xmatcher.ray_anchor import _read_frame
+
+    anchor = _source(
+        "anchor", survey_tree / "anchor", epoch=2016.0, pm_ra_column="pmra", pm_dec_column="pmdec"
+    )
+    survey = _source("a", survey_tree / "a", id_column="sid", epoch=2000.0)
+    plan = build_anchor_plan(
+        anchor, [survey], sep_arcsec=1.5, out_dir=str(survey_tree / "out"), target_epoch=2016.0
+    )
+    calls: list[str] = []
+    real = matchers._apply_proper_motion
+
+    def spy(left, right, left_src, *args, **kwargs):
+        calls.append(left_src.name)
+        return real(left, right, left_src, *args, **kwargs)
+
+    monkeypatch.setattr(matchers, "_apply_proper_motion", spy)
+    cat = plan.surveys[0]
+    _read_frame(cat, list(range(len(cat.partitions))), plan, invalid={})
+    assert calls == []  # no motion columns: nothing to propagate
+    _read_frame(plan.anchor, [0], plan)
+    assert calls  # the anchor moves

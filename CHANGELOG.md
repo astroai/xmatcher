@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `resume.state`, one `-v` log line per task). Ray tasks run with
   `max_calls=1`, and partition row estimates are read lazily for the
   partitions a plan selects instead of every partition of every input.
+- `ray-anchor`: each Ray task reserves `memory` from a per-task peak estimate
+  (`--task-memory-scale`, default 1.0, capped at 90% of the largest node; `0`
+  disables), reads its partition files with `--read-threads` (default 8)
+  threads in partition order, and skips epoch propagation for surveys
+  without proper-motion metadata (no copies of their coordinates). Task stats
+  record `memory_estimate_gib`.
 
 - Read-only community roots (`cache.community_roots`, `XMATCHER_COMMUNITY_ROOTS`;
   default `/arc/projects/hats` on CANFAR). A remote HATS catalogue whose
@@ -82,6 +88,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- HATS partitions stored as `Npix=N/` directories of files (Euclid DR1 MER)
+  get their footer row counts summed instead of falling back to the
+  `hats_threshold` placeholder.
 - `allwise_hats` no longer wires `pmra`/`pmdec` as motion columns (they stay
   in the projection): the AllWISE motion fit is not astrometry, and
   `--target-epoch` propagation by it moved a source by 1630" in the

@@ -105,6 +105,8 @@ _MATCH_PARAM_KEYS = frozenset(
         "chunk_memory_gb",
         "anchor_id_name",
         "anchor_partitions",
+        "read_threads",
+        "task_memory_scale",
         "retries",
         "fresh_after",
         "min_free_gb",
