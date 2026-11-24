@@ -1,0 +1,462 @@
+{
+ "catalogue": "zensus/20261019/zensus_20261019",
+ "has_properties": true,
+ "has_hats_properties": true,
+ "props": {
+  "obs_collection": "zensus_20261019",
+  "dataproduct_type": "object",
+  "hats_nrows": "1169651709",
+  "hats_col_ra": "ra",
+  "hats_col_dec": "dec",
+  "hats_cols_default": "ra dec zspec zspec_err wspec zphot zphot_lower zphot_upper prob_gal prob_str prob_agn ref",
+  "hats_col_healpix": "_healpix_29",
+  "hats_col_healpix_order": "29",
+  "hats_npix_suffix": ".parquet",
+  "hats_skymap_order": "5",
+  "hats_max_rows": "1000000",
+  "hats_estsize": "45478669",
+  "moc_sky_fraction": "1.0",
+  "obs_title": "zensus full-sky redshift catalogue, release 20261019T063109Z",
+  "hats_builder": "hats-import v0.11.0, hats v0.11.0",
+  "hats_creation_date": "2026-11-17T20:22UTC",
+  "hats_release_date": "2025-08-22",
+  "hats_version": "v1.0",
+  "hats_order": "5"
+ },
+ "missing_required": [],
+ "missing_recommended": [
+  "hats_frame",
+  "hats_cols_survey_id"
+ ],
+ "root_entries": [
+  "dataset",
+  "hats.properties",
+  "partition_info.csv",
+  "point_map.fits",
+  "properties",
+  "skymap.fits"
+ ],
+ "partition_info_header": [
+  "Norder",
+  "Npix"
+ ],
+ "n_partition_info": 12288,
+ "partition_info_duplicates": 0,
+ "dataset_exists": true,
+ "dataset_top": [
+  {
+   "name": "_common_metadata",
+   "size": 3675,
+   "dir": false
+  },
+  {
+   "name": "_metadata",
+   "size": 68493251,
+   "dir": false
+  }
+ ],
+ "stray": [],
+ "n_stray": 0,
+ "wrong_dir": [],
+ "empty_files": [],
+ "duplicate_partitions_on_disk": [],
+ "layout": {
+  "file": 12288
+ },
+ "n_partition_files": 12288,
+ "n_partitions_on_disk": 12288,
+ "missing_on_disk": [],
+ "n_missing_on_disk": 0,
+ "extra_on_disk": [],
+ "n_extra_on_disk": 0,
+ "overlapping_partitions": [],
+ "orders": {
+  "5": 12288
+ },
+ "order_range": [
+  5,
+  5
+ ],
+ "hats_order_matches_max": true,
+ "dataset_bytes": 46501360182,
+ "unreadable_files": [],
+ "n_unreadable_files": 0,
+ "footer_rows_total": 1169651709,
+ "hats_nrows": 1169651709,
+ "rows_match_hats_nrows": true,
+ "partition_info_rowcount_mismatch": [],
+ "rows_per_partition": {
+  "min": 42206,
+  "p01": 47809.22,
+  "median": 75499.0,
+  "p99": 384013.2899999994,
+  "max": 1580715
+ },
+ "n_tiny_partitions_lt1000": 0,
+ "n_partitions_lt100": 0,
+ "tiny_partitions": [],
+ "empty_partitions": [],
+ "n_partitions_over_1p5x_max_rows": 1,
+ "largest_partitions": [
+  "5/8323:1580715"
+ ],
+ "order0_partitions": [],
+ "n_schema_variants": 1,
+ "created_by": {
+  "parquet-cpp-arrow version 26.0.0": 12288
+ },
+ "coord_stats_out_of_range": [],
+ "n_partitions_coord_stats_out_of_range": 0,
+ "column_stats": {
+  "_healpix_29": {
+   "min": 1612117985,
+   "max": 3458764513362979900,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "cluster_id": {
+   "min": 0,
+   "max": 1580732,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "ra": {
+   "min": -0.0,
+   "max": 359.99999979239647,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "dec": {
+   "min": -89.9946426,
+   "max": 90.0,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "pos_err": {
+   "min": 1.500000053056283e-06,
+   "max": 636847.25,
+   "nulls": 1210817,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "zspec": {
+   "min": -0.006689294241368771,
+   "max": 14.4399995803833,
+   "nulls": 1093167819,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "zspec_err": {
+   "min": 3.335640930135497e-10,
+   "max": 5.0,
+   "nulls": 1093167819,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "wspec": {
+   "min": 0.05000000074505806,
+   "max": 1.0,
+   "nulls": 1093167819,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "ref": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  },
+  "refid": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  },
+  "ads": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  },
+  "ref_pos": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  },
+  "ref_phot": {
+   "min": null,
+   "max": null,
+   "nulls": 1048524276,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  },
+  "zphot": {
+   "min": -0.05310000106692314,
+   "max": 33.790000915527344,
+   "nulls": 1048524276,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "zphot_lower": {
+   "min": -0.2718835771083832,
+   "max": 24.0,
+   "nulls": 1073298020,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "zphot_upper": {
+   "min": 1.9346716726431623e-05,
+   "max": 27.81999969482422,
+   "nulls": 1073290803,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "prob_gal": {
+   "min": -0.0,
+   "max": 1.0,
+   "nulls": 146516212,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "prob_str": {
+   "min": -0.0,
+   "max": 1.0,
+   "nulls": 1049055878,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "prob_agn": {
+   "min": -0.0,
+   "max": 1.0,
+   "nulls": 1145140965,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "prob_scl": {
+   "min": 0.8500000238418579,
+   "max": 0.9900000095367432,
+   "nulls": 1169042048,
+   "rg_with_stats": 11173,
+   "rg_total": 12297
+  },
+  "prob_var": {
+   "min": -0.0,
+   "max": 1.0,
+   "nulls": 1125733529,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "var_support_count": {
+   "min": 0,
+   "max": 30,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "conflict_zspec": {
+   "min": false,
+   "max": true,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "n_sources": {
+   "min": 1,
+   "max": 77716,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "contributing_refs": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  },
+  "ref_z": {
+   "min": null,
+   "max": null,
+   "nulls": 1093167819,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  },
+  "ref_class": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  },
+  "spec_count": {
+   "min": 0,
+   "max": 24,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "spec_family_count": {
+   "min": 1,
+   "max": 23,
+   "nulls": 1092899651,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "spec_measurement_count": {
+   "min": 0,
+   "max": 13825,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "spec_support_count": {
+   "min": 0,
+   "max": 23,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "zspec_median_spec": {
+   "min": -0.006689310073852539,
+   "max": 14.440004348754883,
+   "nulls": 1092899651,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "zspec_min": {
+   "min": -0.006689294241368771,
+   "max": 14.4399995803833,
+   "nulls": 1092899651,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "zspec_max": {
+   "min": -0.006689294241368771,
+   "max": 15.8100004196167,
+   "nulls": 1092899651,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "zspec_mad": {
+   "min": -0.0,
+   "max": 1.5051988363265991,
+   "nulls": 1092899651,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "spec_support_frac": {
+   "min": -0.0,
+   "max": 1.0,
+   "nulls": 1092899651,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "healpix": {
+   "min": 0,
+   "max": 12287,
+   "nulls": 0,
+   "rg_with_stats": 12297,
+   "rg_total": 12297
+  },
+  "wspec_consensus_raw": {
+   "min": null,
+   "max": null,
+   "nulls": 1169651709,
+   "rg_with_stats": 0,
+   "rg_total": 12297
+  }
+ },
+ "all_null_columns": [
+  "wspec_consensus_raw"
+ ],
+ "columns_without_stats": [
+  "ads",
+  "contributing_refs",
+  "ref",
+  "ref_class",
+  "ref_phot",
+  "ref_pos",
+  "ref_z",
+  "refid",
+  "wspec_consensus_raw"
+ ],
+ "sentinel_like_min_max": {},
+ "common_metadata": {
+  "ncol": 38,
+  "fields_with_unit": 0,
+  "fields_with_description": 0,
+  "schema_meta_keys": [],
+  "only_in_common_metadata": [],
+  "only_in_partitions": []
+ },
+ "types": {
+  "_healpix_29": "int64",
+  "cluster_id": "int64",
+  "ra": "double",
+  "dec": "double",
+  "pos_err": "float",
+  "zspec": "float",
+  "zspec_err": "float",
+  "wspec": "float",
+  "ref": "large_string",
+  "refid": "large_string",
+  "ads": "large_string",
+  "ref_pos": "large_string",
+  "ref_phot": "large_string",
+  "zphot": "float",
+  "zphot_lower": "float",
+  "zphot_upper": "float",
+  "prob_gal": "float",
+  "prob_str": "float",
+  "prob_agn": "float",
+  "prob_scl": "float",
+  "prob_var": "float",
+  "var_support_count": "uint32",
+  "conflict_zspec": "bool",
+  "n_sources": "int64",
+  "contributing_refs": "large_string",
+  "ref_z": "large_string",
+  "ref_class": "large_string",
+  "spec_count": "int64",
+  "spec_family_count": "int64",
+  "spec_measurement_count": "int64",
+  "spec_support_count": "int64",
+  "zspec_median_spec": "float",
+  "zspec_min": "float",
+  "zspec_max": "float",
+  "zspec_mad": "float",
+  "spec_support_frac": "float",
+  "healpix": "int64",
+  "wspec_consensus_raw": "float"
+ },
+ "metadata_bytes": 68493251,
+ "metadata": {
+  "rows": 1169651709,
+  "row_groups": 12297,
+  "files_referenced": 12288,
+  "rows_match_hats_nrows": true,
+  "rows_match_footers": true,
+  "referenced_missing": [],
+  "n_referenced_missing": 0,
+  "not_referenced": [],
+  "n_not_referenced": 0,
+  "stale_rowcounts": []
+ },
+ "margins_and_indexes": [
+  {
+   "name": "zensus_20261019_5arcs",
+   "type": "margin",
+   "threshold": "5.0"
+  }
+ ],
+ "seconds": 57.8
+}

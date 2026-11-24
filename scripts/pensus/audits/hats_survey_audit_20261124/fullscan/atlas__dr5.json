@@ -1,0 +1,58 @@
+{
+ "catalogue": "atlas/dr5",
+ "files_scanned": 385,
+ "files_total": 385,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 143584475,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [
+  {
+   "partition": "2/122",
+   "error": "OSError(\"Couldn't deserialize thrift: TProtocolException: Invalid data\\nDeserializing page header failed.\\n\")"
+  },
+  {
+   "partition": "3/290",
+   "error": "OSError(\"Couldn't deserialize thrift: TProtocolException: Invalid data\\nDeserializing page header failed.\\n\")"
+  },
+  {
+   "partition": "3/605",
+   "error": "ArrowInvalid('Parquet file size is 0 bytes')"
+  },
+  {
+   "partition": "3/273",
+   "error": "OSError(\"Couldn't deserialize thrift: TProtocolException: Invalid data\\nDeserializing page header failed.\\n\")"
+  },
+  {
+   "partition": "3/683",
+   "error": "OSError(\"Couldn't deserialize thrift: TProtocolException: Invalid data\\nDeserializing page header failed.\\n\")"
+  },
+  {
+   "partition": "3/565",
+   "error": "OSError(\"Couldn't deserialize thrift: TProtocolException: Invalid data\\nDeserializing page header failed.\\n\")"
+  },
+  {
+   "partition": "3/729",
+   "error": "ArrowInvalid('Parquet file size is 0 bytes')"
+  },
+  {
+   "partition": "3/573",
+   "error": "OSError(\"Couldn't deserialize thrift: TProtocolException: Invalid data\\nDeserializing page header failed.\\n\")"
+  },
+  {
+   "partition": "3/274",
+   "error": "OSError(\"Couldn't deserialize thrift: TProtocolException: Invalid data\\nDeserializing page header failed.\\n\")"
+  },
+  {
+   "partition": "3/684",
+   "error": "OSError(\"Couldn't deserialize thrift: TProtocolException: Invalid data\\nDeserializing page header failed.\\n\")"
+  }
+ ],
+ "n_bad_partitions": 10,
+ "seconds": 7.8
+}

@@ -27,6 +27,7 @@ CHECKS = {
         "tests/test_pensus_release.py",
         "tests/test_pensus_tile.py",
         "tests/test_pensus_arc_ingest.py",
+        "tests/test_hats_audit_repair.py",
         "tests/test_observations.py",
         "tests/test_r2_observations.py",
         "tests/test_hats_project.py",

@@ -1,0 +1,320 @@
+{
+ "catalogue": "ukidss/dr11_gcs",
+ "has_properties": true,
+ "has_hats_properties": true,
+ "props": {
+  "obs_collection": "dr11_gcs",
+  "dataproduct_type": "object",
+  "hats_nrows": "64835919",
+  "hats_col_ra": "ra",
+  "hats_col_dec": "dec",
+  "hats_col_healpix": "_healpix_29",
+  "hats_col_healpix_order": "29",
+  "hats_npix_suffix": ".parquet",
+  "hats_skymap_order": "10",
+  "hats_max_rows": "1000000",
+  "hats_estsize": "3597922",
+  "moc_sky_fraction": "0.07088",
+  "hats_builder": "hats-import v0.11.1, hats v0.11.2",
+  "hats_creation_date": "2026-11-15T23:12UTC",
+  "hats_release_date": "2025-08-22",
+  "hats_version": "v1.0",
+  "hats_cols_sort": "sourceid",
+  "hats_order": "6"
+ },
+ "missing_required": [],
+ "missing_recommended": [
+  "obs_title",
+  "hats_frame",
+  "hats_cols_survey_id"
+ ],
+ "root_entries": [
+  "PENSUS_BUILD.json",
+  "dataset",
+  "hats.properties",
+  "partition_info.csv",
+  "point_map.fits",
+  "properties",
+  "skymap.fits"
+ ],
+ "partition_info_header": [
+  "Norder",
+  "Npix"
+ ],
+ "n_partition_info": 151,
+ "partition_info_duplicates": 0,
+ "dataset_exists": true,
+ "dataset_top": [
+  {
+   "name": "_common_metadata",
+   "size": 1756,
+   "dir": false
+  },
+  {
+   "name": "_metadata",
+   "size": 422460,
+   "dir": false
+  }
+ ],
+ "stray": [],
+ "n_stray": 0,
+ "wrong_dir": [],
+ "empty_files": [],
+ "duplicate_partitions_on_disk": [],
+ "layout": {
+  "file": 151
+ },
+ "n_partition_files": 151,
+ "n_partitions_on_disk": 151,
+ "missing_on_disk": [],
+ "n_missing_on_disk": 0,
+ "extra_on_disk": [],
+ "n_extra_on_disk": 0,
+ "overlapping_partitions": [],
+ "orders": {
+  "2": 4,
+  "3": 18,
+  "4": 69,
+  "5": 48,
+  "6": 12
+ },
+ "order_range": [
+  2,
+  6
+ ],
+ "hats_order_matches_max": true,
+ "dataset_bytes": 3671838152,
+ "unreadable_files": [],
+ "n_unreadable_files": 0,
+ "footer_rows_total": 64835919,
+ "hats_nrows": 64835919,
+ "rows_match_hats_nrows": true,
+ "partition_info_rowcount_mismatch": [],
+ "rows_per_partition": {
+  "min": 2894,
+  "p01": 6606.5,
+  "median": 395937.0,
+  "p99": 975574.5,
+  "max": 997621
+ },
+ "n_tiny_partitions_lt1000": 0,
+ "n_partitions_lt100": 0,
+ "tiny_partitions": [],
+ "empty_partitions": [],
+ "n_partitions_over_1p5x_max_rows": 0,
+ "largest_partitions": [],
+ "order0_partitions": [],
+ "n_schema_variants": 1,
+ "created_by": {
+  "parquet-cpp-arrow version 26.0.1": 151
+ },
+ "coord_stats_out_of_range": [],
+ "n_partitions_coord_stats_out_of_range": 0,
+ "column_stats": {
+  "_healpix_29": {
+   "min": 18301732762973549,
+   "max": 3131235946596461647,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "sourceid": {
+   "min": 442381631495,
+   "max": 442452468587,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "ra": {
+   "min": 44.4403369,
+   "max": 268.1691867,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "dec": {
+   "min": -30.001663,
+   "max": 53.4323485,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "mergedclass": {
+   "min": -3,
+   "max": 1,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "zapermag3": {
+   "min": -999999500.0,
+   "max": 32.63846,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "zapermag3err": {
+   "min": -999999500.0,
+   "max": 12562.997,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "yapermag3": {
+   "min": -999999500.0,
+   "max": 30.29103,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "yapermag3err": {
+   "min": -999999500.0,
+   "max": 1317.8737,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "japermag3": {
+   "min": -999999500.0,
+   "max": 28.659912,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "japermag3err": {
+   "min": -999999500.0,
+   "max": 770.53876,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "hapermag3": {
+   "min": -999999500.0,
+   "max": 27.818075,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "hapermag3err": {
+   "min": -999999500.0,
+   "max": 1073.633,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "kapermag3": {
+   "min": -999999500.0,
+   "max": 31.036032,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "kapermag3err": {
+   "min": -999999500.0,
+   "max": 20640.719,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "priorsec": {
+   "min": 0,
+   "max": 442381657980,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  },
+  "framesetid": {
+   "min": 442381631489,
+   "max": 442381657980,
+   "nulls": 0,
+   "rg_with_stats": 151,
+   "rg_total": 151
+  }
+ },
+ "all_null_columns": [],
+ "columns_without_stats": [],
+ "sentinel_like_min_max": {
+  "zapermag3": {
+   "min": -999999500.0,
+   "max": 32.63846
+  },
+  "zapermag3err": {
+   "min": -999999500.0,
+   "max": 12562.997
+  },
+  "yapermag3": {
+   "min": -999999500.0,
+   "max": 30.29103
+  },
+  "yapermag3err": {
+   "min": -999999500.0,
+   "max": 1317.8737
+  },
+  "japermag3": {
+   "min": -999999500.0,
+   "max": 28.659912
+  },
+  "japermag3err": {
+   "min": -999999500.0,
+   "max": 770.53876
+  },
+  "hapermag3": {
+   "min": -999999500.0,
+   "max": 27.818075
+  },
+  "hapermag3err": {
+   "min": -999999500.0,
+   "max": 1073.633
+  },
+  "kapermag3": {
+   "min": -999999500.0,
+   "max": 31.036032
+  },
+  "kapermag3err": {
+   "min": -999999500.0,
+   "max": 20640.719
+  }
+ },
+ "common_metadata": {
+  "ncol": 17,
+  "fields_with_unit": 0,
+  "fields_with_description": 0,
+  "schema_meta_keys": [],
+  "only_in_common_metadata": [],
+  "only_in_partitions": []
+ },
+ "types": {
+  "_healpix_29": "int64",
+  "sourceid": "int64",
+  "ra": "double",
+  "dec": "double",
+  "mergedclass": "int64",
+  "zapermag3": "double",
+  "zapermag3err": "double",
+  "yapermag3": "double",
+  "yapermag3err": "double",
+  "japermag3": "double",
+  "japermag3err": "double",
+  "hapermag3": "double",
+  "hapermag3err": "double",
+  "kapermag3": "double",
+  "kapermag3err": "double",
+  "priorsec": "int64",
+  "framesetid": "int64"
+ },
+ "metadata_bytes": 422460,
+ "metadata": {
+  "rows": 64835919,
+  "row_groups": 151,
+  "files_referenced": 151,
+  "rows_match_hats_nrows": true,
+  "rows_match_footers": true,
+  "referenced_missing": [],
+  "n_referenced_missing": 0,
+  "not_referenced": [],
+  "n_not_referenced": 0,
+  "stale_rowcounts": []
+ },
+ "margins_and_indexes": [],
+ "seconds": 0.3
+}

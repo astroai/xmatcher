@@ -1,0 +1,267 @@
+{
+ "catalogue": "jpas/e2dr",
+ "has_properties": true,
+ "has_hats_properties": true,
+ "props": {
+  "obs_collection": "e2dr",
+  "dataproduct_type": "object",
+  "hats_nrows": "4804561",
+  "hats_col_ra": "ALPHA_J2000",
+  "hats_col_dec": "DELTA_J2000",
+  "hats_col_healpix": "_healpix_29",
+  "hats_col_healpix_order": "29",
+  "hats_npix_suffix": ".parquet",
+  "hats_skymap_order": "10",
+  "hats_max_rows": "1000000",
+  "hats_estsize": "1479085",
+  "moc_sky_fraction": "0.16667",
+  "hats_builder": "hats-import v0.11.1, hats v0.11.2",
+  "hats_creation_date": "2026-11-17T00:18UTC",
+  "hats_release_date": "2025-08-22",
+  "hats_version": "v1.0",
+  "hats_cols_sort": "NUMBER",
+  "hats_order": "2"
+ },
+ "missing_required": [],
+ "missing_recommended": [
+  "obs_title",
+  "hats_frame",
+  "hats_cols_survey_id"
+ ],
+ "root_entries": [
+  "PENSUS_BUILD.json",
+  "dataset",
+  "hats.properties",
+  "partition_info.csv",
+  "point_map.fits",
+  "properties",
+  "skymap.fits"
+ ],
+ "partition_info_header": [
+  "Norder",
+  "Npix"
+ ],
+ "n_partition_info": 11,
+ "partition_info_duplicates": 0,
+ "dataset_exists": true,
+ "dataset_top": [
+  {
+   "name": "_common_metadata",
+   "size": 1532,
+   "dir": false
+  },
+  {
+   "name": "_metadata",
+   "size": 72457,
+   "dir": false
+  }
+ ],
+ "stray": [],
+ "n_stray": 0,
+ "wrong_dir": [],
+ "empty_files": [],
+ "duplicate_partitions_on_disk": [],
+ "layout": {
+  "file": 11
+ },
+ "n_partition_files": 11,
+ "n_partitions_on_disk": 11,
+ "missing_on_disk": [],
+ "n_missing_on_disk": 0,
+ "extra_on_disk": [],
+ "n_extra_on_disk": 0,
+ "overlapping_partitions": [],
+ "orders": {
+  "0": 1,
+  "1": 2,
+  "2": 8
+ },
+ "order_range": [
+  0,
+  2
+ ],
+ "hats_order_matches_max": true,
+ "dataset_bytes": 1512188543,
+ "unreadable_files": [],
+ "n_unreadable_files": 0,
+ "footer_rows_total": 4804561,
+ "hats_nrows": 4804561,
+ "rows_match_hats_nrows": true,
+ "partition_info_rowcount_mismatch": [],
+ "rows_per_partition": {
+  "min": 94496,
+  "p01": 97892.4,
+  "median": 307837.0,
+  "p99": 836268.2,
+  "max": 838388
+ },
+ "n_tiny_partitions_lt1000": 0,
+ "n_partitions_lt100": 0,
+ "tiny_partitions": [],
+ "empty_partitions": [],
+ "n_partitions_over_1p5x_max_rows": 0,
+ "largest_partitions": [],
+ "order0_partitions": [
+  "0/4:817190"
+ ],
+ "n_schema_variants": 1,
+ "created_by": {
+  "parquet-cpp-arrow version 26.0.1": 11
+ },
+ "coord_stats_out_of_range": [],
+ "n_partitions_coord_stats_out_of_range": 0,
+ "column_stats": {
+  "_healpix_29": {
+   "min": 147415621695934184,
+   "max": 1423518262785810806,
+   "nulls": 0,
+   "rg_with_stats": 11,
+   "rg_total": 11
+  },
+  "TILE_ID": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "NUMBER": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "ALPHA_J2000": {
+   "min": 0.8932700136804184,
+   "max": 344.97458370288695,
+   "nulls": 0,
+   "rg_with_stats": 11,
+   "rg_total": 11
+  },
+  "DELTA_J2000": {
+   "min": 16.19252074724713,
+   "max": 57.265328020772266,
+   "nulls": 0,
+   "rg_with_stats": 11,
+   "rg_total": 11
+  },
+  "CLASS_STAR": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "FLAGS": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "MASK_FLAGS": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "MAG_APER_3_0": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "MAG_ERR_APER_3_0": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "MAG_APER_COR_3_0": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "MAG_ERR_APER_COR_3_0": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "MAG_AUTO": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  },
+  "MAG_ERR_AUTO": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 11
+  }
+ },
+ "all_null_columns": [],
+ "columns_without_stats": [
+  "CLASS_STAR",
+  "FLAGS",
+  "MAG_APER_3_0",
+  "MAG_APER_COR_3_0",
+  "MAG_AUTO",
+  "MAG_ERR_APER_3_0",
+  "MAG_ERR_APER_COR_3_0",
+  "MAG_ERR_AUTO",
+  "MASK_FLAGS",
+  "NUMBER",
+  "TILE_ID"
+ ],
+ "sentinel_like_min_max": {},
+ "common_metadata": {
+  "ncol": 14,
+  "fields_with_unit": 0,
+  "fields_with_description": 0,
+  "schema_meta_keys": [],
+  "only_in_common_metadata": [],
+  "only_in_partitions": []
+ },
+ "types": {
+  "_healpix_29": "int64",
+  "TILE_ID": "string",
+  "NUMBER": "string",
+  "ALPHA_J2000": "double",
+  "DELTA_J2000": "double",
+  "CLASS_STAR": "string",
+  "FLAGS": "string",
+  "MASK_FLAGS": "string",
+  "MAG_APER_3_0": "string",
+  "MAG_ERR_APER_3_0": "string",
+  "MAG_APER_COR_3_0": "string",
+  "MAG_ERR_APER_COR_3_0": "string",
+  "MAG_AUTO": "string",
+  "MAG_ERR_AUTO": "string"
+ },
+ "metadata_bytes": 72457,
+ "metadata": {
+  "rows": 4804561,
+  "row_groups": 11,
+  "files_referenced": 11,
+  "rows_match_hats_nrows": true,
+  "rows_match_footers": true,
+  "referenced_missing": [],
+  "n_referenced_missing": 0,
+  "not_referenced": [],
+  "n_not_referenced": 0,
+  "stale_rowcounts": []
+ },
+ "margins_and_indexes": [],
+ "seconds": 0.4
+}

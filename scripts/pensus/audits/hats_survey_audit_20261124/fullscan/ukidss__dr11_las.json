@@ -1,0 +1,17 @@
+{
+ "catalogue": "ukidss/dr11_las",
+ "files_scanned": 188,
+ "files_total": 188,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 77685267,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [],
+ "n_bad_partitions": 0,
+ "seconds": 2.2
+}

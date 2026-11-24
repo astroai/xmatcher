@@ -1,0 +1,92 @@
+{
+ "catalogue": "delve/dr3_gold",
+ "files_scanned": 6477,
+ "files_total": 6477,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 2588267795,
+  "nonfinite": 0,
+  "out_of_range": 8,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [
+  {
+   "partition": "4/1264",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": 360.0,
+     "dec": 24.048227
+    }
+   ]
+  },
+  {
+   "partition": "5/4864",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": 360.0,
+     "dec": 0.47538
+    }
+   ]
+  },
+  {
+   "partition": "5/4288",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": 360.0,
+     "dec": -18.490646
+    }
+   ]
+  },
+  {
+   "partition": "5/4351",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": 360.0,
+     "dec": -1.130776
+    }
+   ]
+  },
+  {
+   "partition": "5/4147",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": 360.0,
+     "dec": -25.807824
+    }
+   ]
+  },
+  {
+   "partition": "5/4291",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": 360.0,
+     "dec": -16.695777
+    }
+   ]
+  },
+  {
+   "partition": "5/8354",
+   "out_of_range": 2,
+   "examples": [
+    {
+     "ra": 360.0,
+     "dec": -70.053881
+    },
+    {
+     "ra": 360.0,
+     "dec": -69.585895
+    }
+   ]
+  }
+ ],
+ "n_bad_partitions": 7,
+ "seconds": 108.4
+}

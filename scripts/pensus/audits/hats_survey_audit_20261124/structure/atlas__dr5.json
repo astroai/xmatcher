@@ -1,0 +1,1537 @@
+{
+ "catalogue": "atlas/dr5",
+ "has_properties": true,
+ "has_hats_properties": true,
+ "props": {
+  "obs_collection": "dr5",
+  "dataproduct_type": "object",
+  "hats_nrows": "150198243",
+  "hats_col_ra": "ra",
+  "hats_col_dec": "dec",
+  "hats_col_healpix": "_healpix_29",
+  "hats_col_healpix_order": "29",
+  "hats_npix_suffix": ".parquet",
+  "hats_skymap_order": "10",
+  "hats_max_rows": "1000000",
+  "hats_estsize": "35386366",
+  "moc_sky_fraction": "0.18978",
+  "hats_builder": "hats-import v0.11.1, hats v0.11.2",
+  "hats_creation_date": "2026-11-21T19:53UTC",
+  "hats_release_date": "2025-08-22",
+  "hats_version": "v1.0",
+  "hats_cols_sort": "id",
+  "hats_order": "4"
+ },
+ "missing_required": [],
+ "missing_recommended": [
+  "obs_title",
+  "hats_frame",
+  "hats_cols_survey_id"
+ ],
+ "root_entries": [
+  "PENSUS_BUILD.json",
+  "dataset",
+  "hats.properties",
+  "partition_info.csv",
+  "point_map.fits",
+  "properties",
+  "skymap.fits"
+ ],
+ "partition_info_header": [
+  "Norder",
+  "Npix"
+ ],
+ "n_partition_info": 385,
+ "partition_info_duplicates": 0,
+ "dataset_exists": true,
+ "dataset_top": [
+  {
+   "name": "_common_metadata",
+   "size": 15384,
+   "dir": false
+  },
+  {
+   "name": "_metadata",
+   "size": 9698488,
+   "dir": false
+  }
+ ],
+ "stray": [],
+ "n_stray": 0,
+ "wrong_dir": [],
+ "empty_files": [
+  "/arc/projects/hats/atlas/dr5/dataset/Norder=3/Dir=0/Npix=605.parquet",
+  "/arc/projects/hats/atlas/dr5/dataset/Norder=3/Dir=0/Npix=729.parquet"
+ ],
+ "duplicate_partitions_on_disk": [],
+ "layout": {
+  "file": 385
+ },
+ "n_partition_files": 385,
+ "n_partitions_on_disk": 385,
+ "missing_on_disk": [],
+ "n_missing_on_disk": 0,
+ "extra_on_disk": [],
+ "n_extra_on_disk": 0,
+ "overlapping_partitions": [],
+ "orders": {
+  "1": 1,
+  "2": 2,
+  "3": 35,
+  "4": 347
+ },
+ "order_range": [
+  1,
+  4
+ ],
+ "hats_order_matches_max": true,
+ "dataset_bytes": 35994207135,
+ "unreadable_files": [
+  {
+   "file": "/arc/projects/hats/atlas/dr5/dataset/Norder=3/Dir=0/Npix=605.parquet",
+   "error": "ArrowInvalid('Parquet file size is 0 bytes')"
+  },
+  {
+   "file": "/arc/projects/hats/atlas/dr5/dataset/Norder=3/Dir=0/Npix=729.parquet",
+   "error": "ArrowInvalid('Parquet file size is 0 bytes')"
+  }
+ ],
+ "n_unreadable_files": 2,
+ "footer_rows_total": 149445334,
+ "hats_nrows": 150198243,
+ "rows_match_hats_nrows": false,
+ "partition_info_rowcount_mismatch": [],
+ "rows_per_partition": {
+  "min": 17,
+  "p01": 3895.44,
+  "median": 374140.0,
+  "p99": 866536.4200000003,
+  "max": 995711
+ },
+ "n_tiny_partitions_lt1000": 1,
+ "n_partitions_lt100": 1,
+ "tiny_partitions": [
+  "4/2513:17"
+ ],
+ "empty_partitions": [],
+ "n_partitions_over_1p5x_max_rows": 0,
+ "largest_partitions": [],
+ "order0_partitions": [],
+ "n_schema_variants": 1,
+ "created_by": {
+  "parquet-cpp-arrow version 26.0.1": 383
+ },
+ "coord_stats_out_of_range": [],
+ "n_partitions_coord_stats_out_of_range": 0,
+ "column_stats": {
+  "_healpix_29": {
+   "min": 1153024299572059144,
+   "max": 3447261470032459458,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAUNAME": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 383
+  },
+  "id": {
+   "min": 730144440321,
+   "max": 730308729396,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "CUEVENTID": {
+   "min": 63354,
+   "max": 63354,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "FRAMESETID": {
+   "min": 730144440321,
+   "max": 730144602656,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ra": {
+   "min": 1.7361731483807585e-07,
+   "max": 359.99999620520396,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "dec": {
+   "min": -40.004718566163,
+   "max": -2.082178426533405,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "L": {
+   "min": 1.3577259214272752e-06,
+   "max": 359.99999990967206,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "B": {
+   "min": -89.99386188361635,
+   "max": 60.78829147535702,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "LAMBDA": {
+   "min": -54.93005383151744,
+   "max": 47.88412042408133,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ETA": {
+   "min": -179.9999993919425,
+   "max": 179.99999962454052,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "PRIORSEC": {
+   "min": 0,
+   "max": 730144602656,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UMGPNT": {
+   "min": -13.013143539428711,
+   "max": 11.831228256225586,
+   "nulls": 137797106,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UMGPNTERR": {
+   "min": 0.0002915409568231553,
+   "max": 10352.166015625,
+   "nulls": 137797106,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GMRPNT": {
+   "min": -12.038887023925781,
+   "max": 12.467336654663086,
+   "nulls": 98343434,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GMRPNTERR": {
+   "min": 0.0002746238315012306,
+   "max": 33198.90625,
+   "nulls": 98343434,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RMIPNT": {
+   "min": -13.060884475708008,
+   "max": 65.14260864257812,
+   "nulls": 85413599,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RMIPNTERR": {
+   "min": 0.00029907101998105645,
+   "max": 46750.8515625,
+   "nulls": 85413604,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IMZPNT": {
+   "min": -61.23796081542969,
+   "max": 12.756488800048828,
+   "nulls": 102684165,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IMZPNTERR": {
+   "min": 0.00032378098694607615,
+   "max": 5789.45703125,
+   "nulls": 102684167,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UMGEXT": {
+   "min": -13.078596115112305,
+   "max": 11.928767204284668,
+   "nulls": 137797106,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UMGEXTERR": {
+   "min": 0.0002915409568231553,
+   "max": 10352.166015625,
+   "nulls": 137797106,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GMREXT": {
+   "min": -11.85782241821289,
+   "max": 12.252388000488281,
+   "nulls": 98343434,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GMREXTERR": {
+   "min": 0.0002746238315012306,
+   "max": 33198.90625,
+   "nulls": 98343434,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RMIEXT": {
+   "min": -12.873088836669922,
+   "max": 65.3197250366211,
+   "nulls": 85413599,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RMIEXTERR": {
+   "min": 0.00029907101998105645,
+   "max": 46750.8515625,
+   "nulls": 85413604,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IMZEXT": {
+   "min": -60.965904235839844,
+   "max": 12.794391632080078,
+   "nulls": 102684165,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IMZEXTERR": {
+   "min": 0.00032378098694607615,
+   "max": 5789.45703125,
+   "nulls": 102684167,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "MERGEDCLASSSTAT": {
+   "min": -479.2580261230469,
+   "max": 828.6303100585938,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "MERGEDCLASS": {
+   "min": -3,
+   "max": 1,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "PSTAR": {
+   "min": 5.29221040324046e-07,
+   "max": 0.9999989867210388,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "PGALAXY": {
+   "min": 5.29221040324046e-07,
+   "max": 0.9999989867210388,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "PNOISE": {
+   "min": 5.29221040324046e-07,
+   "max": 0.9999989867210388,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "PSATURATED": {
+   "min": -0.0,
+   "max": 0.0,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "EBV": {
+   "min": 0.0005176219274289906,
+   "max": 0.24585558474063873,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "AU": {
+   "min": 0.0026683411560952663,
+   "max": 1.2673856019973755,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "AG": {
+   "min": 0.0019633399788290262,
+   "max": 0.9325302243232727,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "AR": {
+   "min": 0.001423977897502482,
+   "max": 0.6763486862182617,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "AI": {
+   "min": 0.0010797593276947737,
+   "max": 0.5128547549247742,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "AZ": {
+   "min": 0.0007655628141947091,
+   "max": 0.363620400428772,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UMJD": {
+   "min": null,
+   "max": null,
+   "nulls": 149445334,
+   "rg_with_stats": 0,
+   "rg_total": 383
+  },
+  "UPETROMAG": {
+   "min": 4.170874118804932,
+   "max": 38.05313491821289,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UPETROMAGERR": {
+   "min": 1.9181767129339278e-05,
+   "max": 474737.96875,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UKRONMAG": {
+   "min": 4.170874118804932,
+   "max": 38.05313491821289,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UKRONMAGERR": {
+   "min": 2.1912155716563575e-05,
+   "max": 474737.96875,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAG3": {
+   "min": 7.598418712615967,
+   "max": 35.241756439208984,
+   "nulls": 130273774,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAG3ERR": {
+   "min": 0.00020147445320617408,
+   "max": 44025.28125,
+   "nulls": 130273774,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAG4": {
+   "min": 8.953180313110352,
+   "max": 36.81102752685547,
+   "nulls": 130691418,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAG4ERR": {
+   "min": 0.0001428343530278653,
+   "max": 233470.203125,
+   "nulls": 130691418,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAG6": {
+   "min": 7.85435152053833,
+   "max": 35.48336410522461,
+   "nulls": 131473591,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAG6ERR": {
+   "min": 7.394264684990048e-05,
+   "max": 95759.2734375,
+   "nulls": 131473591,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAGNOAPERCORR3": {
+   "min": 7.898065090179443,
+   "max": 35.70598220825195,
+   "nulls": 130273774,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAGNOAPERCORR4": {
+   "min": 9.376839637756348,
+   "max": 37.04953384399414,
+   "nulls": 130691418,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAPERMAGNOAPERCORR6": {
+   "min": 7.912351608276367,
+   "max": 35.51836013793945,
+   "nulls": 131473591,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UHLCORSMJRADAS": {
+   "min": -0.0,
+   "max": 18.123462677001953,
+   "nulls": 129850001,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UGAUSIG": {
+   "min": 0.7071067690849304,
+   "max": 685.4774780273438,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UELL": {
+   "min": 3.1888484954833984e-05,
+   "max": 0.9900000095367432,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UPA": {
+   "min": -0.0,
+   "max": 180.0,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UERRBITS": {
+   "min": 0,
+   "max": 68,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UAVERAGECONF": {
+   "min": -0.0,
+   "max": 110.49024200439453,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UCLASS": {
+   "min": -2,
+   "max": 1,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UCLASSSTAT": {
+   "min": -346.18194580078125,
+   "max": 514.983642578125,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UPPERRBITS": {
+   "min": 16,
+   "max": 6357136,
+   "nulls": 140077629,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "USEQNUM": {
+   "min": 1,
+   "max": 16692,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UXI": {
+   "min": -0.0,
+   "max": 0.0,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "UETA": {
+   "min": -0.0,
+   "max": 0.0,
+   "nulls": 128817235,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GMJD": {
+   "min": null,
+   "max": null,
+   "nulls": 149445334,
+   "rg_with_stats": 0,
+   "rg_total": 383
+  },
+  "GPETROMAG": {
+   "min": 6.1655988693237305,
+   "max": 38.36137390136719,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GPETROMAGERR": {
+   "min": 1.856016751844436e-05,
+   "max": 220021.140625,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GKRONMAG": {
+   "min": 6.1655988693237305,
+   "max": 37.81150817871094,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GKRONMAGERR": {
+   "min": 1.856016751844436e-05,
+   "max": 101213.03125,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAG3": {
+   "min": 9.0512056350708,
+   "max": 37.76762008666992,
+   "nulls": 82565110,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAG3ERR": {
+   "min": 0.00019328620692249388,
+   "max": 138888.921875,
+   "nulls": 82565110,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAG4": {
+   "min": 10.657561302185059,
+   "max": 37.331119537353516,
+   "nulls": 82696335,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAG4ERR": {
+   "min": 0.00013803737238049507,
+   "max": 108964.15625,
+   "nulls": 82696335,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAG6": {
+   "min": 9.750716209411621,
+   "max": 38.28740310668945,
+   "nulls": 83825818,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAG6ERR": {
+   "min": 7.270457717822865e-05,
+   "max": 464578.75,
+   "nulls": 83825818,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAGNOAPERCORR3": {
+   "min": 9.295554161071777,
+   "max": 38.05995178222656,
+   "nulls": 82565110,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAGNOAPERCORR4": {
+   "min": 11.197914123535156,
+   "max": 37.483551025390625,
+   "nulls": 82696335,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAPERMAGNOAPERCORR6": {
+   "min": 9.898293495178223,
+   "max": 38.3254280090332,
+   "nulls": 83825818,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GHLCORSMJRADAS": {
+   "min": -0.0,
+   "max": 18.137399673461914,
+   "nulls": 82458394,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GGAUSIG": {
+   "min": 0.7071067690849304,
+   "max": 1085.2734375,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GELL": {
+   "min": 1.6510486602783203e-05,
+   "max": 0.9900000095367432,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GPA": {
+   "min": -0.0,
+   "max": 180.0,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GERRBITS": {
+   "min": 0,
+   "max": 68,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GAVERAGECONF": {
+   "min": -0.0,
+   "max": 110.48937225341797,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GCLASS": {
+   "min": -2,
+   "max": 1,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GCLASSSTAT": {
+   "min": -378.1020202636719,
+   "max": 631.249267578125,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GPPERRBITS": {
+   "min": 16,
+   "max": 6357136,
+   "nulls": 131708823,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GSEQNUM": {
+   "min": 1,
+   "max": 36094,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GXI": {
+   "min": -1.9997400045394897,
+   "max": 1.999775767326355,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "GETA": {
+   "min": -1.9993454217910767,
+   "max": 1.999287724494934,
+   "nulls": 81981699,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RMJD": {
+   "min": null,
+   "max": null,
+   "nulls": 149445334,
+   "rg_with_stats": 0,
+   "rg_total": 383
+  },
+  "RPETROMAG": {
+   "min": 6.128488063812256,
+   "max": 37.04045486450195,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RPETROMAGERR": {
+   "min": 1.6629066522000358e-05,
+   "max": 89241.53125,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RKRONMAG": {
+   "min": 6.128488063812256,
+   "max": 36.388999938964844,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RKRONMAGERR": {
+   "min": 1.6629066522000358e-05,
+   "max": 45572.46875,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAG3": {
+   "min": 8.650345802307129,
+   "max": 37.18827819824219,
+   "nulls": 58013201,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAG3ERR": {
+   "min": 0.0001894716697279364,
+   "max": 150526.0625,
+   "nulls": 58013201,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAG4": {
+   "min": 10.57235050201416,
+   "max": 38.107635498046875,
+   "nulls": 58127170,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAG4ERR": {
+   "min": 0.00013474762090481818,
+   "max": 323108.3125,
+   "nulls": 58127170,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAG6": {
+   "min": 9.432857513427734,
+   "max": 38.498016357421875,
+   "nulls": 59632017,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAG6ERR": {
+   "min": 7.51964544178918e-05,
+   "max": 881218.9375,
+   "nulls": 59632017,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAGNOAPERCORR3": {
+   "min": 8.89539623260498,
+   "max": 37.58416748046875,
+   "nulls": 58013201,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAGNOAPERCORR4": {
+   "min": 10.535006523132324,
+   "max": 38.27672576904297,
+   "nulls": 58127170,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAPERMAGNOAPERCORR6": {
+   "min": 9.484743118286133,
+   "max": 38.59601593017578,
+   "nulls": 59632017,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RHLCORSMJRADAS": {
+   "min": -0.0,
+   "max": 18.11922836303711,
+   "nulls": 57969400,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RGAUSIG": {
+   "min": 0.7071067690849304,
+   "max": 1208.2352294921875,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RELL": {
+   "min": 1.6868114471435547e-05,
+   "max": 0.9900000095367432,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RPA": {
+   "min": -0.0,
+   "max": 180.0,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RERRBITS": {
+   "min": 0,
+   "max": 68,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RAVERAGECONF": {
+   "min": -0.0,
+   "max": 110.49024963378906,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RCLASS": {
+   "min": -2,
+   "max": 1,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RCLASSSTAT": {
+   "min": -337.86053466796875,
+   "max": 522.6290893554688,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RPPERRBITS": {
+   "min": 16,
+   "max": 6357136,
+   "nulls": 125984194,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RSEQNUM": {
+   "min": 1,
+   "max": 13152,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RXI": {
+   "min": -1.9999444484710693,
+   "max": 1.9997296333312988,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "RETA": {
+   "min": -1.9996309280395508,
+   "max": 1.9998924732208252,
+   "nulls": 57595089,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IMJD": {
+   "min": null,
+   "max": null,
+   "nulls": 149445334,
+   "rg_with_stats": 0,
+   "rg_total": 383
+  },
+  "IPETROMAG": {
+   "min": 2.7323431968688965,
+   "max": 36.09943389892578,
+   "nulls": 58599058,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IPETROMAGERR": {
+   "min": 4.4867145480680104e-13,
+   "max": 230853.640625,
+   "nulls": 58598854,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IKRONMAG": {
+   "min": 2.7323431968688965,
+   "max": 36.249576568603516,
+   "nulls": 58599058,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IKRONMAGERR": {
+   "min": 2.139279625299438e-14,
+   "max": 66445.265625,
+   "nulls": 58598854,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAG3": {
+   "min": 6.787865161895752,
+   "max": 38.86640548706055,
+   "nulls": 58757870,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAG3ERR": {
+   "min": 1.0684132242388001e-14,
+   "max": 1060811.75,
+   "nulls": 58757569,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAG4": {
+   "min": 8.703153610229492,
+   "max": 33.93497848510742,
+   "nulls": 58829234,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAG4ERR": {
+   "min": 7.903288348201296e-15,
+   "max": 30193.880859375,
+   "nulls": 58828945,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAG6": {
+   "min": 7.418773174285889,
+   "max": 37.514251708984375,
+   "nulls": 59832982,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAG6ERR": {
+   "min": 4.710923660986455e-15,
+   "max": 688664.1875,
+   "nulls": 59832708,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAGNOAPERCORR3": {
+   "min": 7.109692096710205,
+   "max": 39.16262435913086,
+   "nulls": 58757870,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAGNOAPERCORR4": {
+   "min": 8.891074180603027,
+   "max": 34.094337463378906,
+   "nulls": 58829234,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAPERMAGNOAPERCORR6": {
+   "min": 7.457540988922119,
+   "max": 37.557373046875,
+   "nulls": 59832982,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IHLCORSMJRADAS": {
+   "min": -0.0,
+   "max": 18.15333366394043,
+   "nulls": 58729708,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IGAUSIG": {
+   "min": 0.7071067690849304,
+   "max": 1137.0615234375,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IELL": {
+   "min": 1.8656253814697266e-05,
+   "max": 0.9900000095367432,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IPA": {
+   "min": -0.0,
+   "max": 180.0,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IERRBITS": {
+   "min": 0,
+   "max": 68,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IAVERAGECONF": {
+   "min": -0.0,
+   "max": 110.48959350585938,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ICLASS": {
+   "min": -2,
+   "max": 1,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ICLASSSTAT": {
+   "min": -254.32899475097656,
+   "max": 664.0142822265625,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IPPERRBITS": {
+   "min": 16,
+   "max": 6357136,
+   "nulls": 127581301,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ISEQNUM": {
+   "min": 1,
+   "max": 20056,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IXI": {
+   "min": -1.9999175071716309,
+   "max": 1.9999595880508423,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "IETA": {
+   "min": -1.9997001886367798,
+   "max": 1.999449610710144,
+   "nulls": 58597766,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZMJD": {
+   "min": null,
+   "max": null,
+   "nulls": 149445334,
+   "rg_with_stats": 0,
+   "rg_total": 383
+  },
+  "ZPETROMAG": {
+   "min": 4.098616600036621,
+   "max": 35.96494674682617,
+   "nulls": 93066865,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZPETROMAGERR": {
+   "min": 2.092306749545969e-05,
+   "max": 362933.65625,
+   "nulls": 93066865,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZKRONMAG": {
+   "min": 4.098616600036621,
+   "max": 38.1912956237793,
+   "nulls": 93066865,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZKRONMAGERR": {
+   "min": 2.092306749545969e-05,
+   "max": 849994.0,
+   "nulls": 93066865,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAG3": {
+   "min": 5.451437950134277,
+   "max": 36.60346603393555,
+   "nulls": 93318526,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAG3ERR": {
+   "min": 0.00022880455071572214,
+   "max": 369103.53125,
+   "nulls": 93318526,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAG4": {
+   "min": 7.840276718139648,
+   "max": 36.174076080322266,
+   "nulls": 93384826,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAG4ERR": {
+   "min": 0.00016199820674955845,
+   "max": 341312.21875,
+   "nulls": 93384826,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAG6": {
+   "min": 6.7774658203125,
+   "max": 37.31257629394531,
+   "nulls": 94190083,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAG6ERR": {
+   "min": 8.119732956402004e-05,
+   "max": 1731957.125,
+   "nulls": 94190083,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAGNOAPERCORR3": {
+   "min": 5.692722320556641,
+   "max": 36.89455795288086,
+   "nulls": 93318526,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAGNOAPERCORR4": {
+   "min": 8.005899429321289,
+   "max": 36.414241790771484,
+   "nulls": 93384826,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAPERMAGNOAPERCORR6": {
+   "min": 6.810739517211914,
+   "max": 37.34369659423828,
+   "nulls": 94190083,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZHLCORSMJRADAS": {
+   "min": -0.0,
+   "max": 17.98059844970703,
+   "nulls": 93259086,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZGAUSIG": {
+   "min": 0.7071067690849304,
+   "max": 709.0196533203125,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZELL": {
+   "min": 2.8431415557861328e-05,
+   "max": 0.9900000095367432,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZPA": {
+   "min": -0.0,
+   "max": 180.0,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZERRBITS": {
+   "min": 0,
+   "max": 68,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZAVERAGECONF": {
+   "min": -0.0,
+   "max": 110.49046325683594,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZCLASS": {
+   "min": -2,
+   "max": 1,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZCLASSSTAT": {
+   "min": -304.7624206542969,
+   "max": 661.1220092773438,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZPPERRBITS": {
+   "min": 16,
+   "max": 6357136,
+   "nulls": 135826787,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZSEQNUM": {
+   "min": 1,
+   "max": 10085,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZXI": {
+   "min": -1.9998952150344849,
+   "max": 1.9998430013656616,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "ZETA": {
+   "min": -1.9998873472213745,
+   "max": 1.9998972415924072,
+   "nulls": 93066862,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  },
+  "PRIMARY_SOURCE": {
+   "min": 1,
+   "max": 1,
+   "nulls": 0,
+   "rg_with_stats": 383,
+   "rg_total": 383
+  }
+ },
+ "all_null_columns": [
+  "GMJD",
+  "IMJD",
+  "RMJD",
+  "UMJD",
+  "ZMJD"
+ ],
+ "columns_without_stats": [
+  "GMJD",
+  "IAUNAME",
+  "IMJD",
+  "RMJD",
+  "UMJD",
+  "ZMJD"
+ ],
+ "sentinel_like_min_max": {},
+ "common_metadata": {
+  "ncol": 171,
+  "fields_with_unit": 0,
+  "fields_with_description": 0,
+  "schema_meta_keys": [],
+  "only_in_common_metadata": [],
+  "only_in_partitions": []
+ },
+ "types": {
+  "_healpix_29": "int64",
+  "IAUNAME": "binary",
+  "id": "int64",
+  "CUEVENTID": "int32",
+  "FRAMESETID": "int64",
+  "ra": "double",
+  "dec": "double",
+  "L": "double",
+  "B": "double",
+  "LAMBDA": "double",
+  "ETA": "double",
+  "PRIORSEC": "int64",
+  "UMGPNT": "float",
+  "UMGPNTERR": "float",
+  "GMRPNT": "float",
+  "GMRPNTERR": "float",
+  "RMIPNT": "float",
+  "RMIPNTERR": "float",
+  "IMZPNT": "float",
+  "IMZPNTERR": "float",
+  "UMGEXT": "float",
+  "UMGEXTERR": "float",
+  "GMREXT": "float",
+  "GMREXTERR": "float",
+  "RMIEXT": "float",
+  "RMIEXTERR": "float",
+  "IMZEXT": "float",
+  "IMZEXTERR": "float",
+  "MERGEDCLASSSTAT": "float",
+  "MERGEDCLASS": "int16",
+  "PSTAR": "float",
+  "PGALAXY": "float",
+  "PNOISE": "float",
+  "PSATURATED": "float",
+  "EBV": "float",
+  "AU": "float",
+  "AG": "float",
+  "AR": "float",
+  "AI": "float",
+  "AZ": "float",
+  "UMJD": "double",
+  "UPETROMAG": "float",
+  "UPETROMAGERR": "float",
+  "UKRONMAG": "float",
+  "UKRONMAGERR": "float",
+  "UAPERMAG3": "float",
+  "UAPERMAG3ERR": "float",
+  "UAPERMAG4": "float",
+  "UAPERMAG4ERR": "float",
+  "UAPERMAG6": "float",
+  "UAPERMAG6ERR": "float",
+  "UAPERMAGNOAPERCORR3": "float",
+  "UAPERMAGNOAPERCORR4": "float",
+  "UAPERMAGNOAPERCORR6": "float",
+  "UHLCORSMJRADAS": "float",
+  "UGAUSIG": "float",
+  "UELL": "float",
+  "UPA": "float",
+  "UERRBITS": "int32",
+  "UAVERAGECONF": "float",
+  "UCLASS": "int16",
+  "UCLASSSTAT": "float",
+  "UPPERRBITS": "int32",
+  "USEQNUM": "int32",
+  "UXI": "float",
+  "UETA": "float",
+  "GMJD": "double",
+  "GPETROMAG": "float",
+  "GPETROMAGERR": "float",
+  "GKRONMAG": "float",
+  "GKRONMAGERR": "float",
+  "GAPERMAG3": "float",
+  "GAPERMAG3ERR": "float",
+  "GAPERMAG4": "float",
+  "GAPERMAG4ERR": "float",
+  "GAPERMAG6": "float",
+  "GAPERMAG6ERR": "float",
+  "GAPERMAGNOAPERCORR3": "float",
+  "GAPERMAGNOAPERCORR4": "float",
+  "GAPERMAGNOAPERCORR6": "float",
+  "GHLCORSMJRADAS": "float",
+  "GGAUSIG": "float",
+  "GELL": "float",
+  "GPA": "float",
+  "GERRBITS": "int32",
+  "GAVERAGECONF": "float",
+  "GCLASS": "int16",
+  "GCLASSSTAT": "float",
+  "GPPERRBITS": "int32",
+  "GSEQNUM": "int32",
+  "GXI": "float",
+  "GETA": "float",
+  "RMJD": "double",
+  "RPETROMAG": "float",
+  "RPETROMAGERR": "float",
+  "RKRONMAG": "float",
+  "RKRONMAGERR": "float",
+  "RAPERMAG3": "float",
+  "RAPERMAG3ERR": "float",
+  "RAPERMAG4": "float",
+  "RAPERMAG4ERR": "float",
+  "RAPERMAG6": "float",
+  "RAPERMAG6ERR": "float",
+  "RAPERMAGNOAPERCORR3": "float",
+  "RAPERMAGNOAPERCORR4": "float",
+  "RAPERMAGNOAPERCORR6": "float",
+  "RHLCORSMJRADAS": "float",
+  "RGAUSIG": "float",
+  "RELL": "float",
+  "RPA": "float",
+  "RERRBITS": "int32",
+  "RAVERAGECONF": "float",
+  "RCLASS": "int16",
+  "RCLASSSTAT": "float",
+  "RPPERRBITS": "int32",
+  "RSEQNUM": "int32",
+  "RXI": "float",
+  "RETA": "float",
+  "IMJD": "double",
+  "IPETROMAG": "float",
+  "IPETROMAGERR": "float",
+  "IKRONMAG": "float",
+  "IKRONMAGERR": "float",
+  "IAPERMAG3": "float",
+  "IAPERMAG3ERR": "float",
+  "IAPERMAG4": "float",
+  "IAPERMAG4ERR": "float",
+  "IAPERMAG6": "float",
+  "IAPERMAG6ERR": "float",
+  "IAPERMAGNOAPERCORR3": "float",
+  "IAPERMAGNOAPERCORR4": "float",
+  "IAPERMAGNOAPERCORR6": "float",
+  "IHLCORSMJRADAS": "float",
+  "IGAUSIG": "float",
+  "IELL": "float",
+  "IPA": "float",
+  "IERRBITS": "int32",
+  "IAVERAGECONF": "float",
+  "ICLASS": "int16",
+  "ICLASSSTAT": "float",
+  "IPPERRBITS": "int32",
+  "ISEQNUM": "int32",
+  "IXI": "float",
+  "IETA": "float",
+  "ZMJD": "double",
+  "ZPETROMAG": "float",
+  "ZPETROMAGERR": "float",
+  "ZKRONMAG": "float",
+  "ZKRONMAGERR": "float",
+  "ZAPERMAG3": "float",
+  "ZAPERMAG3ERR": "float",
+  "ZAPERMAG4": "float",
+  "ZAPERMAG4ERR": "float",
+  "ZAPERMAG6": "float",
+  "ZAPERMAG6ERR": "float",
+  "ZAPERMAGNOAPERCORR3": "float",
+  "ZAPERMAGNOAPERCORR4": "float",
+  "ZAPERMAGNOAPERCORR6": "float",
+  "ZHLCORSMJRADAS": "float",
+  "ZGAUSIG": "float",
+  "ZELL": "float",
+  "ZPA": "float",
+  "ZERRBITS": "int32",
+  "ZAVERAGECONF": "float",
+  "ZCLASS": "int16",
+  "ZCLASSSTAT": "float",
+  "ZPPERRBITS": "int32",
+  "ZSEQNUM": "int32",
+  "ZXI": "float",
+  "ZETA": "float",
+  "PRIMARY_SOURCE": "uint8"
+ },
+ "metadata_bytes": 9698488,
+ "metadata": {
+  "rows": 150198243,
+  "row_groups": 385,
+  "files_referenced": 385,
+  "rows_match_hats_nrows": true,
+  "rows_match_footers": false,
+  "referenced_missing": [],
+  "n_referenced_missing": 0,
+  "not_referenced": [],
+  "n_not_referenced": 0,
+  "stale_rowcounts": []
+ },
+ "margins_and_indexes": [],
+ "seconds": 2.6
+}

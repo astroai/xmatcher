@@ -1,0 +1,319 @@
+{
+ "catalogue": "viking/dr5",
+ "has_properties": true,
+ "has_hats_properties": true,
+ "props": {
+  "obs_collection": "dr5",
+  "dataproduct_type": "object",
+  "hats_nrows": "82063585",
+  "hats_col_ra": "ra",
+  "hats_col_dec": "dec",
+  "hats_col_healpix": "_healpix_29",
+  "hats_col_healpix_order": "29",
+  "hats_npix_suffix": ".parquet",
+  "hats_skymap_order": "10",
+  "hats_max_rows": "1000000",
+  "hats_estsize": "5100166",
+  "moc_sky_fraction": "0.073",
+  "hats_builder": "hats-import v0.11.1, hats v0.11.2",
+  "hats_creation_date": "2026-11-16T10:15UTC",
+  "hats_release_date": "2025-08-22",
+  "hats_version": "v1.0",
+  "hats_cols_sort": "sourceid",
+  "hats_order": "5"
+ },
+ "missing_required": [],
+ "missing_recommended": [
+  "obs_title",
+  "hats_frame",
+  "hats_cols_survey_id"
+ ],
+ "root_entries": [
+  "PENSUS_BUILD.json",
+  "dataset",
+  "hats.properties",
+  "partition_info.csv",
+  "point_map.fits",
+  "properties",
+  "skymap.fits"
+ ],
+ "partition_info_header": [
+  "Norder",
+  "Npix"
+ ],
+ "n_partition_info": 159,
+ "partition_info_duplicates": 0,
+ "dataset_exists": true,
+ "dataset_top": [
+  {
+   "name": "_common_metadata",
+   "size": 1758,
+   "dir": false
+  },
+  {
+   "name": "_metadata",
+   "size": 442974,
+   "dir": false
+  }
+ ],
+ "stray": [],
+ "n_stray": 0,
+ "wrong_dir": [],
+ "empty_files": [],
+ "duplicate_partitions_on_disk": [],
+ "layout": {
+  "file": 159
+ },
+ "n_partition_files": 159,
+ "n_partitions_on_disk": 159,
+ "missing_on_disk": [],
+ "n_missing_on_disk": 0,
+ "extra_on_disk": [],
+ "n_extra_on_disk": 0,
+ "overlapping_partitions": [],
+ "orders": {
+  "2": 3,
+  "3": 13,
+  "4": 118,
+  "5": 25
+ },
+ "order_range": [
+  2,
+  5
+ ],
+ "hats_order_matches_max": true,
+ "dataset_bytes": 5209250780,
+ "unreadable_files": [],
+ "n_unreadable_files": 0,
+ "footer_rows_total": 82063585,
+ "hats_nrows": 82063585,
+ "rows_match_hats_nrows": true,
+ "partition_info_rowcount_mismatch": [],
+ "rows_per_partition": {
+  "min": 1622,
+  "p01": 2073.3,
+  "median": 520155.0,
+  "p99": 977036.3799999998,
+  "max": 994067
+ },
+ "n_tiny_partitions_lt1000": 0,
+ "n_partitions_lt100": 0,
+ "tiny_partitions": [],
+ "empty_partitions": [],
+ "n_partitions_over_1p5x_max_rows": 0,
+ "largest_partitions": [],
+ "order0_partitions": [],
+ "n_schema_variants": 1,
+ "created_by": {
+  "parquet-cpp-arrow version 26.0.1": 159
+ },
+ "coord_stats_out_of_range": [],
+ "n_partitions_coord_stats_out_of_range": 0,
+ "column_stats": {
+  "_healpix_29": {
+   "min": 288230376331937944,
+   "max": 3312409080451165728,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "sourceid": {
+   "min": 601295421441,
+   "max": 601390241300,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "ra": {
+   "min": 5.6790793e-06,
+   "max": 359.9999963,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "dec": {
+   "min": -35.9315794,
+   "max": 3.9920797,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "mergedclass": {
+   "min": -3,
+   "max": 1,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "zapermag3": {
+   "min": -999999500.0,
+   "max": 35.961983,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "zapermag3err": {
+   "min": -999999500.0,
+   "max": 80740.95,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "yapermag3": {
+   "min": -999999500.0,
+   "max": 32.20999,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "yapermag3err": {
+   "min": -999999500.0,
+   "max": 4187.2764,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "japermag3": {
+   "min": -999999500.0,
+   "max": 32.238358,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "japermag3err": {
+   "min": -999999500.0,
+   "max": 10253.535,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "hapermag3": {
+   "min": -999999500.0,
+   "max": 28.799883,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "hapermag3err": {
+   "min": -999999500.0,
+   "max": 2005.2197,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "ksapermag3": {
+   "min": -999999500.0,
+   "max": 26.180653,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "ksapermag3err": {
+   "min": -999999500.0,
+   "max": 280.5715,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "priorsec": {
+   "min": 0,
+   "max": 601295422375,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  },
+  "framesetid": {
+   "min": 601295421441,
+   "max": 601295422375,
+   "nulls": 0,
+   "rg_with_stats": 159,
+   "rg_total": 159
+  }
+ },
+ "all_null_columns": [],
+ "columns_without_stats": [],
+ "sentinel_like_min_max": {
+  "zapermag3": {
+   "min": -999999500.0,
+   "max": 35.961983
+  },
+  "zapermag3err": {
+   "min": -999999500.0,
+   "max": 80740.95
+  },
+  "yapermag3": {
+   "min": -999999500.0,
+   "max": 32.20999
+  },
+  "yapermag3err": {
+   "min": -999999500.0,
+   "max": 4187.2764
+  },
+  "japermag3": {
+   "min": -999999500.0,
+   "max": 32.238358
+  },
+  "japermag3err": {
+   "min": -999999500.0,
+   "max": 10253.535
+  },
+  "hapermag3": {
+   "min": -999999500.0,
+   "max": 28.799883
+  },
+  "hapermag3err": {
+   "min": -999999500.0,
+   "max": 2005.2197
+  },
+  "ksapermag3": {
+   "min": -999999500.0,
+   "max": 26.180653
+  },
+  "ksapermag3err": {
+   "min": -999999500.0,
+   "max": 280.5715
+  }
+ },
+ "common_metadata": {
+  "ncol": 17,
+  "fields_with_unit": 0,
+  "fields_with_description": 0,
+  "schema_meta_keys": [],
+  "only_in_common_metadata": [],
+  "only_in_partitions": []
+ },
+ "types": {
+  "_healpix_29": "int64",
+  "sourceid": "int64",
+  "ra": "double",
+  "dec": "double",
+  "mergedclass": "int64",
+  "zapermag3": "double",
+  "zapermag3err": "double",
+  "yapermag3": "double",
+  "yapermag3err": "double",
+  "japermag3": "double",
+  "japermag3err": "double",
+  "hapermag3": "double",
+  "hapermag3err": "double",
+  "ksapermag3": "double",
+  "ksapermag3err": "double",
+  "priorsec": "int64",
+  "framesetid": "int64"
+ },
+ "metadata_bytes": 442974,
+ "metadata": {
+  "rows": 82063585,
+  "row_groups": 159,
+  "files_referenced": 159,
+  "rows_match_hats_nrows": true,
+  "rows_match_footers": true,
+  "referenced_missing": [],
+  "n_referenced_missing": 0,
+  "not_referenced": [],
+  "n_not_referenced": 0,
+  "stale_rowcounts": []
+ },
+ "margins_and_indexes": [],
+ "seconds": 0.3
+}

@@ -89,6 +89,11 @@ surveys:
       - decMeanErr
       - nDetections
       - nStackDetections
+      - ng
+      - nr
+      - ni
+      - nz
+      - ny
     bands:
       g_psf: {"filter": "PS1 g", "value": "gMeanPSFMag", "uncertainty": "gMeanPSFMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["gFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
       g_kron: {"filter": "PS1 g", "value": "gMeanKronMag", "uncertainty": "gMeanKronMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "Kron", "flags": ["gFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
@@ -160,11 +165,13 @@ surveys:
       z: {"filter": "SkyMapper z", "value": "z_psf", "uncertainty": "e_z_psf", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["flags"]}
 
   - tag: sdss
-    release: sdss_photoprimary_dr13
+    release: sdss_arc_photoprimary
     path: sdss/photoprimary_dr13
-    id: id
+    # The mounted id is THING_ID and repeats. Preserve it as a foreign key.
+    id: [RERUN, RUN, CAMCOL, FIELD, ID]
     pilot_radius_arcsec: 1.1
     columns:
+      - id
       - OBJC_FLAGS
       - OBJC_FLAGS2
       - RESOLVE_STATUS
@@ -485,6 +492,10 @@ link_catalogues:
       - nuv_poserr
       - fuv_weight
       - nuv_weight
+      - fuv_mag
+      - fuv_magerr
+      - nuv_mag
+      - nuv_magerr
     bands:
-      fuv: {"filter": "GALEX FUV", "value": "fuv_flux", "uncertainty": "fuv_fluxerr", "uncertainty_kind": "sigma", "unit": "uJy", "method": "GUVcat", "flags": ["fuv_artifact", "fuv_flags"]}
-      nuv: {"filter": "GALEX NUV", "value": "nuv_flux", "uncertainty": "nuv_fluxerr", "uncertainty_kind": "sigma", "unit": "uJy", "method": "GUVcat", "flags": ["nuv_artifact", "nuv_flags"]}
+      fuv: {"filter": "GALEX FUV", "value": "fuv_flux", "uncertainty": "fuv_fluxerr", "uncertainty_kind": "sigma", "unit": "uJy", "method": "GUVcat", "flags": ["fuv_artifact", "fuv_flags"], "missing_values": [-999]}
+      nuv: {"filter": "GALEX NUV", "value": "nuv_flux", "uncertainty": "nuv_fluxerr", "uncertainty_kind": "sigma", "unit": "uJy", "method": "GUVcat", "flags": ["nuv_artifact", "nuv_flags"], "missing_values": [-999]}

@@ -1,0 +1,17 @@
+{
+ "catalogue": "euclid/dr1/mer_catalogue_deep_survey_photometry/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats",
+ "files_scanned": 19,
+ "files_total": 19,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 26008743,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [],
+ "n_bad_partitions": 0,
+ "seconds": 1.6
+}

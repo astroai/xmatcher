@@ -1,0 +1,17 @@
+{
+ "catalogue": "hsc/pdr3/forced_nb0816",
+ "files_scanned": 39,
+ "files_total": 39,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 14527440,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [],
+ "n_bad_partitions": 0,
+ "seconds": 0.6
+}

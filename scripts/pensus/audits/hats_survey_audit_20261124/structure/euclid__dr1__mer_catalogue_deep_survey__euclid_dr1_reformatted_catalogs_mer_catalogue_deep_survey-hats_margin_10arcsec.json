@@ -1,0 +1,4529 @@
+{
+ "catalogue": "euclid/dr1/mer_catalogue_deep_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats_margin_10arcsec",
+ "has_properties": false,
+ "has_hats_properties": true,
+ "props": {
+  "obs_collection": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats_margin_10arcsec",
+  "dataproduct_type": "margin",
+  "hats_nrows": "689298",
+  "hats_col_ra": "ra_from_object_id",
+  "hats_col_dec": "dec_from_object_id",
+  "hats_col_healpix": "_healpix_29",
+  "hats_col_healpix_order": "29",
+  "hats_primary_table_url": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats",
+  "hats_margin_threshold": "10.0",
+  "hats_npix_suffix": "/",
+  "hats_estsize": "539126",
+  "moc_sky_fraction": "0.0058",
+  "hats_order": "6",
+  "hats_builder": "hats-import v0.10.4, hats v0.10.4",
+  "hats_creation_date": "2026-11-04T01:27UTC",
+  "hats_release_date": "2025-08-22",
+  "hats_version": "v1.0"
+ },
+ "missing_required": [],
+ "missing_recommended": [
+  "hats_max_rows",
+  "obs_title",
+  "hats_frame",
+  "hats_cols_survey_id"
+ ],
+ "root_entries": [
+  "dataset",
+  "hats.properties",
+  "linecounts.txt",
+  "md5sums.txt",
+  "partition_info.csv",
+  "per_partition_statistics.parquet",
+  "schema.txt"
+ ],
+ "partition_info_header": [
+  "Norder",
+  "Npix"
+ ],
+ "n_partition_info": 30,
+ "partition_info_duplicates": 0,
+ "dataset_exists": true,
+ "dataset_top": [
+  {
+   "name": "_common_metadata",
+   "size": 193631,
+   "dir": false
+  },
+  {
+   "name": "_metadata",
+   "size": 2341129,
+   "dir": false
+  }
+ ],
+ "stray": [],
+ "n_stray": 0,
+ "wrong_dir": [],
+ "empty_files": [],
+ "duplicate_partitions_on_disk": [],
+ "layout": {
+  "dir": 30
+ },
+ "n_partition_files": 30,
+ "n_partitions_on_disk": 30,
+ "missing_on_disk": [],
+ "n_missing_on_disk": 0,
+ "extra_on_disk": [],
+ "n_extra_on_disk": 0,
+ "overlapping_partitions": [],
+ "orders": {
+  "3": 1,
+  "4": 9,
+  "5": 19,
+  "6": 1
+ },
+ "order_range": [
+  3,
+  6
+ ],
+ "hats_order_matches_max": true,
+ "dataset_bytes": 548154600,
+ "unreadable_files": [],
+ "n_unreadable_files": 0,
+ "footer_rows_total": 689298,
+ "hats_nrows": 689298,
+ "rows_match_hats_nrows": true,
+ "partition_info_rowcount_mismatch": [],
+ "rows_per_partition": {
+  "min": 2090,
+  "p01": 3146.4700000000003,
+  "median": 20176.0,
+  "p99": 42796.770000000004,
+  "max": 43228
+ },
+ "n_tiny_partitions_lt1000": 0,
+ "n_partitions_lt100": 0,
+ "tiny_partitions": [],
+ "empty_partitions": [],
+ "order0_partitions": [],
+ "n_schema_variants": 1,
+ "created_by": {
+  "parquet-cpp-arrow version 25.0.1": 30
+ },
+ "coord_stats_out_of_range": [],
+ "n_partitions_coord_stats_out_of_range": 0,
+ "column_stats": {
+  "_healpix_29": {
+   "min": 719828268248459515,
+   "max": 2542460157746929725,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "_healpix_19": {
+   "min": 686481731651,
+   "max": 2424678952929,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "_healpix_9": {
+   "min": 654679,
+   "max": 2312354,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "ra_from_object_id": {
+   "min": 51.2904628,
+   "max": 277.0769766,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "dec_from_object_id": {
+   "min": -51.4965301,
+   "max": 69.2244562,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "basic_download_data_oid": {
+   "min": 51567,
+   "max": 1093785,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "object_id": {
+   "min": -659559891492409310,
+   "max": 2770769766660309754,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "ra": {
+   "min": 51.29046283690367,
+   "max": 277.0769766457957,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "dec": {
+   "min": -51.49653013992936,
+   "max": 69.22445620750467,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "right_ascension_psf_fitting": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "declination_psf_fitting": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "tileid": {
+   "min": 101272187,
+   "max": 101841234,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "segmentation_map_id": {
+   "min": 101272187000064,
+   "max": 101841234105058,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "vis_det": {
+   "min": 0,
+   "max": 1,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_vis_1fwhm_aper": {
+   "min": -0.09336631000041962,
+   "max": 2929.4462890625,
+   "nulls": 1219,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_vis_2fwhm_aper": {
+   "min": -0.32597896456718445,
+   "max": 6273.6806640625,
+   "nulls": 1153,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_vis_3fwhm_aper": {
+   "min": -0.6818366050720215,
+   "max": 15818.083984375,
+   "nulls": 1135,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_vis_4fwhm_aper": {
+   "min": -1.1100294589996338,
+   "max": 25915.724609375,
+   "nulls": 1113,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_y_1fwhm_aper": {
+   "min": -18.209753036499023,
+   "max": 3933.459716796875,
+   "nulls": 1332,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_y_2fwhm_aper": {
+   "min": -18.209753036499023,
+   "max": 10077.0400390625,
+   "nulls": 1183,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_y_3fwhm_aper": {
+   "min": -17.60675048828125,
+   "max": 13435.7587890625,
+   "nulls": 1148,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_y_4fwhm_aper": {
+   "min": -9.039604187011719,
+   "max": 15427.2861328125,
+   "nulls": 1128,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_j_1fwhm_aper": {
+   "min": -15.645709991455078,
+   "max": 4183.2939453125,
+   "nulls": 1349,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_j_2fwhm_aper": {
+   "min": -15.645709991455078,
+   "max": 10154.9052734375,
+   "nulls": 1179,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_j_3fwhm_aper": {
+   "min": -15.210625648498535,
+   "max": 15010.3349609375,
+   "nulls": 1135,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_j_4fwhm_aper": {
+   "min": -7.213624000549316,
+   "max": 16328.0859375,
+   "nulls": 1111,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_h_1fwhm_aper": {
+   "min": -0.8151538372039795,
+   "max": 4180.818359375,
+   "nulls": 1343,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_h_2fwhm_aper": {
+   "min": -1.1305588483810425,
+   "max": 9715.3798828125,
+   "nulls": 1191,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_h_3fwhm_aper": {
+   "min": -2.079127788543701,
+   "max": 15243.490234375,
+   "nulls": 1153,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_h_4fwhm_aper": {
+   "min": -2.4893136024475098,
+   "max": 17871.375,
+   "nulls": 1133,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_nir_stack_1fwhm_aper": {
+   "min": -0.7194591760635376,
+   "max": 4314.9765625,
+   "nulls": 1239,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_nir_stack_2fwhm_aper": {
+   "min": -0.7498524188995361,
+   "max": 10545.6044921875,
+   "nulls": 1130,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_nir_stack_3fwhm_aper": {
+   "min": -1.3533202409744263,
+   "max": 15315.1513671875,
+   "nulls": 1106,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_nir_stack_4fwhm_aper": {
+   "min": -2.126981496810913,
+   "max": 16529.5703125,
+   "nulls": 1083,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_u_ext_decam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_decam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_decam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_decam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_decam_1fwhm_aper": {
+   "min": -8.065499305725098,
+   "max": 28666.806640625,
+   "nulls": 316028,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_g_ext_decam_2fwhm_aper": {
+   "min": -23.435556411743164,
+   "max": 65356.6015625,
+   "nulls": 316021,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_g_ext_decam_3fwhm_aper": {
+   "min": -80.2063980102539,
+   "max": 81528.1640625,
+   "nulls": 316016,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_g_ext_decam_4fwhm_aper": {
+   "min": -44.24876022338867,
+   "max": 88394.515625,
+   "nulls": 316014,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_r_ext_decam_1fwhm_aper": {
+   "min": -34.489280700683594,
+   "max": 26055.45703125,
+   "nulls": 316026,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_r_ext_decam_2fwhm_aper": {
+   "min": -71.28543853759766,
+   "max": 61517.328125,
+   "nulls": 316021,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_r_ext_decam_3fwhm_aper": {
+   "min": -100.43057250976562,
+   "max": 80702.0546875,
+   "nulls": 316016,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_r_ext_decam_4fwhm_aper": {
+   "min": -117.62696838378906,
+   "max": 89564.78125,
+   "nulls": 316014,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_i_ext_decam_1fwhm_aper": {
+   "min": -70.18742370605469,
+   "max": 31027.287109375,
+   "nulls": 316032,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_i_ext_decam_2fwhm_aper": {
+   "min": -175.44268798828125,
+   "max": 71629.484375,
+   "nulls": 316024,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_i_ext_decam_3fwhm_aper": {
+   "min": -233.8898468017578,
+   "max": 91119.453125,
+   "nulls": 316016,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_i_ext_decam_4fwhm_aper": {
+   "min": -239.50558471679688,
+   "max": 100055.671875,
+   "nulls": 316014,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_z_ext_decam_1fwhm_aper": {
+   "min": -13.273872375488281,
+   "max": 30624.62109375,
+   "nulls": 316030,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_z_ext_decam_2fwhm_aper": {
+   "min": -57.27023696899414,
+   "max": 73743.8359375,
+   "nulls": 316024,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_z_ext_decam_3fwhm_aper": {
+   "min": -87.95669555664062,
+   "max": 97192.953125,
+   "nulls": 316018,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_z_ext_decam_4fwhm_aper": {
+   "min": -83.14672088623047,
+   "max": 107835.484375,
+   "nulls": 316015,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_u_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_megacam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_megacam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_megacam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_megacam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_megacam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_megacam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_megacam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_megacam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_jpcam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_jpcam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_jpcam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_jpcam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_panstarrs_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_panstarrs_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_panstarrs_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_panstarrs_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_panstarrs_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_panstarrs_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_panstarrs_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_panstarrs_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_hsc_1fwhm_aper": {
+   "min": -41.64104461669922,
+   "max": 8704.919921875,
+   "nulls": 336942,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_g_ext_hsc_2fwhm_aper": {
+   "min": -45.372928619384766,
+   "max": 15154.1083984375,
+   "nulls": 336820,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_g_ext_hsc_3fwhm_aper": {
+   "min": -45.450828552246094,
+   "max": 16898.087890625,
+   "nulls": 336704,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_g_ext_hsc_4fwhm_aper": {
+   "min": -45.48058319091797,
+   "max": 17546.3984375,
+   "nulls": 336625,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_z_ext_hsc_1fwhm_aper": {
+   "min": -56.20703125,
+   "max": 99837.6796875,
+   "nulls": 347696,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_z_ext_hsc_2fwhm_aper": {
+   "min": -59.468204498291016,
+   "max": 191541.171875,
+   "nulls": 347625,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_z_ext_hsc_3fwhm_aper": {
+   "min": -59.63574981689453,
+   "max": 222211.609375,
+   "nulls": 347556,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_z_ext_hsc_4fwhm_aper": {
+   "min": -78.33605194091797,
+   "max": 233417.625,
+   "nulls": 347503,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_vis_1fwhm_aper": {
+   "min": 0.00012501701712608337,
+   "max": 2.811803102493286,
+   "nulls": 1219,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_vis_2fwhm_aper": {
+   "min": 0.00017089708126150072,
+   "max": 4.209602355957031,
+   "nulls": 1153,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_vis_3fwhm_aper": {
+   "min": 0.0014715270372107625,
+   "max": 4.568001747131348,
+   "nulls": 1135,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_vis_4fwhm_aper": {
+   "min": 7.494421151932329e-05,
+   "max": 4.6712260246276855,
+   "nulls": 1113,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_y_1fwhm_aper": {
+   "min": 7.84074145485647e-05,
+   "max": 10.39293384552002,
+   "nulls": 1332,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_y_2fwhm_aper": {
+   "min": 9.873047383734956e-05,
+   "max": 16.58422088623047,
+   "nulls": 1183,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_y_3fwhm_aper": {
+   "min": 0.001888856990262866,
+   "max": 18.60631561279297,
+   "nulls": 1148,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_y_4fwhm_aper": {
+   "min": 0.0002643676125444472,
+   "max": 20.268709182739258,
+   "nulls": 1128,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_j_1fwhm_aper": {
+   "min": 7.70313199609518e-05,
+   "max": 7.053912162780762,
+   "nulls": 1349,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_j_2fwhm_aper": {
+   "min": 0.0005499113467521966,
+   "max": 10.887813568115234,
+   "nulls": 1179,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_j_3fwhm_aper": {
+   "min": 0.001829791348427534,
+   "max": 12.283292770385742,
+   "nulls": 1135,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_j_4fwhm_aper": {
+   "min": 0.0035756935831159353,
+   "max": 12.604564666748047,
+   "nulls": 1111,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_h_1fwhm_aper": {
+   "min": 0.000727349310182035,
+   "max": 7.905353546142578,
+   "nulls": 1343,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_h_2fwhm_aper": {
+   "min": 0.0004672206414397806,
+   "max": 12.120622634887695,
+   "nulls": 1191,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_h_3fwhm_aper": {
+   "min": 0.0002449085586704314,
+   "max": 15.014267921447754,
+   "nulls": 1153,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_h_4fwhm_aper": {
+   "min": 0.00016769774083513767,
+   "max": 16.698034286499023,
+   "nulls": 1133,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_nir_stack_1fwhm_aper": {
+   "min": 0.0003940249443985522,
+   "max": 7.977506637573242,
+   "nulls": 1239,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_nir_stack_2fwhm_aper": {
+   "min": 0.000490580394398421,
+   "max": 13.367363929748535,
+   "nulls": 1130,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_nir_stack_3fwhm_aper": {
+   "min": 0.001825034967623651,
+   "max": 15.119081497192383,
+   "nulls": 1106,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_nir_stack_4fwhm_aper": {
+   "min": 0.0017512094927951694,
+   "max": 15.330561637878418,
+   "nulls": 1083,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_decam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_decam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_decam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_decam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_decam_1fwhm_aper": {
+   "min": 0.00015870311472099274,
+   "max": 0.877588152885437,
+   "nulls": 316028,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_decam_2fwhm_aper": {
+   "min": 4.384444036986679e-05,
+   "max": 1.831240177154541,
+   "nulls": 316021,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_decam_3fwhm_aper": {
+   "min": 0.002123806858435273,
+   "max": 2.793015241622925,
+   "nulls": 316016,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_decam_4fwhm_aper": {
+   "min": 0.0017501813126727939,
+   "max": 3.32694673538208,
+   "nulls": 316014,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_decam_1fwhm_aper": {
+   "min": 4.022703069495037e-05,
+   "max": 1.2990975379943848,
+   "nulls": 316026,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_decam_2fwhm_aper": {
+   "min": 8.882348629413173e-05,
+   "max": 2.3005247116088867,
+   "nulls": 316021,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_decam_3fwhm_aper": {
+   "min": 0.004017560742795467,
+   "max": 2.850283145904541,
+   "nulls": 316016,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_decam_4fwhm_aper": {
+   "min": 0.0006661731749773026,
+   "max": 3.571345806121826,
+   "nulls": 316014,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_decam_1fwhm_aper": {
+   "min": 8.85568733792752e-05,
+   "max": 1.340591311454773,
+   "nulls": 316032,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_decam_2fwhm_aper": {
+   "min": 0.0002381805534241721,
+   "max": 2.668116807937622,
+   "nulls": 316024,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_decam_3fwhm_aper": {
+   "min": 0.0050742411985993385,
+   "max": 3.703305959701538,
+   "nulls": 316016,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_decam_4fwhm_aper": {
+   "min": 0.003962148446589708,
+   "max": 4.736424922943115,
+   "nulls": 316014,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_decam_1fwhm_aper": {
+   "min": 5.080779010313563e-05,
+   "max": 1.642473816871643,
+   "nulls": 316030,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_decam_2fwhm_aper": {
+   "min": 0.0007150969468057156,
+   "max": 3.3029518127441406,
+   "nulls": 316024,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_decam_3fwhm_aper": {
+   "min": 0.007499354891479015,
+   "max": 4.2806925773620605,
+   "nulls": 316018,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_decam_4fwhm_aper": {
+   "min": 0.008552738465368748,
+   "max": 4.510860443115234,
+   "nulls": 316015,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_lsst_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_lsst_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_lsst_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_lsst_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_megacam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_megacam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_megacam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_megacam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_megacam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_megacam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_megacam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_megacam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_jpcam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_jpcam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_jpcam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_jpcam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_panstarrs_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_panstarrs_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_panstarrs_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_panstarrs_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_panstarrs_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_panstarrs_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_panstarrs_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_panstarrs_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_hsc_1fwhm_aper": {
+   "min": 5.289388354867697e-06,
+   "max": 1.413379430770874,
+   "nulls": 336942,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_hsc_2fwhm_aper": {
+   "min": 1.0505984391784295e-05,
+   "max": 2.844130277633667,
+   "nulls": 336820,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_hsc_3fwhm_aper": {
+   "min": 2.3308200979954563e-05,
+   "max": 4.274698734283447,
+   "nulls": 336704,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_hsc_4fwhm_aper": {
+   "min": 2.9609363991767168e-05,
+   "max": 5.6412482261657715,
+   "nulls": 336625,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_hsc_1fwhm_aper": {
+   "min": 0.0002803482348099351,
+   "max": 10.957054138183594,
+   "nulls": 347696,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_hsc_2fwhm_aper": {
+   "min": 9.63986967690289e-05,
+   "max": 19.948596954345703,
+   "nulls": 347625,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_hsc_3fwhm_aper": {
+   "min": 0.0003795139491558075,
+   "max": 27.275554656982422,
+   "nulls": 347556,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_hsc_4fwhm_aper": {
+   "min": 0.0009003343293443322,
+   "max": 35.08107376098633,
+   "nulls": 347503,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_y_templfit": {
+   "min": -137694.34375,
+   "max": 97279.90625,
+   "nulls": 10994,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_j_templfit": {
+   "min": -21265.248046875,
+   "max": 205445.359375,
+   "nulls": 10984,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_h_templfit": {
+   "min": -690001.1875,
+   "max": 137361.484375,
+   "nulls": 10993,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_u_ext_decam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_decam_templfit": {
+   "min": -122.48550415039062,
+   "max": 121531.5859375,
+   "nulls": 321109,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_r_ext_decam_templfit": {
+   "min": -295.1791687011719,
+   "max": 114693.4140625,
+   "nulls": 321109,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_i_ext_decam_templfit": {
+   "min": -1468.7230224609375,
+   "max": 163067.1875,
+   "nulls": 321109,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_z_ext_decam_templfit": {
+   "min": -3516.397705078125,
+   "max": 189525.421875,
+   "nulls": 321109,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_u_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_jpcam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_panstarrs_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_panstarrs_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_hsc_templfit": {
+   "min": -31539.0546875,
+   "max": 59787.30859375,
+   "nulls": 341844,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_z_ext_hsc_templfit": {
+   "min": -82.57181549072266,
+   "max": 124865.9453125,
+   "nulls": 352643,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_y_templfit": {
+   "min": 3.1652641041546303e-07,
+   "max": 196659858374656.0,
+   "nulls": 10994,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_j_templfit": {
+   "min": 4.799051112058805e-06,
+   "max": 750965502246912.0,
+   "nulls": 10984,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_h_templfit": {
+   "min": 3.941217983083334e-06,
+   "max": 3432591.75,
+   "nulls": 10993,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_decam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_decam_templfit": {
+   "min": 0.0010331806261092424,
+   "max": 2.50981068611145,
+   "nulls": 321109,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_decam_templfit": {
+   "min": 0.0008660288294777274,
+   "max": 2.36696720123291,
+   "nulls": 321109,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_decam_templfit": {
+   "min": 0.0009942527394741774,
+   "max": 20.289278030395508,
+   "nulls": 321109,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_decam_templfit": {
+   "min": 0.0011886591091752052,
+   "max": 7.510410785675049,
+   "nulls": 321109,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_jpcam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_panstarrs_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_panstarrs_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_hsc_templfit": {
+   "min": 0.0004234646330587566,
+   "max": 572403511984128.0,
+   "nulls": 341844,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_hsc_templfit": {
+   "min": 0.0020797650795429945,
+   "max": 179.4273681640625,
+   "nulls": 352643,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_vis_to_y_templfit": {
+   "min": -0.2412377893924713,
+   "max": 139664.34375,
+   "nulls": 84326,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_vis_to_j_templfit": {
+   "min": -0.27945682406425476,
+   "max": 139664.328125,
+   "nulls": 84325,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_vis_to_h_templfit": {
+   "min": -0.2879611849784851,
+   "max": 139664.390625,
+   "nulls": 84325,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_vis_to_u_ext_decam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_g_ext_decam_templfit": {
+   "min": -2372.818603515625,
+   "max": 510328.625,
+   "nulls": 321212,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_vis_to_r_ext_decam_templfit": {
+   "min": -1143.8485107421875,
+   "max": 513028.4375,
+   "nulls": 321210,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_vis_to_i_ext_decam_templfit": {
+   "min": -1269.69873046875,
+   "max": 514133.46875,
+   "nulls": 321211,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_vis_to_z_ext_decam_templfit": {
+   "min": -1020.0157470703125,
+   "max": 516304.03125,
+   "nulls": 321214,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_vis_to_u_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_g_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_r_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_i_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_z_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_u_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_r_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_g_ext_jpcam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_i_ext_panstarrs_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_z_ext_panstarrs_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_vis_to_g_ext_hsc_templfit": {
+   "min": -1001.9144897460938,
+   "max": 533611.375,
+   "nulls": 335160,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_vis_to_z_ext_hsc_templfit": {
+   "min": -820.0285034179688,
+   "max": 182982.140625,
+   "nulls": 344644,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_y_templfit": {
+   "min": 0.0009679984650574625,
+   "max": 4.949834823608398,
+   "nulls": 84326,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_j_templfit": {
+   "min": 0.0011081051779910922,
+   "max": 5.0459747314453125,
+   "nulls": 84325,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_h_templfit": {
+   "min": 0.001327688805758953,
+   "max": 5.091484546661377,
+   "nulls": 84325,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_u_ext_decam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_g_ext_decam_templfit": {
+   "min": 0.007989675737917423,
+   "max": 348.7368469238281,
+   "nulls": 321212,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_r_ext_decam_templfit": {
+   "min": 0.006736951880156994,
+   "max": 346.99609375,
+   "nulls": 321210,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_i_ext_decam_templfit": {
+   "min": 0.006731461267918348,
+   "max": 346.4681091308594,
+   "nulls": 321211,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_z_ext_decam_templfit": {
+   "min": 0.0059982058592140675,
+   "max": 345.2086181640625,
+   "nulls": 321214,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_u_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_g_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_r_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_i_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_z_ext_lsst_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_u_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_r_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_g_ext_jpcam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_i_ext_panstarrs_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_z_ext_panstarrs_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_g_ext_hsc_templfit": {
+   "min": 0.001473100041039288,
+   "max": 615.089599609375,
+   "nulls": 335160,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_vis_to_z_ext_hsc_templfit": {
+   "min": 0.0016939712222665548,
+   "max": 525.1773071289062,
+   "nulls": 344644,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_vis_psf": {
+   "min": -1.300114393234253,
+   "max": 18570034.0,
+   "nulls": 84302,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_vis_psf": {
+   "min": 0.002424728823825717,
+   "max": 46398.12890625,
+   "nulls": 84302,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_segmentation": {
+   "min": -0.015701159834861755,
+   "max": 162440.6875,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_segmentation": {
+   "min": 0.0020059426315128803,
+   "max": 17.840782165527344,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_detection_total": {
+   "min": -17.245134353637695,
+   "max": 172396.140625,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_detection_total": {
+   "min": 3.711089084390551e-05,
+   "max": 35.873191833496094,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_vis_sersic": {
+   "min": -25959.716796875,
+   "max": 172395.546875,
+   "nulls": 861,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_y_sersic": {
+   "min": -227316.734375,
+   "max": 172430.625,
+   "nulls": 289,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_j_sersic": {
+   "min": -524490.5625,
+   "max": 172396.125,
+   "nulls": 267,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_h_sersic": {
+   "min": -137076.3125,
+   "max": 172396.125,
+   "nulls": 273,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flux_u_ext_decam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_decam_sersic": {
+   "min": -17899686.0,
+   "max": 115133.875,
+   "nulls": 316380,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_r_ext_decam_sersic": {
+   "min": -22481512.0,
+   "max": 112168.2578125,
+   "nulls": 316353,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_i_ext_decam_sersic": {
+   "min": -11081692.0,
+   "max": 113513.4375,
+   "nulls": 316345,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_z_ext_decam_sersic": {
+   "min": -1353416.5,
+   "max": 114358.0625,
+   "nulls": 316356,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flux_u_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_megacam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_megacam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_jpcam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_panstarrs_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_panstarrs_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_hsc_sersic": {
+   "min": -15299501.0,
+   "max": 572957.375,
+   "nulls": 334083,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_z_ext_hsc_sersic": {
+   "min": -822962432.0,
+   "max": 154874.203125,
+   "nulls": 344705,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_vis_sersic": {
+   "min": 2.4382593279251817e-43,
+   "max": 514122.75,
+   "nulls": 861,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_y_sersic": {
+   "min": 2.446526988864698e-41,
+   "max": 2073975014293504.0,
+   "nulls": 289,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_j_sersic": {
+   "min": 2.802596928649634e-45,
+   "max": 1832890178469888.0,
+   "nulls": 267,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_h_sersic": {
+   "min": 3.269229317269798e-41,
+   "max": 1949059917021184.0,
+   "nulls": 273,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_decam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_decam_sersic": {
+   "min": 5.46755349328798e-13,
+   "max": 72099360.0,
+   "nulls": 316380,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_decam_sersic": {
+   "min": 2.632656651352313e-17,
+   "max": 4.120562005138171e+21,
+   "nulls": 316353,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_decam_sersic": {
+   "min": 3.4001284426876666e-11,
+   "max": 6238184.5,
+   "nulls": 316345,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_decam_sersic": {
+   "min": 4.0304432426079007e-13,
+   "max": 42557052.0,
+   "nulls": 316356,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_lsst_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_megacam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_megacam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_jpcam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_panstarrs_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_panstarrs_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_hsc_sersic": {
+   "min": 2.2981294814927e-43,
+   "max": null,
+   "nulls": 334083,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_hsc_sersic": {
+   "min": 6.726232628759122e-44,
+   "max": null,
+   "nulls": 344705,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flux_vis_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_y_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_j_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_h_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_u_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_r_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_jpcam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_i_ext_panstarrs_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_panstarrs_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_g_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flux_z_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_vis_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_y_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_j_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_h_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_u_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_r_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_jpcam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_i_ext_panstarrs_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_panstarrs_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_g_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fluxerr_z_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_vis_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_y_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_j_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_h_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_u_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_g_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_r_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_i_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_z_ext_decam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_u_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_g_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_r_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_i_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_z_ext_lsst_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_u_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_r_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_g_ext_jpcam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_i_ext_panstarrs_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_z_ext_panstarrs_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_g_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_z_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_vis_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_y_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_j_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_h_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_u_ext_decam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_g_ext_decam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_r_ext_decam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_i_ext_decam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_z_ext_decam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_u_ext_lsst_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_g_ext_lsst_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_r_ext_lsst_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_i_ext_lsst_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_z_ext_lsst_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_u_ext_megacam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_r_ext_megacam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_g_ext_jpcam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_i_ext_panstarrs_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_z_ext_panstarrs_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_g_ext_hsc_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "sersic_fract_z_ext_hsc_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_vis": {
+   "min": 0,
+   "max": 10,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flag_y": {
+   "min": 0,
+   "max": 11,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flag_j": {
+   "min": 0,
+   "max": 11,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flag_h": {
+   "min": 0,
+   "max": 11,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flag_nir_stack": {
+   "min": 0,
+   "max": 11,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "flag_u_ext_decam": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_g_ext_decam": {
+   "min": 0,
+   "max": 11,
+   "nulls": 316010,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flag_r_ext_decam": {
+   "min": 0,
+   "max": 11,
+   "nulls": 316010,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flag_i_ext_decam": {
+   "min": 0,
+   "max": 11,
+   "nulls": 316010,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flag_z_ext_decam": {
+   "min": 0,
+   "max": 11,
+   "nulls": 316010,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "flag_u_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_g_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_r_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_i_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_z_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_u_ext_megacam": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_r_ext_megacam": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_g_ext_jpcam": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_i_ext_panstarrs": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_z_ext_panstarrs": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "flag_g_ext_hsc": {
+   "min": 0,
+   "max": 7,
+   "nulls": 329492,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "flag_z_ext_hsc": {
+   "min": 0,
+   "max": 7,
+   "nulls": 339157,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "avg_trans_wave_vis": {
+   "min": 7168.26611328125,
+   "max": 7168.26611328125,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "avg_trans_wave_y": {
+   "min": 10812.4296875,
+   "max": 10812.4296875,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "avg_trans_wave_j": {
+   "min": 13669.583984375,
+   "max": 13669.583984375,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "avg_trans_wave_h": {
+   "min": 17707.8515625,
+   "max": 17707.8515625,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "avg_trans_wave_u_ext_decam": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_g_ext_decam": {
+   "min": 4826.7998046875,
+   "max": 4826.7998046875,
+   "nulls": 316010,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "avg_trans_wave_r_ext_decam": {
+   "min": 6432.06005859375,
+   "max": 6432.06005859375,
+   "nulls": 316010,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "avg_trans_wave_i_ext_decam": {
+   "min": 7826.669921875,
+   "max": 7826.669921875,
+   "nulls": 316011,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "avg_trans_wave_z_ext_decam": {
+   "min": 9178.9501953125,
+   "max": 9178.9501953125,
+   "nulls": 316011,
+   "rg_with_stats": 16,
+   "rg_total": 30
+  },
+  "avg_trans_wave_u_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_g_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_r_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_i_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_z_ext_lsst": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_u_ext_megacam": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_r_ext_megacam": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_g_ext_jpcam": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_i_ext_panstarrs": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_z_ext_panstarrs": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "avg_trans_wave_g_ext_hsc": {
+   "min": 4730.21484375,
+   "max": 4730.21484375,
+   "nulls": 336727,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "avg_trans_wave_z_ext_hsc": {
+   "min": 8908.5263671875,
+   "max": 8908.5263671875,
+   "nulls": 347490,
+   "rg_with_stats": 17,
+   "rg_total": 30
+  },
+  "deblended_flag": {
+   "min": 0,
+   "max": 1,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "parent_id": {
+   "min": -2,
+   "max": 6386,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "parent_visnir": {
+   "min": -1,
+   "max": 997,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "blended_prob": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "she_flag": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "variable_flag": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "binary_flag": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "point_like_flag": {
+   "min": 1,
+   "max": 1,
+   "nulls": 688026,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "point_like_prob": {
+   "min": -0.0,
+   "max": 0.9999986886978149,
+   "nulls": 330571,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "extended_flag": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "extended_prob": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "spurious_flag": {
+   "min": 0,
+   "max": 1,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "spurious_prob": {
+   "min": 7.17184811946936e-05,
+   "max": 0.9653767943382263,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "mag_stargal_sep": {
+   "min": 10.80868148803711,
+   "max": 34.00569534301758,
+   "nulls": 221,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "det_quality_flag": {
+   "min": 0,
+   "max": 1417,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "mu_max": {
+   "min": 12.401992797851562,
+   "max": 26.63294792175293,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "mumax_minus_mag": {
+   "min": -9.942401885986328,
+   "max": 14.32685661315918,
+   "nulls": 221,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "segmentation_area": {
+   "min": 10,
+   "max": 845348,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "semimajor_axis": {
+   "min": 0.6488576531410217,
+   "max": 960.2367553710938,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "semimajor_axis_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "position_angle": {
+   "min": -89.99901580810547,
+   "max": 89.9998779296875,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "position_angle_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "ellipticity": {
+   "min": 0.00018464065215084702,
+   "max": 1.0,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "ellipticity_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "kron_radius": {
+   "min": 4.542003631591797,
+   "max": 8213.4443359375,
+   "nulls": 1,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "kron_radius_err": {
+   "min": null,
+   "max": null,
+   "nulls": 689298,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "fwhm": {
+   "min": 0.632977306842804,
+   "max": 16.87104034423828,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "gal_ebv": {
+   "min": 0.007004797924309969,
+   "max": 0.09729806333780289,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "gal_ebv_err": {
+   "min": 5.8383364375913516e-05,
+   "max": 0.003917718771845102,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "gaia_id": {
+   "min": 1439668334631170560,
+   "max": 5084920294086049536,
+   "nulls": 683887,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "gaia_match_quality": {
+   "min": 4.94565348674314e-08,
+   "max": 0.08969682455062866,
+   "nulls": 683887,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  },
+  "patch_id_list": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "calblock_id_list": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "designation": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 30
+  },
+  "has_spectrum": {
+   "min": 0,
+   "max": 1,
+   "nulls": 0,
+   "rg_with_stats": 30,
+   "rg_total": 30
+  }
+ },
+ "all_null_columns": [
+  "avg_trans_wave_g_ext_jpcam",
+  "avg_trans_wave_g_ext_lsst",
+  "avg_trans_wave_i_ext_lsst",
+  "avg_trans_wave_i_ext_panstarrs",
+  "avg_trans_wave_r_ext_lsst",
+  "avg_trans_wave_r_ext_megacam",
+  "avg_trans_wave_u_ext_decam",
+  "avg_trans_wave_u_ext_lsst",
+  "avg_trans_wave_u_ext_megacam",
+  "avg_trans_wave_z_ext_lsst",
+  "avg_trans_wave_z_ext_panstarrs",
+  "binary_flag",
+  "blended_prob",
+  "declination_psf_fitting",
+  "ellipticity_err",
+  "extended_flag",
+  "extended_prob",
+  "flag_g_ext_jpcam",
+  "flag_g_ext_lsst",
+  "flag_i_ext_lsst",
+  "flag_i_ext_panstarrs",
+  "flag_r_ext_lsst",
+  "flag_r_ext_megacam",
+  "flag_u_ext_decam",
+  "flag_u_ext_lsst",
+  "flag_u_ext_megacam",
+  "flag_z_ext_lsst",
+  "flag_z_ext_panstarrs",
+  "flux_g_ext_decam_disk_sersic",
+  "flux_g_ext_hsc_disk_sersic",
+  "flux_g_ext_jpcam_1fwhm_aper",
+  "flux_g_ext_jpcam_2fwhm_aper",
+  "flux_g_ext_jpcam_3fwhm_aper",
+  "flux_g_ext_jpcam_4fwhm_aper",
+  "flux_g_ext_jpcam_disk_sersic",
+  "flux_g_ext_jpcam_sersic",
+  "flux_g_ext_jpcam_templfit",
+  "flux_g_ext_lsst_1fwhm_aper",
+  "flux_g_ext_lsst_2fwhm_aper",
+  "flux_g_ext_lsst_3fwhm_aper",
+  "flux_g_ext_lsst_4fwhm_aper",
+  "flux_g_ext_lsst_disk_sersic",
+  "flux_g_ext_lsst_sersic",
+  "flux_g_ext_lsst_templfit",
+  "flux_h_disk_sersic",
+  "flux_i_ext_decam_disk_sersic",
+  "flux_i_ext_lsst_1fwhm_aper",
+  "flux_i_ext_lsst_2fwhm_aper",
+  "flux_i_ext_lsst_3fwhm_aper",
+  "flux_i_ext_lsst_4fwhm_aper",
+  "flux_i_ext_lsst_disk_sersic",
+  "flux_i_ext_lsst_sersic",
+  "flux_i_ext_lsst_templfit",
+  "flux_i_ext_panstarrs_1fwhm_aper",
+  "flux_i_ext_panstarrs_2fwhm_aper",
+  "flux_i_ext_panstarrs_3fwhm_aper",
+  "flux_i_ext_panstarrs_4fwhm_aper",
+  "flux_i_ext_panstarrs_disk_sersic",
+  "flux_i_ext_panstarrs_sersic",
+  "flux_i_ext_panstarrs_templfit",
+  "flux_j_disk_sersic",
+  "flux_r_ext_decam_disk_sersic",
+  "flux_r_ext_lsst_1fwhm_aper",
+  "flux_r_ext_lsst_2fwhm_aper",
+  "flux_r_ext_lsst_3fwhm_aper",
+  "flux_r_ext_lsst_4fwhm_aper",
+  "flux_r_ext_lsst_disk_sersic",
+  "flux_r_ext_lsst_sersic",
+  "flux_r_ext_lsst_templfit",
+  "flux_r_ext_megacam_1fwhm_aper",
+  "flux_r_ext_megacam_2fwhm_aper",
+  "flux_r_ext_megacam_3fwhm_aper",
+  "flux_r_ext_megacam_4fwhm_aper",
+  "flux_r_ext_megacam_disk_sersic",
+  "flux_r_ext_megacam_sersic",
+  "flux_r_ext_megacam_templfit",
+  "flux_u_ext_decam_1fwhm_aper",
+  "flux_u_ext_decam_2fwhm_aper",
+  "flux_u_ext_decam_3fwhm_aper",
+  "flux_u_ext_decam_4fwhm_aper",
+  "flux_u_ext_decam_disk_sersic",
+  "flux_u_ext_decam_sersic",
+  "flux_u_ext_decam_templfit",
+  "flux_u_ext_lsst_1fwhm_aper",
+  "flux_u_ext_lsst_2fwhm_aper",
+  "flux_u_ext_lsst_3fwhm_aper",
+  "flux_u_ext_lsst_4fwhm_aper",
+  "flux_u_ext_lsst_disk_sersic",
+  "flux_u_ext_lsst_sersic",
+  "flux_u_ext_lsst_templfit",
+  "flux_u_ext_megacam_1fwhm_aper",
+  "flux_u_ext_megacam_2fwhm_aper",
+  "flux_u_ext_megacam_3fwhm_aper",
+  "flux_u_ext_megacam_4fwhm_aper",
+  "flux_u_ext_megacam_disk_sersic",
+  "flux_u_ext_megacam_sersic",
+  "flux_u_ext_megacam_templfit",
+  "flux_vis_disk_sersic",
+  "flux_vis_to_g_ext_jpcam_templfit",
+  "flux_vis_to_g_ext_lsst_templfit",
+  "flux_vis_to_i_ext_lsst_templfit",
+  "flux_vis_to_i_ext_panstarrs_templfit",
+  "flux_vis_to_r_ext_lsst_templfit",
+  "flux_vis_to_r_ext_megacam_templfit",
+  "flux_vis_to_u_ext_decam_templfit",
+  "flux_vis_to_u_ext_lsst_templfit",
+  "flux_vis_to_u_ext_megacam_templfit",
+  "flux_vis_to_z_ext_lsst_templfit",
+  "flux_vis_to_z_ext_panstarrs_templfit",
+  "flux_y_disk_sersic",
+  "flux_z_ext_decam_disk_sersic",
+  "flux_z_ext_hsc_disk_sersic",
+  "flux_z_ext_lsst_1fwhm_aper",
+  "flux_z_ext_lsst_2fwhm_aper",
+  "flux_z_ext_lsst_3fwhm_aper",
+  "flux_z_ext_lsst_4fwhm_aper",
+  "flux_z_ext_lsst_disk_sersic",
+  "flux_z_ext_lsst_sersic",
+  "flux_z_ext_lsst_templfit",
+  "flux_z_ext_panstarrs_1fwhm_aper",
+  "flux_z_ext_panstarrs_2fwhm_aper",
+  "flux_z_ext_panstarrs_3fwhm_aper",
+  "flux_z_ext_panstarrs_4fwhm_aper",
+  "flux_z_ext_panstarrs_disk_sersic",
+  "flux_z_ext_panstarrs_sersic",
+  "flux_z_ext_panstarrs_templfit",
+  "fluxerr_g_ext_decam_disk_sersic",
+  "fluxerr_g_ext_hsc_disk_sersic",
+  "fluxerr_g_ext_jpcam_1fwhm_aper",
+  "fluxerr_g_ext_jpcam_2fwhm_aper",
+  "fluxerr_g_ext_jpcam_3fwhm_aper",
+  "fluxerr_g_ext_jpcam_4fwhm_aper",
+  "fluxerr_g_ext_jpcam_disk_sersic",
+  "fluxerr_g_ext_jpcam_sersic",
+  "fluxerr_g_ext_jpcam_templfit",
+  "fluxerr_g_ext_lsst_1fwhm_aper",
+  "fluxerr_g_ext_lsst_2fwhm_aper",
+  "fluxerr_g_ext_lsst_3fwhm_aper",
+  "fluxerr_g_ext_lsst_4fwhm_aper",
+  "fluxerr_g_ext_lsst_disk_sersic",
+  "fluxerr_g_ext_lsst_sersic",
+  "fluxerr_g_ext_lsst_templfit",
+  "fluxerr_h_disk_sersic",
+  "fluxerr_i_ext_decam_disk_sersic",
+  "fluxerr_i_ext_lsst_1fwhm_aper",
+  "fluxerr_i_ext_lsst_2fwhm_aper",
+  "fluxerr_i_ext_lsst_3fwhm_aper",
+  "fluxerr_i_ext_lsst_4fwhm_aper",
+  "fluxerr_i_ext_lsst_disk_sersic",
+  "fluxerr_i_ext_lsst_sersic",
+  "fluxerr_i_ext_lsst_templfit",
+  "fluxerr_i_ext_panstarrs_1fwhm_aper",
+  "fluxerr_i_ext_panstarrs_2fwhm_aper",
+  "fluxerr_i_ext_panstarrs_3fwhm_aper",
+  "fluxerr_i_ext_panstarrs_4fwhm_aper",
+  "fluxerr_i_ext_panstarrs_disk_sersic",
+  "fluxerr_i_ext_panstarrs_sersic",
+  "fluxerr_i_ext_panstarrs_templfit",
+  "fluxerr_j_disk_sersic",
+  "fluxerr_r_ext_decam_disk_sersic",
+  "fluxerr_r_ext_lsst_1fwhm_aper",
+  "fluxerr_r_ext_lsst_2fwhm_aper",
+  "fluxerr_r_ext_lsst_3fwhm_aper",
+  "fluxerr_r_ext_lsst_4fwhm_aper",
+  "fluxerr_r_ext_lsst_disk_sersic",
+  "fluxerr_r_ext_lsst_sersic",
+  "fluxerr_r_ext_lsst_templfit",
+  "fluxerr_r_ext_megacam_1fwhm_aper",
+  "fluxerr_r_ext_megacam_2fwhm_aper",
+  "fluxerr_r_ext_megacam_3fwhm_aper",
+  "fluxerr_r_ext_megacam_4fwhm_aper",
+  "fluxerr_r_ext_megacam_disk_sersic",
+  "fluxerr_r_ext_megacam_sersic",
+  "fluxerr_r_ext_megacam_templfit",
+  "fluxerr_u_ext_decam_1fwhm_aper",
+  "fluxerr_u_ext_decam_2fwhm_aper",
+  "fluxerr_u_ext_decam_3fwhm_aper",
+  "fluxerr_u_ext_decam_4fwhm_aper",
+  "fluxerr_u_ext_decam_disk_sersic",
+  "fluxerr_u_ext_decam_sersic",
+  "fluxerr_u_ext_decam_templfit",
+  "fluxerr_u_ext_lsst_1fwhm_aper",
+  "fluxerr_u_ext_lsst_2fwhm_aper",
+  "fluxerr_u_ext_lsst_3fwhm_aper",
+  "fluxerr_u_ext_lsst_4fwhm_aper",
+  "fluxerr_u_ext_lsst_disk_sersic",
+  "fluxerr_u_ext_lsst_sersic",
+  "fluxerr_u_ext_lsst_templfit",
+  "fluxerr_u_ext_megacam_1fwhm_aper",
+  "fluxerr_u_ext_megacam_2fwhm_aper",
+  "fluxerr_u_ext_megacam_3fwhm_aper",
+  "fluxerr_u_ext_megacam_4fwhm_aper",
+  "fluxerr_u_ext_megacam_disk_sersic",
+  "fluxerr_u_ext_megacam_sersic",
+  "fluxerr_u_ext_megacam_templfit",
+  "fluxerr_vis_disk_sersic",
+  "fluxerr_vis_to_g_ext_jpcam_templfit",
+  "fluxerr_vis_to_g_ext_lsst_templfit",
+  "fluxerr_vis_to_i_ext_lsst_templfit",
+  "fluxerr_vis_to_i_ext_panstarrs_templfit",
+  "fluxerr_vis_to_r_ext_lsst_templfit",
+  "fluxerr_vis_to_r_ext_megacam_templfit",
+  "fluxerr_vis_to_u_ext_decam_templfit",
+  "fluxerr_vis_to_u_ext_lsst_templfit",
+  "fluxerr_vis_to_u_ext_megacam_templfit",
+  "fluxerr_vis_to_z_ext_lsst_templfit",
+  "fluxerr_vis_to_z_ext_panstarrs_templfit",
+  "fluxerr_y_disk_sersic",
+  "fluxerr_z_ext_decam_disk_sersic",
+  "fluxerr_z_ext_hsc_disk_sersic",
+  "fluxerr_z_ext_lsst_1fwhm_aper",
+  "fluxerr_z_ext_lsst_2fwhm_aper",
+  "fluxerr_z_ext_lsst_3fwhm_aper",
+  "fluxerr_z_ext_lsst_4fwhm_aper",
+  "fluxerr_z_ext_lsst_disk_sersic",
+  "fluxerr_z_ext_lsst_sersic",
+  "fluxerr_z_ext_lsst_templfit",
+  "fluxerr_z_ext_panstarrs_1fwhm_aper",
+  "fluxerr_z_ext_panstarrs_2fwhm_aper",
+  "fluxerr_z_ext_panstarrs_3fwhm_aper",
+  "fluxerr_z_ext_panstarrs_4fwhm_aper",
+  "fluxerr_z_ext_panstarrs_disk_sersic",
+  "fluxerr_z_ext_panstarrs_sersic",
+  "fluxerr_z_ext_panstarrs_templfit",
+  "kron_radius_err",
+  "position_angle_err",
+  "right_ascension_psf_fitting",
+  "semimajor_axis_err",
+  "sersic_fract_g_ext_decam_disk_sersic",
+  "sersic_fract_g_ext_decam_disk_sersic_err",
+  "sersic_fract_g_ext_hsc_disk_sersic",
+  "sersic_fract_g_ext_hsc_disk_sersic_err",
+  "sersic_fract_g_ext_jpcam_disk_sersic",
+  "sersic_fract_g_ext_jpcam_disk_sersic_err",
+  "sersic_fract_g_ext_lsst_disk_sersic",
+  "sersic_fract_g_ext_lsst_disk_sersic_err",
+  "sersic_fract_h_disk_sersic",
+  "sersic_fract_h_disk_sersic_err",
+  "sersic_fract_i_ext_decam_disk_sersic",
+  "sersic_fract_i_ext_decam_disk_sersic_err",
+  "sersic_fract_i_ext_lsst_disk_sersic",
+  "sersic_fract_i_ext_lsst_disk_sersic_err",
+  "sersic_fract_i_ext_panstarrs_disk_sersic",
+  "sersic_fract_i_ext_panstarrs_disk_sersic_err",
+  "sersic_fract_j_disk_sersic",
+  "sersic_fract_j_disk_sersic_err",
+  "sersic_fract_r_ext_decam_disk_sersic",
+  "sersic_fract_r_ext_decam_disk_sersic_err",
+  "sersic_fract_r_ext_lsst_disk_sersic",
+  "sersic_fract_r_ext_lsst_disk_sersic_err",
+  "sersic_fract_r_ext_megacam_disk_sersic",
+  "sersic_fract_r_ext_megacam_disk_sersic_err",
+  "sersic_fract_u_ext_decam_disk_sersic",
+  "sersic_fract_u_ext_decam_disk_sersic_err",
+  "sersic_fract_u_ext_lsst_disk_sersic",
+  "sersic_fract_u_ext_lsst_disk_sersic_err",
+  "sersic_fract_u_ext_megacam_disk_sersic",
+  "sersic_fract_u_ext_megacam_disk_sersic_err",
+  "sersic_fract_vis_disk_sersic",
+  "sersic_fract_vis_disk_sersic_err",
+  "sersic_fract_y_disk_sersic",
+  "sersic_fract_y_disk_sersic_err",
+  "sersic_fract_z_ext_decam_disk_sersic",
+  "sersic_fract_z_ext_decam_disk_sersic_err",
+  "sersic_fract_z_ext_hsc_disk_sersic",
+  "sersic_fract_z_ext_hsc_disk_sersic_err",
+  "sersic_fract_z_ext_lsst_disk_sersic",
+  "sersic_fract_z_ext_lsst_disk_sersic_err",
+  "sersic_fract_z_ext_panstarrs_disk_sersic",
+  "sersic_fract_z_ext_panstarrs_disk_sersic_err",
+  "she_flag",
+  "variable_flag"
+ ],
+ "columns_without_stats": [
+  "avg_trans_wave_g_ext_jpcam",
+  "avg_trans_wave_g_ext_lsst",
+  "avg_trans_wave_i_ext_lsst",
+  "avg_trans_wave_i_ext_panstarrs",
+  "avg_trans_wave_r_ext_lsst",
+  "avg_trans_wave_r_ext_megacam",
+  "avg_trans_wave_u_ext_decam",
+  "avg_trans_wave_u_ext_lsst",
+  "avg_trans_wave_u_ext_megacam",
+  "avg_trans_wave_z_ext_lsst",
+  "avg_trans_wave_z_ext_panstarrs",
+  "binary_flag",
+  "blended_prob",
+  "calblock_id_list",
+  "declination_psf_fitting",
+  "designation",
+  "ellipticity_err",
+  "extended_flag",
+  "extended_prob",
+  "flag_g_ext_jpcam",
+  "flag_g_ext_lsst",
+  "flag_i_ext_lsst",
+  "flag_i_ext_panstarrs",
+  "flag_r_ext_lsst",
+  "flag_r_ext_megacam",
+  "flag_u_ext_decam",
+  "flag_u_ext_lsst",
+  "flag_u_ext_megacam",
+  "flag_z_ext_lsst",
+  "flag_z_ext_panstarrs",
+  "flux_g_ext_decam_disk_sersic",
+  "flux_g_ext_hsc_disk_sersic",
+  "flux_g_ext_jpcam_1fwhm_aper",
+  "flux_g_ext_jpcam_2fwhm_aper",
+  "flux_g_ext_jpcam_3fwhm_aper",
+  "flux_g_ext_jpcam_4fwhm_aper",
+  "flux_g_ext_jpcam_disk_sersic",
+  "flux_g_ext_jpcam_sersic",
+  "flux_g_ext_jpcam_templfit",
+  "flux_g_ext_lsst_1fwhm_aper",
+  "flux_g_ext_lsst_2fwhm_aper",
+  "flux_g_ext_lsst_3fwhm_aper",
+  "flux_g_ext_lsst_4fwhm_aper",
+  "flux_g_ext_lsst_disk_sersic",
+  "flux_g_ext_lsst_sersic",
+  "flux_g_ext_lsst_templfit",
+  "flux_h_disk_sersic",
+  "flux_i_ext_decam_disk_sersic",
+  "flux_i_ext_lsst_1fwhm_aper",
+  "flux_i_ext_lsst_2fwhm_aper",
+  "flux_i_ext_lsst_3fwhm_aper",
+  "flux_i_ext_lsst_4fwhm_aper",
+  "flux_i_ext_lsst_disk_sersic",
+  "flux_i_ext_lsst_sersic",
+  "flux_i_ext_lsst_templfit",
+  "flux_i_ext_panstarrs_1fwhm_aper",
+  "flux_i_ext_panstarrs_2fwhm_aper",
+  "flux_i_ext_panstarrs_3fwhm_aper",
+  "flux_i_ext_panstarrs_4fwhm_aper",
+  "flux_i_ext_panstarrs_disk_sersic",
+  "flux_i_ext_panstarrs_sersic",
+  "flux_i_ext_panstarrs_templfit",
+  "flux_j_disk_sersic",
+  "flux_r_ext_decam_disk_sersic",
+  "flux_r_ext_lsst_1fwhm_aper",
+  "flux_r_ext_lsst_2fwhm_aper",
+  "flux_r_ext_lsst_3fwhm_aper",
+  "flux_r_ext_lsst_4fwhm_aper",
+  "flux_r_ext_lsst_disk_sersic",
+  "flux_r_ext_lsst_sersic",
+  "flux_r_ext_lsst_templfit",
+  "flux_r_ext_megacam_1fwhm_aper",
+  "flux_r_ext_megacam_2fwhm_aper",
+  "flux_r_ext_megacam_3fwhm_aper",
+  "flux_r_ext_megacam_4fwhm_aper",
+  "flux_r_ext_megacam_disk_sersic",
+  "flux_r_ext_megacam_sersic",
+  "flux_r_ext_megacam_templfit",
+  "flux_u_ext_decam_1fwhm_aper",
+  "flux_u_ext_decam_2fwhm_aper",
+  "flux_u_ext_decam_3fwhm_aper",
+  "flux_u_ext_decam_4fwhm_aper",
+  "flux_u_ext_decam_disk_sersic",
+  "flux_u_ext_decam_sersic",
+  "flux_u_ext_decam_templfit",
+  "flux_u_ext_lsst_1fwhm_aper",
+  "flux_u_ext_lsst_2fwhm_aper",
+  "flux_u_ext_lsst_3fwhm_aper",
+  "flux_u_ext_lsst_4fwhm_aper",
+  "flux_u_ext_lsst_disk_sersic",
+  "flux_u_ext_lsst_sersic",
+  "flux_u_ext_lsst_templfit",
+  "flux_u_ext_megacam_1fwhm_aper",
+  "flux_u_ext_megacam_2fwhm_aper",
+  "flux_u_ext_megacam_3fwhm_aper",
+  "flux_u_ext_megacam_4fwhm_aper",
+  "flux_u_ext_megacam_disk_sersic",
+  "flux_u_ext_megacam_sersic",
+  "flux_u_ext_megacam_templfit",
+  "flux_vis_disk_sersic",
+  "flux_vis_to_g_ext_jpcam_templfit",
+  "flux_vis_to_g_ext_lsst_templfit",
+  "flux_vis_to_i_ext_lsst_templfit",
+  "flux_vis_to_i_ext_panstarrs_templfit",
+  "flux_vis_to_r_ext_lsst_templfit",
+  "flux_vis_to_r_ext_megacam_templfit",
+  "flux_vis_to_u_ext_decam_templfit",
+  "flux_vis_to_u_ext_lsst_templfit",
+  "flux_vis_to_u_ext_megacam_templfit",
+  "flux_vis_to_z_ext_lsst_templfit",
+  "flux_vis_to_z_ext_panstarrs_templfit",
+  "flux_y_disk_sersic",
+  "flux_z_ext_decam_disk_sersic",
+  "flux_z_ext_hsc_disk_sersic",
+  "flux_z_ext_lsst_1fwhm_aper",
+  "flux_z_ext_lsst_2fwhm_aper",
+  "flux_z_ext_lsst_3fwhm_aper",
+  "flux_z_ext_lsst_4fwhm_aper",
+  "flux_z_ext_lsst_disk_sersic",
+  "flux_z_ext_lsst_sersic",
+  "flux_z_ext_lsst_templfit",
+  "flux_z_ext_panstarrs_1fwhm_aper",
+  "flux_z_ext_panstarrs_2fwhm_aper",
+  "flux_z_ext_panstarrs_3fwhm_aper",
+  "flux_z_ext_panstarrs_4fwhm_aper",
+  "flux_z_ext_panstarrs_disk_sersic",
+  "flux_z_ext_panstarrs_sersic",
+  "flux_z_ext_panstarrs_templfit",
+  "fluxerr_g_ext_decam_disk_sersic",
+  "fluxerr_g_ext_hsc_disk_sersic",
+  "fluxerr_g_ext_jpcam_1fwhm_aper",
+  "fluxerr_g_ext_jpcam_2fwhm_aper",
+  "fluxerr_g_ext_jpcam_3fwhm_aper",
+  "fluxerr_g_ext_jpcam_4fwhm_aper",
+  "fluxerr_g_ext_jpcam_disk_sersic",
+  "fluxerr_g_ext_jpcam_sersic",
+  "fluxerr_g_ext_jpcam_templfit",
+  "fluxerr_g_ext_lsst_1fwhm_aper",
+  "fluxerr_g_ext_lsst_2fwhm_aper",
+  "fluxerr_g_ext_lsst_3fwhm_aper",
+  "fluxerr_g_ext_lsst_4fwhm_aper",
+  "fluxerr_g_ext_lsst_disk_sersic",
+  "fluxerr_g_ext_lsst_sersic",
+  "fluxerr_g_ext_lsst_templfit",
+  "fluxerr_h_disk_sersic",
+  "fluxerr_i_ext_decam_disk_sersic",
+  "fluxerr_i_ext_lsst_1fwhm_aper",
+  "fluxerr_i_ext_lsst_2fwhm_aper",
+  "fluxerr_i_ext_lsst_3fwhm_aper",
+  "fluxerr_i_ext_lsst_4fwhm_aper",
+  "fluxerr_i_ext_lsst_disk_sersic",
+  "fluxerr_i_ext_lsst_sersic",
+  "fluxerr_i_ext_lsst_templfit",
+  "fluxerr_i_ext_panstarrs_1fwhm_aper",
+  "fluxerr_i_ext_panstarrs_2fwhm_aper",
+  "fluxerr_i_ext_panstarrs_3fwhm_aper",
+  "fluxerr_i_ext_panstarrs_4fwhm_aper",
+  "fluxerr_i_ext_panstarrs_disk_sersic",
+  "fluxerr_i_ext_panstarrs_sersic",
+  "fluxerr_i_ext_panstarrs_templfit",
+  "fluxerr_j_disk_sersic",
+  "fluxerr_r_ext_decam_disk_sersic",
+  "fluxerr_r_ext_lsst_1fwhm_aper",
+  "fluxerr_r_ext_lsst_2fwhm_aper",
+  "fluxerr_r_ext_lsst_3fwhm_aper",
+  "fluxerr_r_ext_lsst_4fwhm_aper",
+  "fluxerr_r_ext_lsst_disk_sersic",
+  "fluxerr_r_ext_lsst_sersic",
+  "fluxerr_r_ext_lsst_templfit",
+  "fluxerr_r_ext_megacam_1fwhm_aper",
+  "fluxerr_r_ext_megacam_2fwhm_aper",
+  "fluxerr_r_ext_megacam_3fwhm_aper",
+  "fluxerr_r_ext_megacam_4fwhm_aper",
+  "fluxerr_r_ext_megacam_disk_sersic",
+  "fluxerr_r_ext_megacam_sersic",
+  "fluxerr_r_ext_megacam_templfit",
+  "fluxerr_u_ext_decam_1fwhm_aper",
+  "fluxerr_u_ext_decam_2fwhm_aper",
+  "fluxerr_u_ext_decam_3fwhm_aper",
+  "fluxerr_u_ext_decam_4fwhm_aper",
+  "fluxerr_u_ext_decam_disk_sersic",
+  "fluxerr_u_ext_decam_sersic",
+  "fluxerr_u_ext_decam_templfit",
+  "fluxerr_u_ext_lsst_1fwhm_aper",
+  "fluxerr_u_ext_lsst_2fwhm_aper",
+  "fluxerr_u_ext_lsst_3fwhm_aper",
+  "fluxerr_u_ext_lsst_4fwhm_aper",
+  "fluxerr_u_ext_lsst_disk_sersic",
+  "fluxerr_u_ext_lsst_sersic",
+  "fluxerr_u_ext_lsst_templfit",
+  "fluxerr_u_ext_megacam_1fwhm_aper",
+  "fluxerr_u_ext_megacam_2fwhm_aper",
+  "fluxerr_u_ext_megacam_3fwhm_aper",
+  "fluxerr_u_ext_megacam_4fwhm_aper",
+  "fluxerr_u_ext_megacam_disk_sersic",
+  "fluxerr_u_ext_megacam_sersic",
+  "fluxerr_u_ext_megacam_templfit",
+  "fluxerr_vis_disk_sersic",
+  "fluxerr_vis_to_g_ext_jpcam_templfit",
+  "fluxerr_vis_to_g_ext_lsst_templfit",
+  "fluxerr_vis_to_i_ext_lsst_templfit",
+  "fluxerr_vis_to_i_ext_panstarrs_templfit",
+  "fluxerr_vis_to_r_ext_lsst_templfit",
+  "fluxerr_vis_to_r_ext_megacam_templfit",
+  "fluxerr_vis_to_u_ext_decam_templfit",
+  "fluxerr_vis_to_u_ext_lsst_templfit",
+  "fluxerr_vis_to_u_ext_megacam_templfit",
+  "fluxerr_vis_to_z_ext_lsst_templfit",
+  "fluxerr_vis_to_z_ext_panstarrs_templfit",
+  "fluxerr_y_disk_sersic",
+  "fluxerr_z_ext_decam_disk_sersic",
+  "fluxerr_z_ext_hsc_disk_sersic",
+  "fluxerr_z_ext_lsst_1fwhm_aper",
+  "fluxerr_z_ext_lsst_2fwhm_aper",
+  "fluxerr_z_ext_lsst_3fwhm_aper",
+  "fluxerr_z_ext_lsst_4fwhm_aper",
+  "fluxerr_z_ext_lsst_disk_sersic",
+  "fluxerr_z_ext_lsst_sersic",
+  "fluxerr_z_ext_lsst_templfit",
+  "fluxerr_z_ext_panstarrs_1fwhm_aper",
+  "fluxerr_z_ext_panstarrs_2fwhm_aper",
+  "fluxerr_z_ext_panstarrs_3fwhm_aper",
+  "fluxerr_z_ext_panstarrs_4fwhm_aper",
+  "fluxerr_z_ext_panstarrs_disk_sersic",
+  "fluxerr_z_ext_panstarrs_sersic",
+  "fluxerr_z_ext_panstarrs_templfit",
+  "kron_radius_err",
+  "patch_id_list",
+  "position_angle_err",
+  "right_ascension_psf_fitting",
+  "semimajor_axis_err",
+  "sersic_fract_g_ext_decam_disk_sersic",
+  "sersic_fract_g_ext_decam_disk_sersic_err",
+  "sersic_fract_g_ext_hsc_disk_sersic",
+  "sersic_fract_g_ext_hsc_disk_sersic_err",
+  "sersic_fract_g_ext_jpcam_disk_sersic",
+  "sersic_fract_g_ext_jpcam_disk_sersic_err",
+  "sersic_fract_g_ext_lsst_disk_sersic",
+  "sersic_fract_g_ext_lsst_disk_sersic_err",
+  "sersic_fract_h_disk_sersic",
+  "sersic_fract_h_disk_sersic_err",
+  "sersic_fract_i_ext_decam_disk_sersic",
+  "sersic_fract_i_ext_decam_disk_sersic_err",
+  "sersic_fract_i_ext_lsst_disk_sersic",
+  "sersic_fract_i_ext_lsst_disk_sersic_err",
+  "sersic_fract_i_ext_panstarrs_disk_sersic",
+  "sersic_fract_i_ext_panstarrs_disk_sersic_err",
+  "sersic_fract_j_disk_sersic",
+  "sersic_fract_j_disk_sersic_err",
+  "sersic_fract_r_ext_decam_disk_sersic",
+  "sersic_fract_r_ext_decam_disk_sersic_err",
+  "sersic_fract_r_ext_lsst_disk_sersic",
+  "sersic_fract_r_ext_lsst_disk_sersic_err",
+  "sersic_fract_r_ext_megacam_disk_sersic",
+  "sersic_fract_r_ext_megacam_disk_sersic_err",
+  "sersic_fract_u_ext_decam_disk_sersic",
+  "sersic_fract_u_ext_decam_disk_sersic_err",
+  "sersic_fract_u_ext_lsst_disk_sersic",
+  "sersic_fract_u_ext_lsst_disk_sersic_err",
+  "sersic_fract_u_ext_megacam_disk_sersic",
+  "sersic_fract_u_ext_megacam_disk_sersic_err",
+  "sersic_fract_vis_disk_sersic",
+  "sersic_fract_vis_disk_sersic_err",
+  "sersic_fract_y_disk_sersic",
+  "sersic_fract_y_disk_sersic_err",
+  "sersic_fract_z_ext_decam_disk_sersic",
+  "sersic_fract_z_ext_decam_disk_sersic_err",
+  "sersic_fract_z_ext_hsc_disk_sersic",
+  "sersic_fract_z_ext_hsc_disk_sersic_err",
+  "sersic_fract_z_ext_lsst_disk_sersic",
+  "sersic_fract_z_ext_lsst_disk_sersic_err",
+  "sersic_fract_z_ext_panstarrs_disk_sersic",
+  "sersic_fract_z_ext_panstarrs_disk_sersic_err",
+  "she_flag",
+  "variable_flag"
+ ],
+ "sentinel_like_min_max": {},
+ "common_metadata": {
+  "ncol": 480,
+  "fields_with_unit": 480,
+  "fields_with_description": 480,
+  "schema_meta_keys": [],
+  "only_in_common_metadata": [],
+  "only_in_partitions": []
+ },
+ "types": {
+  "_healpix_29": "int64",
+  "_healpix_19": "int64",
+  "_healpix_9": "int32",
+  "ra_from_object_id": "double",
+  "dec_from_object_id": "double",
+  "basic_download_data_oid": "int64",
+  "object_id": "int64",
+  "ra": "double",
+  "dec": "double",
+  "right_ascension_psf_fitting": "double",
+  "declination_psf_fitting": "double",
+  "tileid": "int64",
+  "segmentation_map_id": "int64",
+  "vis_det": "int16",
+  "flux_vis_1fwhm_aper": "float",
+  "flux_vis_2fwhm_aper": "float",
+  "flux_vis_3fwhm_aper": "float",
+  "flux_vis_4fwhm_aper": "float",
+  "flux_y_1fwhm_aper": "float",
+  "flux_y_2fwhm_aper": "float",
+  "flux_y_3fwhm_aper": "float",
+  "flux_y_4fwhm_aper": "float",
+  "flux_j_1fwhm_aper": "float",
+  "flux_j_2fwhm_aper": "float",
+  "flux_j_3fwhm_aper": "float",
+  "flux_j_4fwhm_aper": "float",
+  "flux_h_1fwhm_aper": "float",
+  "flux_h_2fwhm_aper": "float",
+  "flux_h_3fwhm_aper": "float",
+  "flux_h_4fwhm_aper": "float",
+  "flux_nir_stack_1fwhm_aper": "float",
+  "flux_nir_stack_2fwhm_aper": "float",
+  "flux_nir_stack_3fwhm_aper": "float",
+  "flux_nir_stack_4fwhm_aper": "float",
+  "flux_u_ext_decam_1fwhm_aper": "float",
+  "flux_u_ext_decam_2fwhm_aper": "float",
+  "flux_u_ext_decam_3fwhm_aper": "float",
+  "flux_u_ext_decam_4fwhm_aper": "float",
+  "flux_g_ext_decam_1fwhm_aper": "float",
+  "flux_g_ext_decam_2fwhm_aper": "float",
+  "flux_g_ext_decam_3fwhm_aper": "float",
+  "flux_g_ext_decam_4fwhm_aper": "float",
+  "flux_r_ext_decam_1fwhm_aper": "float",
+  "flux_r_ext_decam_2fwhm_aper": "float",
+  "flux_r_ext_decam_3fwhm_aper": "float",
+  "flux_r_ext_decam_4fwhm_aper": "float",
+  "flux_i_ext_decam_1fwhm_aper": "float",
+  "flux_i_ext_decam_2fwhm_aper": "float",
+  "flux_i_ext_decam_3fwhm_aper": "float",
+  "flux_i_ext_decam_4fwhm_aper": "float",
+  "flux_z_ext_decam_1fwhm_aper": "float",
+  "flux_z_ext_decam_2fwhm_aper": "float",
+  "flux_z_ext_decam_3fwhm_aper": "float",
+  "flux_z_ext_decam_4fwhm_aper": "float",
+  "flux_u_ext_lsst_1fwhm_aper": "float",
+  "flux_u_ext_lsst_2fwhm_aper": "float",
+  "flux_u_ext_lsst_3fwhm_aper": "float",
+  "flux_u_ext_lsst_4fwhm_aper": "float",
+  "flux_g_ext_lsst_1fwhm_aper": "float",
+  "flux_g_ext_lsst_2fwhm_aper": "float",
+  "flux_g_ext_lsst_3fwhm_aper": "float",
+  "flux_g_ext_lsst_4fwhm_aper": "float",
+  "flux_r_ext_lsst_1fwhm_aper": "float",
+  "flux_r_ext_lsst_2fwhm_aper": "float",
+  "flux_r_ext_lsst_3fwhm_aper": "float",
+  "flux_r_ext_lsst_4fwhm_aper": "float",
+  "flux_i_ext_lsst_1fwhm_aper": "float",
+  "flux_i_ext_lsst_2fwhm_aper": "float",
+  "flux_i_ext_lsst_3fwhm_aper": "float",
+  "flux_i_ext_lsst_4fwhm_aper": "float",
+  "flux_z_ext_lsst_1fwhm_aper": "float",
+  "flux_z_ext_lsst_2fwhm_aper": "float",
+  "flux_z_ext_lsst_3fwhm_aper": "float",
+  "flux_z_ext_lsst_4fwhm_aper": "float",
+  "flux_u_ext_megacam_1fwhm_aper": "float",
+  "flux_u_ext_megacam_2fwhm_aper": "float",
+  "flux_u_ext_megacam_3fwhm_aper": "float",
+  "flux_u_ext_megacam_4fwhm_aper": "float",
+  "flux_r_ext_megacam_1fwhm_aper": "float",
+  "flux_r_ext_megacam_2fwhm_aper": "float",
+  "flux_r_ext_megacam_3fwhm_aper": "float",
+  "flux_r_ext_megacam_4fwhm_aper": "float",
+  "flux_g_ext_jpcam_1fwhm_aper": "float",
+  "flux_g_ext_jpcam_2fwhm_aper": "float",
+  "flux_g_ext_jpcam_3fwhm_aper": "float",
+  "flux_g_ext_jpcam_4fwhm_aper": "float",
+  "flux_i_ext_panstarrs_1fwhm_aper": "float",
+  "flux_i_ext_panstarrs_2fwhm_aper": "float",
+  "flux_i_ext_panstarrs_3fwhm_aper": "float",
+  "flux_i_ext_panstarrs_4fwhm_aper": "float",
+  "flux_z_ext_panstarrs_1fwhm_aper": "float",
+  "flux_z_ext_panstarrs_2fwhm_aper": "float",
+  "flux_z_ext_panstarrs_3fwhm_aper": "float",
+  "flux_z_ext_panstarrs_4fwhm_aper": "float",
+  "flux_g_ext_hsc_1fwhm_aper": "float",
+  "flux_g_ext_hsc_2fwhm_aper": "float",
+  "flux_g_ext_hsc_3fwhm_aper": "float",
+  "flux_g_ext_hsc_4fwhm_aper": "float",
+  "flux_z_ext_hsc_1fwhm_aper": "float",
+  "flux_z_ext_hsc_2fwhm_aper": "float",
+  "flux_z_ext_hsc_3fwhm_aper": "float",
+  "flux_z_ext_hsc_4fwhm_aper": "float",
+  "fluxerr_vis_1fwhm_aper": "float",
+  "fluxerr_vis_2fwhm_aper": "float",
+  "fluxerr_vis_3fwhm_aper": "float",
+  "fluxerr_vis_4fwhm_aper": "float",
+  "fluxerr_y_1fwhm_aper": "float",
+  "fluxerr_y_2fwhm_aper": "float",
+  "fluxerr_y_3fwhm_aper": "float",
+  "fluxerr_y_4fwhm_aper": "float",
+  "fluxerr_j_1fwhm_aper": "float",
+  "fluxerr_j_2fwhm_aper": "float",
+  "fluxerr_j_3fwhm_aper": "float",
+  "fluxerr_j_4fwhm_aper": "float",
+  "fluxerr_h_1fwhm_aper": "float",
+  "fluxerr_h_2fwhm_aper": "float",
+  "fluxerr_h_3fwhm_aper": "float",
+  "fluxerr_h_4fwhm_aper": "float",
+  "fluxerr_nir_stack_1fwhm_aper": "float",
+  "fluxerr_nir_stack_2fwhm_aper": "float",
+  "fluxerr_nir_stack_3fwhm_aper": "float",
+  "fluxerr_nir_stack_4fwhm_aper": "float",
+  "fluxerr_u_ext_decam_1fwhm_aper": "float",
+  "fluxerr_u_ext_decam_2fwhm_aper": "float",
+  "fluxerr_u_ext_decam_3fwhm_aper": "float",
+  "fluxerr_u_ext_decam_4fwhm_aper": "float",
+  "fluxerr_g_ext_decam_1fwhm_aper": "float",
+  "fluxerr_g_ext_decam_2fwhm_aper": "float",
+  "fluxerr_g_ext_decam_3fwhm_aper": "float",
+  "fluxerr_g_ext_decam_4fwhm_aper": "float",
+  "fluxerr_r_ext_decam_1fwhm_aper": "float",
+  "fluxerr_r_ext_decam_2fwhm_aper": "float",
+  "fluxerr_r_ext_decam_3fwhm_aper": "float",
+  "fluxerr_r_ext_decam_4fwhm_aper": "float",
+  "fluxerr_i_ext_decam_1fwhm_aper": "float",
+  "fluxerr_i_ext_decam_2fwhm_aper": "float",
+  "fluxerr_i_ext_decam_3fwhm_aper": "float",
+  "fluxerr_i_ext_decam_4fwhm_aper": "float",
+  "fluxerr_z_ext_decam_1fwhm_aper": "float",
+  "fluxerr_z_ext_decam_2fwhm_aper": "float",
+  "fluxerr_z_ext_decam_3fwhm_aper": "float",
+  "fluxerr_z_ext_decam_4fwhm_aper": "float",
+  "fluxerr_u_ext_lsst_1fwhm_aper": "float",
+  "fluxerr_u_ext_lsst_2fwhm_aper": "float",
+  "fluxerr_u_ext_lsst_3fwhm_aper": "float",
+  "fluxerr_u_ext_lsst_4fwhm_aper": "float",
+  "fluxerr_g_ext_lsst_1fwhm_aper": "float",
+  "fluxerr_g_ext_lsst_2fwhm_aper": "float",
+  "fluxerr_g_ext_lsst_3fwhm_aper": "float",
+  "fluxerr_g_ext_lsst_4fwhm_aper": "float",
+  "fluxerr_r_ext_lsst_1fwhm_aper": "float",
+  "fluxerr_r_ext_lsst_2fwhm_aper": "float",
+  "fluxerr_r_ext_lsst_3fwhm_aper": "float",
+  "fluxerr_r_ext_lsst_4fwhm_aper": "float",
+  "fluxerr_i_ext_lsst_1fwhm_aper": "float",
+  "fluxerr_i_ext_lsst_2fwhm_aper": "float",
+  "fluxerr_i_ext_lsst_3fwhm_aper": "float",
+  "fluxerr_i_ext_lsst_4fwhm_aper": "float",
+  "fluxerr_z_ext_lsst_1fwhm_aper": "float",
+  "fluxerr_z_ext_lsst_2fwhm_aper": "float",
+  "fluxerr_z_ext_lsst_3fwhm_aper": "float",
+  "fluxerr_z_ext_lsst_4fwhm_aper": "float",
+  "fluxerr_u_ext_megacam_1fwhm_aper": "float",
+  "fluxerr_u_ext_megacam_2fwhm_aper": "float",
+  "fluxerr_u_ext_megacam_3fwhm_aper": "float",
+  "fluxerr_u_ext_megacam_4fwhm_aper": "float",
+  "fluxerr_r_ext_megacam_1fwhm_aper": "float",
+  "fluxerr_r_ext_megacam_2fwhm_aper": "float",
+  "fluxerr_r_ext_megacam_3fwhm_aper": "float",
+  "fluxerr_r_ext_megacam_4fwhm_aper": "float",
+  "fluxerr_g_ext_jpcam_1fwhm_aper": "float",
+  "fluxerr_g_ext_jpcam_2fwhm_aper": "float",
+  "fluxerr_g_ext_jpcam_3fwhm_aper": "float",
+  "fluxerr_g_ext_jpcam_4fwhm_aper": "float",
+  "fluxerr_i_ext_panstarrs_1fwhm_aper": "float",
+  "fluxerr_i_ext_panstarrs_2fwhm_aper": "float",
+  "fluxerr_i_ext_panstarrs_3fwhm_aper": "float",
+  "fluxerr_i_ext_panstarrs_4fwhm_aper": "float",
+  "fluxerr_z_ext_panstarrs_1fwhm_aper": "float",
+  "fluxerr_z_ext_panstarrs_2fwhm_aper": "float",
+  "fluxerr_z_ext_panstarrs_3fwhm_aper": "float",
+  "fluxerr_z_ext_panstarrs_4fwhm_aper": "float",
+  "fluxerr_g_ext_hsc_1fwhm_aper": "float",
+  "fluxerr_g_ext_hsc_2fwhm_aper": "float",
+  "fluxerr_g_ext_hsc_3fwhm_aper": "float",
+  "fluxerr_g_ext_hsc_4fwhm_aper": "float",
+  "fluxerr_z_ext_hsc_1fwhm_aper": "float",
+  "fluxerr_z_ext_hsc_2fwhm_aper": "float",
+  "fluxerr_z_ext_hsc_3fwhm_aper": "float",
+  "fluxerr_z_ext_hsc_4fwhm_aper": "float",
+  "flux_y_templfit": "float",
+  "flux_j_templfit": "float",
+  "flux_h_templfit": "float",
+  "flux_u_ext_decam_templfit": "float",
+  "flux_g_ext_decam_templfit": "float",
+  "flux_r_ext_decam_templfit": "float",
+  "flux_i_ext_decam_templfit": "float",
+  "flux_z_ext_decam_templfit": "float",
+  "flux_u_ext_lsst_templfit": "float",
+  "flux_g_ext_lsst_templfit": "float",
+  "flux_r_ext_lsst_templfit": "float",
+  "flux_i_ext_lsst_templfit": "float",
+  "flux_z_ext_lsst_templfit": "float",
+  "flux_u_ext_megacam_templfit": "float",
+  "flux_r_ext_megacam_templfit": "float",
+  "flux_g_ext_jpcam_templfit": "float",
+  "flux_i_ext_panstarrs_templfit": "float",
+  "flux_z_ext_panstarrs_templfit": "float",
+  "flux_g_ext_hsc_templfit": "float",
+  "flux_z_ext_hsc_templfit": "float",
+  "fluxerr_y_templfit": "float",
+  "fluxerr_j_templfit": "float",
+  "fluxerr_h_templfit": "float",
+  "fluxerr_u_ext_decam_templfit": "float",
+  "fluxerr_g_ext_decam_templfit": "float",
+  "fluxerr_r_ext_decam_templfit": "float",
+  "fluxerr_i_ext_decam_templfit": "float",
+  "fluxerr_z_ext_decam_templfit": "float",
+  "fluxerr_u_ext_lsst_templfit": "float",
+  "fluxerr_g_ext_lsst_templfit": "float",
+  "fluxerr_r_ext_lsst_templfit": "float",
+  "fluxerr_i_ext_lsst_templfit": "float",
+  "fluxerr_z_ext_lsst_templfit": "float",
+  "fluxerr_u_ext_megacam_templfit": "float",
+  "fluxerr_r_ext_megacam_templfit": "float",
+  "fluxerr_g_ext_jpcam_templfit": "float",
+  "fluxerr_i_ext_panstarrs_templfit": "float",
+  "fluxerr_z_ext_panstarrs_templfit": "float",
+  "fluxerr_g_ext_hsc_templfit": "float",
+  "fluxerr_z_ext_hsc_templfit": "float",
+  "flux_vis_to_y_templfit": "float",
+  "flux_vis_to_j_templfit": "float",
+  "flux_vis_to_h_templfit": "float",
+  "flux_vis_to_u_ext_decam_templfit": "float",
+  "flux_vis_to_g_ext_decam_templfit": "float",
+  "flux_vis_to_r_ext_decam_templfit": "float",
+  "flux_vis_to_i_ext_decam_templfit": "float",
+  "flux_vis_to_z_ext_decam_templfit": "float",
+  "flux_vis_to_u_ext_lsst_templfit": "float",
+  "flux_vis_to_g_ext_lsst_templfit": "float",
+  "flux_vis_to_r_ext_lsst_templfit": "float",
+  "flux_vis_to_i_ext_lsst_templfit": "float",
+  "flux_vis_to_z_ext_lsst_templfit": "float",
+  "flux_vis_to_u_ext_megacam_templfit": "float",
+  "flux_vis_to_r_ext_megacam_templfit": "float",
+  "flux_vis_to_g_ext_jpcam_templfit": "float",
+  "flux_vis_to_i_ext_panstarrs_templfit": "float",
+  "flux_vis_to_z_ext_panstarrs_templfit": "float",
+  "flux_vis_to_g_ext_hsc_templfit": "float",
+  "flux_vis_to_z_ext_hsc_templfit": "float",
+  "fluxerr_vis_to_y_templfit": "float",
+  "fluxerr_vis_to_j_templfit": "float",
+  "fluxerr_vis_to_h_templfit": "float",
+  "fluxerr_vis_to_u_ext_decam_templfit": "float",
+  "fluxerr_vis_to_g_ext_decam_templfit": "float",
+  "fluxerr_vis_to_r_ext_decam_templfit": "float",
+  "fluxerr_vis_to_i_ext_decam_templfit": "float",
+  "fluxerr_vis_to_z_ext_decam_templfit": "float",
+  "fluxerr_vis_to_u_ext_lsst_templfit": "float",
+  "fluxerr_vis_to_g_ext_lsst_templfit": "float",
+  "fluxerr_vis_to_r_ext_lsst_templfit": "float",
+  "fluxerr_vis_to_i_ext_lsst_templfit": "float",
+  "fluxerr_vis_to_z_ext_lsst_templfit": "float",
+  "fluxerr_vis_to_u_ext_megacam_templfit": "float",
+  "fluxerr_vis_to_r_ext_megacam_templfit": "float",
+  "fluxerr_vis_to_g_ext_jpcam_templfit": "float",
+  "fluxerr_vis_to_i_ext_panstarrs_templfit": "float",
+  "fluxerr_vis_to_z_ext_panstarrs_templfit": "float",
+  "fluxerr_vis_to_g_ext_hsc_templfit": "float",
+  "fluxerr_vis_to_z_ext_hsc_templfit": "float",
+  "flux_vis_psf": "float",
+  "fluxerr_vis_psf": "float",
+  "flux_segmentation": "float",
+  "fluxerr_segmentation": "float",
+  "flux_detection_total": "float",
+  "fluxerr_detection_total": "float",
+  "flux_vis_sersic": "float",
+  "flux_y_sersic": "float",
+  "flux_j_sersic": "float",
+  "flux_h_sersic": "float",
+  "flux_u_ext_decam_sersic": "float",
+  "flux_g_ext_decam_sersic": "float",
+  "flux_r_ext_decam_sersic": "float",
+  "flux_i_ext_decam_sersic": "float",
+  "flux_z_ext_decam_sersic": "float",
+  "flux_u_ext_lsst_sersic": "float",
+  "flux_g_ext_lsst_sersic": "float",
+  "flux_r_ext_lsst_sersic": "float",
+  "flux_i_ext_lsst_sersic": "float",
+  "flux_z_ext_lsst_sersic": "float",
+  "flux_u_ext_megacam_sersic": "float",
+  "flux_r_ext_megacam_sersic": "float",
+  "flux_g_ext_jpcam_sersic": "float",
+  "flux_i_ext_panstarrs_sersic": "float",
+  "flux_z_ext_panstarrs_sersic": "float",
+  "flux_g_ext_hsc_sersic": "float",
+  "flux_z_ext_hsc_sersic": "float",
+  "fluxerr_vis_sersic": "float",
+  "fluxerr_y_sersic": "float",
+  "fluxerr_j_sersic": "float",
+  "fluxerr_h_sersic": "float",
+  "fluxerr_u_ext_decam_sersic": "float",
+  "fluxerr_g_ext_decam_sersic": "float",
+  "fluxerr_r_ext_decam_sersic": "float",
+  "fluxerr_i_ext_decam_sersic": "float",
+  "fluxerr_z_ext_decam_sersic": "float",
+  "fluxerr_u_ext_lsst_sersic": "float",
+  "fluxerr_g_ext_lsst_sersic": "float",
+  "fluxerr_r_ext_lsst_sersic": "float",
+  "fluxerr_i_ext_lsst_sersic": "float",
+  "fluxerr_z_ext_lsst_sersic": "float",
+  "fluxerr_u_ext_megacam_sersic": "float",
+  "fluxerr_r_ext_megacam_sersic": "float",
+  "fluxerr_g_ext_jpcam_sersic": "float",
+  "fluxerr_i_ext_panstarrs_sersic": "float",
+  "fluxerr_z_ext_panstarrs_sersic": "float",
+  "fluxerr_g_ext_hsc_sersic": "float",
+  "fluxerr_z_ext_hsc_sersic": "float",
+  "flux_vis_disk_sersic": "float",
+  "flux_y_disk_sersic": "float",
+  "flux_j_disk_sersic": "float",
+  "flux_h_disk_sersic": "float",
+  "flux_u_ext_decam_disk_sersic": "float",
+  "flux_g_ext_decam_disk_sersic": "float",
+  "flux_r_ext_decam_disk_sersic": "float",
+  "flux_i_ext_decam_disk_sersic": "float",
+  "flux_z_ext_decam_disk_sersic": "float",
+  "flux_u_ext_lsst_disk_sersic": "float",
+  "flux_g_ext_lsst_disk_sersic": "float",
+  "flux_r_ext_lsst_disk_sersic": "float",
+  "flux_i_ext_lsst_disk_sersic": "float",
+  "flux_z_ext_lsst_disk_sersic": "float",
+  "flux_u_ext_megacam_disk_sersic": "float",
+  "flux_r_ext_megacam_disk_sersic": "float",
+  "flux_g_ext_jpcam_disk_sersic": "float",
+  "flux_i_ext_panstarrs_disk_sersic": "float",
+  "flux_z_ext_panstarrs_disk_sersic": "float",
+  "flux_g_ext_hsc_disk_sersic": "float",
+  "flux_z_ext_hsc_disk_sersic": "float",
+  "fluxerr_vis_disk_sersic": "float",
+  "fluxerr_y_disk_sersic": "float",
+  "fluxerr_j_disk_sersic": "float",
+  "fluxerr_h_disk_sersic": "float",
+  "fluxerr_u_ext_decam_disk_sersic": "float",
+  "fluxerr_g_ext_decam_disk_sersic": "float",
+  "fluxerr_r_ext_decam_disk_sersic": "float",
+  "fluxerr_i_ext_decam_disk_sersic": "float",
+  "fluxerr_z_ext_decam_disk_sersic": "float",
+  "fluxerr_u_ext_lsst_disk_sersic": "float",
+  "fluxerr_g_ext_lsst_disk_sersic": "float",
+  "fluxerr_r_ext_lsst_disk_sersic": "float",
+  "fluxerr_i_ext_lsst_disk_sersic": "float",
+  "fluxerr_z_ext_lsst_disk_sersic": "float",
+  "fluxerr_u_ext_megacam_disk_sersic": "float",
+  "fluxerr_r_ext_megacam_disk_sersic": "float",
+  "fluxerr_g_ext_jpcam_disk_sersic": "float",
+  "fluxerr_i_ext_panstarrs_disk_sersic": "float",
+  "fluxerr_z_ext_panstarrs_disk_sersic": "float",
+  "fluxerr_g_ext_hsc_disk_sersic": "float",
+  "fluxerr_z_ext_hsc_disk_sersic": "float",
+  "sersic_fract_vis_disk_sersic": "float",
+  "sersic_fract_y_disk_sersic": "float",
+  "sersic_fract_j_disk_sersic": "float",
+  "sersic_fract_h_disk_sersic": "float",
+  "sersic_fract_u_ext_decam_disk_sersic": "float",
+  "sersic_fract_g_ext_decam_disk_sersic": "float",
+  "sersic_fract_r_ext_decam_disk_sersic": "float",
+  "sersic_fract_i_ext_decam_disk_sersic": "float",
+  "sersic_fract_z_ext_decam_disk_sersic": "float",
+  "sersic_fract_u_ext_lsst_disk_sersic": "float",
+  "sersic_fract_g_ext_lsst_disk_sersic": "float",
+  "sersic_fract_r_ext_lsst_disk_sersic": "float",
+  "sersic_fract_i_ext_lsst_disk_sersic": "float",
+  "sersic_fract_z_ext_lsst_disk_sersic": "float",
+  "sersic_fract_u_ext_megacam_disk_sersic": "float",
+  "sersic_fract_r_ext_megacam_disk_sersic": "float",
+  "sersic_fract_g_ext_jpcam_disk_sersic": "float",
+  "sersic_fract_i_ext_panstarrs_disk_sersic": "float",
+  "sersic_fract_z_ext_panstarrs_disk_sersic": "float",
+  "sersic_fract_g_ext_hsc_disk_sersic": "float",
+  "sersic_fract_z_ext_hsc_disk_sersic": "float",
+  "sersic_fract_vis_disk_sersic_err": "float",
+  "sersic_fract_y_disk_sersic_err": "float",
+  "sersic_fract_j_disk_sersic_err": "float",
+  "sersic_fract_h_disk_sersic_err": "float",
+  "sersic_fract_u_ext_decam_disk_sersic_err": "float",
+  "sersic_fract_g_ext_decam_disk_sersic_err": "float",
+  "sersic_fract_r_ext_decam_disk_sersic_err": "float",
+  "sersic_fract_i_ext_decam_disk_sersic_err": "float",
+  "sersic_fract_z_ext_decam_disk_sersic_err": "float",
+  "sersic_fract_u_ext_lsst_disk_sersic_err": "float",
+  "sersic_fract_g_ext_lsst_disk_sersic_err": "float",
+  "sersic_fract_r_ext_lsst_disk_sersic_err": "float",
+  "sersic_fract_i_ext_lsst_disk_sersic_err": "float",
+  "sersic_fract_z_ext_lsst_disk_sersic_err": "float",
+  "sersic_fract_u_ext_megacam_disk_sersic_err": "float",
+  "sersic_fract_r_ext_megacam_disk_sersic_err": "float",
+  "sersic_fract_g_ext_jpcam_disk_sersic_err": "float",
+  "sersic_fract_i_ext_panstarrs_disk_sersic_err": "float",
+  "sersic_fract_z_ext_panstarrs_disk_sersic_err": "float",
+  "sersic_fract_g_ext_hsc_disk_sersic_err": "float",
+  "sersic_fract_z_ext_hsc_disk_sersic_err": "float",
+  "flag_vis": "int32",
+  "flag_y": "int32",
+  "flag_j": "int32",
+  "flag_h": "int32",
+  "flag_nir_stack": "int32",
+  "flag_u_ext_decam": "int32",
+  "flag_g_ext_decam": "int32",
+  "flag_r_ext_decam": "int32",
+  "flag_i_ext_decam": "int32",
+  "flag_z_ext_decam": "int32",
+  "flag_u_ext_lsst": "int32",
+  "flag_g_ext_lsst": "int32",
+  "flag_r_ext_lsst": "int32",
+  "flag_i_ext_lsst": "int32",
+  "flag_z_ext_lsst": "int32",
+  "flag_u_ext_megacam": "int32",
+  "flag_r_ext_megacam": "int32",
+  "flag_g_ext_jpcam": "int32",
+  "flag_i_ext_panstarrs": "int32",
+  "flag_z_ext_panstarrs": "int32",
+  "flag_g_ext_hsc": "int32",
+  "flag_z_ext_hsc": "int32",
+  "avg_trans_wave_vis": "float",
+  "avg_trans_wave_y": "float",
+  "avg_trans_wave_j": "float",
+  "avg_trans_wave_h": "float",
+  "avg_trans_wave_u_ext_decam": "float",
+  "avg_trans_wave_g_ext_decam": "float",
+  "avg_trans_wave_r_ext_decam": "float",
+  "avg_trans_wave_i_ext_decam": "float",
+  "avg_trans_wave_z_ext_decam": "float",
+  "avg_trans_wave_u_ext_lsst": "float",
+  "avg_trans_wave_g_ext_lsst": "float",
+  "avg_trans_wave_r_ext_lsst": "float",
+  "avg_trans_wave_i_ext_lsst": "float",
+  "avg_trans_wave_z_ext_lsst": "float",
+  "avg_trans_wave_u_ext_megacam": "float",
+  "avg_trans_wave_r_ext_megacam": "float",
+  "avg_trans_wave_g_ext_jpcam": "float",
+  "avg_trans_wave_i_ext_panstarrs": "float",
+  "avg_trans_wave_z_ext_panstarrs": "float",
+  "avg_trans_wave_g_ext_hsc": "float",
+  "avg_trans_wave_z_ext_hsc": "float",
+  "deblended_flag": "int16",
+  "parent_id": "int64",
+  "parent_visnir": "int64",
+  "blended_prob": "float",
+  "she_flag": "int16",
+  "variable_flag": "int16",
+  "binary_flag": "int16",
+  "point_like_flag": "int16",
+  "point_like_prob": "float",
+  "extended_flag": "int16",
+  "extended_prob": "float",
+  "spurious_flag": "int16",
+  "spurious_prob": "float",
+  "mag_stargal_sep": "float",
+  "det_quality_flag": "int16",
+  "mu_max": "float",
+  "mumax_minus_mag": "float",
+  "segmentation_area": "int32",
+  "semimajor_axis": "float",
+  "semimajor_axis_err": "float",
+  "position_angle": "float",
+  "position_angle_err": "float",
+  "ellipticity": "float",
+  "ellipticity_err": "float",
+  "kron_radius": "float",
+  "kron_radius_err": "float",
+  "fwhm": "float",
+  "gal_ebv": "float",
+  "gal_ebv_err": "float",
+  "gaia_id": "int64",
+  "gaia_match_quality": "float",
+  "patch_id_list": "string",
+  "calblock_id_list": "string",
+  "designation": "string",
+  "has_spectrum": "uint8"
+ },
+ "metadata_bytes": 2341129,
+ "metadata": {
+  "rows": 689298,
+  "row_groups": 30,
+  "files_referenced": 30,
+  "rows_match_hats_nrows": true,
+  "rows_match_footers": true,
+  "referenced_missing": [],
+  "n_referenced_missing": 0,
+  "not_referenced": [],
+  "n_not_referenced": 0,
+  "stale_rowcounts": []
+ },
+ "margins_and_indexes": [],
+ "seconds": 0.6
+}

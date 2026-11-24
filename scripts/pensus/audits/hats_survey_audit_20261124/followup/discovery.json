@@ -1,0 +1,5596 @@
+{
+ "root": "/arc/projects/hats",
+ "catalogues": [
+  "2mass/psc",
+  "2mass/xsc",
+  "allwise/catalog",
+  "atlas/dr5",
+  "catwise/2020",
+  "clauds",
+  "delve/dr3_gold",
+  "des/y6_gold",
+  "des/y6_gold_prera_backup",
+  "erosita/erass3",
+  "euclid/dr1/mer_catalogue_deep_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats",
+  "euclid/dr1/mer_catalogue_deep_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats_index_object_id",
+  "euclid/dr1/mer_catalogue_deep_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats_margin_10arcsec",
+  "euclid/dr1/mer_catalogue_deep_survey_photometry/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats",
+  "euclid/dr1/mer_catalogue_deep_survey_photometry/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats_index_object_id",
+  "euclid/dr1/mer_catalogue_deep_survey_photometry/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats_margin_10arcsec",
+  "euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats",
+  "euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats_index_object_id",
+  "euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats_margin_10arcsec",
+  "euclid/q1",
+  "gaia/dr3",
+  "gaia/dr3_xp_continuous",
+  "galex/guvcat_ais_gr67",
+  "hsc/pdr3/forced_g",
+  "hsc/pdr3/forced_i",
+  "hsc/pdr3/forced_nb0387",
+  "hsc/pdr3/forced_nb0816",
+  "hsc/pdr3/forced_nb0921",
+  "hsc/pdr3/forced_nb1010",
+  "hsc/pdr3/forced_r",
+  "hsc/pdr3/forced_y",
+  "hsc/pdr3/forced_z",
+  "hubble/hsc_v4",
+  "jpas/e2dr",
+  "jplus/dr3",
+  "kids/dr5",
+  "legacysurvey/dr11",
+  "lotss/dr3",
+  "lsst/dp1/dia_object_collection/dia_object_lc",
+  "lsst/dp1/dia_object_collection/dia_object_lc_5arcs",
+  "lsst/dp1/dia_object_collection/dia_object_lc_diaObjectId",
+  "lsst/dp1/object_collection/object_lc",
+  "lsst/dp1/object_collection/object_lc_5arcs",
+  "lsst/dp1/object_collection/object_lc_objectId",
+  "lsst/dp1/object_photoz",
+  "pristine/dr2",
+  "ps1/otmo",
+  "sdss/photoprimary_dr13",
+  "skymapper/dr4",
+  "splus/dr4",
+  "uhs/dr3",
+  "uhs/dr3_prera_backup",
+  "ukidss/dr11_dxs",
+  "ukidss/dr11_gcs",
+  "ukidss/dr11_las",
+  "ukidss/dr11_uds",
+  "unions/PGM",
+  "unions/ShapePipe/cut_struct_v1.6.6",
+  "unions/ShapePipe/psf_v1.6a",
+  "unions/cfis_DR6_r",
+  "unions/cfis_DR6_r_processed",
+  "unions/cfis_DR6_u",
+  "unions/cfis_DR6_u_processed",
+  "unions/cfis_LSB_DR6_r",
+  "unions/euclid_dr1_mer_catalogue_wide",
+  "unions/gaap_sp_ugriz_photoz_ext",
+  "unions/gaap_ugriz_photoz_ext",
+  "vhs/dr7",
+  "video/dr6",
+  "viking/dr5",
+  "vmc/dr7",
+  "vvvx/dr1",
+  "zensus/20261019/zensus_20261019",
+  "zensus/20261019/zensus_20261019_5arcs"
+ ],
+ "collections": [
+  "euclid/dr1/mer_catalogue_deep_survey",
+  "euclid/dr1/mer_catalogue_deep_survey_photometry",
+  "euclid/dr1/mer_catalogue_wide_survey",
+  "lsst/dp1/dia_object_collection",
+  "lsst/dp1/object_collection"
+ ],
+ "links": [
+  {
+   "path": "lsst/dp2",
+   "target": "/arc/projects/LSST/lsdb_data/dp2",
+   "resolved": "/arc/projects/LSST/lsdb_data/dp2",
+   "exists": true,
+   "entries": [
+    "dia_object_collection",
+    "object_collection",
+    "object_photoz",
+    "public-files"
+   ]
+  }
+ ],
+ "denied": [],
+ "dirs": {
+  "": [
+   {
+    "name": ".herd-gidsync.state",
+    "size": 169,
+    "mtime": "2026-07-15T11:16:55.218487+00:00",
+    "kind": "file"
+   },
+   {
+    "name": ".local",
+    "size": 0,
+    "mtime": "2026-11-12T21:46:36.448495+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "2mass",
+    "size": 2,
+    "mtime": "2026-11-16T17:14:43.037994+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "allwise",
+    "size": 1,
+    "mtime": "2026-11-21T00:57:43.513064+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "atlas",
+    "size": 1,
+    "mtime": "2026-11-21T21:34:35.052671+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "catwise",
+    "size": 1,
+    "mtime": "2026-11-14T18:51:55.462448+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "clauds",
+    "size": 7,
+    "mtime": "2026-11-19T20:19:07.654413+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "delve",
+    "size": 1,
+    "mtime": "2026-11-17T08:01:58.615231+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "des",
+    "size": 2,
+    "mtime": "2026-11-24T02:59:39.039717+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "erosita",
+    "size": 1,
+    "mtime": "2026-11-19T18:54:55.624096+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "euclid",
+    "size": 2,
+    "mtime": "2026-11-13T00:23:32.782637+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "gaia",
+    "size": 2,
+    "mtime": "2026-11-16T20:09:29.530952+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "galex",
+    "size": 1,
+    "mtime": "2026-11-12T22:24:13.268973+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hsc",
+    "size": 1,
+    "mtime": "2026-11-19T03:46:38.408698+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hubble",
+    "size": 1,
+    "mtime": "2026-11-20T22:20:49.774607+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "jpas",
+    "size": 1,
+    "mtime": "2026-11-17T01:11:30.541396+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "jplus",
+    "size": 1,
+    "mtime": "2026-11-17T02:04:28.993342+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "kids",
+    "size": 1,
+    "mtime": "2026-11-17T12:01:45.739430+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "legacysurvey",
+    "size": 1,
+    "mtime": "2026-11-16T17:04:16.280942+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "lotss",
+    "size": 1,
+    "mtime": "2026-11-19T19:04:31.486852+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "lsst",
+    "size": 3,
+    "mtime": "2026-11-08T06:02:46.626580+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "pensus",
+    "size": 3,
+    "mtime": "2026-11-11T19:23:16.301332+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "pristine",
+    "size": 1,
+    "mtime": "2026-11-12T22:24:14.925017+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "ps1",
+    "size": 1,
+    "mtime": "2026-11-17T18:04:43.805171+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "registry",
+    "size": 1,
+    "mtime": "2026-10-22T15:51:47.927743+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "sdss",
+    "size": 1,
+    "mtime": "2026-11-21T00:18:40.825449+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "skymapper",
+    "size": 1,
+    "mtime": "2026-11-14T22:41:48.217387+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "splus",
+    "size": 1,
+    "mtime": "2026-11-17T08:18:19.132723+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "uhs",
+    "size": 2,
+    "mtime": "2026-11-23T22:56:23.777209+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "ukidss",
+    "size": 4,
+    "mtime": "2026-11-16T17:26:26.515798+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "unions",
+    "size": 11,
+    "mtime": "2026-04-22T04:24:56.749097+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "vhs",
+    "size": 1,
+    "mtime": "2026-11-17T03:03:55.442624+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "video",
+    "size": 1,
+    "mtime": "2026-11-16T18:06:20.451884+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "viking",
+    "size": 1,
+    "mtime": "2026-11-16T18:06:33.065233+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "vmc",
+    "size": 1,
+    "mtime": "2026-11-16T18:04:26.427728+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "vvvx",
+    "size": 1,
+    "mtime": "2026-11-17T04:05:20.875816+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "zensus",
+    "size": 3,
+    "mtime": "2026-11-18T19:29:31.213938+00:00",
+    "kind": "dir"
+   }
+  ],
+  "zensus": [
+   {
+    "name": ".astroai-lab",
+    "size": 1,
+    "mtime": "2026-09-05T19:01:34.486371+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": ".premove_probe_b",
+    "size": 1,
+    "mtime": "2026-10-16T20:13:01.045550+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "20261019",
+    "size": 5,
+    "mtime": "2026-11-18T05:55:47.506389+00:00",
+    "kind": "dir"
+   }
+  ],
+  "zensus/20261019": [
+   {
+    "name": "README.txt",
+    "size": 694,
+    "mtime": "2026-11-18T05:55:47.508389+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "master_catalog.parquet",
+    "size": 33039815105,
+    "mtime": "2026-10-19T23:47:14.437297+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 13,
+    "mtime": "2026-11-18T05:55:40.657234+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "zensus_20261019",
+    "size": 6,
+    "mtime": "2026-11-18T05:55:47.445388+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "zensus_20261019_5arcs",
+    "size": 4,
+    "mtime": "2026-11-18T05:55:47.494389+00:00",
+    "kind": "dir"
+   }
+  ],
+  "zensus/20261019/zensus_20261019_5arcs": [
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2026-11-17T22:03:50.998705+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 494,
+    "mtime": "2026-11-18T05:55:47.452388+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 87206,
+    "mtime": "2026-11-17T22:03:51.925729+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 494,
+    "mtime": "2026-11-18T05:55:47.494389+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/zensus_20261019": [
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2026-11-17T20:22:56.423305+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 614,
+    "mtime": "2026-11-18T05:55:47.389387+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 87206,
+    "mtime": "2026-11-17T20:22:44.685998+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 106560,
+    "mtime": "2026-11-17T20:22:57.004320+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 614,
+    "mtime": "2026-11-18T05:55:47.445388+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 106560,
+    "mtime": "2026-11-17T20:22:57.005320+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release": [
+   {
+    "name": "cache_preflight.json",
+    "size": 501178,
+    "mtime": "2026-10-19T06:31:10.536140+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "calibration_summary.json",
+    "size": 456,
+    "mtime": "2026-10-19T06:33:43.770965+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "catalog_integrity.json",
+    "size": 1728,
+    "mtime": "2026-10-19T16:56:48.159764+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "family_audit.json",
+    "size": 17584,
+    "mtime": "2026-10-19T06:33:43.780965+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "holdout_qa",
+    "size": 8,
+    "mtime": "2026-10-19T17:28:40.305136+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "memory_watch.json",
+    "size": 342,
+    "mtime": "2026-10-19T17:28:41.083156+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "normalization_results.json",
+    "size": 143697,
+    "mtime": "2026-10-19T06:33:43.765965+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "progress.json",
+    "size": 102,
+    "mtime": "2026-10-19T17:28:41.061155+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "qa",
+    "size": 8,
+    "mtime": "2026-10-19T17:24:10.366310+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "qa_recheck_20261118",
+    "size": 3,
+    "mtime": "2026-11-18T05:55:40.778237+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "regression_delta.json",
+    "size": 773,
+    "mtime": "2026-10-19T17:28:41.068156+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release_manifest.json",
+    "size": 200176,
+    "mtime": "2026-10-19T17:28:41.080156+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "resources.json",
+    "size": 455,
+    "mtime": "2026-10-19T06:31:10.080129+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118": [
+   {
+    "name": "catalog_integrity.json",
+    "size": 1587,
+    "mtime": "2026-11-18T05:55:40.698235+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "merged_integrity.json",
+    "size": 42132,
+    "mtime": "2026-11-18T05:55:40.778237+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "qa",
+    "size": 8,
+    "mtime": "2026-11-18T05:55:47.323385+00:00",
+    "kind": "dir"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa": [
+   {
+    "name": "cosmos",
+    "size": 6,
+    "mtime": "2026-11-18T05:55:41.776259+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "desi_cosmos_xmmlss",
+    "size": 6,
+    "mtime": "2026-11-18T05:55:43.572300+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "desi_qso",
+    "size": 6,
+    "mtime": "2026-11-18T05:55:45.291339+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "gaia_stars",
+    "size": 6,
+    "mtime": "2026-11-18T05:55:47.148381+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "qa_manifest.json",
+    "size": 7103,
+    "mtime": "2026-11-18T05:55:47.382387+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary_by_truth.csv",
+    "size": 1284,
+    "mtime": "2026-11-18T05:55:47.279384+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary_multi_truth.json",
+    "size": 10657,
+    "mtime": "2026-11-18T05:55:47.253384+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary_worst.csv",
+    "size": 788,
+    "mtime": "2026-11-18T05:55:47.322385+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa/gaia_stars": [
+   {
+    "name": "analysis.json",
+    "size": 2507,
+    "mtime": "2026-11-18T05:55:47.195382+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 404,
+    "mtime": "2026-11-18T05:55:47.073380+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 23,
+    "mtime": "2026-11-18T05:55:46.777373+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 436,
+    "mtime": "2026-11-18T05:55:46.922376+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 49722,
+    "mtime": "2026-11-18T05:55:47.148381+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 512,
+    "mtime": "2026-11-18T05:55:46.959377+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa/gaia_stars/release": [
+   {
+    "name": "class_accuracy.json",
+    "size": 86,
+    "mtime": "2026-11-18T05:55:46.323363+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_z.csv",
+    "size": 429,
+    "mtime": "2026-11-18T05:55:46.410365+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_agn.png",
+    "size": 27122,
+    "mtime": "2026-11-18T05:55:46.301362+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_gal.png",
+    "size": 26938,
+    "mtime": "2026-11-18T05:55:46.112358+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_str.png",
+    "size": 27067,
+    "mtime": "2026-11-18T05:55:46.178359+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_metrics.json",
+    "size": 8537105,
+    "mtime": "2026-11-18T05:55:46.030356+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_agn.png",
+    "size": 42079,
+    "mtime": "2026-11-18T05:55:46.262361+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_gal.png",
+    "size": 41685,
+    "mtime": "2026-11-18T05:55:46.071357+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_str.png",
+    "size": 41858,
+    "mtime": "2026-11-18T05:55:46.144359+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_metrics.json",
+    "size": 276,
+    "mtime": "2026-11-18T05:55:46.435365+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 27220,
+    "mtime": "2026-11-18T05:55:46.596369+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 24000,
+    "mtime": "2026-11-18T05:55:46.573368+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 290,
+    "mtime": "2026-11-18T05:55:46.666370+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_metrics.json",
+    "size": 3494,
+    "mtime": "2026-11-18T05:55:46.777373+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_ref.csv",
+    "size": 1122,
+    "mtime": "2026-11-18T05:55:46.874375+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_z.csv",
+    "size": 1893,
+    "mtime": "2026-11-18T05:55:45.752350+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 34417,
+    "mtime": "2026-11-18T05:55:46.714371+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 372,
+    "mtime": "2026-11-18T05:55:46.748372+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 551,
+    "mtime": "2026-11-18T05:55:45.702348+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 27505,
+    "mtime": "2026-11-18T05:55:45.632347+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 24327,
+    "mtime": "2026-11-18T05:55:45.588346+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 27366,
+    "mtime": "2026-11-18T05:55:45.535345+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 40966,
+    "mtime": "2026-11-18T05:55:45.494344+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa/desi_qso": [
+   {
+    "name": "analysis.json",
+    "size": 2645,
+    "mtime": "2026-11-18T05:55:45.363341+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 426,
+    "mtime": "2026-11-18T05:55:45.235338+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 23,
+    "mtime": "2026-11-18T05:55:44.910331+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 482,
+    "mtime": "2026-11-18T05:55:45.053334+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 136151,
+    "mtime": "2026-11-18T05:55:45.291339+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 532,
+    "mtime": "2026-11-18T05:55:45.159336+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa/desi_qso/release": [
+   {
+    "name": "class_accuracy.json",
+    "size": 86,
+    "mtime": "2026-11-18T05:55:44.527322+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_z.csv",
+    "size": 950,
+    "mtime": "2026-11-18T05:55:44.610324+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_agn.png",
+    "size": 28543,
+    "mtime": "2026-11-18T05:55:44.501321+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_gal.png",
+    "size": 28749,
+    "mtime": "2026-11-18T05:55:44.218315+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_str.png",
+    "size": 28838,
+    "mtime": "2026-11-18T05:55:44.396319+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_metrics.json",
+    "size": 8578847,
+    "mtime": "2026-11-18T05:55:44.075312+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_agn.png",
+    "size": 42560,
+    "mtime": "2026-11-18T05:55:44.430320+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_gal.png",
+    "size": 42621,
+    "mtime": "2026-11-18T05:55:44.176314+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_str.png",
+    "size": 42574,
+    "mtime": "2026-11-18T05:55:44.243315+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_metrics.json",
+    "size": 276,
+    "mtime": "2026-11-18T05:55:44.653325+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 27220,
+    "mtime": "2026-11-18T05:55:44.741327+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 24000,
+    "mtime": "2026-11-18T05:55:44.709326+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 285,
+    "mtime": "2026-11-18T05:55:44.775327+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_metrics.json",
+    "size": 4935,
+    "mtime": "2026-11-18T05:55:44.910331+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_ref.csv",
+    "size": 1552,
+    "mtime": "2026-11-18T05:55:44.963332+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_z.csv",
+    "size": 2107,
+    "mtime": "2026-11-18T05:55:43.925308+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 109483,
+    "mtime": "2026-11-18T05:55:44.817328+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 687,
+    "mtime": "2026-11-18T05:55:44.883330+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 1668,
+    "mtime": "2026-11-18T05:55:43.881307+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 29289,
+    "mtime": "2026-11-18T05:55:43.822306+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 24881,
+    "mtime": "2026-11-18T05:55:43.753304+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 31375,
+    "mtime": "2026-11-18T05:55:43.721303+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 41581,
+    "mtime": "2026-11-18T05:55:43.703303+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa/desi_cosmos_xmmlss": [
+   {
+    "name": "analysis.json",
+    "size": 2633,
+    "mtime": "2026-11-18T05:55:43.638302+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 427,
+    "mtime": "2026-11-18T05:55:43.440297+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 23,
+    "mtime": "2026-11-18T05:55:43.149291+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 485,
+    "mtime": "2026-11-18T05:55:43.330295+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 318389,
+    "mtime": "2026-11-18T05:55:43.572300+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 534,
+    "mtime": "2026-11-18T05:55:43.398296+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa/desi_cosmos_xmmlss/release": [
+   {
+    "name": "class_accuracy.json",
+    "size": 86,
+    "mtime": "2026-11-18T05:55:42.723281+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_z.csv",
+    "size": 944,
+    "mtime": "2026-11-18T05:55:42.764282+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_agn.png",
+    "size": 30794,
+    "mtime": "2026-11-18T05:55:42.673280+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_gal.png",
+    "size": 28281,
+    "mtime": "2026-11-18T05:55:42.543277+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_str.png",
+    "size": 32553,
+    "mtime": "2026-11-18T05:55:42.612278+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_metrics.json",
+    "size": 10431859,
+    "mtime": "2026-11-18T05:55:42.453275+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_agn.png",
+    "size": 43534,
+    "mtime": "2026-11-18T05:55:42.651279+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_gal.png",
+    "size": 43578,
+    "mtime": "2026-11-18T05:55:42.523276+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_str.png",
+    "size": 43605,
+    "mtime": "2026-11-18T05:55:42.565277+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_metrics.json",
+    "size": 276,
+    "mtime": "2026-11-18T05:55:42.808283+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 27220,
+    "mtime": "2026-11-18T05:55:42.964286+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 24000,
+    "mtime": "2026-11-18T05:55:42.873284+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 294,
+    "mtime": "2026-11-18T05:55:42.998287+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_metrics.json",
+    "size": 8918,
+    "mtime": "2026-11-18T05:55:43.149291+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_ref.csv",
+    "size": 2988,
+    "mtime": "2026-11-18T05:55:43.304294+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_z.csv",
+    "size": 2142,
+    "mtime": "2026-11-18T05:55:42.189269+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 263284,
+    "mtime": "2026-11-18T05:55:43.057288+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 2611,
+    "mtime": "2026-11-18T05:55:43.108290+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 1974,
+    "mtime": "2026-11-18T05:55:42.148268+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 28625,
+    "mtime": "2026-11-18T05:55:42.032265+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 24817,
+    "mtime": "2026-11-18T05:55:41.992264+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 27272,
+    "mtime": "2026-11-18T05:55:41.936263+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 41481,
+    "mtime": "2026-11-18T05:55:41.892262+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa/cosmos": [
+   {
+    "name": "analysis.json",
+    "size": 2459,
+    "mtime": "2026-11-18T05:55:41.840261+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 397,
+    "mtime": "2026-11-18T05:55:41.738259+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 14,
+    "mtime": "2026-11-18T05:55:41.519253+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 471,
+    "mtime": "2026-11-18T05:55:41.626256+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 34271,
+    "mtime": "2026-11-18T05:55:41.776259+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 531,
+    "mtime": "2026-11-18T05:55:41.651257+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa_recheck_20261118/qa/cosmos/release": [
+   {
+    "name": "conflict_metrics.json",
+    "size": 276,
+    "mtime": "2026-11-18T05:55:41.245247+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 27220,
+    "mtime": "2026-11-18T05:55:41.347250+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 24000,
+    "mtime": "2026-11-18T05:55:41.289248+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 290,
+    "mtime": "2026-11-18T05:55:41.384250+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_metrics.json",
+    "size": 9360,
+    "mtime": "2026-11-18T05:55:41.519253+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_ref.csv",
+    "size": 3080,
+    "mtime": "2026-11-18T05:55:41.587255+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_z.csv",
+    "size": 2159,
+    "mtime": "2026-11-18T05:55:41.174246+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 16580,
+    "mtime": "2026-11-18T05:55:41.432251+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 369,
+    "mtime": "2026-11-18T05:55:41.465252+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 604,
+    "mtime": "2026-11-18T05:55:41.126245+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 27552,
+    "mtime": "2026-11-18T05:55:41.085244+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 24506,
+    "mtime": "2026-11-18T05:55:40.975241+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 26950,
+    "mtime": "2026-11-18T05:55:40.892239+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 41349,
+    "mtime": "2026-11-18T05:55:40.837238+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa": [
+   {
+    "name": "cosmos",
+    "size": 6,
+    "mtime": "2026-10-19T17:03:14.257536+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "desi_cosmos_xmmlss",
+    "size": 6,
+    "mtime": "2026-10-19T17:09:59.551809+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "desi_qso",
+    "size": 6,
+    "mtime": "2026-10-19T17:16:52.732273+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "gaia_stars",
+    "size": 6,
+    "mtime": "2026-10-19T17:24:10.173305+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "qa_manifest.json",
+    "size": 467,
+    "mtime": "2026-10-19T17:24:10.366310+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary_by_truth.csv",
+    "size": 878,
+    "mtime": "2026-10-19T17:24:10.364310+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary_multi_truth.json",
+    "size": 3248,
+    "mtime": "2026-10-19T17:24:10.364310+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary_worst.csv",
+    "size": 812,
+    "mtime": "2026-10-19T17:24:10.366310+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa/gaia_stars": [
+   {
+    "name": "analysis.json",
+    "size": 1926,
+    "mtime": "2026-10-19T17:24:10.172305+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 366,
+    "mtime": "2026-10-19T17:24:10.173305+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 22,
+    "mtime": "2026-10-19T17:24:10.133304+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 414,
+    "mtime": "2026-10-19T17:24:10.172305+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 822036,
+    "mtime": "2026-10-19T17:24:10.170305+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 482,
+    "mtime": "2026-10-19T17:24:10.172305+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa/gaia_stars/release": [
+   {
+    "name": "class_accuracy.json",
+    "size": 56,
+    "mtime": "2026-10-19T17:24:10.117303+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_ref.csv",
+    "size": 291,
+    "mtime": "2026-10-19T17:24:10.131304+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_z.csv",
+    "size": 427,
+    "mtime": "2026-10-19T17:24:10.133304+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_agn.png",
+    "size": 27265,
+    "mtime": "2026-10-19T17:24:10.079302+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_gal.png",
+    "size": 26938,
+    "mtime": "2026-10-19T17:24:09.544289+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_str.png",
+    "size": 27067,
+    "mtime": "2026-10-19T17:24:09.814296+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_metrics.json",
+    "size": 465318,
+    "mtime": "2026-10-19T17:24:09.259282+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_agn.png",
+    "size": 41449,
+    "mtime": "2026-10-19T17:24:09.991300+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_gal.png",
+    "size": 41404,
+    "mtime": "2026-10-19T17:24:09.441286+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_str.png",
+    "size": 41858,
+    "mtime": "2026-10-19T17:24:09.723293+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_metrics.json",
+    "size": 277,
+    "mtime": "2026-10-19T17:24:07.170229+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 27749,
+    "mtime": "2026-10-19T17:24:07.494237+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 25188,
+    "mtime": "2026-10-19T17:24:07.342233+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 307,
+    "mtime": "2026-10-19T17:24:07.536238+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_vs_specz_metrics.json",
+    "size": 3851,
+    "mtime": "2026-10-19T17:24:07.963249+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 213955,
+    "mtime": "2026-10-19T17:24:07.988249+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 371,
+    "mtime": "2026-10-19T17:24:08.574264+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 519,
+    "mtime": "2026-10-19T17:24:08.562264+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 27446,
+    "mtime": "2026-10-19T17:24:08.525263+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 24327,
+    "mtime": "2026-10-19T17:24:08.403260+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 26905,
+    "mtime": "2026-10-19T17:24:08.318258+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 40895,
+    "mtime": "2026-10-19T17:24:08.176254+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa/desi_qso": [
+   {
+    "name": "analysis.json",
+    "size": 1990,
+    "mtime": "2026-10-19T17:16:52.731273+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 415,
+    "mtime": "2026-10-19T17:16:52.732273+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 24,
+    "mtime": "2026-10-19T17:16:52.710272+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 445,
+    "mtime": "2026-10-19T17:16:52.731273+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 436677,
+    "mtime": "2026-10-19T17:16:52.729273+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 497,
+    "mtime": "2026-10-19T17:16:52.731273+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa/desi_qso/release": [
+   {
+    "name": "class_accuracy.json",
+    "size": 56,
+    "mtime": "2026-10-19T17:16:52.691272+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_ref.csv",
+    "size": 504,
+    "mtime": "2026-10-19T17:16:52.707272+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_z.csv",
+    "size": 639,
+    "mtime": "2026-10-19T17:16:52.710272+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_agn.png",
+    "size": 29075,
+    "mtime": "2026-10-19T17:16:52.390264+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_gal.png",
+    "size": 31988,
+    "mtime": "2026-10-19T17:16:51.831250+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_scl.png",
+    "size": 27150,
+    "mtime": "2026-10-19T17:16:52.654271+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_str.png",
+    "size": 32209,
+    "mtime": "2026-10-19T17:16:52.109257+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_metrics.json",
+    "size": 240089,
+    "mtime": "2026-10-19T17:16:51.566243+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_agn.png",
+    "size": 41955,
+    "mtime": "2026-10-19T17:16:52.288261+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_gal.png",
+    "size": 42904,
+    "mtime": "2026-10-19T17:16:51.737247+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_scl.png",
+    "size": 40948,
+    "mtime": "2026-10-19T17:16:52.566268+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_str.png",
+    "size": 42712,
+    "mtime": "2026-10-19T17:16:52.011255+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_metrics.json",
+    "size": 277,
+    "mtime": "2026-10-19T17:16:49.982203+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 27749,
+    "mtime": "2026-10-19T17:16:50.345212+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 25188,
+    "mtime": "2026-10-19T17:16:50.194209+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 302,
+    "mtime": "2026-10-19T17:16:50.387213+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_vs_specz_metrics.json",
+    "size": 19044,
+    "mtime": "2026-10-19T17:16:50.566218+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 112344,
+    "mtime": "2026-10-19T17:16:50.577218+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 413,
+    "mtime": "2026-10-19T17:16:51.190234+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 1280,
+    "mtime": "2026-10-19T17:16:51.164233+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 27474,
+    "mtime": "2026-10-19T17:16:51.124232+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 29814,
+    "mtime": "2026-10-19T17:16:51.004229+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 27653,
+    "mtime": "2026-10-19T17:16:50.904227+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 41423,
+    "mtime": "2026-10-19T17:16:50.762223+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa/desi_cosmos_xmmlss": [
+   {
+    "name": "analysis.json",
+    "size": 2109,
+    "mtime": "2026-10-19T17:09:59.550809+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 385,
+    "mtime": "2026-10-19T17:09:59.551809+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 24,
+    "mtime": "2026-10-19T17:09:59.539809+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 444,
+    "mtime": "2026-10-19T17:09:59.549809+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 163508,
+    "mtime": "2026-10-19T17:09:59.548809+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 495,
+    "mtime": "2026-10-19T17:09:59.549809+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa/desi_cosmos_xmmlss/release": [
+   {
+    "name": "class_accuracy.json",
+    "size": 55,
+    "mtime": "2026-10-19T17:09:59.522808+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_ref.csv",
+    "size": 334,
+    "mtime": "2026-10-19T17:09:59.538809+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_accuracy_by_z.csv",
+    "size": 749,
+    "mtime": "2026-10-19T17:09:59.539809+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_agn.png",
+    "size": 35746,
+    "mtime": "2026-10-19T17:09:59.213800+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_gal.png",
+    "size": 31535,
+    "mtime": "2026-10-19T17:09:58.671787+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_scl.png",
+    "size": 27031,
+    "mtime": "2026-10-19T17:09:59.487808+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_coverage_accuracy_str.png",
+    "size": 36661,
+    "mtime": "2026-10-19T17:09:58.942794+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_metrics.json",
+    "size": 87331,
+    "mtime": "2026-10-19T17:09:58.413780+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_agn.png",
+    "size": 42509,
+    "mtime": "2026-10-19T17:09:59.117798+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_gal.png",
+    "size": 42891,
+    "mtime": "2026-10-19T17:09:58.581784+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_scl.png",
+    "size": 40948,
+    "mtime": "2026-10-19T17:09:59.399805+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "class_reliability_str.png",
+    "size": 43234,
+    "mtime": "2026-10-19T17:09:58.848791+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_metrics.json",
+    "size": 277,
+    "mtime": "2026-10-19T17:09:56.928743+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 27749,
+    "mtime": "2026-10-19T17:09:57.290752+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 25188,
+    "mtime": "2026-10-19T17:09:57.119747+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 315,
+    "mtime": "2026-10-19T17:09:57.344753+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_vs_specz_metrics.json",
+    "size": 17044,
+    "mtime": "2026-10-19T17:09:57.498757+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 34395,
+    "mtime": "2026-10-19T17:09:57.501757+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 770,
+    "mtime": "2026-10-19T17:09:58.109772+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 1520,
+    "mtime": "2026-10-19T17:09:58.089772+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 27647,
+    "mtime": "2026-10-19T17:09:58.052771+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 30446,
+    "mtime": "2026-10-19T17:09:57.923768+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 28977,
+    "mtime": "2026-10-19T17:09:57.830765+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 42016,
+    "mtime": "2026-10-19T17:09:57.681762+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa/cosmos": [
+   {
+    "name": "analysis.json",
+    "size": 2071,
+    "mtime": "2026-10-19T17:03:14.256536+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 423,
+    "mtime": "2026-10-19T17:03:14.257536+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "release",
+    "size": 18,
+    "mtime": "2026-10-19T17:03:14.243536+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 446,
+    "mtime": "2026-10-19T17:03:14.256536+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 216373,
+    "mtime": "2026-10-19T17:03:14.255536+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 496,
+    "mtime": "2026-10-19T17:03:14.256536+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/qa/cosmos/release": [
+   {
+    "name": "conflict_metrics.json",
+    "size": 277,
+    "mtime": "2026-10-19T17:03:12.420490+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 27749,
+    "mtime": "2026-10-19T17:03:12.786499+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 25188,
+    "mtime": "2026-10-19T17:03:12.630495+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 307,
+    "mtime": "2026-10-19T17:03:12.830500+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_metrics.json",
+    "size": 32813,
+    "mtime": "2026-10-19T17:03:13.795525+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_coverage_accuracy.png",
+    "size": 33421,
+    "mtime": "2026-10-19T17:03:14.179534+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_error_rate.png",
+    "size": 40564,
+    "mtime": "2026-10-19T17:03:14.059531+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_reliability.png",
+    "size": 44969,
+    "mtime": "2026-10-19T17:03:13.968529+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_ref.csv",
+    "size": 331,
+    "mtime": "2026-10-19T17:03:14.244536+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_z.csv",
+    "size": 1426,
+    "mtime": "2026-10-19T17:03:14.216535+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_vs_specz_metrics.json",
+    "size": 41409,
+    "mtime": "2026-10-19T17:03:12.990504+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 111253,
+    "mtime": "2026-10-19T17:03:13.000504+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 458,
+    "mtime": "2026-10-19T17:03:13.649521+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 1763,
+    "mtime": "2026-10-19T17:03:13.620520+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 27828,
+    "mtime": "2026-10-19T17:03:13.581519+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 39030,
+    "mtime": "2026-10-19T17:03:13.453516+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 30688,
+    "mtime": "2026-10-19T17:03:13.361514+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 42628,
+    "mtime": "2026-10-19T17:03:13.210510+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/holdout_qa": [
+   {
+    "name": "analysis.json",
+    "size": 4395,
+    "mtime": "2026-10-19T17:28:40.302136+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "analysis.md",
+    "size": 883,
+    "mtime": "2026-10-19T17:28:40.303136+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "feature",
+    "size": 18,
+    "mtime": "2026-10-19T17:28:37.384063+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "holdout_run_manifest.json",
+    "size": 1782,
+    "mtime": "2026-10-19T17:28:40.305136+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "priority",
+    "size": 18,
+    "mtime": "2026-10-19T17:28:40.081131+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "summary.csv",
+    "size": 654,
+    "mtime": "2026-10-19T17:28:40.301136+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.json",
+    "size": 5290238,
+    "mtime": "2026-10-19T17:28:40.300136+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "summary.md",
+    "size": 627,
+    "mtime": "2026-10-19T17:28:40.301136+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/holdout_qa/priority": [
+   {
+    "name": "conflict_metrics.json",
+    "size": 270,
+    "mtime": "2026-10-19T17:28:38.160082+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 32086,
+    "mtime": "2026-10-19T17:28:38.490090+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 28160,
+    "mtime": "2026-10-19T17:28:38.333086+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 135,
+    "mtime": "2026-10-19T17:28:38.533092+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_metrics.json",
+    "size": 450087,
+    "mtime": "2026-10-19T17:28:39.613119+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_coverage_accuracy.png",
+    "size": 30751,
+    "mtime": "2026-10-19T17:28:39.981128+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_error_rate.png",
+    "size": 30874,
+    "mtime": "2026-10-19T17:28:39.855125+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_reliability.png",
+    "size": 49878,
+    "mtime": "2026-10-19T17:28:39.773123+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_ref.csv",
+    "size": 337,
+    "mtime": "2026-10-19T17:28:40.081131+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_z.csv",
+    "size": 1457,
+    "mtime": "2026-10-19T17:28:40.028129+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_vs_specz_metrics.json",
+    "size": 462366,
+    "mtime": "2026-10-19T17:28:38.719096+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 1381531,
+    "mtime": "2026-10-19T17:28:38.785098+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 1243,
+    "mtime": "2026-10-19T17:28:39.380113+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 2121,
+    "mtime": "2026-10-19T17:28:39.324111+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 27301,
+    "mtime": "2026-10-19T17:28:39.267110+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 29020,
+    "mtime": "2026-10-19T17:28:39.137107+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 27435,
+    "mtime": "2026-10-19T17:28:39.056105+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 42348,
+    "mtime": "2026-10-19T17:28:38.923101+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/20261019/release/holdout_qa/feature": [
+   {
+    "name": "conflict_metrics.json",
+    "size": 276,
+    "mtime": "2026-10-19T17:28:35.416013+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_spec_measurement_hist.png",
+    "size": 31072,
+    "mtime": "2026-10-19T17:28:35.740021+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_support_hist.png",
+    "size": 28179,
+    "mtime": "2026-10-19T17:28:35.585017+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "conflict_top_refs.csv",
+    "size": 135,
+    "mtime": "2026-10-19T17:28:35.782022+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_metrics.json",
+    "size": 446999,
+    "mtime": "2026-10-19T17:28:36.905050+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_coverage_accuracy.png",
+    "size": 30821,
+    "mtime": "2026-10-19T17:28:37.281060+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_error_rate.png",
+    "size": 29136,
+    "mtime": "2026-10-19T17:28:37.161057+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_score_reliability.png",
+    "size": 50779,
+    "mtime": "2026-10-19T17:28:37.079055+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_ref.csv",
+    "size": 1152,
+    "mtime": "2026-10-19T17:28:37.385062+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_slices_by_z.csv",
+    "size": 1456,
+    "mtime": "2026-10-19T17:28:37.328061+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zphot_vs_specz_metrics.json",
+    "size": 461072,
+    "mtime": "2026-10-19T17:28:36.004028+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_metrics.json",
+    "size": 1380589,
+    "mtime": "2026-10-19T17:28:36.081030+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_ref.csv",
+    "size": 1262,
+    "mtime": "2026-10-19T17:28:36.678045+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_slices_by_z.csv",
+    "size": 2093,
+    "mtime": "2026-10-19T17:28:36.620043+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_coverage_accuracy.png",
+    "size": 27404,
+    "mtime": "2026-10-19T17:28:36.565042+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_error_rate.png",
+    "size": 29997,
+    "mtime": "2026-10-19T17:28:36.437039+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_hist.png",
+    "size": 27353,
+    "mtime": "2026-10-19T17:28:36.355036+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "zspec_wspec_reliability.png",
+    "size": 42632,
+    "mtime": "2026-10-19T17:28:36.224033+00:00",
+    "kind": "file"
+   }
+  ],
+  "zensus/.premove_probe_b": [
+   {
+    "name": ".premove_probe_a",
+    "size": 0,
+    "mtime": "2026-10-16T20:13:00.928547+00:00",
+    "kind": "dir"
+   }
+  ],
+  "zensus/.premove_probe_b/.premove_probe_a": [],
+  "zensus/.astroai-lab": [
+   {
+    "name": "pythonpath",
+    "size": 46,
+    "mtime": "2026-09-05T19:01:34.486371+00:00",
+    "kind": "file"
+   }
+  ],
+  "vvvx": [
+   {
+    "name": "dr1",
+    "size": 7,
+    "mtime": "2026-11-17T03:59:15.549060+00:00",
+    "kind": "dir"
+   }
+  ],
+  "vvvx/dr1": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 471,
+    "mtime": "2026-11-17T03:59:15.549060+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-17T03:59:12.188970+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 451,
+    "mtime": "2026-11-17T03:59:12.489978+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 13232,
+    "mtime": "2026-11-17T03:59:11.640955+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 7761600,
+    "mtime": "2026-11-17T03:59:12.312973+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 451,
+    "mtime": "2026-11-17T03:59:12.490978+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 7761600,
+    "mtime": "2026-11-17T03:59:12.394976+00:00",
+    "kind": "file"
+   }
+  ],
+  "vmc": [
+   {
+    "name": "dr7",
+    "size": 7,
+    "mtime": "2026-11-16T08:09:17.789146+00:00",
+    "kind": "dir"
+   }
+  ],
+  "vmc/dr7": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 379,
+    "mtime": "2026-11-16T08:09:17.790146+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-16T08:09:15.784101+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 449,
+    "mtime": "2026-11-16T08:09:15.954105+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 1161,
+    "mtime": "2026-11-16T08:09:15.686099+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 901440,
+    "mtime": "2026-11-16T08:09:15.881103+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 449,
+    "mtime": "2026-11-16T08:09:15.954105+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 901440,
+    "mtime": "2026-11-16T08:09:15.940104+00:00",
+    "kind": "file"
+   }
+  ],
+  "viking": [
+   {
+    "name": "dr5",
+    "size": 7,
+    "mtime": "2026-11-16T10:15:23.335527+00:00",
+    "kind": "dir"
+   }
+  ],
+  "viking/dr5": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 391,
+    "mtime": "2026-11-16T10:15:23.337527+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-16T10:15:21.413475+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 447,
+    "mtime": "2026-11-16T10:15:21.639481+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 1115,
+    "mtime": "2026-11-16T10:15:21.284472+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 6436800,
+    "mtime": "2026-11-16T10:15:21.536479+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 447,
+    "mtime": "2026-11-16T10:15:21.640481+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 6436800,
+    "mtime": "2026-11-16T10:15:21.619481+00:00",
+    "kind": "file"
+   }
+  ],
+  "video": [
+   {
+    "name": "dr6",
+    "size": 7,
+    "mtime": "2026-11-16T09:03:48.580781+00:00",
+    "kind": "dir"
+   }
+  ],
+  "video/dr6": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 384,
+    "mtime": "2026-11-16T09:03:48.580781+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-16T09:03:46.894742+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 447,
+    "mtime": "2026-11-16T09:03:47.047745+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 80,
+    "mtime": "2026-11-16T09:03:46.867741+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 77760,
+    "mtime": "2026-11-16T09:03:46.987744+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 447,
+    "mtime": "2026-11-16T09:03:47.048745+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 77760,
+    "mtime": "2026-11-16T09:03:47.040745+00:00",
+    "kind": "file"
+   }
+  ],
+  "vhs": [
+   {
+    "name": "dr7",
+    "size": 7,
+    "mtime": "2026-11-17T02:41:53.296224+00:00",
+    "kind": "dir"
+   }
+  ],
+  "vhs/dr7": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 467,
+    "mtime": "2026-11-17T02:41:53.297224+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-17T02:41:40.963891+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 450,
+    "mtime": "2026-11-17T02:41:42.795940+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 24564,
+    "mtime": "2026-11-17T02:41:39.108841+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 90426240,
+    "mtime": "2026-11-17T02:41:41.935917+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 450,
+    "mtime": "2026-11-17T02:41:42.796941+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 90426240,
+    "mtime": "2026-11-17T02:41:42.346928+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions": [
+   {
+    "name": ".claude",
+    "size": 1,
+    "mtime": "2026-05-01T00:57:29.609162+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "PGM",
+    "size": 5,
+    "mtime": "2026-03-02T14:48:15.043537+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "ShapePipe",
+    "size": 2,
+    "mtime": "2026-01-26T17:49:42.265302+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "cfis_DR6_r",
+    "size": 5,
+    "mtime": "2026-02-10T22:45:34.010350+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "cfis_DR6_r_processed",
+    "size": 5,
+    "mtime": "2026-02-10T21:49:42.827126+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "cfis_DR6_u",
+    "size": 5,
+    "mtime": "2026-01-26T18:11:15.263694+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "cfis_DR6_u_processed",
+    "size": 5,
+    "mtime": "2026-02-10T22:02:01.399888+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "cfis_LSB_DR6_r",
+    "size": 5,
+    "mtime": "2026-01-26T18:33:13.680493+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "euclid_dr1_mer_catalogue_wide",
+    "size": 5,
+    "mtime": "2026-02-08T15:14:46.623010+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "gaap_sp_ugriz_photoz_ext",
+    "size": 3,
+    "mtime": "2026-02-26T03:26:10.825179+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "gaap_ugriz_photoz_ext",
+    "size": 5,
+    "mtime": "2026-02-08T01:01:09.798593+00:00",
+    "kind": "dir"
+   }
+  ],
+  "unions/gaap_ugriz_photoz_ext": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2026-02-08T01:00:54.007703+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 372,
+    "mtime": "2026-02-08T01:00:55.458693+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 9191,
+    "mtime": "2026-02-08T00:59:54.442116+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 18547200,
+    "mtime": "2026-02-08T01:00:54.311701+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 372,
+    "mtime": "2026-02-08T01:00:55.459692+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/gaap_sp_ugriz_photoz_ext": [
+   {
+    "name": "dataset",
+    "size": 8,
+    "mtime": "2026-02-26T03:27:17.386822+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "intermediate",
+    "size": 16,
+    "mtime": "2026-02-26T03:26:10.817179+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 11432,
+    "mtime": "2026-02-26T03:26:10.826179+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/euclid_dr1_mer_catalogue_wide": [
+   {
+    "name": "dataset",
+    "size": 10,
+    "mtime": "2026-02-08T15:14:15.744235+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 386,
+    "mtime": "2026-02-08T15:14:18.675213+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 25012,
+    "mtime": "2026-02-08T15:09:38.764245+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 10676160,
+    "mtime": "2026-02-08T15:14:17.085225+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 386,
+    "mtime": "2026-02-08T15:14:18.677213+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/cfis_LSB_DR6_r": [
+   {
+    "name": "dataset",
+    "size": 10,
+    "mtime": "2026-01-26T18:33:12.210470+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 365,
+    "mtime": "2026-01-26T18:33:13.679493+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 12180,
+    "mtime": "2026-01-26T18:33:12.516475+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-01-26T18:33:13.659493+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 365,
+    "mtime": "2026-01-26T18:33:13.749495+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/cfis_DR6_u_processed": [
+   {
+    "name": "dataset",
+    "size": 12,
+    "mtime": "2026-02-10T22:02:01.107890+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 371,
+    "mtime": "2026-02-10T22:02:01.399888+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 4704,
+    "mtime": "2026-02-10T22:02:01.153890+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 44210880,
+    "mtime": "2026-02-10T22:02:01.371888+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 371,
+    "mtime": "2026-02-10T22:02:01.526887+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/cfis_DR6_u": [
+   {
+    "name": "dataset",
+    "size": 12,
+    "mtime": "2026-01-26T18:11:14.423681+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 361,
+    "mtime": "2026-01-26T18:11:15.262694+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 4786,
+    "mtime": "2026-01-26T18:11:14.504682+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-01-26T18:11:15.234694+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 361,
+    "mtime": "2026-01-26T18:11:15.295695+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/cfis_DR6_r_processed": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2026-02-10T21:49:42.641127+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 370,
+    "mtime": "2026-02-10T21:49:42.827126+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 10018,
+    "mtime": "2026-02-10T21:49:42.685127+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 22757760,
+    "mtime": "2026-02-10T21:49:42.802126+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 370,
+    "mtime": "2026-02-10T21:49:42.846126+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/cfis_DR6_r": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2026-01-26T18:01:55.438862+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 361,
+    "mtime": "2026-01-26T18:01:56.402878+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 12135,
+    "mtime": "2026-01-26T18:01:55.517864+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-01-26T18:01:56.380877+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 361,
+    "mtime": "2026-01-26T18:01:56.457878+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/ShapePipe": [
+   {
+    "name": "cut_struct_v1.6.6",
+    "size": 5,
+    "mtime": "2026-01-26T17:53:01.286436+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "psf_v1.6a",
+    "size": 5,
+    "mtime": "2026-01-26T17:49:40.532274+00:00",
+    "kind": "dir"
+   }
+  ],
+  "unions/ShapePipe/psf_v1.6a": [
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-01-26T17:49:37.537227+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 339,
+    "mtime": "2026-01-26T17:49:40.532274+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 138,
+    "mtime": "2026-01-26T17:49:37.766231+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-01-26T17:49:40.296271+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 339,
+    "mtime": "2026-01-26T17:49:42.265302+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/ShapePipe/cut_struct_v1.6.6": [
+   {
+    "name": "dataset",
+    "size": 8,
+    "mtime": "2026-01-26T17:53:00.051416+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 349,
+    "mtime": "2026-01-26T17:53:01.286436+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 1400,
+    "mtime": "2026-01-26T17:53:00.106417+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-01-26T17:53:01.238435+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 349,
+    "mtime": "2026-01-26T17:53:01.384437+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/PGM": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2026-03-02T14:47:26.803885+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 342,
+    "mtime": "2026-03-02T14:47:29.887863+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 40999,
+    "mtime": "2026-03-02T14:41:50.857019+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-03-02T14:47:27.414881+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 342,
+    "mtime": "2026-03-02T14:47:29.887863+00:00",
+    "kind": "file"
+   }
+  ],
+  "unions/.claude": [
+   {
+    "name": "settings.local.json",
+    "size": 131,
+    "mtime": "2026-05-01T00:57:29.578162+00:00",
+    "kind": "file"
+   }
+  ],
+  "ukidss": [
+   {
+    "name": "dr11_dxs",
+    "size": 7,
+    "mtime": "2026-11-16T00:07:29.422636+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dr11_gcs",
+    "size": 7,
+    "mtime": "2026-11-15T23:12:29.477132+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dr11_las",
+    "size": 7,
+    "mtime": "2026-11-15T22:16:02.430392+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dr11_uds",
+    "size": 7,
+    "mtime": "2026-11-16T01:08:45.594110+00:00",
+    "kind": "dir"
+   }
+  ],
+  "ukidss/dr11_uds": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 380,
+    "mtime": "2026-11-16T01:08:45.595110+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2026-11-16T01:08:43.806063+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 450,
+    "mtime": "2026-11-16T01:08:43.980067+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 17,
+    "mtime": "2026-11-16T01:08:43.782062+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 11520,
+    "mtime": "2026-11-16T01:08:43.898065+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 450,
+    "mtime": "2026-11-16T01:08:43.981067+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 11520,
+    "mtime": "2026-11-16T01:08:43.966067+00:00",
+    "kind": "file"
+   }
+  ],
+  "ukidss/dr11_las": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 386,
+    "mtime": "2026-11-15T22:16:02.504394+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-15T22:16:00.271335+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 454,
+    "mtime": "2026-11-15T22:16:00.602343+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 1199,
+    "mtime": "2026-11-15T22:15:59.991327+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 18230400,
+    "mtime": "2026-11-15T22:16:00.439339+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 454,
+    "mtime": "2026-11-15T22:16:00.603343+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 18230400,
+    "mtime": "2026-11-15T22:16:00.572343+00:00",
+    "kind": "file"
+   }
+  ],
+  "ukidss/dr11_gcs": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 386,
+    "mtime": "2026-11-15T23:12:29.477132+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-15T23:12:27.572082+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 454,
+    "mtime": "2026-11-15T23:12:27.752086+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 992,
+    "mtime": "2026-11-15T23:12:27.505080+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 6004800,
+    "mtime": "2026-11-15T23:12:27.648083+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 454,
+    "mtime": "2026-11-15T23:12:27.753086+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 6004800,
+    "mtime": "2026-11-15T23:12:27.708085+00:00",
+    "kind": "file"
+   }
+  ],
+  "ukidss/dr11_dxs": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 382,
+    "mtime": "2026-11-16T00:07:29.422636+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 4,
+    "mtime": "2026-11-16T00:07:27.685596+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 452,
+    "mtime": "2026-11-16T00:07:27.846599+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 30,
+    "mtime": "2026-11-16T00:07:27.658595+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 175680,
+    "mtime": "2026-11-16T00:07:27.782598+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 452,
+    "mtime": "2026-11-16T00:07:27.847599+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 175680,
+    "mtime": "2026-11-16T00:07:27.837599+00:00",
+    "kind": "file"
+   }
+  ],
+  "uhs": [
+   {
+    "name": "dr3",
+    "size": 7,
+    "mtime": "2026-11-23T22:53:42.137481+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dr3_prera_backup",
+    "size": 8,
+    "mtime": "2026-11-16T04:29:11.758824+00:00",
+    "kind": "dir"
+   }
+  ],
+  "uhs/dr3_prera_backup": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 593,
+    "mtime": "2026-11-16T04:29:11.768824+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "PENSUS_QA.json",
+    "size": 223,
+    "mtime": "2026-11-16T19:02:50.081254+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-16T03:36:41.712360+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 451,
+    "mtime": "2026-11-16T03:36:42.368377+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 7347,
+    "mtime": "2026-11-16T03:36:41.023342+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 61997760,
+    "mtime": "2026-11-16T03:36:42.013368+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 451,
+    "mtime": "2026-11-16T03:36:42.369377+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 61997760,
+    "mtime": "2026-11-16T03:36:42.268374+00:00",
+    "kind": "file"
+   }
+  ],
+  "uhs/dr3": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 534,
+    "mtime": "2026-11-23T22:53:42.138481+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-23T22:53:38.663401+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 460,
+    "mtime": "2026-11-23T22:53:39.273415+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 7347,
+    "mtime": "2026-11-23T22:53:38.243391+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 61997760,
+    "mtime": "2026-11-23T22:53:38.941407+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 460,
+    "mtime": "2026-11-23T22:53:39.274415+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 61997760,
+    "mtime": "2026-11-23T22:53:39.191413+00:00",
+    "kind": "file"
+   }
+  ],
+  "splus": [
+   {
+    "name": "dr4",
+    "size": 7,
+    "mtime": "2026-11-17T08:17:34.210547+00:00",
+    "kind": "dir"
+   }
+  ],
+  "splus/dr4": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 448,
+    "mtime": "2026-11-17T08:17:34.211547+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 8,
+    "mtime": "2026-11-17T08:17:31.852485+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 444,
+    "mtime": "2026-11-17T08:17:32.159494+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 1467,
+    "mtime": "2026-11-17T08:17:31.600479+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 12928320,
+    "mtime": "2026-11-17T08:17:32.014490+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 444,
+    "mtime": "2026-11-17T08:17:32.160494+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 12928320,
+    "mtime": "2026-11-17T08:17:32.119493+00:00",
+    "kind": "file"
+   }
+  ],
+  "skymapper": [
+   {
+    "name": "dr4",
+    "size": 3,
+    "mtime": "2026-11-11T21:31:09.994670+00:00",
+    "kind": "dir"
+   }
+  ],
+  "skymapper/dr4": [
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-11T21:31:09.969669+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 2269,
+    "mtime": "2026-11-11T21:31:04.893544+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 474,
+    "mtime": "2026-11-11T21:31:04.896544+00:00",
+    "kind": "file"
+   }
+  ],
+  "sdss": [
+   {
+    "name": "photoprimary_dr13",
+    "size": 7,
+    "mtime": "2026-11-20T09:31:46.035984+00:00",
+    "kind": "dir"
+   }
+  ],
+  "sdss/photoprimary_dr13": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 539,
+    "mtime": "2026-11-20T09:31:46.036984+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-20T09:31:37.483777+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 446,
+    "mtime": "2026-11-20T09:31:38.840810+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 7965,
+    "mtime": "2026-11-20T09:31:22.789421+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 71809920,
+    "mtime": "2026-11-20T09:31:38.147793+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 446,
+    "mtime": "2026-11-20T09:31:38.842810+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 71809920,
+    "mtime": "2026-11-20T09:31:38.454801+00:00",
+    "kind": "file"
+   }
+  ],
+  "registry": [
+   {
+    "name": "hats_registry.json",
+    "size": 15828,
+    "mtime": "2026-10-22T15:51:47.927743+00:00",
+    "kind": "file"
+   }
+  ],
+  "ps1": [
+   {
+    "name": "otmo",
+    "size": 3,
+    "mtime": "2026-11-12T09:21:25.509482+00:00",
+    "kind": "dir"
+   }
+  ],
+  "ps1/otmo": [
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-12T09:21:25.281476+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 207524,
+    "mtime": "2026-11-12T09:20:29.572097+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 381,
+    "mtime": "2026-11-12T09:20:28.545072+00:00",
+    "kind": "file"
+   }
+  ],
+  "pristine": [
+   {
+    "name": "dr2",
+    "size": 7,
+    "mtime": "2026-11-12T16:26:05.389443+00:00",
+    "kind": "dir"
+   }
+  ],
+  "pristine/dr2": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 383,
+    "mtime": "2026-11-12T16:26:05.390443+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-12T16:25:08.025089+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 459,
+    "mtime": "2026-11-12T16:25:08.431098+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 334,
+    "mtime": "2026-11-12T16:25:07.961087+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 39545280,
+    "mtime": "2026-11-12T16:25:08.223094+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 459,
+    "mtime": "2026-11-12T16:25:08.432098+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 39545280,
+    "mtime": "2026-11-12T16:25:08.396098+00:00",
+    "kind": "file"
+   }
+  ],
+  "pensus": [
+   {
+    "name": "docs",
+    "size": 1,
+    "mtime": "2026-11-11T19:24:04.093544+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "sidecars",
+    "size": 0,
+    "mtime": "2026-11-11T19:23:14.772380+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "views",
+    "size": 0,
+    "mtime": "2026-11-11T19:23:13.111341+00:00",
+    "kind": "dir"
+   }
+  ],
+  "pensus/views": [],
+  "pensus/sidecars": [],
+  "pensus/docs": [
+   {
+    "name": "quota-probe.json",
+    "size": 1687,
+    "mtime": "2026-11-11T19:24:06.166593+00:00",
+    "kind": "file"
+   }
+  ],
+  "lsst": [
+   {
+    "name": "dp1",
+    "size": 3,
+    "mtime": "2025-07-11T23:15:55.400257+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dp2",
+    "size": 32,
+    "mtime": "2026-11-08T06:02:46.626580+00:00",
+    "kind": "link",
+    "target": "/arc/projects/LSST/lsdb_data/dp2"
+   },
+   {
+    "name": "instructions.md",
+    "size": 3194,
+    "mtime": "2026-11-07T01:54:26.121358+00:00",
+    "kind": "file"
+   }
+  ],
+  "lsst/dp1": [
+   {
+    "name": "dia_object_collection",
+    "size": 4,
+    "mtime": "2025-07-10T01:09:11.965089+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "object_collection",
+    "size": 4,
+    "mtime": "2025-07-09T21:59:39.386132+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "object_photoz",
+    "size": 5,
+    "mtime": "2025-07-10T15:15:37.548439+00:00",
+    "kind": "dir"
+   }
+  ],
+  "lsst/dp1/object_photoz": [
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2025-07-10T15:15:38.248430+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 287,
+    "mtime": "2025-06-27T14:27:06+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 32,
+    "mtime": "2025-06-27T14:00:04+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 6298560,
+    "mtime": "2025-06-27T14:00:04+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 287,
+    "mtime": "2025-06-27T14:27:13+00:00",
+    "kind": "file"
+   }
+  ],
+  "lsst/dp1/object_collection": [
+   {
+    "name": "collection.properties",
+    "size": 323,
+    "mtime": "2025-06-27T14:00:59+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "object_lc",
+    "size": 9,
+    "mtime": "2025-07-09T22:03:54.929420+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "object_lc_5arcs",
+    "size": 4,
+    "mtime": "2025-07-09T22:05:34.480363+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "object_lc_objectId",
+    "size": 3,
+    "mtime": "2025-07-09T22:05:58.096114+00:00",
+    "kind": "dir"
+   }
+  ],
+  "lsst/dp1/object_collection/object_lc_objectId": [
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2025-07-09T22:06:15.949925+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 387,
+    "mtime": "2025-06-27T14:00:48+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 387,
+    "mtime": "2025-06-27T14:00:48+00:00",
+    "kind": "file"
+   }
+  ],
+  "lsst/dp1/object_collection/object_lc_5arcs": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2025-07-09T22:06:07.325016+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 468,
+    "mtime": "2025-06-27T14:00:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 3681,
+    "mtime": "2025-06-27T14:00:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 468,
+    "mtime": "2025-06-27T14:00:56+00:00",
+    "kind": "file"
+   }
+  ],
+  "lsst/dp1/object_collection/object_lc": [
+   {
+    "name": "dataset",
+    "size": 10,
+    "mtime": "2025-07-09T22:05:58.907105+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 1736,
+    "mtime": "2025-06-30T18:18:34+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 3618,
+    "mtime": "2025-06-27T14:01:17+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 402661440,
+    "mtime": "2025-06-27T14:01:03+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 1736,
+    "mtime": "2025-06-30T18:19:18+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.2.fits",
+    "size": 8640,
+    "mtime": "2025-06-27T14:01:17+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.4.fits",
+    "size": 31680,
+    "mtime": "2025-06-27T14:01:17+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.6.fits",
+    "size": 400320,
+    "mtime": "2025-06-27T14:01:02+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 402661440,
+    "mtime": "2025-06-27T14:01:02+00:00",
+    "kind": "file"
+   }
+  ],
+  "lsst/dp1/dia_object_collection": [
+   {
+    "name": "collection.properties",
+    "size": 348,
+    "mtime": "2025-06-27T14:00:41+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dia_object_lc",
+    "size": 9,
+    "mtime": "2025-07-10T01:37:45.472505+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dia_object_lc_5arcs",
+    "size": 4,
+    "mtime": "2025-07-10T01:40:15.344965+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dia_object_lc_diaObjectId",
+    "size": 3,
+    "mtime": "2025-07-10T01:40:19.860919+00:00",
+    "kind": "dir"
+   }
+  ],
+  "lsst/dp1/dia_object_collection/dia_object_lc_diaObjectId": [
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2025-07-10T01:40:33.190782+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 405,
+    "mtime": "2025-06-27T14:00:41+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 405,
+    "mtime": "2025-06-27T14:00:41+00:00",
+    "kind": "file"
+   }
+  ],
+  "lsst/dp1/dia_object_collection/dia_object_lc_5arcs": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2025-07-10T01:40:27.316842+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 467,
+    "mtime": "2025-06-27T14:00:47+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 1968,
+    "mtime": "2025-06-27T14:00:43+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 467,
+    "mtime": "2025-06-27T14:00:43+00:00",
+    "kind": "file"
+   }
+  ],
+  "lsst/dp1/dia_object_collection/dia_object_lc": [
+   {
+    "name": "dataset",
+    "size": 10,
+    "mtime": "2025-07-10T01:40:20.448913+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 2779,
+    "mtime": "2025-06-27T14:00:34+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 1965,
+    "mtime": "2025-06-27T14:00:33+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 402661440,
+    "mtime": "2025-06-27T14:00:33+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 2779,
+    "mtime": "2025-06-27T14:00:34+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.2.fits",
+    "size": 8640,
+    "mtime": "2025-06-27T14:00:34+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.4.fits",
+    "size": 31680,
+    "mtime": "2025-06-27T14:00:33+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.6.fits",
+    "size": 400320,
+    "mtime": "2025-06-27T14:00:41+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 402661440,
+    "mtime": "2025-06-27T14:00:34+00:00",
+    "kind": "file"
+   }
+  ],
+  "lotss": [
+   {
+    "name": "dr3",
+    "size": 6,
+    "mtime": "2026-11-19T19:04:28.866868+00:00",
+    "kind": "dir"
+   }
+  ],
+  "lotss/dr3": [
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-19T19:04:26.874881+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 452,
+    "mtime": "2026-11-19T19:04:28.866868+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 200,
+    "mtime": "2026-11-19T19:04:26.749881+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 73091520,
+    "mtime": "2026-11-19T19:04:28.141873+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 452,
+    "mtime": "2026-11-19T19:04:28.878868+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 73091520,
+    "mtime": "2026-11-19T19:04:28.688869+00:00",
+    "kind": "file"
+   }
+  ],
+  "legacysurvey": [
+   {
+    "name": "dr11",
+    "size": 7,
+    "mtime": "2026-11-15T15:04:13.705365+00:00",
+    "kind": "dir"
+   }
+  ],
+  "legacysurvey/dr11": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 646,
+    "mtime": "2026-11-15T15:04:13.706365+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-15T13:57:00.713342+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 453,
+    "mtime": "2026-11-15T13:57:03.081395+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 66911,
+    "mtime": "2026-11-15T13:49:49.696683+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-11-15T13:57:02.083373+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 453,
+    "mtime": "2026-11-15T13:57:03.082395+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 100670400,
+    "mtime": "2026-11-15T13:57:02.282377+00:00",
+    "kind": "file"
+   }
+  ],
+  "kids": [
+   {
+    "name": "dr5",
+    "size": 7,
+    "mtime": "2026-11-17T11:55:18.735758+00:00",
+    "kind": "dir"
+   }
+  ],
+  "kids/dr5": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 477,
+    "mtime": "2026-11-17T11:55:18.735758+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-17T11:55:07.247447+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 446,
+    "mtime": "2026-11-17T11:55:08.161472+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 2750,
+    "mtime": "2026-11-17T11:54:48.155931+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 6583680,
+    "mtime": "2026-11-17T11:55:07.859464+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 446,
+    "mtime": "2026-11-17T11:55:08.162472+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 6583680,
+    "mtime": "2026-11-17T11:55:07.976467+00:00",
+    "kind": "file"
+   }
+  ],
+  "jplus": [
+   {
+    "name": "dr3",
+    "size": 7,
+    "mtime": "2026-11-17T01:27:55.381008+00:00",
+    "kind": "dir"
+   }
+  ],
+  "jplus/dr3": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 474,
+    "mtime": "2026-11-17T01:27:55.381008+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 4,
+    "mtime": "2026-11-17T01:27:53.324962+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 464,
+    "mtime": "2026-11-17T01:27:53.561967+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 213,
+    "mtime": "2026-11-17T01:27:53.275961+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 7562880,
+    "mtime": "2026-11-17T01:27:53.460965+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 464,
+    "mtime": "2026-11-17T01:27:53.630969+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 7562880,
+    "mtime": "2026-11-17T01:27:53.545967+00:00",
+    "kind": "file"
+   }
+  ],
+  "jpas": [
+   {
+    "name": "e2dr",
+    "size": 7,
+    "mtime": "2026-11-17T00:19:01.384784+00:00",
+    "kind": "dir"
+   }
+  ],
+  "jpas/e2dr": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 473,
+    "mtime": "2026-11-17T00:19:01.384784+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-17T00:18:59.735741+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 464,
+    "mtime": "2026-11-17T00:18:59.850744+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 65,
+    "mtime": "2026-11-17T00:18:59.709741+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 1160640,
+    "mtime": "2026-11-17T00:18:59.793743+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 464,
+    "mtime": "2026-11-17T00:18:59.850744+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 1160640,
+    "mtime": "2026-11-17T00:18:59.841744+00:00",
+    "kind": "file"
+   }
+  ],
+  "hubble": [
+   {
+    "name": "hsc_v4",
+    "size": 6,
+    "mtime": "2026-11-20T22:20:43.518468+00:00",
+    "kind": "dir"
+   }
+  ],
+  "hubble/hsc_v4": [
+   {
+    "name": "dataset",
+    "size": 12,
+    "mtime": "2026-11-20T22:20:42.845453+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 463,
+    "mtime": "2026-11-20T22:20:43.517467+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 3705,
+    "mtime": "2026-11-20T22:20:42.297440+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 1183680,
+    "mtime": "2026-11-20T22:20:42.993456+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 463,
+    "mtime": "2026-11-20T22:20:43.522468+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 1183680,
+    "mtime": "2026-11-20T22:20:43.058457+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc": [
+   {
+    "name": "pdr3",
+    "size": 9,
+    "mtime": "2026-11-20T20:54:56.887095+00:00",
+    "kind": "dir"
+   }
+  ],
+  "hsc/pdr3": [
+   {
+    "name": "forced_g",
+    "size": 3,
+    "mtime": "2026-11-19T04:39:51.271184+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "forced_i",
+    "size": 3,
+    "mtime": "2026-11-19T06:46:43.735030+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "forced_nb0387",
+    "size": 7,
+    "mtime": "2026-11-19T22:21:41.852753+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "forced_nb0816",
+    "size": 7,
+    "mtime": "2026-11-19T22:23:14.434870+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "forced_nb0921",
+    "size": 7,
+    "mtime": "2026-11-19T22:24:49.685050+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "forced_nb1010",
+    "size": 7,
+    "mtime": "2026-11-19T22:25:26.984904+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "forced_r",
+    "size": 3,
+    "mtime": "2026-11-19T05:55:33.190233+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "forced_y",
+    "size": 3,
+    "mtime": "2026-11-19T08:29:52.122189+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "forced_z",
+    "size": 3,
+    "mtime": "2026-11-19T07:39:46.635693+00:00",
+    "kind": "dir"
+   }
+  ],
+  "hsc/pdr3/forced_z": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2026-11-19T07:39:46.604692+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 17023,
+    "mtime": "2026-11-19T07:39:44.714645+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 446,
+    "mtime": "2026-11-19T07:39:44.717645+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc/pdr3/forced_y": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2026-11-19T08:29:52.092188+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 16192,
+    "mtime": "2026-11-19T08:29:50.007135+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 446,
+    "mtime": "2026-11-19T08:29:49.998135+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc/pdr3/forced_r": [
+   {
+    "name": "dataset",
+    "size": 10,
+    "mtime": "2026-11-19T05:55:33.149232+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 17082,
+    "mtime": "2026-11-19T05:55:31.173182+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 446,
+    "mtime": "2026-11-19T05:55:31.176182+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc/pdr3/forced_nb1010": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 513,
+    "mtime": "2026-11-19T22:25:26.994905+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-19T22:25:25.129862+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 458,
+    "mtime": "2026-11-19T22:25:25.311866+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 119,
+    "mtime": "2026-11-19T22:25:25.091861+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 40320,
+    "mtime": "2026-11-19T22:25:25.217864+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 458,
+    "mtime": "2026-11-19T22:25:25.321866+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 40320,
+    "mtime": "2026-11-19T22:25:25.287865+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc/pdr3/forced_nb0921": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 514,
+    "mtime": "2026-11-19T22:24:49.686050+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-19T22:24:47.222994+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 459,
+    "mtime": "2026-11-19T22:24:47.942011+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 304,
+    "mtime": "2026-11-19T22:24:47.135992+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 187200,
+    "mtime": "2026-11-19T22:24:47.314996+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 459,
+    "mtime": "2026-11-19T22:24:47.957011+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 187200,
+    "mtime": "2026-11-19T22:24:47.381998+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc/pdr3/forced_nb0816": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 514,
+    "mtime": "2026-11-19T22:23:14.434870+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-19T22:23:12.432824+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 459,
+    "mtime": "2026-11-19T22:23:12.635829+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 304,
+    "mtime": "2026-11-19T22:23:12.375823+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 187200,
+    "mtime": "2026-11-19T22:23:12.539827+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 459,
+    "mtime": "2026-11-19T22:23:12.636829+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 187200,
+    "mtime": "2026-11-19T22:23:12.614828+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc/pdr3/forced_nb0387": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 514,
+    "mtime": "2026-11-19T22:21:41.854753+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-19T22:21:39.878708+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 459,
+    "mtime": "2026-11-19T22:21:40.100713+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 296,
+    "mtime": "2026-11-19T22:21:39.777706+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 175680,
+    "mtime": "2026-11-19T22:21:39.997711+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 459,
+    "mtime": "2026-11-19T22:21:40.110713+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 175680,
+    "mtime": "2026-11-19T22:21:40.067712+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc/pdr3/forced_i": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2026-11-19T06:46:43.707030+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 16783,
+    "mtime": "2026-11-19T06:46:41.722982+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 446,
+    "mtime": "2026-11-19T06:46:41.769983+00:00",
+    "kind": "file"
+   }
+  ],
+  "hsc/pdr3/forced_g": [
+   {
+    "name": "dataset",
+    "size": 9,
+    "mtime": "2026-11-19T04:39:51.216183+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 20996,
+    "mtime": "2026-11-19T04:39:47.712093+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 446,
+    "mtime": "2026-11-19T04:39:47.717093+00:00",
+    "kind": "file"
+   }
+  ],
+  "galex": [
+   {
+    "name": "guvcat_ais_gr67",
+    "size": 7,
+    "mtime": "2026-11-12T16:13:51.393157+00:00",
+    "kind": "dir"
+   }
+  ],
+  "galex/guvcat_ais_gr67": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 2048,
+    "mtime": "2026-11-12T16:13:51.394156+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 4,
+    "mtime": "2026-11-12T15:58:34.673748+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 454,
+    "mtime": "2026-11-12T15:58:35.393764+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 866,
+    "mtime": "2026-11-12T15:58:29.623631+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-11-12T15:58:34.929754+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 454,
+    "mtime": "2026-11-12T15:58:35.395765+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 100670400,
+    "mtime": "2026-11-12T15:58:35.151759+00:00",
+    "kind": "file"
+   }
+  ],
+  "gaia": [
+   {
+    "name": "dr3",
+    "size": 3,
+    "mtime": "2026-11-11T21:53:22.527627+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dr3_xp_continuous",
+    "size": 4,
+    "mtime": "2026-11-14T02:03:32.557422+00:00",
+    "kind": "dir"
+   }
+  ],
+  "gaia/dr3_xp_continuous": [
+   {
+    "name": "_done",
+    "size": 3386,
+    "mtime": "2026-11-14T01:39:34.911259+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-13T22:04:50.820484+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 552,
+    "mtime": "2026-11-14T02:03:32.558422+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 14285,
+    "mtime": "2026-11-14T02:03:32.525421+00:00",
+    "kind": "file"
+   }
+  ],
+  "gaia/dr3": [
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-11T21:53:22.435625+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 14285,
+    "mtime": "2026-11-11T21:53:20.174566+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 1927,
+    "mtime": "2026-11-11T21:53:20.187566+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid": [
+   {
+    "name": "dr1",
+    "size": 3,
+    "mtime": "2026-11-13T18:40:56.221193+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "q1",
+    "size": 4,
+    "mtime": "2026-11-12T14:28:35.437650+00:00",
+    "kind": "dir"
+   }
+  ],
+  "euclid/q1": [
+   {
+    "name": "PENSUS_SYNC.json",
+    "size": 7537,
+    "mtime": "2026-11-11T23:45:54.916966+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-11T23:45:54.910966+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 660,
+    "mtime": "2026-11-11T23:45:54.658960+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 378,
+    "mtime": "2026-11-11T23:45:54.659960+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1": [
+   {
+    "name": "mer_catalogue_deep_survey",
+    "size": 7,
+    "mtime": "2026-11-12T22:26:13.028468+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "mer_catalogue_deep_survey_photometry",
+    "size": 7,
+    "mtime": "2026-11-12T22:25:17.357064+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "mer_catalogue_wide_survey",
+    "size": 7,
+    "mtime": "2026-11-13T00:12:01.755485+00:00",
+    "kind": "dir"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_wide_survey": [
+   {
+    "name": "README.txt",
+    "size": 3842,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "collection.properties",
+    "size": 486,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "download-aws-cli.sh",
+    "size": 1284,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "download-irsa-wget.sh",
+    "size": 883,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats",
+    "size": 9,
+    "mtime": "2026-11-13T00:17:39.385866+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats_index_object_id",
+    "size": 5,
+    "mtime": "2026-11-13T00:20:21.994900+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats_margin_10arcsec",
+    "size": 7,
+    "mtime": "2026-11-13T00:23:06.872993+00:00",
+    "kind": "dir"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats_margin_10arcsec": [
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-13T00:23:12.722139+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 630,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 46168,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 67953,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 5417,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "per_partition_statistics.parquet",
+    "size": 7974717,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 67577,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats_index_object_id": [
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2026-11-13T00:17:40.309889+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 530,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 1471,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 2533,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 406,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats": [
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-13T00:17:53.173208+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 590,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "healpix9_to_partition.txt",
+    "size": 3483163,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 47512,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 67865,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 12977,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 67931,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 54720,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.png",
+    "size": 144713,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_deep_survey_photometry": [
+   {
+    "name": "README.txt",
+    "size": 3915,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "collection.properties",
+    "size": 552,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "download-aws-cli.sh",
+    "size": 1315,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "download-irsa-wget.sh",
+    "size": 914,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats",
+    "size": 9,
+    "mtime": "2026-11-12T22:25:58.939113+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats_index_object_id",
+    "size": 5,
+    "mtime": "2026-11-12T22:25:50.725906+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats_margin_10arcsec",
+    "size": 7,
+    "mtime": "2026-11-12T22:26:02.352199+00:00",
+    "kind": "dir"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_deep_survey_photometry/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats_margin_10arcsec": [
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-12T22:26:02.049191+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 660,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 1135,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 1781,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 143,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "per_partition_statistics.parquet",
+    "size": 1876580,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 104887,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_deep_survey_photometry/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats_index_object_id": [
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2026-11-12T22:25:59.058116+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 560,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 38,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 174,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 406,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_deep_survey_photometry/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats": [
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-12T22:25:44.886758+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 902,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "healpix9_to_partition.txt",
+    "size": 69813,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 1168,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 1781,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 338,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 105241,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 8640,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.png",
+    "size": 95879,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_deep_survey": [
+   {
+    "name": "README.txt",
+    "size": 3840,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "collection.properties",
+    "size": 486,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "download-aws-cli.sh",
+    "size": 1283,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "download-irsa-wget.sh",
+    "size": 882,
+    "mtime": "2026-11-11T16:03:54+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats",
+    "size": 9,
+    "mtime": "2026-11-12T22:30:55.152587+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats_index_object_id",
+    "size": 5,
+    "mtime": "2026-11-12T22:30:55.096585+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats_margin_10arcsec",
+    "size": 7,
+    "mtime": "2026-11-12T22:31:07.936909+00:00",
+    "kind": "dir"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_deep_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats_margin_10arcsec": [
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-12T22:31:07.684903+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 626,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 1799,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 2753,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 220,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "per_partition_statistics.parquet",
+    "size": 1375635,
+    "mtime": "2026-11-11T16:03:58+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 67577,
+    "mtime": "2026-11-11T16:03:56+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_deep_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats_index_object_id": [
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2026-11-12T22:30:58.678676+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 528,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 114,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 300,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 406,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   }
+  ],
+  "euclid/dr1/mer_catalogue_deep_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey-hats": [
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-12T22:30:50.139460+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 588,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "healpix9_to_partition.txt",
+    "size": 134624,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "linecounts.txt",
+    "size": 1852,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "md5sums.txt",
+    "size": 2753,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 527,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "schema.txt",
+    "size": 67931,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 8640,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.png",
+    "size": 97341,
+    "mtime": "2026-11-11T16:03:55+00:00",
+    "kind": "file"
+   }
+  ],
+  "erosita": [
+   {
+    "name": "erass3",
+    "size": 3,
+    "mtime": "2026-11-19T18:54:54.519069+00:00",
+    "kind": "dir"
+   }
+  ],
+  "erosita/erass3": [
+   {
+    "name": "dataset",
+    "size": 5,
+    "mtime": "2026-11-19T18:54:54.496068+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 247,
+    "mtime": "2026-11-19T18:54:54.354064+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 2569,
+    "mtime": "2026-11-19T18:54:54.360065+00:00",
+    "kind": "file"
+   }
+  ],
+  "des": [
+   {
+    "name": "y6_gold",
+    "size": 7,
+    "mtime": "2026-11-24T02:33:49.850450+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "y6_gold_prera_backup",
+    "size": 4,
+    "mtime": "2026-11-21T19:49:41.475031+00:00",
+    "kind": "dir"
+   }
+  ],
+  "des/y6_gold_prera_backup": [
+   {
+    "name": "PENSUS_QA.json",
+    "size": 388,
+    "mtime": "2026-11-21T19:49:42.575055+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-12T11:29:28.328241+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 11720,
+    "mtime": "2026-11-12T11:29:12.682883+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 392,
+    "mtime": "2026-11-12T11:29:12.673883+00:00",
+    "kind": "file"
+   }
+  ],
+  "des/y6_gold": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 546,
+    "mtime": "2026-11-24T02:33:49.851450+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 7,
+    "mtime": "2026-11-24T02:33:41.033209+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 469,
+    "mtime": "2026-11-24T02:33:42.539250+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 11720,
+    "mtime": "2026-11-24T02:31:58.236406+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 25390080,
+    "mtime": "2026-11-24T02:33:42.176240+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 469,
+    "mtime": "2026-11-24T02:33:42.541250+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 25390080,
+    "mtime": "2026-11-24T02:33:42.318244+00:00",
+    "kind": "file"
+   }
+  ],
+  "delve": [
+   {
+    "name": "dr3_gold",
+    "size": 3,
+    "mtime": "2026-11-12T18:57:19.704309+00:00",
+    "kind": "dir"
+   }
+  ],
+  "delve/dr3_gold": [
+   {
+    "name": "dataset",
+    "size": 11,
+    "mtime": "2026-11-12T18:57:19.602306+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 47298,
+    "mtime": "2026-11-12T18:57:11.213083+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 404,
+    "mtime": "2026-11-12T18:57:11.212083+00:00",
+    "kind": "file"
+   }
+  ],
+  "clauds": [
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-07-20T20:57:01.362586+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 444,
+    "mtime": "2026-07-20T20:57:01.585591+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "master_catalog.parquet",
+    "size": 2407002557,
+    "mtime": "2026-08-19T00:22:41.438120+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 371,
+    "mtime": "2026-07-20T20:57:01.241583+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 184320,
+    "mtime": "2026-07-20T20:57:01.477589+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 444,
+    "mtime": "2026-07-20T20:57:01.586591+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 184320,
+    "mtime": "2026-07-20T20:57:01.541590+00:00",
+    "kind": "file"
+   }
+  ],
+  "catwise": [
+   {
+    "name": "2020",
+    "size": 7,
+    "mtime": "2026-11-14T18:51:55.847457+00:00",
+    "kind": "dir"
+   }
+  ],
+  "catwise/2020": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 484,
+    "mtime": "2026-11-14T18:51:55.848457+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 4,
+    "mtime": "2026-11-14T17:03:13.184014+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 451,
+    "mtime": "2026-11-14T17:03:15.383070+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 27941,
+    "mtime": "2026-11-14T16:58:45.346234+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 100670400,
+    "mtime": "2026-11-14T17:03:14.424046+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 451,
+    "mtime": "2026-11-14T17:03:15.385070+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 100670400,
+    "mtime": "2026-11-14T17:03:14.725053+00:00",
+    "kind": "file"
+   }
+  ],
+  "atlas": [
+   {
+    "name": "dr5",
+    "size": 7,
+    "mtime": "2026-11-21T21:34:37.587023+00:00",
+    "kind": "dir"
+   }
+  ],
+  "atlas/dr5": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 489,
+    "mtime": "2026-11-21T21:34:40.264080+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-21T21:41:04.965092+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 445,
+    "mtime": "2026-11-21T21:34:40.940094+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 2668,
+    "mtime": "2026-11-21T21:34:41.679814+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 24209280,
+    "mtime": "2026-11-21T21:37:15.480136+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 445,
+    "mtime": "2026-11-21T21:34:40.784795+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 24209280,
+    "mtime": "2026-11-21T21:38:24.541627+00:00",
+    "kind": "file"
+   }
+  ],
+  "allwise": [
+   {
+    "name": "catalog",
+    "size": 3,
+    "mtime": "2026-11-11T22:11:09.119182+00:00",
+    "kind": "dir"
+   }
+  ],
+  "allwise/catalog": [
+   {
+    "name": "dataset",
+    "size": 4,
+    "mtime": "2026-11-11T22:11:09.033180+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 6668,
+    "mtime": "2026-11-11T22:11:07.847149+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 2520,
+    "mtime": "2026-11-11T22:11:07.822148+00:00",
+    "kind": "file"
+   }
+  ],
+  "2mass": [
+   {
+    "name": "psc",
+    "size": 4,
+    "mtime": "2026-11-12T14:28:30.162513+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "xsc",
+    "size": 7,
+    "mtime": "2026-11-15T00:19:33.842726+00:00",
+    "kind": "dir"
+   }
+  ],
+  "2mass/xsc": [
+   {
+    "name": "PENSUS_BUILD.json",
+    "size": 427,
+    "mtime": "2026-11-15T00:19:33.843727+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 3,
+    "mtime": "2026-11-15T00:19:32.351690+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "hats.properties",
+    "size": 445,
+    "mtime": "2026-11-15T00:19:32.716699+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 62,
+    "mtime": "2026-11-15T00:19:32.325689+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "point_map.fits",
+    "size": 22896000,
+    "mtime": "2026-11-15T00:19:32.544694+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 445,
+    "mtime": "2026-11-15T00:19:32.717699+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "skymap.fits",
+    "size": 22896000,
+    "mtime": "2026-11-15T00:19:32.693698+00:00",
+    "kind": "file"
+   }
+  ],
+  "2mass/psc": [
+   {
+    "name": "PENSUS_SYNC.json",
+    "size": 17796,
+    "mtime": "2026-11-11T20:07:15.188907+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "dataset",
+    "size": 6,
+    "mtime": "2026-11-11T20:07:15.175907+00:00",
+    "kind": "dir"
+   },
+   {
+    "name": "partition_info.csv",
+    "size": 1281,
+    "mtime": "2026-11-11T20:07:11.748831+00:00",
+    "kind": "file"
+   },
+   {
+    "name": "properties",
+    "size": 475,
+    "mtime": "2026-11-11T20:07:10.748809+00:00",
+    "kind": "file"
+   }
+  ],
+  ".local": []
+ }
+}

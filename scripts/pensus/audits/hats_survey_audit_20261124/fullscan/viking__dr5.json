@@ -1,0 +1,17 @@
+{
+ "catalogue": "viking/dr5",
+ "files_scanned": 159,
+ "files_total": 159,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 82063585,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [],
+ "n_bad_partitions": 0,
+ "seconds": 2.0
+}

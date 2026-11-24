@@ -1,0 +1,17 @@
+{
+ "catalogue": "des/y6_gold",
+ "files_scanned": 1633,
+ "files_total": 1633,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 691483608,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [],
+ "n_bad_partitions": 0,
+ "seconds": 29.9
+}

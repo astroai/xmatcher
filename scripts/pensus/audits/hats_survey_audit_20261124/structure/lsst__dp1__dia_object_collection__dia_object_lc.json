@@ -1,0 +1,1324 @@
+{
+ "catalogue": "lsst/dp1/dia_object_collection/dia_object_lc",
+ "has_properties": true,
+ "has_hats_properties": true,
+ "props": {
+  "obs_collection": "dia_object_lc",
+  "dataproduct_type": "object",
+  "hats_nrows": "1089818",
+  "hats_col_ra": "ra",
+  "hats_col_dec": "dec",
+  "hats_cols_default": "dec diaObjectForcedSource.band diaObjectForcedSource.coord_dec diaObjectForcedSource.coord_ra diaObjectForcedSource.diff_PixelFlags_nodataCenter diaObjectForcedSource.forcedSourceOnDiaObjectId diaObjectForcedSource.invalidPsfFlag diaObjectForcedSource.midpointMjdTai diaObjectForcedSource.pixelFlags_bad diaObjectForcedSource.pixelFlags_cr diaObjectForcedSource.pixelFlags_crCenter diaObjectForcedSource.pixelFlags_edge diaObjectForcedSource.pixelFlags_interpolated diaObjectForcedSource.pixelFlags_interpolatedCenter diaObjectForcedSource.pixelFlags_nodata diaObjectForcedSource.pixelFlags_saturated diaObjectForcedSource.pixelFlags_saturatedCenter diaObjectForcedSource.pixelFlags_suspect diaObjectForcedSource.pixelFlags_suspectCenter diaObjectForcedSource.psfDiffFlux diaObjectForcedSource.psfDiffFlux_flag diaObjectForcedSource.psfDiffFluxErr diaObjectForcedSource.psfFlux diaObjectForcedSource.psfFlux_flag diaObjectForcedSource.psfFluxErr diaObjectForcedSource.psfMag diaObjectForcedSource.psfMagErr diaObjectForcedSource.visit diaObjectId diaSource.band diaSource.centroid_flag diaSource.coord_dec diaSource.coord_ra diaSource.dec diaSource.decErr diaSource.diaSourceId diaSource.forced_PsfFlux_flag diaSource.forced_PsfFlux_flag_edge diaSource.forced_PsfFlux_flag_noGoodPixels diaSource.midpointMjdTai diaSource.pixelFlags diaSource.pixelFlags_bad diaSource.pixelFlags_cr diaSource.pixelFlags_crCenter diaSource.pixelFlags_edge diaSource.pixelFlags_interpolated diaSource.pixelFlags_interpolatedCenter diaSource.pixelFlags_nodata diaSource.pixelFlags_nodataCenter diaSource.pixelFlags_offimage diaSource.pixelFlags_saturated diaSource.pixelFlags_saturatedCenter diaSource.pixelFlags_streak diaSource.pixelFlags_streakCenter diaSource.pixelFlags_suspect diaSource.pixelFlags_suspectCenter diaSource.psfFlux diaSource.psfFlux_flag diaSource.psfFlux_flag_edge diaSource.psfFlux_flag_noGoodPixels diaSource.psfFluxErr diaSource.psfMag diaSource.psfMagErr diaSource.ra diaSource.raErr diaSource.reliability diaSource.scienceFlux diaSource.scienceFluxErr diaSource.scienceMag diaSource.scienceMagErr diaSource.shape_flag diaSource.shape_flag_no_pixels diaSource.shape_flag_not_contained diaSource.shape_flag_parent_source diaSource.snr diaSource.trail_flag_edge diaSource.visit diaSource.x diaSource.xErr diaSource.y diaSource.yErr nDiaSources ra radecMjdTai tract",
+  "hats_npix_suffix": ".parquet",
+  "hats_skymap_order": "11",
+  "hats_skymap_alt_orders": "2 4 6",
+  "hats_builder": "hats-import v0.6.0",
+  "hats_creation_date": "2025-06-25T15\\:07UTC",
+  "hats_estsize": "8516987",
+  "hats_release_date": "2024-09-18",
+  "hats_version": "v0.1",
+  "hats_max_rows": "15000",
+  "hats_order": "11",
+  "moc_sky_fraction": "0.00059"
+ },
+ "missing_required": [],
+ "missing_recommended": [
+  "hats_col_healpix",
+  "hats_col_healpix_order",
+  "obs_title",
+  "hats_frame",
+  "hats_cols_survey_id"
+ ],
+ "root_entries": [
+  "dataset",
+  "hats.properties",
+  "partition_info.csv",
+  "point_map.fits",
+  "properties",
+  "skymap.2.fits",
+  "skymap.4.fits",
+  "skymap.6.fits",
+  "skymap.fits"
+ ],
+ "partition_info_header": [
+  "Norder",
+  "Npix"
+ ],
+ "n_partition_info": 208,
+ "partition_info_duplicates": 0,
+ "dataset_exists": true,
+ "dataset_top": [
+  {
+   "name": "_common_metadata",
+   "size": 37858,
+   "dir": false
+  },
+  {
+   "name": "_metadata",
+   "size": 31125682,
+   "dir": false
+  },
+  {
+   "name": "data_thumbnail.parquet",
+   "size": 1490239,
+   "dir": false
+  }
+ ],
+ "stray": [],
+ "n_stray": 0,
+ "wrong_dir": [],
+ "empty_files": [],
+ "duplicate_partitions_on_disk": [],
+ "layout": {
+  "file": 208
+ },
+ "n_partition_files": 208,
+ "n_partitions_on_disk": 208,
+ "missing_on_disk": [],
+ "n_missing_on_disk": 0,
+ "extra_on_disk": [],
+ "n_extra_on_disk": 0,
+ "overlapping_partitions": [],
+ "orders": {
+  "5": 1,
+  "6": 13,
+  "7": 25,
+  "8": 71,
+  "9": 79,
+  "10": 18,
+  "11": 1
+ },
+ "order_range": [
+  5,
+  11
+ ],
+ "hats_order_matches_max": true,
+ "dataset_bytes": 6272356526,
+ "unreadable_files": [],
+ "n_unreadable_files": 0,
+ "footer_rows_total": 1089818,
+ "hats_nrows": 1089818,
+ "rows_match_hats_nrows": true,
+ "partition_info_rowcount_mismatch": [],
+ "rows_per_partition": {
+  "min": 2,
+  "p01": 4.07,
+  "median": 4592.0,
+  "p99": 14453.310000000001,
+  "max": 14802
+ },
+ "n_tiny_partitions_lt1000": 28,
+ "n_partitions_lt100": 15,
+ "tiny_partitions": [
+  "11/36833621:2",
+  "10/5341218:3",
+  "10/9198847:4",
+  "9/2299791:5",
+  "7/143884:11",
+  "8/2565:16",
+  "9/1318874:35",
+  "6/34329:44",
+  "9/2132700:48",
+  "8/533180:66",
+  "8/574948:84",
+  "7/86591:87",
+  "8/533144:91",
+  "8/533098:92",
+  "8/574975:99",
+  "7/82428:106",
+  "7/143738:150",
+  "7/137322:171",
+  "6/130:376",
+  "8/533146:403",
+  "8/331098:407",
+  "8/346694:440",
+  "7/133294:480",
+  "6/35933:484",
+  "8/331099:491",
+  "9/2132595:769",
+  "7/133263:806",
+  "6/35883:830"
+ ],
+ "empty_partitions": [],
+ "n_partitions_over_1p5x_max_rows": 0,
+ "largest_partitions": [],
+ "order0_partitions": [],
+ "n_schema_variants": 1,
+ "created_by": {
+  "parquet-cpp-arrow version 20.0.0": 208
+ },
+ "coord_stats_out_of_range": [],
+ "n_partitions_coord_stats_out_of_range": 0,
+ "column_stats": {
+  "ra": {
+   "min": 3.9790514602774905,
+   "max": 106.89875512868348,
+   "nulls": 0,
+   "rg_with_stats": 764,
+   "rg_total": 764
+  },
+  "dec": {
+   "min": -72.73076314203206,
+   "max": 7.983440400069815,
+   "nulls": 0,
+   "rg_with_stats": 764,
+   "rg_total": 764
+  },
+  "nDiaSources": {
+   "min": 1,
+   "max": 607,
+   "nulls": 0,
+   "rg_with_stats": 764,
+   "rg_total": 764
+  },
+  "radecMjdTai": {
+   "min": 60623.258520653835,
+   "max": 60656.35455890054,
+   "nulls": 0,
+   "rg_with_stats": 764,
+   "rg_total": 764
+  },
+  "g_psfFluxLinearSlope": {
+   "min": -5631906816.0,
+   "max": 47912701952.0,
+   "nulls": 1007177,
+   "rg_with_stats": 697,
+   "rg_total": 764
+  },
+  "g_psfFluxLinearIntercept": {
+   "min": -2905668587618304.0,
+   "max": 341581198524416.0,
+   "nulls": 1007177,
+   "rg_with_stats": 697,
+   "rg_total": 764
+  },
+  "g_psfFluxMAD": {
+   "min": -0.0,
+   "max": 881695.5,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxMaxSlope": {
+   "min": -2650290688.0,
+   "max": 6934190080.0,
+   "nulls": 1007177,
+   "rg_with_stats": 697,
+   "rg_total": 764
+  },
+  "g_psfFluxErrMean": {
+   "min": 0.1894393265247345,
+   "max": 5103.4658203125,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxMean": {
+   "min": -1748860.625,
+   "max": 6283731.5,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxMeanErr": {
+   "min": 0.1894393265247345,
+   "max": 5103.4658203125,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxNdata": {
+   "min": 1.0,
+   "max": 178.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_scienceFluxMean": {
+   "min": -3338.878662109375,
+   "max": 10701516.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_scienceFluxMeanErr": {
+   "min": 0.13153602182865143,
+   "max": 5219.6826171875,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxMin": {
+   "min": -2224196.5,
+   "max": 6283732.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxMax": {
+   "min": -1748860.625,
+   "max": 6283732.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxPercentile05": {
+   "min": -2172608.75,
+   "max": 6283732.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxPercentile25": {
+   "min": -1966258.25,
+   "max": 6283732.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxPercentile50": {
+   "min": -1748860.625,
+   "max": 6283732.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxPercentile75": {
+   "min": -1748860.625,
+   "max": 6283732.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxPercentile95": {
+   "min": -1748860.625,
+   "max": 6283732.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxSigma": {
+   "min": 0.0005610588705167174,
+   "max": 1519401.0,
+   "nulls": 1007177,
+   "rg_with_stats": 697,
+   "rg_total": 764
+  },
+  "g_scienceFluxSigma": {
+   "min": 0.02794504724442959,
+   "max": 5613417.0,
+   "nulls": 1007177,
+   "rg_with_stats": 697,
+   "rg_total": 764
+  },
+  "g_psfFluxSkew": {
+   "min": -11.953998565673828,
+   "max": 10.675419807434082,
+   "nulls": 1042037,
+   "rg_with_stats": 668,
+   "rg_total": 764
+  },
+  "g_psfFluxChi2": {
+   "min": -0.0,
+   "max": 41225204.0,
+   "nulls": 729850,
+   "rg_with_stats": 734,
+   "rg_total": 764
+  },
+  "g_psfFluxStetsonJ": {
+   "min": -1.0,
+   "max": 894.8236694335938,
+   "nulls": 1007177,
+   "rg_with_stats": 697,
+   "rg_total": 764
+  },
+  "r_psfFluxLinearSlope": {
+   "min": -4143484160.0,
+   "max": 22668482560.0,
+   "nulls": 954150,
+   "rg_with_stats": 700,
+   "rg_total": 764
+  },
+  "r_psfFluxLinearIntercept": {
+   "min": -1374987206262784.0,
+   "max": 251256962547712.0,
+   "nulls": 954150,
+   "rg_with_stats": 700,
+   "rg_total": 764
+  },
+  "r_psfFluxMAD": {
+   "min": -0.0,
+   "max": 907842.375,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxMaxSlope": {
+   "min": -1347773440.0,
+   "max": 4518251008.0,
+   "nulls": 954150,
+   "rg_with_stats": 700,
+   "rg_total": 764
+  },
+  "r_psfFluxErrMean": {
+   "min": 0.0031705398578196764,
+   "max": 18150.927734375,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxMean": {
+   "min": -1547221.375,
+   "max": 14186702.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxMeanErr": {
+   "min": 0.0031705398578196764,
+   "max": 18150.927734375,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxNdata": {
+   "min": 1.0,
+   "max": 183.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_scienceFluxMean": {
+   "min": -18570.716796875,
+   "max": 14112906.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_scienceFluxMeanErr": {
+   "min": 0.0029237354174256325,
+   "max": 18009.98046875,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxMin": {
+   "min": -1551441.875,
+   "max": 14186702.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxMax": {
+   "min": -1547221.25,
+   "max": 14186702.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxPercentile05": {
+   "min": -1547221.25,
+   "max": 14186702.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxPercentile25": {
+   "min": -1547221.25,
+   "max": 14186702.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxPercentile50": {
+   "min": -1547221.25,
+   "max": 14186702.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxPercentile75": {
+   "min": -1547221.25,
+   "max": 14186702.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxPercentile95": {
+   "min": -1547221.25,
+   "max": 14186702.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxSigma": {
+   "min": 0.0023436176124960184,
+   "max": 1283883.0,
+   "nulls": 954150,
+   "rg_with_stats": 700,
+   "rg_total": 764
+  },
+  "r_scienceFluxSigma": {
+   "min": 0.009972281754016876,
+   "max": 3250570.0,
+   "nulls": 954150,
+   "rg_with_stats": 700,
+   "rg_total": 764
+  },
+  "r_psfFluxSkew": {
+   "min": -11.370662689208984,
+   "max": 6.149080753326416,
+   "nulls": 1008934,
+   "rg_with_stats": 684,
+   "rg_total": 764
+  },
+  "r_psfFluxChi2": {
+   "min": -0.0,
+   "max": 34817716.0,
+   "nulls": 582919,
+   "rg_with_stats": 725,
+   "rg_total": 764
+  },
+  "r_psfFluxStetsonJ": {
+   "min": -1.0,
+   "max": 1012.230224609375,
+   "nulls": 954150,
+   "rg_with_stats": 700,
+   "rg_total": 764
+  },
+  "u_psfFluxLinearSlope": {
+   "min": -8250817024.0,
+   "max": 2727392256.0,
+   "nulls": 1080961,
+   "rg_with_stats": 497,
+   "rg_total": 764
+  },
+  "u_psfFluxLinearIntercept": {
+   "min": -165408468369408.0,
+   "max": 500389191352320.0,
+   "nulls": 1080961,
+   "rg_with_stats": 497,
+   "rg_total": 764
+  },
+  "u_psfFluxMAD": {
+   "min": -0.0,
+   "max": 443612.40625,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxMaxSlope": {
+   "min": -587787392.0,
+   "max": 2428300288.0,
+   "nulls": 1080961,
+   "rg_with_stats": 497,
+   "rg_total": 764
+  },
+  "u_psfFluxErrMean": {
+   "min": 7.307337760925293,
+   "max": 19782.873046875,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxMean": {
+   "min": -1400211.125,
+   "max": 6068888.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxMeanErr": {
+   "min": 7.307337760925293,
+   "max": 19782.873046875,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxNdata": {
+   "min": 1.0,
+   "max": 32.0,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_scienceFluxMean": {
+   "min": -1702.1097412109375,
+   "max": 48196832.0,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_scienceFluxMeanErr": {
+   "min": 109.0447998046875,
+   "max": 16078.8662109375,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxMin": {
+   "min": -5838499.5,
+   "max": 6068888.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxMax": {
+   "min": -656309.375,
+   "max": 6068888.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxPercentile05": {
+   "min": -3444245.25,
+   "max": 6068888.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxPercentile25": {
+   "min": -836274.125,
+   "max": 6068888.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxPercentile50": {
+   "min": -744798.3125,
+   "max": 6068888.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxPercentile75": {
+   "min": -656309.375,
+   "max": 6068888.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxPercentile95": {
+   "min": -656309.375,
+   "max": 6068888.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxSigma": {
+   "min": 0.0558469332754612,
+   "max": 2085284.75,
+   "nulls": 1080961,
+   "rg_with_stats": 497,
+   "rg_total": 764
+  },
+  "u_scienceFluxSigma": {
+   "min": 0.7953224778175354,
+   "max": 5030257.0,
+   "nulls": 1080961,
+   "rg_with_stats": 497,
+   "rg_total": 764
+  },
+  "u_psfFluxSkew": {
+   "min": -4.015349864959717,
+   "max": 4.918712615966797,
+   "nulls": 1086561,
+   "rg_with_stats": 426,
+   "rg_total": 764
+  },
+  "u_psfFluxChi2": {
+   "min": -0.0,
+   "max": 4742128.5,
+   "nulls": 889516,
+   "rg_with_stats": 542,
+   "rg_total": 764
+  },
+  "u_psfFluxStetsonJ": {
+   "min": -1.0,
+   "max": 468.8826599121094,
+   "nulls": 1080961,
+   "rg_with_stats": 497,
+   "rg_total": 764
+  },
+  "i_psfFluxLinearSlope": {
+   "min": -2501759744.0,
+   "max": 2954213376.0,
+   "nulls": 1012652,
+   "rg_with_stats": 518,
+   "rg_total": 764
+  },
+  "i_psfFluxLinearIntercept": {
+   "min": -179146776903680.0,
+   "max": 151734416572416.0,
+   "nulls": 1012652,
+   "rg_with_stats": 518,
+   "rg_total": 764
+  },
+  "i_psfFluxMAD": {
+   "min": -0.0,
+   "max": 1731379.5,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxMaxSlope": {
+   "min": -2576843776.0,
+   "max": 4402174976.0,
+   "nulls": 1012652,
+   "rg_with_stats": 518,
+   "rg_total": 764
+  },
+  "i_psfFluxErrMean": {
+   "min": 0.017611272633075714,
+   "max": 4262.73974609375,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxMean": {
+   "min": -1871248.5,
+   "max": 4629005.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxMeanErr": {
+   "min": 0.006411033216863871,
+   "max": 4262.73974609375,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxNdata": {
+   "min": 1.0,
+   "max": 141.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_scienceFluxMean": {
+   "min": -916.2755126953125,
+   "max": 6021143.5,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_scienceFluxMeanErr": {
+   "min": 0.004114696290344,
+   "max": 3013.546630859375,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxMin": {
+   "min": -1871248.5,
+   "max": 4629005.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxMax": {
+   "min": -1871248.5,
+   "max": 4629005.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxPercentile05": {
+   "min": -1871248.5,
+   "max": 4629005.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxPercentile25": {
+   "min": -1871248.5,
+   "max": 4629005.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxPercentile50": {
+   "min": -1871248.5,
+   "max": 4629005.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxPercentile75": {
+   "min": -1871248.5,
+   "max": 4629005.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxPercentile95": {
+   "min": -1871248.5,
+   "max": 4629005.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxSigma": {
+   "min": 0.017781250178813934,
+   "max": 2448540.5,
+   "nulls": 1012652,
+   "rg_with_stats": 518,
+   "rg_total": 764
+  },
+  "i_scienceFluxSigma": {
+   "min": 0.09943689405918121,
+   "max": 2478379.75,
+   "nulls": 1012652,
+   "rg_with_stats": 518,
+   "rg_total": 764
+  },
+  "i_psfFluxSkew": {
+   "min": -10.189821243286133,
+   "max": 4.804096221923828,
+   "nulls": 1036741,
+   "rg_with_stats": 505,
+   "rg_total": 764
+  },
+  "i_psfFluxChi2": {
+   "min": -0.0,
+   "max": 18186362.0,
+   "nulls": 901252,
+   "rg_with_stats": 540,
+   "rg_total": 764
+  },
+  "i_psfFluxStetsonJ": {
+   "min": -1.0,
+   "max": 1428.0313720703125,
+   "nulls": 1012652,
+   "rg_with_stats": 518,
+   "rg_total": 764
+  },
+  "z_psfFluxLinearSlope": {
+   "min": -9381008384.0,
+   "max": 16909289472.0,
+   "nulls": 1060434,
+   "rg_with_stats": 556,
+   "rg_total": 764
+  },
+  "z_psfFluxLinearIntercept": {
+   "min": -1025621077524480.0,
+   "max": 568998475333632.0,
+   "nulls": 1060434,
+   "rg_with_stats": 556,
+   "rg_total": 764
+  },
+  "z_psfFluxMAD": {
+   "min": -0.0,
+   "max": 2285776.75,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxMaxSlope": {
+   "min": -8655983616.0,
+   "max": 10634849280.0,
+   "nulls": 1060434,
+   "rg_with_stats": 556,
+   "rg_total": 764
+  },
+  "z_psfFluxErrMean": {
+   "min": 389.22076416015625,
+   "max": 6793.64794921875,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxMean": {
+   "min": -3090193.75,
+   "max": 10738729.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxMeanErr": {
+   "min": 67.20689392089844,
+   "max": 6793.64794921875,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxNdata": {
+   "min": 1.0,
+   "max": 127.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_scienceFluxMean": {
+   "min": -1416.8448486328125,
+   "max": 14482759.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_scienceFluxMeanErr": {
+   "min": 66.56278228759766,
+   "max": 5827.7685546875,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxMin": {
+   "min": -3325021.0,
+   "max": 10738729.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxMax": {
+   "min": -3056278.75,
+   "max": 10738729.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxPercentile05": {
+   "min": -3146343.5,
+   "max": 10738729.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxPercentile25": {
+   "min": -3127382.5,
+   "max": 10738729.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxPercentile50": {
+   "min": -3103681.25,
+   "max": 10738729.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxPercentile75": {
+   "min": -3079980.0,
+   "max": 10738729.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxPercentile95": {
+   "min": -3061019.0,
+   "max": 10738729.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxSigma": {
+   "min": 0.04264047369360924,
+   "max": 3232576.5,
+   "nulls": 1060434,
+   "rg_with_stats": 556,
+   "rg_total": 764
+  },
+  "z_scienceFluxSigma": {
+   "min": 0.11048543453216553,
+   "max": 6079707.5,
+   "nulls": 1060434,
+   "rg_with_stats": 556,
+   "rg_total": 764
+  },
+  "z_psfFluxSkew": {
+   "min": -9.542537689208984,
+   "max": 5.45285177230835,
+   "nulls": 1071151,
+   "rg_with_stats": 538,
+   "rg_total": 764
+  },
+  "z_psfFluxChi2": {
+   "min": -0.0,
+   "max": 13788945.0,
+   "nulls": 998674,
+   "rg_with_stats": 586,
+   "rg_total": 764
+  },
+  "z_psfFluxStetsonJ": {
+   "min": -1.0,
+   "max": 829.3644409179688,
+   "nulls": 1060434,
+   "rg_with_stats": 556,
+   "rg_total": 764
+  },
+  "y_psfFluxLinearSlope": {
+   "min": -8400017920.0,
+   "max": 487795818496.0,
+   "nulls": 1082249,
+   "rg_with_stats": 404,
+   "rg_total": 764
+  },
+  "y_psfFluxLinearIntercept": {
+   "min": -2.9579959458594816e+16,
+   "max": 509329434214400.0,
+   "nulls": 1082249,
+   "rg_with_stats": 404,
+   "rg_total": 764
+  },
+  "y_psfFluxMAD": {
+   "min": -0.0,
+   "max": 3630096.0,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxMaxSlope": {
+   "min": -10645345280.0,
+   "max": 12225189888.0,
+   "nulls": 1082249,
+   "rg_with_stats": 404,
+   "rg_total": 764
+  },
+  "y_psfFluxErrMean": {
+   "min": 64.2856216430664,
+   "max": 23054.876953125,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxMean": {
+   "min": -4236857.5,
+   "max": 5551791.0,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxMeanErr": {
+   "min": 64.2856216430664,
+   "max": 23054.876953125,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxNdata": {
+   "min": 1.0,
+   "max": 24.0,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_scienceFluxMean": {
+   "min": -3851.061279296875,
+   "max": 26446668.0,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_scienceFluxMeanErr": {
+   "min": 54.67868423461914,
+   "max": 12174.9716796875,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxMin": {
+   "min": -7024499.5,
+   "max": 5551791.5,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxMax": {
+   "min": -4169483.0,
+   "max": 5551791.5,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxPercentile05": {
+   "min": -6661490.0,
+   "max": 5551791.5,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxPercentile25": {
+   "min": -5854364.0,
+   "max": 5551791.5,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxPercentile50": {
+   "min": -4896630.5,
+   "max": 5551791.5,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxPercentile75": {
+   "min": -4169483.0,
+   "max": 5551791.5,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxPercentile95": {
+   "min": -4169483.0,
+   "max": 5551791.5,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxSigma": {
+   "min": 1.3458507061004639,
+   "max": 5133731.0,
+   "nulls": 1082249,
+   "rg_with_stats": 404,
+   "rg_total": 764
+  },
+  "y_scienceFluxSigma": {
+   "min": 8.485280990600586,
+   "max": 8021707.0,
+   "nulls": 1082249,
+   "rg_with_stats": 404,
+   "rg_total": 764
+  },
+  "y_psfFluxSkew": {
+   "min": -3.848817825317383,
+   "max": 4.309972286224365,
+   "nulls": 1085659,
+   "rg_with_stats": 361,
+   "rg_total": 764
+  },
+  "y_psfFluxChi2": {
+   "min": -0.0,
+   "max": 3184330.75,
+   "nulls": 1061921,
+   "rg_with_stats": 446,
+   "rg_total": 764
+  },
+  "y_psfFluxStetsonJ": {
+   "min": -0.9999997019767761,
+   "max": 533.5057373046875,
+   "nulls": 1082249,
+   "rg_with_stats": 404,
+   "rg_total": 764
+  },
+  "diaObjectId": {
+   "min": 579574500513808385,
+   "max": 650026945014136854,
+   "nulls": 0,
+   "rg_with_stats": 764,
+   "rg_total": 764
+  },
+  "tract": {
+   "min": 453,
+   "max": 10705,
+   "nulls": 0,
+   "rg_with_stats": 764,
+   "rg_total": 764
+  },
+  "diaSource": {
+   "min": -10104490.0,
+   "max": 600465372172256997,
+   "nulls": 36720992,
+   "rg_with_stats": 67867,
+   "rg_total": 69524
+  },
+  "diaObjectForcedSource": {
+   "min": -24582032.0,
+   "max": null,
+   "nulls": 177706895,
+   "rg_with_stats": 22920,
+   "rg_total": 23684
+  },
+  "_healpix_29": {
+   "min": 9194470118511701,
+   "max": 2531239780889495807,
+   "nulls": 0,
+   "rg_with_stats": 764,
+   "rg_total": 764
+  }
+ },
+ "all_null_columns": [
+  "diaObjectForcedSource",
+  "diaSource"
+ ],
+ "columns_without_stats": [],
+ "sentinel_like_min_max": {},
+ "common_metadata": {
+  "ncol": 141,
+  "fields_with_unit": 0,
+  "fields_with_description": 0,
+  "schema_meta_keys": [],
+  "only_in_common_metadata": [],
+  "only_in_partitions": []
+ },
+ "types": {
+  "ra": "double",
+  "dec": "double",
+  "nDiaSources": "int64",
+  "radecMjdTai": "double",
+  "g_psfFluxLinearSlope": "float",
+  "g_psfFluxLinearIntercept": "float",
+  "g_psfFluxMAD": "float",
+  "g_psfFluxMaxSlope": "float",
+  "g_psfFluxErrMean": "float",
+  "g_psfFluxMean": "float",
+  "g_psfFluxMeanErr": "float",
+  "g_psfFluxNdata": "float",
+  "g_scienceFluxMean": "float",
+  "g_scienceFluxMeanErr": "float",
+  "g_psfFluxMin": "float",
+  "g_psfFluxMax": "float",
+  "g_psfFluxPercentile05": "float",
+  "g_psfFluxPercentile25": "float",
+  "g_psfFluxPercentile50": "float",
+  "g_psfFluxPercentile75": "float",
+  "g_psfFluxPercentile95": "float",
+  "g_psfFluxSigma": "float",
+  "g_scienceFluxSigma": "float",
+  "g_psfFluxSkew": "float",
+  "g_psfFluxChi2": "float",
+  "g_psfFluxStetsonJ": "float",
+  "r_psfFluxLinearSlope": "float",
+  "r_psfFluxLinearIntercept": "float",
+  "r_psfFluxMAD": "float",
+  "r_psfFluxMaxSlope": "float",
+  "r_psfFluxErrMean": "float",
+  "r_psfFluxMean": "float",
+  "r_psfFluxMeanErr": "float",
+  "r_psfFluxNdata": "float",
+  "r_scienceFluxMean": "float",
+  "r_scienceFluxMeanErr": "float",
+  "r_psfFluxMin": "float",
+  "r_psfFluxMax": "float",
+  "r_psfFluxPercentile05": "float",
+  "r_psfFluxPercentile25": "float",
+  "r_psfFluxPercentile50": "float",
+  "r_psfFluxPercentile75": "float",
+  "r_psfFluxPercentile95": "float",
+  "r_psfFluxSigma": "float",
+  "r_scienceFluxSigma": "float",
+  "r_psfFluxSkew": "float",
+  "r_psfFluxChi2": "float",
+  "r_psfFluxStetsonJ": "float",
+  "u_psfFluxLinearSlope": "float",
+  "u_psfFluxLinearIntercept": "float",
+  "u_psfFluxMAD": "float",
+  "u_psfFluxMaxSlope": "float",
+  "u_psfFluxErrMean": "float",
+  "u_psfFluxMean": "float",
+  "u_psfFluxMeanErr": "float",
+  "u_psfFluxNdata": "float",
+  "u_scienceFluxMean": "float",
+  "u_scienceFluxMeanErr": "float",
+  "u_psfFluxMin": "float",
+  "u_psfFluxMax": "float",
+  "u_psfFluxPercentile05": "float",
+  "u_psfFluxPercentile25": "float",
+  "u_psfFluxPercentile50": "float",
+  "u_psfFluxPercentile75": "float",
+  "u_psfFluxPercentile95": "float",
+  "u_psfFluxSigma": "float",
+  "u_scienceFluxSigma": "float",
+  "u_psfFluxSkew": "float",
+  "u_psfFluxChi2": "float",
+  "u_psfFluxStetsonJ": "float",
+  "i_psfFluxLinearSlope": "float",
+  "i_psfFluxLinearIntercept": "float",
+  "i_psfFluxMAD": "float",
+  "i_psfFluxMaxSlope": "float",
+  "i_psfFluxErrMean": "float",
+  "i_psfFluxMean": "float",
+  "i_psfFluxMeanErr": "float",
+  "i_psfFluxNdata": "float",
+  "i_scienceFluxMean": "float",
+  "i_scienceFluxMeanErr": "float",
+  "i_psfFluxMin": "float",
+  "i_psfFluxMax": "float",
+  "i_psfFluxPercentile05": "float",
+  "i_psfFluxPercentile25": "float",
+  "i_psfFluxPercentile50": "float",
+  "i_psfFluxPercentile75": "float",
+  "i_psfFluxPercentile95": "float",
+  "i_psfFluxSigma": "float",
+  "i_scienceFluxSigma": "float",
+  "i_psfFluxSkew": "float",
+  "i_psfFluxChi2": "float",
+  "i_psfFluxStetsonJ": "float",
+  "z_psfFluxLinearSlope": "float",
+  "z_psfFluxLinearIntercept": "float",
+  "z_psfFluxMAD": "float",
+  "z_psfFluxMaxSlope": "float",
+  "z_psfFluxErrMean": "float",
+  "z_psfFluxMean": "float",
+  "z_psfFluxMeanErr": "float",
+  "z_psfFluxNdata": "float",
+  "z_scienceFluxMean": "float",
+  "z_scienceFluxMeanErr": "float",
+  "z_psfFluxMin": "float",
+  "z_psfFluxMax": "float",
+  "z_psfFluxPercentile05": "float",
+  "z_psfFluxPercentile25": "float",
+  "z_psfFluxPercentile50": "float",
+  "z_psfFluxPercentile75": "float",
+  "z_psfFluxPercentile95": "float",
+  "z_psfFluxSigma": "float",
+  "z_scienceFluxSigma": "float",
+  "z_psfFluxSkew": "float",
+  "z_psfFluxChi2": "float",
+  "z_psfFluxStetsonJ": "float",
+  "y_psfFluxLinearSlope": "float",
+  "y_psfFluxLinearIntercept": "float",
+  "y_psfFluxMAD": "float",
+  "y_psfFluxMaxSlope": "float",
+  "y_psfFluxErrMean": "float",
+  "y_psfFluxMean": "float",
+  "y_psfFluxMeanErr": "float",
+  "y_psfFluxNdata": "float",
+  "y_scienceFluxMean": "float",
+  "y_scienceFluxMeanErr": "float",
+  "y_psfFluxMin": "float",
+  "y_psfFluxMax": "float",
+  "y_psfFluxPercentile05": "float",
+  "y_psfFluxPercentile25": "float",
+  "y_psfFluxPercentile50": "float",
+  "y_psfFluxPercentile75": "float",
+  "y_psfFluxPercentile95": "float",
+  "y_psfFluxSigma": "float",
+  "y_scienceFluxSigma": "float",
+  "y_psfFluxSkew": "float",
+  "y_psfFluxChi2": "float",
+  "y_psfFluxStetsonJ": "float",
+  "diaObjectId": "int64",
+  "tract": "int64",
+  "diaSource": "struct<visit: list<element: int64>, detector: list<element: int16>, band: list<element: string>, ssObjectId: list<element: int64>, parentDiaSourceId: list<element: int64>, midpointMjdTai: list<element: double>, bboxSize: list<element: int64>, time_processed: list<element: timestamp[ns]>, ra: list<element: double>, dec: list<element: double>, raErr: list<element: float>, decErr: list<element: float>, ra_dec_Cov: list<element: float>, x: list<element: double>, y: list<element: double>, xErr: list<element: float>, yErr: list<element: float>, apFlux: list<element: float>, apFluxErr: list<element: float>, snr: list<element: float>, psfFlux: list<element: float>, psfFluxErr: list<element: float>, psfChi2: list<element: float>, psfNdata: list<element: int32>, trailFlux: list<element: float>, trailRa: list<element: float>, trailDec: list<element: float>, trailLength: list<element: float>, trailAngle: list<element: float>, dipoleMeanFlux: list<element: float>, dipoleMeanFluxErr: list<element: float>, dipoleFluxDiff: list<element: float>, dipoleFluxDiffErr: list<element: float>, dipoleLength: list<element: float>, dipoleAngle: list<element: float>, dipoleChi2: list<element: float>, isDipole: list<element: bool>, dipoleFitAttempted: list<element: bool>, dipoleNdata: list<element: int64>, scienceFlux: list<element: float>, scienceFluxErr: list<element: float>, ixx: list<element: float>, iyy: list<element: float>, ixy: list<element: float>, ixxPSF: list<element: float>, iyyPSF: list<element: float>, ixyPSF: list<element: float>, extendedness: list<element: float>, reliability: list<element: float>, pixelFlags: list<element: bool>, pixelFlags_offimage: list<element: bool>, pixelFlags_edge: list<element: bool>, pixelFlags_interpolated: list<element: bool>, pixelFlags_saturated: list<element: bool>, pixelFlags_cr: list<element: bool>, pixelFlags_bad: list<element: bool>, pixelFlags_suspect: list<element: bool>, pixelFlags_interpolatedCenter: list<element: bool>, pixelFlags_saturatedCenter: list<element: bool>, pixelFlags_crCenter: list<element: bool>, pixelFlags_suspectCenter: list<element: bool>, centroid_flag: list<element: bool>, apFlux_flag: list<element: bool>, apFlux_flag_apertureTruncated: list<element: bool>, psfFlux_flag: list<element: bool>, psfFlux_flag_noGoodPixels: list<element: bool>, psfFlux_flag_edge: list<element: bool>, forced_PsfFlux_flag: list<element: bool>, forced_PsfFlux_flag_noGoodPixels: list<element: bool>, forced_PsfFlux_flag_edge: list<element: bool>, shape_flag: list<element: bool>, shape_flag_no_pixels: list<element: bool>, shape_flag_not_contained: list<element: bool>, shape_flag_parent_source: list<element: bool>, trail_flag_edge: list<element: bool>, pixelFlags_streak: list<element: bool>, pixelFlags_streakCenter: list<element: bool>, pixelFlags_injected: list<element: bool>, pixelFlags_injectedCenter: list<element: bool>, pixelFlags_injected_template: list<element: bool>, pixelFlags_injected_templateCenter: list<element: bool>, pixelFlags_nodata: list<element: bool>, pixelFlags_nodataCenter: list<element: bool>, coord_ra: list<element: double>, coord_dec: list<element: double>, diaSourceId: list<element: int64>, tract: list<element: int64>, psfMag: list<element: float>, psfMagErr: list<element: float>, scienceMag: list<element: float>, scienceMagErr: list<element: float>>",
+  "diaObjectForcedSource": "struct<parentObjectId: list<element: int64>, coord_ra: list<element: double>, coord_dec: list<element: double>, visit: list<element: int64>, detector: list<element: int16>, band: list<element: string>, psfFlux: list<element: float>, psfFluxErr: list<element: float>, psfFlux_flag: list<element: bool>, psfDiffFlux: list<element: float>, psfDiffFluxErr: list<element: float>, psfDiffFlux_flag: list<element: bool>, diff_PixelFlags_nodataCenter: list<element: bool>, pixelFlags_bad: list<element: bool>, pixelFlags_cr: list<element: bool>, pixelFlags_crCenter: list<element: bool>, pixelFlags_edge: list<element: bool>, pixelFlags_interpolated: list<element: bool>, pixelFlags_interpolatedCenter: list<element: bool>, pixelFlags_nodata: list<element: bool>, pixelFlags_saturated: list<element: bool>, pixelFlags_saturatedCenter: list<element: bool>, pixelFlags_suspect: list<element: bool>, pixelFlags_suspectCenter: list<element: bool>, invalidPsfFlag: list<element: bool>, tract: list<element: int64>, patch: list<element: int64>, forcedSourceOnDiaObjectId: list<element: int64>, psfMag: list<element: float>, psfMagErr: list<element: float>, midpointMjdTai: list<element: double>>",
+  "_healpix_29": "int64"
+ },
+ "metadata_bytes": 31125682,
+ "metadata": {
+  "rows": 1089818,
+  "row_groups": 764,
+  "files_referenced": 208,
+  "rows_match_hats_nrows": true,
+  "rows_match_footers": true,
+  "referenced_missing": [],
+  "n_referenced_missing": 0,
+  "not_referenced": [],
+  "n_not_referenced": 0,
+  "stale_rowcounts": []
+ },
+ "margins_and_indexes": [
+  {
+   "name": "dia_object_lc_5arcs",
+   "type": "margin",
+   "threshold": "5.0"
+  },
+  {
+   "name": "dia_object_lc_diaObjectId",
+   "type": "index",
+   "threshold": null
+  }
+ ],
+ "seconds": 4.2
+}

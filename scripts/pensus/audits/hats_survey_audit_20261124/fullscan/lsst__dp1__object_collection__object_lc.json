@@ -1,0 +1,17 @@
+{
+ "catalogue": "lsst/dp1/object_collection/object_lc",
+ "files_scanned": 389,
+ "files_total": 389,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 2299726,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [],
+ "n_bad_partitions": 0,
+ "seconds": 6.4
+}

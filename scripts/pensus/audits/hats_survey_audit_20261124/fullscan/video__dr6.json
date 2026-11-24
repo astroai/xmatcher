@@ -1,0 +1,17 @@
+{
+ "catalogue": "video/dr6",
+ "files_scanned": 10,
+ "files_total": 10,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 3384907,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [],
+ "n_bad_partitions": 0,
+ "seconds": 0.3
+}

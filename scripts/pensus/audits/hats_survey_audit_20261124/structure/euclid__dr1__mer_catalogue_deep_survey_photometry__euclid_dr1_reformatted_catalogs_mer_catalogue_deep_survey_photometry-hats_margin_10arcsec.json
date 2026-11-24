@@ -1,0 +1,7207 @@
+{
+ "catalogue": "euclid/dr1/mer_catalogue_deep_survey_photometry/euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats_margin_10arcsec",
+ "has_properties": false,
+ "has_hats_properties": true,
+ "props": {
+  "obs_collection": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats_margin_10arcsec",
+  "dataproduct_type": "margin",
+  "hats_nrows": "382188",
+  "hats_col_ra": "ra_from_object_id",
+  "hats_col_dec": "dec_from_object_id",
+  "hats_col_healpix": "_healpix_29",
+  "hats_col_healpix_order": "29",
+  "hats_primary_table_url": "euclid_dr1_reformatted_catalogs_mer_catalogue_deep_survey_photometry-hats",
+  "hats_margin_threshold": "10.0",
+  "hats_npix_suffix": "/",
+  "hats_estsize": "100126",
+  "moc_sky_fraction": "0.00374",
+  "hats_order": "5",
+  "hats_builder": "hats-import v0.10.4, hats v0.10.4",
+  "hats_creation_date": "2026-11-04T01:11UTC",
+  "hats_release_date": "2025-08-22",
+  "hats_version": "v1.0"
+ },
+ "missing_required": [],
+ "missing_recommended": [
+  "hats_max_rows",
+  "obs_title",
+  "hats_frame",
+  "hats_cols_survey_id"
+ ],
+ "root_entries": [
+  "dataset",
+  "hats.properties",
+  "linecounts.txt",
+  "md5sums.txt",
+  "partition_info.csv",
+  "per_partition_statistics.parquet",
+  "schema.txt"
+ ],
+ "partition_info_header": [
+  "Norder",
+  "Npix"
+ ],
+ "n_partition_info": 19,
+ "partition_info_duplicates": 0,
+ "dataset_exists": true,
+ "dataset_top": [
+  {
+   "name": "_common_metadata",
+   "size": 306154,
+   "dir": false
+  },
+  {
+   "name": "_metadata",
+   "size": 2310028,
+   "dir": false
+  }
+ ],
+ "stray": [],
+ "n_stray": 0,
+ "wrong_dir": [],
+ "empty_files": [],
+ "duplicate_partitions_on_disk": [],
+ "layout": {
+  "dir": 19
+ },
+ "n_partition_files": 19,
+ "n_partitions_on_disk": 19,
+ "missing_on_disk": [],
+ "n_missing_on_disk": 0,
+ "extra_on_disk": [],
+ "n_extra_on_disk": 0,
+ "overlapping_partitions": [],
+ "orders": {
+  "3": 1,
+  "4": 4,
+  "5": 14
+ },
+ "order_range": [
+  3,
+  5
+ ],
+ "hats_order_matches_max": true,
+ "dataset_bytes": 98036254,
+ "unreadable_files": [],
+ "n_unreadable_files": 0,
+ "footer_rows_total": 382188,
+ "hats_nrows": 382188,
+ "rows_match_hats_nrows": true,
+ "partition_info_rowcount_mismatch": [],
+ "rows_per_partition": {
+  "min": 5733,
+  "p01": 5764.14,
+  "median": 14725.0,
+  "p99": 41709.86,
+  "max": 41741
+ },
+ "n_tiny_partitions_lt1000": 0,
+ "n_partitions_lt100": 0,
+ "tiny_partitions": [],
+ "empty_partitions": [],
+ "order0_partitions": [],
+ "n_schema_variants": 1,
+ "created_by": {
+  "parquet-cpp-arrow version 25.0.1": 19
+ },
+ "coord_stats_out_of_range": [],
+ "n_partitions_coord_stats_out_of_range": 0,
+ "column_stats": {
+  "_healpix_29": {
+   "min": 719828268248459515,
+   "max": 2542460157746929725,
+   "nulls": 0,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "_healpix_19": {
+   "min": 686481731651,
+   "max": 2424678952929,
+   "nulls": 0,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "_healpix_9": {
+   "min": 654679,
+   "max": 2312354,
+   "nulls": 0,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "ra_from_object_id": {
+   "min": 51.5166271,
+   "max": 277.0769766,
+   "nulls": 0,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "dec_from_object_id": {
+   "min": -29.1255629,
+   "max": 69.2244562,
+   "nulls": 0,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "basic_download_data_oid": {
+   "min": 51645,
+   "max": 276280,
+   "nulls": 0,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "object_id": {
+   "min": -546348336284187011,
+   "max": 2770769766660309754,
+   "nulls": 0,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_ia427_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia427_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia427_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia427_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia445_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia445_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia445_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia445_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia464_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia464_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia464_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia464_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia484_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia484_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia484_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia484_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia505_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia505_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia505_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia505_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia527_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia527_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia527_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia527_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia550_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia550_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia550_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia550_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia574_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia574_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia574_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia574_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia598_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia598_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia598_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia598_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia624_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia624_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia624_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia624_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia651_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia651_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia651_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia651_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia679_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia679_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia679_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia679_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia709_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia709_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia709_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia709_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia738_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia738_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia738_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia738_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia767_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia767_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia767_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia767_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia797_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia797_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia797_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia797_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia827_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia827_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia827_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia827_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia856_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia856_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia856_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia856_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ustar_ext_megacam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ustar_ext_megacam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ustar_ext_megacam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ustar_ext_megacam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_r_ext_hsc_1fwhm_aper": {
+   "min": -11.771027565002441,
+   "max": 2147.54638671875,
+   "nulls": 297281,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "flux_r_ext_hsc_2fwhm_aper": {
+   "min": -16.64437484741211,
+   "max": 4769.1943359375,
+   "nulls": 297225,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "flux_r_ext_hsc_3fwhm_aper": {
+   "min": -18.643705368041992,
+   "max": 5732.13623046875,
+   "nulls": 297178,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "flux_r_ext_hsc_4fwhm_aper": {
+   "min": -19.996736526489258,
+   "max": 6036.1591796875,
+   "nulls": 297143,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "flux_r2_ext_hsc_1fwhm_aper": {
+   "min": -28.064462661743164,
+   "max": 1235.000244140625,
+   "nulls": 13612,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_r2_ext_hsc_2fwhm_aper": {
+   "min": -53.66340255737305,
+   "max": 2446.74072265625,
+   "nulls": 13245,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_r2_ext_hsc_3fwhm_aper": {
+   "min": -64.18917083740234,
+   "max": 3004.5556640625,
+   "nulls": 12925,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_r2_ext_hsc_4fwhm_aper": {
+   "min": -64.3783950805664,
+   "max": 3194.29736328125,
+   "nulls": 12672,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_i_ext_hsc_1fwhm_aper": {
+   "min": -1.8851799964904785,
+   "max": 1883.8231201171875,
+   "nulls": 319037,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_i_ext_hsc_2fwhm_aper": {
+   "min": -2.0750527381896973,
+   "max": 3649.5341796875,
+   "nulls": 318972,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_i_ext_hsc_3fwhm_aper": {
+   "min": -2.8049821853637695,
+   "max": 7231.865234375,
+   "nulls": 318927,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_i_ext_hsc_4fwhm_aper": {
+   "min": -2.914020299911499,
+   "max": 9947.1357421875,
+   "nulls": 318883,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_i2_ext_hsc_1fwhm_aper": {
+   "min": -4.182379722595215,
+   "max": 25233.69921875,
+   "nulls": 18376,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_i2_ext_hsc_2fwhm_aper": {
+   "min": -8.482943534851074,
+   "max": 49635.3828125,
+   "nulls": 18190,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_i2_ext_hsc_3fwhm_aper": {
+   "min": -22.728214263916016,
+   "max": 69070.2890625,
+   "nulls": 18032,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_i2_ext_hsc_4fwhm_aper": {
+   "min": -28.340913772583008,
+   "max": 96133.2890625,
+   "nulls": 17930,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_y_ext_hsc_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_hsc_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_hsc_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_hsc_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_vista_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_vista_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_vista_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_vista_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_vista_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_vista_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_vista_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_vista_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_vista_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_vista_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_vista_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_vista_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ks_ext_vista_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ks_ext_vista_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ks_ext_vista_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ks_ext_vista_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_ukirt_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_ukirt_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_ukirt_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_ukirt_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_ukirt_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_ukirt_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_ukirt_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_ukirt_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_k_ext_ukirt_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_k_ext_ukirt_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_k_ext_ukirt_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_k_ext_ukirt_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch1_ext_irac_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch1_ext_irac_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch1_ext_irac_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch1_ext_irac_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch2_ext_irac_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch2_ext_irac_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch2_ext_irac_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch2_ext_irac_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_fuv_ext_galex_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_fuv_ext_galex_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_fuv_ext_galex_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_fuv_ext_galex_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_nuv_ext_galex_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_nuv_ext_galex_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_nuv_ext_galex_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_nuv_ext_galex_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia427_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia427_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia427_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia427_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia445_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia445_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia445_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia445_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia464_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia464_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia464_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia464_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia484_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia484_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia484_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia484_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia505_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia505_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia505_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia505_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia527_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia527_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia527_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia527_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia550_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia550_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia550_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia550_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia574_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia574_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia574_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia574_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia598_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia598_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia598_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia598_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia624_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia624_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia624_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia624_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia651_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia651_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia651_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia651_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia679_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia679_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia679_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia679_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia709_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia709_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia709_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia709_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia738_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia738_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia738_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia738_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia767_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia767_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia767_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia767_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia797_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia797_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia797_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia797_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia827_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia827_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia827_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia827_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia856_ext_subaru_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia856_ext_subaru_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia856_ext_subaru_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia856_ext_subaru_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ustar_ext_megacam_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ustar_ext_megacam_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ustar_ext_megacam_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ustar_ext_megacam_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_r_ext_hsc_1fwhm_aper": {
+   "min": 0.0003356038359925151,
+   "max": 0.3466496765613556,
+   "nulls": 297281,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "fluxerr_r_ext_hsc_2fwhm_aper": {
+   "min": 0.000294042460154742,
+   "max": 0.5826371312141418,
+   "nulls": 297225,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "fluxerr_r_ext_hsc_3fwhm_aper": {
+   "min": 8.292791608255357e-05,
+   "max": 0.7117065191268921,
+   "nulls": 297178,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "fluxerr_r_ext_hsc_4fwhm_aper": {
+   "min": 0.0008811175939626992,
+   "max": 0.9544121623039246,
+   "nulls": 297143,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "fluxerr_r2_ext_hsc_1fwhm_aper": {
+   "min": 1.3741976545134094e-05,
+   "max": 4.221571445465088,
+   "nulls": 13612,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_r2_ext_hsc_2fwhm_aper": {
+   "min": 1.0180011486227158e-05,
+   "max": 8.773064613342285,
+   "nulls": 13245,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_r2_ext_hsc_3fwhm_aper": {
+   "min": 0.00014545382873620838,
+   "max": 10.080687522888184,
+   "nulls": 12925,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_r2_ext_hsc_4fwhm_aper": {
+   "min": 9.314549242844805e-05,
+   "max": 10.322566032409668,
+   "nulls": 12672,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_i_ext_hsc_1fwhm_aper": {
+   "min": 0.00010649030446074903,
+   "max": 0.37943533062934875,
+   "nulls": 319037,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_i_ext_hsc_2fwhm_aper": {
+   "min": 0.0008874192135408521,
+   "max": 0.667974054813385,
+   "nulls": 318972,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_i_ext_hsc_3fwhm_aper": {
+   "min": 0.0008874192135408521,
+   "max": 1.0189927816390991,
+   "nulls": 318927,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_i_ext_hsc_4fwhm_aper": {
+   "min": 0.0008874192135408521,
+   "max": 1.45684814453125,
+   "nulls": 318883,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_i2_ext_hsc_1fwhm_aper": {
+   "min": 0.0002479531685821712,
+   "max": 15.040526390075684,
+   "nulls": 18376,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_i2_ext_hsc_2fwhm_aper": {
+   "min": 2.5268587705795653e-05,
+   "max": 30.815601348876953,
+   "nulls": 18190,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_i2_ext_hsc_3fwhm_aper": {
+   "min": 0.0002029505994869396,
+   "max": 46.59931945800781,
+   "nulls": 18032,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_i2_ext_hsc_4fwhm_aper": {
+   "min": 5.915909059694968e-05,
+   "max": 62.35382843017578,
+   "nulls": 17930,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_hsc_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_hsc_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_hsc_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_hsc_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_vista_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_vista_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_vista_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_vista_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_vista_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_vista_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_vista_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_vista_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_vista_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_vista_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_vista_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_vista_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ks_ext_vista_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ks_ext_vista_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ks_ext_vista_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ks_ext_vista_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_ukirt_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_ukirt_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_ukirt_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_ukirt_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_ukirt_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_ukirt_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_ukirt_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_ukirt_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_k_ext_ukirt_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_k_ext_ukirt_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_k_ext_ukirt_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_k_ext_ukirt_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch1_ext_irac_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch1_ext_irac_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch1_ext_irac_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch1_ext_irac_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch2_ext_irac_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch2_ext_irac_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch2_ext_irac_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch2_ext_irac_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_fuv_ext_galex_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_fuv_ext_galex_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_fuv_ext_galex_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_fuv_ext_galex_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_nuv_ext_galex_1fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_nuv_ext_galex_2fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_nuv_ext_galex_3fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_nuv_ext_galex_4fwhm_aper": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia427_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia445_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia464_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia484_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia505_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia527_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia550_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia574_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia598_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia624_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia651_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia679_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia709_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia738_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia767_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia797_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia827_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia856_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ustar_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_uprime_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_r_ext_hsc_templfit": {
+   "min": -1818.863525390625,
+   "max": 23756.87890625,
+   "nulls": 298315,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "flux_r2_ext_hsc_templfit": {
+   "min": -14886.083984375,
+   "max": 157166.6875,
+   "nulls": 18018,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_i_ext_hsc_templfit": {
+   "min": -2346.475341796875,
+   "max": 80469.765625,
+   "nulls": 319948,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_i2_ext_hsc_templfit": {
+   "min": -3550.732666015625,
+   "max": 435830.21875,
+   "nulls": 23446,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_y_ext_hsc_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ks_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_k_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch1_ext_irac_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch2_ext_irac_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_fuv_ext_galex_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_nuv_ext_galex_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia427_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia445_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia464_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia484_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia505_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia527_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia550_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia574_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia598_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia624_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia651_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia679_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia709_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia738_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia767_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia797_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia827_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia856_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ustar_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_uprime_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_r_ext_hsc_templfit": {
+   "min": 0.0027007251046597958,
+   "max": 2222.806396484375,
+   "nulls": 298315,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "fluxerr_r2_ext_hsc_templfit": {
+   "min": 0.0008489554165862501,
+   "max": 596112335437824.0,
+   "nulls": 18018,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_i_ext_hsc_templfit": {
+   "min": 0.0030939176212996244,
+   "max": 435872944095232.0,
+   "nulls": 319948,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_i2_ext_hsc_templfit": {
+   "min": 0.0017981035634875298,
+   "max": 544432.0625,
+   "nulls": 23446,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_hsc_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ks_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_k_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch1_ext_irac_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch2_ext_irac_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_fuv_ext_galex_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_nuv_ext_galex_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia427_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia445_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia464_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia484_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia505_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia527_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia550_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia574_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia598_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia624_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia651_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia679_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia709_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia738_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia767_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia797_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia827_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ia856_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ustar_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_uprime_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_r_ext_hsc_templfit": {
+   "min": -136.04547119140625,
+   "max": 14573.703125,
+   "nulls": 282410,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_vis_to_r2_ext_hsc_templfit": {
+   "min": -1268.6778564453125,
+   "max": 182980.453125,
+   "nulls": 5944,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_vis_to_i_ext_hsc_templfit": {
+   "min": -59.93306350708008,
+   "max": 14574.138671875,
+   "nulls": 303434,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_vis_to_i2_ext_hsc_templfit": {
+   "min": -1354.6865234375,
+   "max": 182969.390625,
+   "nulls": 12668,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_vis_to_y_ext_hsc_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_h_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_j_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_y_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ks_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_j_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_h_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_k_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ch1_ext_irac_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_ch2_ext_irac_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_fuv_ext_galex_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_vis_to_nuv_ext_galex_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia427_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia445_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia464_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia484_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia505_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia527_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia550_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia574_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia598_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia624_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia651_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia679_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia709_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia738_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia767_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia797_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia827_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ia856_ext_subaru_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ustar_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_uprime_ext_megacam_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_r_ext_hsc_templfit": {
+   "min": 0.005218543577939272,
+   "max": 14.482410430908203,
+   "nulls": 282410,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_r2_ext_hsc_templfit": {
+   "min": 0.002663959749042988,
+   "max": 555.1585083007812,
+   "nulls": 5944,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_i_ext_hsc_templfit": {
+   "min": 0.0038645181339234114,
+   "max": 31.293930053710938,
+   "nulls": 303434,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_i2_ext_hsc_templfit": {
+   "min": 0.001513633062131703,
+   "max": 480.09234619140625,
+   "nulls": 12668,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_y_ext_hsc_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_h_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_j_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_y_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ks_ext_vista_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_j_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_h_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_k_ext_ukirt_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ch1_ext_irac_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_ch2_ext_irac_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_fuv_ext_galex_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_vis_to_nuv_ext_galex_templfit": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia427_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia445_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia464_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia484_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia505_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia527_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia550_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia574_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia598_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia624_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia651_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia679_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia709_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia738_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia767_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia797_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia827_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia856_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ustar_ext_megacam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_uprime_ext_megacam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_r_ext_hsc_sersic": {
+   "min": -247398272.0,
+   "max": 339784.71875,
+   "nulls": 296918,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_r2_ext_hsc_sersic": {
+   "min": -13117322.0,
+   "max": 1042733.875,
+   "nulls": 8139,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_i_ext_hsc_sersic": {
+   "min": -549425.625,
+   "max": 35271768.0,
+   "nulls": 318712,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flux_i2_ext_hsc_sersic": {
+   "min": -2266260.25,
+   "max": 150762.96875,
+   "nulls": 13738,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flux_y_ext_hsc_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_vista_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_vista_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_vista_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ks_ext_vista_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_ukirt_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_ukirt_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_k_ext_ukirt_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch1_ext_irac_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch2_ext_irac_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_fuv_ext_galex_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_nuv_ext_galex_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia427_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia445_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia464_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia484_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia505_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia527_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia550_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia574_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia598_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia624_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia651_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia679_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia709_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia738_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia767_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia797_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia827_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia856_ext_subaru_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ustar_ext_megacam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_uprime_ext_megacam_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_r_ext_hsc_sersic": {
+   "min": 2.422416284257597e-34,
+   "max": 680936328921088.0,
+   "nulls": 296918,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_r2_ext_hsc_sersic": {
+   "min": 3.0828566215145976e-44,
+   "max": null,
+   "nulls": 8139,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_i_ext_hsc_sersic": {
+   "min": 4.295291990077148e-33,
+   "max": 1.2240902680477696e+16,
+   "nulls": 318712,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "fluxerr_i2_ext_hsc_sersic": {
+   "min": 7.006492321624085e-45,
+   "max": null,
+   "nulls": 13738,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_hsc_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_vista_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_vista_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_vista_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ks_ext_vista_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_ukirt_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_ukirt_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_k_ext_ukirt_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch1_ext_irac_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch2_ext_irac_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_fuv_ext_galex_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_nuv_ext_galex_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia427_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia445_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia464_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia484_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia505_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia527_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia550_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia574_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia598_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia624_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia651_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia679_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia709_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia738_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia767_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia797_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia827_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ia856_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ustar_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_uprime_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_r_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_r2_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_i_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_i2_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_y_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ks_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_j_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_h_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_k_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch1_ext_irac_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_ch2_ext_irac_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_fuv_ext_galex_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flux_nuv_ext_galex_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia427_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia445_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia464_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia484_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia505_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia527_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia550_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia574_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia598_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia624_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia651_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia679_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia709_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia738_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia767_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia797_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia827_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ia856_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ustar_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_uprime_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_r_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_r2_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_i_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_i2_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_y_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ks_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_j_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_h_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_k_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch1_ext_irac_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_ch2_ext_irac_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_fuv_ext_galex_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "fluxerr_nuv_ext_galex_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia427_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia445_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia464_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia484_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia505_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia527_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia550_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia574_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia598_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia624_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia651_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia679_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia709_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia738_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia767_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia797_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia827_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia856_ext_subaru_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ustar_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_uprime_ext_megacam_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_r_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_r2_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_i_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_i2_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_y_ext_hsc_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_h_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_j_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_y_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ks_ext_vista_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_j_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_h_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_k_ext_ukirt_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ch1_ext_irac_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ch2_ext_irac_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_fuv_ext_galex_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_nuv_ext_galex_disk_sersic": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia427_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia445_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia464_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia484_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia505_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia527_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia550_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia574_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia598_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia624_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia651_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia679_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia709_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia738_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia767_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia797_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia827_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ia856_ext_subaru_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ustar_ext_megacam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_uprime_ext_megacam_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_r_ext_hsc_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_r2_ext_hsc_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_i_ext_hsc_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_i2_ext_hsc_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_y_ext_hsc_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_h_ext_vista_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_j_ext_vista_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_y_ext_vista_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ks_ext_vista_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_j_ext_ukirt_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_h_ext_ukirt_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_k_ext_ukirt_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ch1_ext_irac_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_ch2_ext_irac_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_fuv_ext_galex_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "sersic_fract_nuv_ext_galex_disk_sersic_err": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia427_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia445_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia464_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia484_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia505_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia527_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia550_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia574_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia598_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia624_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia651_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia679_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia709_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia738_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia767_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia797_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia827_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ia856_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ustar_ext_megacam": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_uprime_ext_megacam": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_r_ext_hsc": {
+   "min": 0,
+   "max": 7,
+   "nulls": 281070,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flag_r2_ext_hsc": {
+   "min": 0,
+   "max": 7,
+   "nulls": 0,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flag_i_ext_hsc": {
+   "min": 0,
+   "max": 7,
+   "nulls": 302272,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "flag_i2_ext_hsc": {
+   "min": 0,
+   "max": 7,
+   "nulls": 6828,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "flag_y_ext_hsc": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_h_ext_vista": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_j_ext_vista": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_y_ext_vista": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ks_ext_vista": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_j_ext_ukirt": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_h_ext_ukirt": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_k_ext_ukirt": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ch1_ext_irac": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_ch2_ext_irac": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_fuv_ext_galex": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "flag_nuv_ext_galex": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia427_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia445_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia464_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia484_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia505_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia527_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia550_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia574_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia598_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia624_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia651_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia679_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia709_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia738_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia767_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia797_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia827_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ia856_ext_subaru": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ustar_ext_megacam": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_uprime_ext_megacam": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_r_ext_hsc": {
+   "min": 6226.0,
+   "max": 6226.0,
+   "nulls": 297255,
+   "rg_with_stats": 6,
+   "rg_total": 19
+  },
+  "avg_trans_wave_r2_ext_hsc": {
+   "min": 6226.0,
+   "max": 6226.0,
+   "nulls": 13103,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "avg_trans_wave_i_ext_hsc": {
+   "min": 7767.0,
+   "max": 7767.0,
+   "nulls": 318985,
+   "rg_with_stats": 8,
+   "rg_total": 19
+  },
+  "avg_trans_wave_i2_ext_hsc": {
+   "min": 7767.0,
+   "max": 7767.0,
+   "nulls": 18050,
+   "rg_with_stats": 19,
+   "rg_total": 19
+  },
+  "avg_trans_wave_y_ext_hsc": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_h_ext_vista": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_j_ext_vista": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_y_ext_vista": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ks_ext_vista": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_j_ext_ukirt": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_h_ext_ukirt": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_k_ext_ukirt": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ch1_ext_irac": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_ch2_ext_irac": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_fuv_ext_galex": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "avg_trans_wave_nuv_ext_galex": {
+   "min": null,
+   "max": null,
+   "nulls": 382188,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "patch_id_list": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  },
+  "calblock_id_list": {
+   "min": null,
+   "max": null,
+   "nulls": 0,
+   "rg_with_stats": 0,
+   "rg_total": 19
+  }
+ },
+ "all_null_columns": [
+  "avg_trans_wave_ch1_ext_irac",
+  "avg_trans_wave_ch2_ext_irac",
+  "avg_trans_wave_fuv_ext_galex",
+  "avg_trans_wave_h_ext_ukirt",
+  "avg_trans_wave_h_ext_vista",
+  "avg_trans_wave_ia427_ext_subaru",
+  "avg_trans_wave_ia445_ext_subaru",
+  "avg_trans_wave_ia464_ext_subaru",
+  "avg_trans_wave_ia484_ext_subaru",
+  "avg_trans_wave_ia505_ext_subaru",
+  "avg_trans_wave_ia527_ext_subaru",
+  "avg_trans_wave_ia550_ext_subaru",
+  "avg_trans_wave_ia574_ext_subaru",
+  "avg_trans_wave_ia598_ext_subaru",
+  "avg_trans_wave_ia624_ext_subaru",
+  "avg_trans_wave_ia651_ext_subaru",
+  "avg_trans_wave_ia679_ext_subaru",
+  "avg_trans_wave_ia709_ext_subaru",
+  "avg_trans_wave_ia738_ext_subaru",
+  "avg_trans_wave_ia767_ext_subaru",
+  "avg_trans_wave_ia797_ext_subaru",
+  "avg_trans_wave_ia827_ext_subaru",
+  "avg_trans_wave_ia856_ext_subaru",
+  "avg_trans_wave_j_ext_ukirt",
+  "avg_trans_wave_j_ext_vista",
+  "avg_trans_wave_k_ext_ukirt",
+  "avg_trans_wave_ks_ext_vista",
+  "avg_trans_wave_nuv_ext_galex",
+  "avg_trans_wave_uprime_ext_megacam",
+  "avg_trans_wave_ustar_ext_megacam",
+  "avg_trans_wave_y_ext_hsc",
+  "avg_trans_wave_y_ext_vista",
+  "flag_ch1_ext_irac",
+  "flag_ch2_ext_irac",
+  "flag_fuv_ext_galex",
+  "flag_h_ext_ukirt",
+  "flag_h_ext_vista",
+  "flag_ia427_ext_subaru",
+  "flag_ia445_ext_subaru",
+  "flag_ia464_ext_subaru",
+  "flag_ia484_ext_subaru",
+  "flag_ia505_ext_subaru",
+  "flag_ia527_ext_subaru",
+  "flag_ia550_ext_subaru",
+  "flag_ia574_ext_subaru",
+  "flag_ia598_ext_subaru",
+  "flag_ia624_ext_subaru",
+  "flag_ia651_ext_subaru",
+  "flag_ia679_ext_subaru",
+  "flag_ia709_ext_subaru",
+  "flag_ia738_ext_subaru",
+  "flag_ia767_ext_subaru",
+  "flag_ia797_ext_subaru",
+  "flag_ia827_ext_subaru",
+  "flag_ia856_ext_subaru",
+  "flag_j_ext_ukirt",
+  "flag_j_ext_vista",
+  "flag_k_ext_ukirt",
+  "flag_ks_ext_vista",
+  "flag_nuv_ext_galex",
+  "flag_uprime_ext_megacam",
+  "flag_ustar_ext_megacam",
+  "flag_y_ext_hsc",
+  "flag_y_ext_vista",
+  "flux_ch1_ext_irac_1fwhm_aper",
+  "flux_ch1_ext_irac_2fwhm_aper",
+  "flux_ch1_ext_irac_3fwhm_aper",
+  "flux_ch1_ext_irac_4fwhm_aper",
+  "flux_ch1_ext_irac_disk_sersic",
+  "flux_ch1_ext_irac_sersic",
+  "flux_ch1_ext_irac_templfit",
+  "flux_ch2_ext_irac_1fwhm_aper",
+  "flux_ch2_ext_irac_2fwhm_aper",
+  "flux_ch2_ext_irac_3fwhm_aper",
+  "flux_ch2_ext_irac_4fwhm_aper",
+  "flux_ch2_ext_irac_disk_sersic",
+  "flux_ch2_ext_irac_sersic",
+  "flux_ch2_ext_irac_templfit",
+  "flux_fuv_ext_galex_1fwhm_aper",
+  "flux_fuv_ext_galex_2fwhm_aper",
+  "flux_fuv_ext_galex_3fwhm_aper",
+  "flux_fuv_ext_galex_4fwhm_aper",
+  "flux_fuv_ext_galex_disk_sersic",
+  "flux_fuv_ext_galex_sersic",
+  "flux_fuv_ext_galex_templfit",
+  "flux_h_ext_ukirt_1fwhm_aper",
+  "flux_h_ext_ukirt_2fwhm_aper",
+  "flux_h_ext_ukirt_3fwhm_aper",
+  "flux_h_ext_ukirt_4fwhm_aper",
+  "flux_h_ext_ukirt_disk_sersic",
+  "flux_h_ext_ukirt_sersic",
+  "flux_h_ext_ukirt_templfit",
+  "flux_h_ext_vista_1fwhm_aper",
+  "flux_h_ext_vista_2fwhm_aper",
+  "flux_h_ext_vista_3fwhm_aper",
+  "flux_h_ext_vista_4fwhm_aper",
+  "flux_h_ext_vista_disk_sersic",
+  "flux_h_ext_vista_sersic",
+  "flux_h_ext_vista_templfit",
+  "flux_i2_ext_hsc_disk_sersic",
+  "flux_i_ext_hsc_disk_sersic",
+  "flux_ia427_ext_subaru_1fwhm_aper",
+  "flux_ia427_ext_subaru_2fwhm_aper",
+  "flux_ia427_ext_subaru_3fwhm_aper",
+  "flux_ia427_ext_subaru_4fwhm_aper",
+  "flux_ia427_ext_subaru_disk_sersic",
+  "flux_ia427_ext_subaru_sersic",
+  "flux_ia427_ext_subaru_templfit",
+  "flux_ia445_ext_subaru_1fwhm_aper",
+  "flux_ia445_ext_subaru_2fwhm_aper",
+  "flux_ia445_ext_subaru_3fwhm_aper",
+  "flux_ia445_ext_subaru_4fwhm_aper",
+  "flux_ia445_ext_subaru_disk_sersic",
+  "flux_ia445_ext_subaru_sersic",
+  "flux_ia445_ext_subaru_templfit",
+  "flux_ia464_ext_subaru_1fwhm_aper",
+  "flux_ia464_ext_subaru_2fwhm_aper",
+  "flux_ia464_ext_subaru_3fwhm_aper",
+  "flux_ia464_ext_subaru_4fwhm_aper",
+  "flux_ia464_ext_subaru_disk_sersic",
+  "flux_ia464_ext_subaru_sersic",
+  "flux_ia464_ext_subaru_templfit",
+  "flux_ia484_ext_subaru_1fwhm_aper",
+  "flux_ia484_ext_subaru_2fwhm_aper",
+  "flux_ia484_ext_subaru_3fwhm_aper",
+  "flux_ia484_ext_subaru_4fwhm_aper",
+  "flux_ia484_ext_subaru_disk_sersic",
+  "flux_ia484_ext_subaru_sersic",
+  "flux_ia484_ext_subaru_templfit",
+  "flux_ia505_ext_subaru_1fwhm_aper",
+  "flux_ia505_ext_subaru_2fwhm_aper",
+  "flux_ia505_ext_subaru_3fwhm_aper",
+  "flux_ia505_ext_subaru_4fwhm_aper",
+  "flux_ia505_ext_subaru_disk_sersic",
+  "flux_ia505_ext_subaru_sersic",
+  "flux_ia505_ext_subaru_templfit",
+  "flux_ia527_ext_subaru_1fwhm_aper",
+  "flux_ia527_ext_subaru_2fwhm_aper",
+  "flux_ia527_ext_subaru_3fwhm_aper",
+  "flux_ia527_ext_subaru_4fwhm_aper",
+  "flux_ia527_ext_subaru_disk_sersic",
+  "flux_ia527_ext_subaru_sersic",
+  "flux_ia527_ext_subaru_templfit",
+  "flux_ia550_ext_subaru_1fwhm_aper",
+  "flux_ia550_ext_subaru_2fwhm_aper",
+  "flux_ia550_ext_subaru_3fwhm_aper",
+  "flux_ia550_ext_subaru_4fwhm_aper",
+  "flux_ia550_ext_subaru_disk_sersic",
+  "flux_ia550_ext_subaru_sersic",
+  "flux_ia550_ext_subaru_templfit",
+  "flux_ia574_ext_subaru_1fwhm_aper",
+  "flux_ia574_ext_subaru_2fwhm_aper",
+  "flux_ia574_ext_subaru_3fwhm_aper",
+  "flux_ia574_ext_subaru_4fwhm_aper",
+  "flux_ia574_ext_subaru_disk_sersic",
+  "flux_ia574_ext_subaru_sersic",
+  "flux_ia574_ext_subaru_templfit",
+  "flux_ia598_ext_subaru_1fwhm_aper",
+  "flux_ia598_ext_subaru_2fwhm_aper",
+  "flux_ia598_ext_subaru_3fwhm_aper",
+  "flux_ia598_ext_subaru_4fwhm_aper",
+  "flux_ia598_ext_subaru_disk_sersic",
+  "flux_ia598_ext_subaru_sersic",
+  "flux_ia598_ext_subaru_templfit",
+  "flux_ia624_ext_subaru_1fwhm_aper",
+  "flux_ia624_ext_subaru_2fwhm_aper",
+  "flux_ia624_ext_subaru_3fwhm_aper",
+  "flux_ia624_ext_subaru_4fwhm_aper",
+  "flux_ia624_ext_subaru_disk_sersic",
+  "flux_ia624_ext_subaru_sersic",
+  "flux_ia624_ext_subaru_templfit",
+  "flux_ia651_ext_subaru_1fwhm_aper",
+  "flux_ia651_ext_subaru_2fwhm_aper",
+  "flux_ia651_ext_subaru_3fwhm_aper",
+  "flux_ia651_ext_subaru_4fwhm_aper",
+  "flux_ia651_ext_subaru_disk_sersic",
+  "flux_ia651_ext_subaru_sersic",
+  "flux_ia651_ext_subaru_templfit",
+  "flux_ia679_ext_subaru_1fwhm_aper",
+  "flux_ia679_ext_subaru_2fwhm_aper",
+  "flux_ia679_ext_subaru_3fwhm_aper",
+  "flux_ia679_ext_subaru_4fwhm_aper",
+  "flux_ia679_ext_subaru_disk_sersic",
+  "flux_ia679_ext_subaru_sersic",
+  "flux_ia679_ext_subaru_templfit",
+  "flux_ia709_ext_subaru_1fwhm_aper",
+  "flux_ia709_ext_subaru_2fwhm_aper",
+  "flux_ia709_ext_subaru_3fwhm_aper",
+  "flux_ia709_ext_subaru_4fwhm_aper",
+  "flux_ia709_ext_subaru_disk_sersic",
+  "flux_ia709_ext_subaru_sersic",
+  "flux_ia709_ext_subaru_templfit",
+  "flux_ia738_ext_subaru_1fwhm_aper",
+  "flux_ia738_ext_subaru_2fwhm_aper",
+  "flux_ia738_ext_subaru_3fwhm_aper",
+  "flux_ia738_ext_subaru_4fwhm_aper",
+  "flux_ia738_ext_subaru_disk_sersic",
+  "flux_ia738_ext_subaru_sersic",
+  "flux_ia738_ext_subaru_templfit",
+  "flux_ia767_ext_subaru_1fwhm_aper",
+  "flux_ia767_ext_subaru_2fwhm_aper",
+  "flux_ia767_ext_subaru_3fwhm_aper",
+  "flux_ia767_ext_subaru_4fwhm_aper",
+  "flux_ia767_ext_subaru_disk_sersic",
+  "flux_ia767_ext_subaru_sersic",
+  "flux_ia767_ext_subaru_templfit",
+  "flux_ia797_ext_subaru_1fwhm_aper",
+  "flux_ia797_ext_subaru_2fwhm_aper",
+  "flux_ia797_ext_subaru_3fwhm_aper",
+  "flux_ia797_ext_subaru_4fwhm_aper",
+  "flux_ia797_ext_subaru_disk_sersic",
+  "flux_ia797_ext_subaru_sersic",
+  "flux_ia797_ext_subaru_templfit",
+  "flux_ia827_ext_subaru_1fwhm_aper",
+  "flux_ia827_ext_subaru_2fwhm_aper",
+  "flux_ia827_ext_subaru_3fwhm_aper",
+  "flux_ia827_ext_subaru_4fwhm_aper",
+  "flux_ia827_ext_subaru_disk_sersic",
+  "flux_ia827_ext_subaru_sersic",
+  "flux_ia827_ext_subaru_templfit",
+  "flux_ia856_ext_subaru_1fwhm_aper",
+  "flux_ia856_ext_subaru_2fwhm_aper",
+  "flux_ia856_ext_subaru_3fwhm_aper",
+  "flux_ia856_ext_subaru_4fwhm_aper",
+  "flux_ia856_ext_subaru_disk_sersic",
+  "flux_ia856_ext_subaru_sersic",
+  "flux_ia856_ext_subaru_templfit",
+  "flux_j_ext_ukirt_1fwhm_aper",
+  "flux_j_ext_ukirt_2fwhm_aper",
+  "flux_j_ext_ukirt_3fwhm_aper",
+  "flux_j_ext_ukirt_4fwhm_aper",
+  "flux_j_ext_ukirt_disk_sersic",
+  "flux_j_ext_ukirt_sersic",
+  "flux_j_ext_ukirt_templfit",
+  "flux_j_ext_vista_1fwhm_aper",
+  "flux_j_ext_vista_2fwhm_aper",
+  "flux_j_ext_vista_3fwhm_aper",
+  "flux_j_ext_vista_4fwhm_aper",
+  "flux_j_ext_vista_disk_sersic",
+  "flux_j_ext_vista_sersic",
+  "flux_j_ext_vista_templfit",
+  "flux_k_ext_ukirt_1fwhm_aper",
+  "flux_k_ext_ukirt_2fwhm_aper",
+  "flux_k_ext_ukirt_3fwhm_aper",
+  "flux_k_ext_ukirt_4fwhm_aper",
+  "flux_k_ext_ukirt_disk_sersic",
+  "flux_k_ext_ukirt_sersic",
+  "flux_k_ext_ukirt_templfit",
+  "flux_ks_ext_vista_1fwhm_aper",
+  "flux_ks_ext_vista_2fwhm_aper",
+  "flux_ks_ext_vista_3fwhm_aper",
+  "flux_ks_ext_vista_4fwhm_aper",
+  "flux_ks_ext_vista_disk_sersic",
+  "flux_ks_ext_vista_sersic",
+  "flux_ks_ext_vista_templfit",
+  "flux_nuv_ext_galex_1fwhm_aper",
+  "flux_nuv_ext_galex_2fwhm_aper",
+  "flux_nuv_ext_galex_3fwhm_aper",
+  "flux_nuv_ext_galex_4fwhm_aper",
+  "flux_nuv_ext_galex_disk_sersic",
+  "flux_nuv_ext_galex_sersic",
+  "flux_nuv_ext_galex_templfit",
+  "flux_r2_ext_hsc_disk_sersic",
+  "flux_r_ext_hsc_disk_sersic",
+  "flux_uprime_ext_megacam_disk_sersic",
+  "flux_uprime_ext_megacam_sersic",
+  "flux_uprime_ext_megacam_templfit",
+  "flux_ustar_ext_megacam_1fwhm_aper",
+  "flux_ustar_ext_megacam_2fwhm_aper",
+  "flux_ustar_ext_megacam_3fwhm_aper",
+  "flux_ustar_ext_megacam_4fwhm_aper",
+  "flux_ustar_ext_megacam_disk_sersic",
+  "flux_ustar_ext_megacam_sersic",
+  "flux_ustar_ext_megacam_templfit",
+  "flux_vis_to_ch1_ext_irac_templfit",
+  "flux_vis_to_ch2_ext_irac_templfit",
+  "flux_vis_to_fuv_ext_galex_templfit",
+  "flux_vis_to_h_ext_ukirt_templfit",
+  "flux_vis_to_h_ext_vista_templfit",
+  "flux_vis_to_ia427_ext_subaru_templfit",
+  "flux_vis_to_ia445_ext_subaru_templfit",
+  "flux_vis_to_ia464_ext_subaru_templfit",
+  "flux_vis_to_ia484_ext_subaru_templfit",
+  "flux_vis_to_ia505_ext_subaru_templfit",
+  "flux_vis_to_ia527_ext_subaru_templfit",
+  "flux_vis_to_ia550_ext_subaru_templfit",
+  "flux_vis_to_ia574_ext_subaru_templfit",
+  "flux_vis_to_ia598_ext_subaru_templfit",
+  "flux_vis_to_ia624_ext_subaru_templfit",
+  "flux_vis_to_ia651_ext_subaru_templfit",
+  "flux_vis_to_ia679_ext_subaru_templfit",
+  "flux_vis_to_ia709_ext_subaru_templfit",
+  "flux_vis_to_ia738_ext_subaru_templfit",
+  "flux_vis_to_ia767_ext_subaru_templfit",
+  "flux_vis_to_ia797_ext_subaru_templfit",
+  "flux_vis_to_ia827_ext_subaru_templfit",
+  "flux_vis_to_ia856_ext_subaru_templfit",
+  "flux_vis_to_j_ext_ukirt_templfit",
+  "flux_vis_to_j_ext_vista_templfit",
+  "flux_vis_to_k_ext_ukirt_templfit",
+  "flux_vis_to_ks_ext_vista_templfit",
+  "flux_vis_to_nuv_ext_galex_templfit",
+  "flux_vis_to_uprime_ext_megacam_templfit",
+  "flux_vis_to_ustar_ext_megacam_templfit",
+  "flux_vis_to_y_ext_hsc_templfit",
+  "flux_vis_to_y_ext_vista_templfit",
+  "flux_y_ext_hsc_1fwhm_aper",
+  "flux_y_ext_hsc_2fwhm_aper",
+  "flux_y_ext_hsc_3fwhm_aper",
+  "flux_y_ext_hsc_4fwhm_aper",
+  "flux_y_ext_hsc_disk_sersic",
+  "flux_y_ext_hsc_sersic",
+  "flux_y_ext_hsc_templfit",
+  "flux_y_ext_vista_1fwhm_aper",
+  "flux_y_ext_vista_2fwhm_aper",
+  "flux_y_ext_vista_3fwhm_aper",
+  "flux_y_ext_vista_4fwhm_aper",
+  "flux_y_ext_vista_disk_sersic",
+  "flux_y_ext_vista_sersic",
+  "flux_y_ext_vista_templfit",
+  "fluxerr_ch1_ext_irac_1fwhm_aper",
+  "fluxerr_ch1_ext_irac_2fwhm_aper",
+  "fluxerr_ch1_ext_irac_3fwhm_aper",
+  "fluxerr_ch1_ext_irac_4fwhm_aper",
+  "fluxerr_ch1_ext_irac_disk_sersic",
+  "fluxerr_ch1_ext_irac_sersic",
+  "fluxerr_ch1_ext_irac_templfit",
+  "fluxerr_ch2_ext_irac_1fwhm_aper",
+  "fluxerr_ch2_ext_irac_2fwhm_aper",
+  "fluxerr_ch2_ext_irac_3fwhm_aper",
+  "fluxerr_ch2_ext_irac_4fwhm_aper",
+  "fluxerr_ch2_ext_irac_disk_sersic",
+  "fluxerr_ch2_ext_irac_sersic",
+  "fluxerr_ch2_ext_irac_templfit",
+  "fluxerr_fuv_ext_galex_1fwhm_aper",
+  "fluxerr_fuv_ext_galex_2fwhm_aper",
+  "fluxerr_fuv_ext_galex_3fwhm_aper",
+  "fluxerr_fuv_ext_galex_4fwhm_aper",
+  "fluxerr_fuv_ext_galex_disk_sersic",
+  "fluxerr_fuv_ext_galex_sersic",
+  "fluxerr_fuv_ext_galex_templfit",
+  "fluxerr_h_ext_ukirt_1fwhm_aper",
+  "fluxerr_h_ext_ukirt_2fwhm_aper",
+  "fluxerr_h_ext_ukirt_3fwhm_aper",
+  "fluxerr_h_ext_ukirt_4fwhm_aper",
+  "fluxerr_h_ext_ukirt_disk_sersic",
+  "fluxerr_h_ext_ukirt_sersic",
+  "fluxerr_h_ext_ukirt_templfit",
+  "fluxerr_h_ext_vista_1fwhm_aper",
+  "fluxerr_h_ext_vista_2fwhm_aper",
+  "fluxerr_h_ext_vista_3fwhm_aper",
+  "fluxerr_h_ext_vista_4fwhm_aper",
+  "fluxerr_h_ext_vista_disk_sersic",
+  "fluxerr_h_ext_vista_sersic",
+  "fluxerr_h_ext_vista_templfit",
+  "fluxerr_i2_ext_hsc_disk_sersic",
+  "fluxerr_i_ext_hsc_disk_sersic",
+  "fluxerr_ia427_ext_subaru_1fwhm_aper",
+  "fluxerr_ia427_ext_subaru_2fwhm_aper",
+  "fluxerr_ia427_ext_subaru_3fwhm_aper",
+  "fluxerr_ia427_ext_subaru_4fwhm_aper",
+  "fluxerr_ia427_ext_subaru_disk_sersic",
+  "fluxerr_ia427_ext_subaru_sersic",
+  "fluxerr_ia427_ext_subaru_templfit",
+  "fluxerr_ia445_ext_subaru_1fwhm_aper",
+  "fluxerr_ia445_ext_subaru_2fwhm_aper",
+  "fluxerr_ia445_ext_subaru_3fwhm_aper",
+  "fluxerr_ia445_ext_subaru_4fwhm_aper",
+  "fluxerr_ia445_ext_subaru_disk_sersic",
+  "fluxerr_ia445_ext_subaru_sersic",
+  "fluxerr_ia445_ext_subaru_templfit",
+  "fluxerr_ia464_ext_subaru_1fwhm_aper",
+  "fluxerr_ia464_ext_subaru_2fwhm_aper",
+  "fluxerr_ia464_ext_subaru_3fwhm_aper",
+  "fluxerr_ia464_ext_subaru_4fwhm_aper",
+  "fluxerr_ia464_ext_subaru_disk_sersic",
+  "fluxerr_ia464_ext_subaru_sersic",
+  "fluxerr_ia464_ext_subaru_templfit",
+  "fluxerr_ia484_ext_subaru_1fwhm_aper",
+  "fluxerr_ia484_ext_subaru_2fwhm_aper",
+  "fluxerr_ia484_ext_subaru_3fwhm_aper",
+  "fluxerr_ia484_ext_subaru_4fwhm_aper",
+  "fluxerr_ia484_ext_subaru_disk_sersic",
+  "fluxerr_ia484_ext_subaru_sersic",
+  "fluxerr_ia484_ext_subaru_templfit",
+  "fluxerr_ia505_ext_subaru_1fwhm_aper",
+  "fluxerr_ia505_ext_subaru_2fwhm_aper",
+  "fluxerr_ia505_ext_subaru_3fwhm_aper",
+  "fluxerr_ia505_ext_subaru_4fwhm_aper",
+  "fluxerr_ia505_ext_subaru_disk_sersic",
+  "fluxerr_ia505_ext_subaru_sersic",
+  "fluxerr_ia505_ext_subaru_templfit",
+  "fluxerr_ia527_ext_subaru_1fwhm_aper",
+  "fluxerr_ia527_ext_subaru_2fwhm_aper",
+  "fluxerr_ia527_ext_subaru_3fwhm_aper",
+  "fluxerr_ia527_ext_subaru_4fwhm_aper",
+  "fluxerr_ia527_ext_subaru_disk_sersic",
+  "fluxerr_ia527_ext_subaru_sersic",
+  "fluxerr_ia527_ext_subaru_templfit",
+  "fluxerr_ia550_ext_subaru_1fwhm_aper",
+  "fluxerr_ia550_ext_subaru_2fwhm_aper",
+  "fluxerr_ia550_ext_subaru_3fwhm_aper",
+  "fluxerr_ia550_ext_subaru_4fwhm_aper",
+  "fluxerr_ia550_ext_subaru_disk_sersic",
+  "fluxerr_ia550_ext_subaru_sersic",
+  "fluxerr_ia550_ext_subaru_templfit",
+  "fluxerr_ia574_ext_subaru_1fwhm_aper",
+  "fluxerr_ia574_ext_subaru_2fwhm_aper",
+  "fluxerr_ia574_ext_subaru_3fwhm_aper",
+  "fluxerr_ia574_ext_subaru_4fwhm_aper",
+  "fluxerr_ia574_ext_subaru_disk_sersic",
+  "fluxerr_ia574_ext_subaru_sersic",
+  "fluxerr_ia574_ext_subaru_templfit",
+  "fluxerr_ia598_ext_subaru_1fwhm_aper",
+  "fluxerr_ia598_ext_subaru_2fwhm_aper",
+  "fluxerr_ia598_ext_subaru_3fwhm_aper",
+  "fluxerr_ia598_ext_subaru_4fwhm_aper",
+  "fluxerr_ia598_ext_subaru_disk_sersic",
+  "fluxerr_ia598_ext_subaru_sersic",
+  "fluxerr_ia598_ext_subaru_templfit",
+  "fluxerr_ia624_ext_subaru_1fwhm_aper",
+  "fluxerr_ia624_ext_subaru_2fwhm_aper",
+  "fluxerr_ia624_ext_subaru_3fwhm_aper",
+  "fluxerr_ia624_ext_subaru_4fwhm_aper",
+  "fluxerr_ia624_ext_subaru_disk_sersic",
+  "fluxerr_ia624_ext_subaru_sersic",
+  "fluxerr_ia624_ext_subaru_templfit",
+  "fluxerr_ia651_ext_subaru_1fwhm_aper",
+  "fluxerr_ia651_ext_subaru_2fwhm_aper",
+  "fluxerr_ia651_ext_subaru_3fwhm_aper",
+  "fluxerr_ia651_ext_subaru_4fwhm_aper",
+  "fluxerr_ia651_ext_subaru_disk_sersic",
+  "fluxerr_ia651_ext_subaru_sersic",
+  "fluxerr_ia651_ext_subaru_templfit",
+  "fluxerr_ia679_ext_subaru_1fwhm_aper",
+  "fluxerr_ia679_ext_subaru_2fwhm_aper",
+  "fluxerr_ia679_ext_subaru_3fwhm_aper",
+  "fluxerr_ia679_ext_subaru_4fwhm_aper",
+  "fluxerr_ia679_ext_subaru_disk_sersic",
+  "fluxerr_ia679_ext_subaru_sersic",
+  "fluxerr_ia679_ext_subaru_templfit",
+  "fluxerr_ia709_ext_subaru_1fwhm_aper",
+  "fluxerr_ia709_ext_subaru_2fwhm_aper",
+  "fluxerr_ia709_ext_subaru_3fwhm_aper",
+  "fluxerr_ia709_ext_subaru_4fwhm_aper",
+  "fluxerr_ia709_ext_subaru_disk_sersic",
+  "fluxerr_ia709_ext_subaru_sersic",
+  "fluxerr_ia709_ext_subaru_templfit",
+  "fluxerr_ia738_ext_subaru_1fwhm_aper",
+  "fluxerr_ia738_ext_subaru_2fwhm_aper",
+  "fluxerr_ia738_ext_subaru_3fwhm_aper",
+  "fluxerr_ia738_ext_subaru_4fwhm_aper",
+  "fluxerr_ia738_ext_subaru_disk_sersic",
+  "fluxerr_ia738_ext_subaru_sersic",
+  "fluxerr_ia738_ext_subaru_templfit",
+  "fluxerr_ia767_ext_subaru_1fwhm_aper",
+  "fluxerr_ia767_ext_subaru_2fwhm_aper",
+  "fluxerr_ia767_ext_subaru_3fwhm_aper",
+  "fluxerr_ia767_ext_subaru_4fwhm_aper",
+  "fluxerr_ia767_ext_subaru_disk_sersic",
+  "fluxerr_ia767_ext_subaru_sersic",
+  "fluxerr_ia767_ext_subaru_templfit",
+  "fluxerr_ia797_ext_subaru_1fwhm_aper",
+  "fluxerr_ia797_ext_subaru_2fwhm_aper",
+  "fluxerr_ia797_ext_subaru_3fwhm_aper",
+  "fluxerr_ia797_ext_subaru_4fwhm_aper",
+  "fluxerr_ia797_ext_subaru_disk_sersic",
+  "fluxerr_ia797_ext_subaru_sersic",
+  "fluxerr_ia797_ext_subaru_templfit",
+  "fluxerr_ia827_ext_subaru_1fwhm_aper",
+  "fluxerr_ia827_ext_subaru_2fwhm_aper",
+  "fluxerr_ia827_ext_subaru_3fwhm_aper",
+  "fluxerr_ia827_ext_subaru_4fwhm_aper",
+  "fluxerr_ia827_ext_subaru_disk_sersic",
+  "fluxerr_ia827_ext_subaru_sersic",
+  "fluxerr_ia827_ext_subaru_templfit",
+  "fluxerr_ia856_ext_subaru_1fwhm_aper",
+  "fluxerr_ia856_ext_subaru_2fwhm_aper",
+  "fluxerr_ia856_ext_subaru_3fwhm_aper",
+  "fluxerr_ia856_ext_subaru_4fwhm_aper",
+  "fluxerr_ia856_ext_subaru_disk_sersic",
+  "fluxerr_ia856_ext_subaru_sersic",
+  "fluxerr_ia856_ext_subaru_templfit",
+  "fluxerr_j_ext_ukirt_1fwhm_aper",
+  "fluxerr_j_ext_ukirt_2fwhm_aper",
+  "fluxerr_j_ext_ukirt_3fwhm_aper",
+  "fluxerr_j_ext_ukirt_4fwhm_aper",
+  "fluxerr_j_ext_ukirt_disk_sersic",
+  "fluxerr_j_ext_ukirt_sersic",
+  "fluxerr_j_ext_ukirt_templfit",
+  "fluxerr_j_ext_vista_1fwhm_aper",
+  "fluxerr_j_ext_vista_2fwhm_aper",
+  "fluxerr_j_ext_vista_3fwhm_aper",
+  "fluxerr_j_ext_vista_4fwhm_aper",
+  "fluxerr_j_ext_vista_disk_sersic",
+  "fluxerr_j_ext_vista_sersic",
+  "fluxerr_j_ext_vista_templfit",
+  "fluxerr_k_ext_ukirt_1fwhm_aper",
+  "fluxerr_k_ext_ukirt_2fwhm_aper",
+  "fluxerr_k_ext_ukirt_3fwhm_aper",
+  "fluxerr_k_ext_ukirt_4fwhm_aper",
+  "fluxerr_k_ext_ukirt_disk_sersic",
+  "fluxerr_k_ext_ukirt_sersic",
+  "fluxerr_k_ext_ukirt_templfit",
+  "fluxerr_ks_ext_vista_1fwhm_aper",
+  "fluxerr_ks_ext_vista_2fwhm_aper",
+  "fluxerr_ks_ext_vista_3fwhm_aper",
+  "fluxerr_ks_ext_vista_4fwhm_aper",
+  "fluxerr_ks_ext_vista_disk_sersic",
+  "fluxerr_ks_ext_vista_sersic",
+  "fluxerr_ks_ext_vista_templfit",
+  "fluxerr_nuv_ext_galex_1fwhm_aper",
+  "fluxerr_nuv_ext_galex_2fwhm_aper",
+  "fluxerr_nuv_ext_galex_3fwhm_aper",
+  "fluxerr_nuv_ext_galex_4fwhm_aper",
+  "fluxerr_nuv_ext_galex_disk_sersic",
+  "fluxerr_nuv_ext_galex_sersic",
+  "fluxerr_nuv_ext_galex_templfit",
+  "fluxerr_r2_ext_hsc_disk_sersic",
+  "fluxerr_r_ext_hsc_disk_sersic",
+  "fluxerr_uprime_ext_megacam_disk_sersic",
+  "fluxerr_uprime_ext_megacam_sersic",
+  "fluxerr_uprime_ext_megacam_templfit",
+  "fluxerr_ustar_ext_megacam_1fwhm_aper",
+  "fluxerr_ustar_ext_megacam_2fwhm_aper",
+  "fluxerr_ustar_ext_megacam_3fwhm_aper",
+  "fluxerr_ustar_ext_megacam_4fwhm_aper",
+  "fluxerr_ustar_ext_megacam_disk_sersic",
+  "fluxerr_ustar_ext_megacam_sersic",
+  "fluxerr_ustar_ext_megacam_templfit",
+  "fluxerr_vis_to_ch1_ext_irac_templfit",
+  "fluxerr_vis_to_ch2_ext_irac_templfit",
+  "fluxerr_vis_to_fuv_ext_galex_templfit",
+  "fluxerr_vis_to_h_ext_ukirt_templfit",
+  "fluxerr_vis_to_h_ext_vista_templfit",
+  "fluxerr_vis_to_ia427_ext_subaru_templfit",
+  "fluxerr_vis_to_ia445_ext_subaru_templfit",
+  "fluxerr_vis_to_ia464_ext_subaru_templfit",
+  "fluxerr_vis_to_ia484_ext_subaru_templfit",
+  "fluxerr_vis_to_ia505_ext_subaru_templfit",
+  "fluxerr_vis_to_ia527_ext_subaru_templfit",
+  "fluxerr_vis_to_ia550_ext_subaru_templfit",
+  "fluxerr_vis_to_ia574_ext_subaru_templfit",
+  "fluxerr_vis_to_ia598_ext_subaru_templfit",
+  "fluxerr_vis_to_ia624_ext_subaru_templfit",
+  "fluxerr_vis_to_ia651_ext_subaru_templfit",
+  "fluxerr_vis_to_ia679_ext_subaru_templfit",
+  "fluxerr_vis_to_ia709_ext_subaru_templfit",
+  "fluxerr_vis_to_ia738_ext_subaru_templfit",
+  "fluxerr_vis_to_ia767_ext_subaru_templfit",
+  "fluxerr_vis_to_ia797_ext_subaru_templfit",
+  "fluxerr_vis_to_ia827_ext_subaru_templfit",
+  "fluxerr_vis_to_ia856_ext_subaru_templfit",
+  "fluxerr_vis_to_j_ext_ukirt_templfit",
+  "fluxerr_vis_to_j_ext_vista_templfit",
+  "fluxerr_vis_to_k_ext_ukirt_templfit",
+  "fluxerr_vis_to_ks_ext_vista_templfit",
+  "fluxerr_vis_to_nuv_ext_galex_templfit",
+  "fluxerr_vis_to_uprime_ext_megacam_templfit",
+  "fluxerr_vis_to_ustar_ext_megacam_templfit",
+  "fluxerr_vis_to_y_ext_hsc_templfit",
+  "fluxerr_vis_to_y_ext_vista_templfit",
+  "fluxerr_y_ext_hsc_1fwhm_aper",
+  "fluxerr_y_ext_hsc_2fwhm_aper",
+  "fluxerr_y_ext_hsc_3fwhm_aper",
+  "fluxerr_y_ext_hsc_4fwhm_aper",
+  "fluxerr_y_ext_hsc_disk_sersic",
+  "fluxerr_y_ext_hsc_sersic",
+  "fluxerr_y_ext_hsc_templfit",
+  "fluxerr_y_ext_vista_1fwhm_aper",
+  "fluxerr_y_ext_vista_2fwhm_aper",
+  "fluxerr_y_ext_vista_3fwhm_aper",
+  "fluxerr_y_ext_vista_4fwhm_aper",
+  "fluxerr_y_ext_vista_disk_sersic",
+  "fluxerr_y_ext_vista_sersic",
+  "fluxerr_y_ext_vista_templfit",
+  "sersic_fract_ch1_ext_irac_disk_sersic",
+  "sersic_fract_ch1_ext_irac_disk_sersic_err",
+  "sersic_fract_ch2_ext_irac_disk_sersic",
+  "sersic_fract_ch2_ext_irac_disk_sersic_err",
+  "sersic_fract_fuv_ext_galex_disk_sersic",
+  "sersic_fract_fuv_ext_galex_disk_sersic_err",
+  "sersic_fract_h_ext_ukirt_disk_sersic",
+  "sersic_fract_h_ext_ukirt_disk_sersic_err",
+  "sersic_fract_h_ext_vista_disk_sersic",
+  "sersic_fract_h_ext_vista_disk_sersic_err",
+  "sersic_fract_i2_ext_hsc_disk_sersic",
+  "sersic_fract_i2_ext_hsc_disk_sersic_err",
+  "sersic_fract_i_ext_hsc_disk_sersic",
+  "sersic_fract_i_ext_hsc_disk_sersic_err",
+  "sersic_fract_ia427_ext_subaru_disk_sersic",
+  "sersic_fract_ia427_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia445_ext_subaru_disk_sersic",
+  "sersic_fract_ia445_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia464_ext_subaru_disk_sersic",
+  "sersic_fract_ia464_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia484_ext_subaru_disk_sersic",
+  "sersic_fract_ia484_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia505_ext_subaru_disk_sersic",
+  "sersic_fract_ia505_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia527_ext_subaru_disk_sersic",
+  "sersic_fract_ia527_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia550_ext_subaru_disk_sersic",
+  "sersic_fract_ia550_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia574_ext_subaru_disk_sersic",
+  "sersic_fract_ia574_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia598_ext_subaru_disk_sersic",
+  "sersic_fract_ia598_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia624_ext_subaru_disk_sersic",
+  "sersic_fract_ia624_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia651_ext_subaru_disk_sersic",
+  "sersic_fract_ia651_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia679_ext_subaru_disk_sersic",
+  "sersic_fract_ia679_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia709_ext_subaru_disk_sersic",
+  "sersic_fract_ia709_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia738_ext_subaru_disk_sersic",
+  "sersic_fract_ia738_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia767_ext_subaru_disk_sersic",
+  "sersic_fract_ia767_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia797_ext_subaru_disk_sersic",
+  "sersic_fract_ia797_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia827_ext_subaru_disk_sersic",
+  "sersic_fract_ia827_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia856_ext_subaru_disk_sersic",
+  "sersic_fract_ia856_ext_subaru_disk_sersic_err",
+  "sersic_fract_j_ext_ukirt_disk_sersic",
+  "sersic_fract_j_ext_ukirt_disk_sersic_err",
+  "sersic_fract_j_ext_vista_disk_sersic",
+  "sersic_fract_j_ext_vista_disk_sersic_err",
+  "sersic_fract_k_ext_ukirt_disk_sersic",
+  "sersic_fract_k_ext_ukirt_disk_sersic_err",
+  "sersic_fract_ks_ext_vista_disk_sersic",
+  "sersic_fract_ks_ext_vista_disk_sersic_err",
+  "sersic_fract_nuv_ext_galex_disk_sersic",
+  "sersic_fract_nuv_ext_galex_disk_sersic_err",
+  "sersic_fract_r2_ext_hsc_disk_sersic",
+  "sersic_fract_r2_ext_hsc_disk_sersic_err",
+  "sersic_fract_r_ext_hsc_disk_sersic",
+  "sersic_fract_r_ext_hsc_disk_sersic_err",
+  "sersic_fract_uprime_ext_megacam_disk_sersic",
+  "sersic_fract_uprime_ext_megacam_disk_sersic_err",
+  "sersic_fract_ustar_ext_megacam_disk_sersic",
+  "sersic_fract_ustar_ext_megacam_disk_sersic_err",
+  "sersic_fract_y_ext_hsc_disk_sersic",
+  "sersic_fract_y_ext_hsc_disk_sersic_err",
+  "sersic_fract_y_ext_vista_disk_sersic",
+  "sersic_fract_y_ext_vista_disk_sersic_err"
+ ],
+ "columns_without_stats": [
+  "avg_trans_wave_ch1_ext_irac",
+  "avg_trans_wave_ch2_ext_irac",
+  "avg_trans_wave_fuv_ext_galex",
+  "avg_trans_wave_h_ext_ukirt",
+  "avg_trans_wave_h_ext_vista",
+  "avg_trans_wave_ia427_ext_subaru",
+  "avg_trans_wave_ia445_ext_subaru",
+  "avg_trans_wave_ia464_ext_subaru",
+  "avg_trans_wave_ia484_ext_subaru",
+  "avg_trans_wave_ia505_ext_subaru",
+  "avg_trans_wave_ia527_ext_subaru",
+  "avg_trans_wave_ia550_ext_subaru",
+  "avg_trans_wave_ia574_ext_subaru",
+  "avg_trans_wave_ia598_ext_subaru",
+  "avg_trans_wave_ia624_ext_subaru",
+  "avg_trans_wave_ia651_ext_subaru",
+  "avg_trans_wave_ia679_ext_subaru",
+  "avg_trans_wave_ia709_ext_subaru",
+  "avg_trans_wave_ia738_ext_subaru",
+  "avg_trans_wave_ia767_ext_subaru",
+  "avg_trans_wave_ia797_ext_subaru",
+  "avg_trans_wave_ia827_ext_subaru",
+  "avg_trans_wave_ia856_ext_subaru",
+  "avg_trans_wave_j_ext_ukirt",
+  "avg_trans_wave_j_ext_vista",
+  "avg_trans_wave_k_ext_ukirt",
+  "avg_trans_wave_ks_ext_vista",
+  "avg_trans_wave_nuv_ext_galex",
+  "avg_trans_wave_uprime_ext_megacam",
+  "avg_trans_wave_ustar_ext_megacam",
+  "avg_trans_wave_y_ext_hsc",
+  "avg_trans_wave_y_ext_vista",
+  "calblock_id_list",
+  "flag_ch1_ext_irac",
+  "flag_ch2_ext_irac",
+  "flag_fuv_ext_galex",
+  "flag_h_ext_ukirt",
+  "flag_h_ext_vista",
+  "flag_ia427_ext_subaru",
+  "flag_ia445_ext_subaru",
+  "flag_ia464_ext_subaru",
+  "flag_ia484_ext_subaru",
+  "flag_ia505_ext_subaru",
+  "flag_ia527_ext_subaru",
+  "flag_ia550_ext_subaru",
+  "flag_ia574_ext_subaru",
+  "flag_ia598_ext_subaru",
+  "flag_ia624_ext_subaru",
+  "flag_ia651_ext_subaru",
+  "flag_ia679_ext_subaru",
+  "flag_ia709_ext_subaru",
+  "flag_ia738_ext_subaru",
+  "flag_ia767_ext_subaru",
+  "flag_ia797_ext_subaru",
+  "flag_ia827_ext_subaru",
+  "flag_ia856_ext_subaru",
+  "flag_j_ext_ukirt",
+  "flag_j_ext_vista",
+  "flag_k_ext_ukirt",
+  "flag_ks_ext_vista",
+  "flag_nuv_ext_galex",
+  "flag_uprime_ext_megacam",
+  "flag_ustar_ext_megacam",
+  "flag_y_ext_hsc",
+  "flag_y_ext_vista",
+  "flux_ch1_ext_irac_1fwhm_aper",
+  "flux_ch1_ext_irac_2fwhm_aper",
+  "flux_ch1_ext_irac_3fwhm_aper",
+  "flux_ch1_ext_irac_4fwhm_aper",
+  "flux_ch1_ext_irac_disk_sersic",
+  "flux_ch1_ext_irac_sersic",
+  "flux_ch1_ext_irac_templfit",
+  "flux_ch2_ext_irac_1fwhm_aper",
+  "flux_ch2_ext_irac_2fwhm_aper",
+  "flux_ch2_ext_irac_3fwhm_aper",
+  "flux_ch2_ext_irac_4fwhm_aper",
+  "flux_ch2_ext_irac_disk_sersic",
+  "flux_ch2_ext_irac_sersic",
+  "flux_ch2_ext_irac_templfit",
+  "flux_fuv_ext_galex_1fwhm_aper",
+  "flux_fuv_ext_galex_2fwhm_aper",
+  "flux_fuv_ext_galex_3fwhm_aper",
+  "flux_fuv_ext_galex_4fwhm_aper",
+  "flux_fuv_ext_galex_disk_sersic",
+  "flux_fuv_ext_galex_sersic",
+  "flux_fuv_ext_galex_templfit",
+  "flux_h_ext_ukirt_1fwhm_aper",
+  "flux_h_ext_ukirt_2fwhm_aper",
+  "flux_h_ext_ukirt_3fwhm_aper",
+  "flux_h_ext_ukirt_4fwhm_aper",
+  "flux_h_ext_ukirt_disk_sersic",
+  "flux_h_ext_ukirt_sersic",
+  "flux_h_ext_ukirt_templfit",
+  "flux_h_ext_vista_1fwhm_aper",
+  "flux_h_ext_vista_2fwhm_aper",
+  "flux_h_ext_vista_3fwhm_aper",
+  "flux_h_ext_vista_4fwhm_aper",
+  "flux_h_ext_vista_disk_sersic",
+  "flux_h_ext_vista_sersic",
+  "flux_h_ext_vista_templfit",
+  "flux_i2_ext_hsc_disk_sersic",
+  "flux_i_ext_hsc_disk_sersic",
+  "flux_ia427_ext_subaru_1fwhm_aper",
+  "flux_ia427_ext_subaru_2fwhm_aper",
+  "flux_ia427_ext_subaru_3fwhm_aper",
+  "flux_ia427_ext_subaru_4fwhm_aper",
+  "flux_ia427_ext_subaru_disk_sersic",
+  "flux_ia427_ext_subaru_sersic",
+  "flux_ia427_ext_subaru_templfit",
+  "flux_ia445_ext_subaru_1fwhm_aper",
+  "flux_ia445_ext_subaru_2fwhm_aper",
+  "flux_ia445_ext_subaru_3fwhm_aper",
+  "flux_ia445_ext_subaru_4fwhm_aper",
+  "flux_ia445_ext_subaru_disk_sersic",
+  "flux_ia445_ext_subaru_sersic",
+  "flux_ia445_ext_subaru_templfit",
+  "flux_ia464_ext_subaru_1fwhm_aper",
+  "flux_ia464_ext_subaru_2fwhm_aper",
+  "flux_ia464_ext_subaru_3fwhm_aper",
+  "flux_ia464_ext_subaru_4fwhm_aper",
+  "flux_ia464_ext_subaru_disk_sersic",
+  "flux_ia464_ext_subaru_sersic",
+  "flux_ia464_ext_subaru_templfit",
+  "flux_ia484_ext_subaru_1fwhm_aper",
+  "flux_ia484_ext_subaru_2fwhm_aper",
+  "flux_ia484_ext_subaru_3fwhm_aper",
+  "flux_ia484_ext_subaru_4fwhm_aper",
+  "flux_ia484_ext_subaru_disk_sersic",
+  "flux_ia484_ext_subaru_sersic",
+  "flux_ia484_ext_subaru_templfit",
+  "flux_ia505_ext_subaru_1fwhm_aper",
+  "flux_ia505_ext_subaru_2fwhm_aper",
+  "flux_ia505_ext_subaru_3fwhm_aper",
+  "flux_ia505_ext_subaru_4fwhm_aper",
+  "flux_ia505_ext_subaru_disk_sersic",
+  "flux_ia505_ext_subaru_sersic",
+  "flux_ia505_ext_subaru_templfit",
+  "flux_ia527_ext_subaru_1fwhm_aper",
+  "flux_ia527_ext_subaru_2fwhm_aper",
+  "flux_ia527_ext_subaru_3fwhm_aper",
+  "flux_ia527_ext_subaru_4fwhm_aper",
+  "flux_ia527_ext_subaru_disk_sersic",
+  "flux_ia527_ext_subaru_sersic",
+  "flux_ia527_ext_subaru_templfit",
+  "flux_ia550_ext_subaru_1fwhm_aper",
+  "flux_ia550_ext_subaru_2fwhm_aper",
+  "flux_ia550_ext_subaru_3fwhm_aper",
+  "flux_ia550_ext_subaru_4fwhm_aper",
+  "flux_ia550_ext_subaru_disk_sersic",
+  "flux_ia550_ext_subaru_sersic",
+  "flux_ia550_ext_subaru_templfit",
+  "flux_ia574_ext_subaru_1fwhm_aper",
+  "flux_ia574_ext_subaru_2fwhm_aper",
+  "flux_ia574_ext_subaru_3fwhm_aper",
+  "flux_ia574_ext_subaru_4fwhm_aper",
+  "flux_ia574_ext_subaru_disk_sersic",
+  "flux_ia574_ext_subaru_sersic",
+  "flux_ia574_ext_subaru_templfit",
+  "flux_ia598_ext_subaru_1fwhm_aper",
+  "flux_ia598_ext_subaru_2fwhm_aper",
+  "flux_ia598_ext_subaru_3fwhm_aper",
+  "flux_ia598_ext_subaru_4fwhm_aper",
+  "flux_ia598_ext_subaru_disk_sersic",
+  "flux_ia598_ext_subaru_sersic",
+  "flux_ia598_ext_subaru_templfit",
+  "flux_ia624_ext_subaru_1fwhm_aper",
+  "flux_ia624_ext_subaru_2fwhm_aper",
+  "flux_ia624_ext_subaru_3fwhm_aper",
+  "flux_ia624_ext_subaru_4fwhm_aper",
+  "flux_ia624_ext_subaru_disk_sersic",
+  "flux_ia624_ext_subaru_sersic",
+  "flux_ia624_ext_subaru_templfit",
+  "flux_ia651_ext_subaru_1fwhm_aper",
+  "flux_ia651_ext_subaru_2fwhm_aper",
+  "flux_ia651_ext_subaru_3fwhm_aper",
+  "flux_ia651_ext_subaru_4fwhm_aper",
+  "flux_ia651_ext_subaru_disk_sersic",
+  "flux_ia651_ext_subaru_sersic",
+  "flux_ia651_ext_subaru_templfit",
+  "flux_ia679_ext_subaru_1fwhm_aper",
+  "flux_ia679_ext_subaru_2fwhm_aper",
+  "flux_ia679_ext_subaru_3fwhm_aper",
+  "flux_ia679_ext_subaru_4fwhm_aper",
+  "flux_ia679_ext_subaru_disk_sersic",
+  "flux_ia679_ext_subaru_sersic",
+  "flux_ia679_ext_subaru_templfit",
+  "flux_ia709_ext_subaru_1fwhm_aper",
+  "flux_ia709_ext_subaru_2fwhm_aper",
+  "flux_ia709_ext_subaru_3fwhm_aper",
+  "flux_ia709_ext_subaru_4fwhm_aper",
+  "flux_ia709_ext_subaru_disk_sersic",
+  "flux_ia709_ext_subaru_sersic",
+  "flux_ia709_ext_subaru_templfit",
+  "flux_ia738_ext_subaru_1fwhm_aper",
+  "flux_ia738_ext_subaru_2fwhm_aper",
+  "flux_ia738_ext_subaru_3fwhm_aper",
+  "flux_ia738_ext_subaru_4fwhm_aper",
+  "flux_ia738_ext_subaru_disk_sersic",
+  "flux_ia738_ext_subaru_sersic",
+  "flux_ia738_ext_subaru_templfit",
+  "flux_ia767_ext_subaru_1fwhm_aper",
+  "flux_ia767_ext_subaru_2fwhm_aper",
+  "flux_ia767_ext_subaru_3fwhm_aper",
+  "flux_ia767_ext_subaru_4fwhm_aper",
+  "flux_ia767_ext_subaru_disk_sersic",
+  "flux_ia767_ext_subaru_sersic",
+  "flux_ia767_ext_subaru_templfit",
+  "flux_ia797_ext_subaru_1fwhm_aper",
+  "flux_ia797_ext_subaru_2fwhm_aper",
+  "flux_ia797_ext_subaru_3fwhm_aper",
+  "flux_ia797_ext_subaru_4fwhm_aper",
+  "flux_ia797_ext_subaru_disk_sersic",
+  "flux_ia797_ext_subaru_sersic",
+  "flux_ia797_ext_subaru_templfit",
+  "flux_ia827_ext_subaru_1fwhm_aper",
+  "flux_ia827_ext_subaru_2fwhm_aper",
+  "flux_ia827_ext_subaru_3fwhm_aper",
+  "flux_ia827_ext_subaru_4fwhm_aper",
+  "flux_ia827_ext_subaru_disk_sersic",
+  "flux_ia827_ext_subaru_sersic",
+  "flux_ia827_ext_subaru_templfit",
+  "flux_ia856_ext_subaru_1fwhm_aper",
+  "flux_ia856_ext_subaru_2fwhm_aper",
+  "flux_ia856_ext_subaru_3fwhm_aper",
+  "flux_ia856_ext_subaru_4fwhm_aper",
+  "flux_ia856_ext_subaru_disk_sersic",
+  "flux_ia856_ext_subaru_sersic",
+  "flux_ia856_ext_subaru_templfit",
+  "flux_j_ext_ukirt_1fwhm_aper",
+  "flux_j_ext_ukirt_2fwhm_aper",
+  "flux_j_ext_ukirt_3fwhm_aper",
+  "flux_j_ext_ukirt_4fwhm_aper",
+  "flux_j_ext_ukirt_disk_sersic",
+  "flux_j_ext_ukirt_sersic",
+  "flux_j_ext_ukirt_templfit",
+  "flux_j_ext_vista_1fwhm_aper",
+  "flux_j_ext_vista_2fwhm_aper",
+  "flux_j_ext_vista_3fwhm_aper",
+  "flux_j_ext_vista_4fwhm_aper",
+  "flux_j_ext_vista_disk_sersic",
+  "flux_j_ext_vista_sersic",
+  "flux_j_ext_vista_templfit",
+  "flux_k_ext_ukirt_1fwhm_aper",
+  "flux_k_ext_ukirt_2fwhm_aper",
+  "flux_k_ext_ukirt_3fwhm_aper",
+  "flux_k_ext_ukirt_4fwhm_aper",
+  "flux_k_ext_ukirt_disk_sersic",
+  "flux_k_ext_ukirt_sersic",
+  "flux_k_ext_ukirt_templfit",
+  "flux_ks_ext_vista_1fwhm_aper",
+  "flux_ks_ext_vista_2fwhm_aper",
+  "flux_ks_ext_vista_3fwhm_aper",
+  "flux_ks_ext_vista_4fwhm_aper",
+  "flux_ks_ext_vista_disk_sersic",
+  "flux_ks_ext_vista_sersic",
+  "flux_ks_ext_vista_templfit",
+  "flux_nuv_ext_galex_1fwhm_aper",
+  "flux_nuv_ext_galex_2fwhm_aper",
+  "flux_nuv_ext_galex_3fwhm_aper",
+  "flux_nuv_ext_galex_4fwhm_aper",
+  "flux_nuv_ext_galex_disk_sersic",
+  "flux_nuv_ext_galex_sersic",
+  "flux_nuv_ext_galex_templfit",
+  "flux_r2_ext_hsc_disk_sersic",
+  "flux_r_ext_hsc_disk_sersic",
+  "flux_uprime_ext_megacam_disk_sersic",
+  "flux_uprime_ext_megacam_sersic",
+  "flux_uprime_ext_megacam_templfit",
+  "flux_ustar_ext_megacam_1fwhm_aper",
+  "flux_ustar_ext_megacam_2fwhm_aper",
+  "flux_ustar_ext_megacam_3fwhm_aper",
+  "flux_ustar_ext_megacam_4fwhm_aper",
+  "flux_ustar_ext_megacam_disk_sersic",
+  "flux_ustar_ext_megacam_sersic",
+  "flux_ustar_ext_megacam_templfit",
+  "flux_vis_to_ch1_ext_irac_templfit",
+  "flux_vis_to_ch2_ext_irac_templfit",
+  "flux_vis_to_fuv_ext_galex_templfit",
+  "flux_vis_to_h_ext_ukirt_templfit",
+  "flux_vis_to_h_ext_vista_templfit",
+  "flux_vis_to_ia427_ext_subaru_templfit",
+  "flux_vis_to_ia445_ext_subaru_templfit",
+  "flux_vis_to_ia464_ext_subaru_templfit",
+  "flux_vis_to_ia484_ext_subaru_templfit",
+  "flux_vis_to_ia505_ext_subaru_templfit",
+  "flux_vis_to_ia527_ext_subaru_templfit",
+  "flux_vis_to_ia550_ext_subaru_templfit",
+  "flux_vis_to_ia574_ext_subaru_templfit",
+  "flux_vis_to_ia598_ext_subaru_templfit",
+  "flux_vis_to_ia624_ext_subaru_templfit",
+  "flux_vis_to_ia651_ext_subaru_templfit",
+  "flux_vis_to_ia679_ext_subaru_templfit",
+  "flux_vis_to_ia709_ext_subaru_templfit",
+  "flux_vis_to_ia738_ext_subaru_templfit",
+  "flux_vis_to_ia767_ext_subaru_templfit",
+  "flux_vis_to_ia797_ext_subaru_templfit",
+  "flux_vis_to_ia827_ext_subaru_templfit",
+  "flux_vis_to_ia856_ext_subaru_templfit",
+  "flux_vis_to_j_ext_ukirt_templfit",
+  "flux_vis_to_j_ext_vista_templfit",
+  "flux_vis_to_k_ext_ukirt_templfit",
+  "flux_vis_to_ks_ext_vista_templfit",
+  "flux_vis_to_nuv_ext_galex_templfit",
+  "flux_vis_to_uprime_ext_megacam_templfit",
+  "flux_vis_to_ustar_ext_megacam_templfit",
+  "flux_vis_to_y_ext_hsc_templfit",
+  "flux_vis_to_y_ext_vista_templfit",
+  "flux_y_ext_hsc_1fwhm_aper",
+  "flux_y_ext_hsc_2fwhm_aper",
+  "flux_y_ext_hsc_3fwhm_aper",
+  "flux_y_ext_hsc_4fwhm_aper",
+  "flux_y_ext_hsc_disk_sersic",
+  "flux_y_ext_hsc_sersic",
+  "flux_y_ext_hsc_templfit",
+  "flux_y_ext_vista_1fwhm_aper",
+  "flux_y_ext_vista_2fwhm_aper",
+  "flux_y_ext_vista_3fwhm_aper",
+  "flux_y_ext_vista_4fwhm_aper",
+  "flux_y_ext_vista_disk_sersic",
+  "flux_y_ext_vista_sersic",
+  "flux_y_ext_vista_templfit",
+  "fluxerr_ch1_ext_irac_1fwhm_aper",
+  "fluxerr_ch1_ext_irac_2fwhm_aper",
+  "fluxerr_ch1_ext_irac_3fwhm_aper",
+  "fluxerr_ch1_ext_irac_4fwhm_aper",
+  "fluxerr_ch1_ext_irac_disk_sersic",
+  "fluxerr_ch1_ext_irac_sersic",
+  "fluxerr_ch1_ext_irac_templfit",
+  "fluxerr_ch2_ext_irac_1fwhm_aper",
+  "fluxerr_ch2_ext_irac_2fwhm_aper",
+  "fluxerr_ch2_ext_irac_3fwhm_aper",
+  "fluxerr_ch2_ext_irac_4fwhm_aper",
+  "fluxerr_ch2_ext_irac_disk_sersic",
+  "fluxerr_ch2_ext_irac_sersic",
+  "fluxerr_ch2_ext_irac_templfit",
+  "fluxerr_fuv_ext_galex_1fwhm_aper",
+  "fluxerr_fuv_ext_galex_2fwhm_aper",
+  "fluxerr_fuv_ext_galex_3fwhm_aper",
+  "fluxerr_fuv_ext_galex_4fwhm_aper",
+  "fluxerr_fuv_ext_galex_disk_sersic",
+  "fluxerr_fuv_ext_galex_sersic",
+  "fluxerr_fuv_ext_galex_templfit",
+  "fluxerr_h_ext_ukirt_1fwhm_aper",
+  "fluxerr_h_ext_ukirt_2fwhm_aper",
+  "fluxerr_h_ext_ukirt_3fwhm_aper",
+  "fluxerr_h_ext_ukirt_4fwhm_aper",
+  "fluxerr_h_ext_ukirt_disk_sersic",
+  "fluxerr_h_ext_ukirt_sersic",
+  "fluxerr_h_ext_ukirt_templfit",
+  "fluxerr_h_ext_vista_1fwhm_aper",
+  "fluxerr_h_ext_vista_2fwhm_aper",
+  "fluxerr_h_ext_vista_3fwhm_aper",
+  "fluxerr_h_ext_vista_4fwhm_aper",
+  "fluxerr_h_ext_vista_disk_sersic",
+  "fluxerr_h_ext_vista_sersic",
+  "fluxerr_h_ext_vista_templfit",
+  "fluxerr_i2_ext_hsc_disk_sersic",
+  "fluxerr_i_ext_hsc_disk_sersic",
+  "fluxerr_ia427_ext_subaru_1fwhm_aper",
+  "fluxerr_ia427_ext_subaru_2fwhm_aper",
+  "fluxerr_ia427_ext_subaru_3fwhm_aper",
+  "fluxerr_ia427_ext_subaru_4fwhm_aper",
+  "fluxerr_ia427_ext_subaru_disk_sersic",
+  "fluxerr_ia427_ext_subaru_sersic",
+  "fluxerr_ia427_ext_subaru_templfit",
+  "fluxerr_ia445_ext_subaru_1fwhm_aper",
+  "fluxerr_ia445_ext_subaru_2fwhm_aper",
+  "fluxerr_ia445_ext_subaru_3fwhm_aper",
+  "fluxerr_ia445_ext_subaru_4fwhm_aper",
+  "fluxerr_ia445_ext_subaru_disk_sersic",
+  "fluxerr_ia445_ext_subaru_sersic",
+  "fluxerr_ia445_ext_subaru_templfit",
+  "fluxerr_ia464_ext_subaru_1fwhm_aper",
+  "fluxerr_ia464_ext_subaru_2fwhm_aper",
+  "fluxerr_ia464_ext_subaru_3fwhm_aper",
+  "fluxerr_ia464_ext_subaru_4fwhm_aper",
+  "fluxerr_ia464_ext_subaru_disk_sersic",
+  "fluxerr_ia464_ext_subaru_sersic",
+  "fluxerr_ia464_ext_subaru_templfit",
+  "fluxerr_ia484_ext_subaru_1fwhm_aper",
+  "fluxerr_ia484_ext_subaru_2fwhm_aper",
+  "fluxerr_ia484_ext_subaru_3fwhm_aper",
+  "fluxerr_ia484_ext_subaru_4fwhm_aper",
+  "fluxerr_ia484_ext_subaru_disk_sersic",
+  "fluxerr_ia484_ext_subaru_sersic",
+  "fluxerr_ia484_ext_subaru_templfit",
+  "fluxerr_ia505_ext_subaru_1fwhm_aper",
+  "fluxerr_ia505_ext_subaru_2fwhm_aper",
+  "fluxerr_ia505_ext_subaru_3fwhm_aper",
+  "fluxerr_ia505_ext_subaru_4fwhm_aper",
+  "fluxerr_ia505_ext_subaru_disk_sersic",
+  "fluxerr_ia505_ext_subaru_sersic",
+  "fluxerr_ia505_ext_subaru_templfit",
+  "fluxerr_ia527_ext_subaru_1fwhm_aper",
+  "fluxerr_ia527_ext_subaru_2fwhm_aper",
+  "fluxerr_ia527_ext_subaru_3fwhm_aper",
+  "fluxerr_ia527_ext_subaru_4fwhm_aper",
+  "fluxerr_ia527_ext_subaru_disk_sersic",
+  "fluxerr_ia527_ext_subaru_sersic",
+  "fluxerr_ia527_ext_subaru_templfit",
+  "fluxerr_ia550_ext_subaru_1fwhm_aper",
+  "fluxerr_ia550_ext_subaru_2fwhm_aper",
+  "fluxerr_ia550_ext_subaru_3fwhm_aper",
+  "fluxerr_ia550_ext_subaru_4fwhm_aper",
+  "fluxerr_ia550_ext_subaru_disk_sersic",
+  "fluxerr_ia550_ext_subaru_sersic",
+  "fluxerr_ia550_ext_subaru_templfit",
+  "fluxerr_ia574_ext_subaru_1fwhm_aper",
+  "fluxerr_ia574_ext_subaru_2fwhm_aper",
+  "fluxerr_ia574_ext_subaru_3fwhm_aper",
+  "fluxerr_ia574_ext_subaru_4fwhm_aper",
+  "fluxerr_ia574_ext_subaru_disk_sersic",
+  "fluxerr_ia574_ext_subaru_sersic",
+  "fluxerr_ia574_ext_subaru_templfit",
+  "fluxerr_ia598_ext_subaru_1fwhm_aper",
+  "fluxerr_ia598_ext_subaru_2fwhm_aper",
+  "fluxerr_ia598_ext_subaru_3fwhm_aper",
+  "fluxerr_ia598_ext_subaru_4fwhm_aper",
+  "fluxerr_ia598_ext_subaru_disk_sersic",
+  "fluxerr_ia598_ext_subaru_sersic",
+  "fluxerr_ia598_ext_subaru_templfit",
+  "fluxerr_ia624_ext_subaru_1fwhm_aper",
+  "fluxerr_ia624_ext_subaru_2fwhm_aper",
+  "fluxerr_ia624_ext_subaru_3fwhm_aper",
+  "fluxerr_ia624_ext_subaru_4fwhm_aper",
+  "fluxerr_ia624_ext_subaru_disk_sersic",
+  "fluxerr_ia624_ext_subaru_sersic",
+  "fluxerr_ia624_ext_subaru_templfit",
+  "fluxerr_ia651_ext_subaru_1fwhm_aper",
+  "fluxerr_ia651_ext_subaru_2fwhm_aper",
+  "fluxerr_ia651_ext_subaru_3fwhm_aper",
+  "fluxerr_ia651_ext_subaru_4fwhm_aper",
+  "fluxerr_ia651_ext_subaru_disk_sersic",
+  "fluxerr_ia651_ext_subaru_sersic",
+  "fluxerr_ia651_ext_subaru_templfit",
+  "fluxerr_ia679_ext_subaru_1fwhm_aper",
+  "fluxerr_ia679_ext_subaru_2fwhm_aper",
+  "fluxerr_ia679_ext_subaru_3fwhm_aper",
+  "fluxerr_ia679_ext_subaru_4fwhm_aper",
+  "fluxerr_ia679_ext_subaru_disk_sersic",
+  "fluxerr_ia679_ext_subaru_sersic",
+  "fluxerr_ia679_ext_subaru_templfit",
+  "fluxerr_ia709_ext_subaru_1fwhm_aper",
+  "fluxerr_ia709_ext_subaru_2fwhm_aper",
+  "fluxerr_ia709_ext_subaru_3fwhm_aper",
+  "fluxerr_ia709_ext_subaru_4fwhm_aper",
+  "fluxerr_ia709_ext_subaru_disk_sersic",
+  "fluxerr_ia709_ext_subaru_sersic",
+  "fluxerr_ia709_ext_subaru_templfit",
+  "fluxerr_ia738_ext_subaru_1fwhm_aper",
+  "fluxerr_ia738_ext_subaru_2fwhm_aper",
+  "fluxerr_ia738_ext_subaru_3fwhm_aper",
+  "fluxerr_ia738_ext_subaru_4fwhm_aper",
+  "fluxerr_ia738_ext_subaru_disk_sersic",
+  "fluxerr_ia738_ext_subaru_sersic",
+  "fluxerr_ia738_ext_subaru_templfit",
+  "fluxerr_ia767_ext_subaru_1fwhm_aper",
+  "fluxerr_ia767_ext_subaru_2fwhm_aper",
+  "fluxerr_ia767_ext_subaru_3fwhm_aper",
+  "fluxerr_ia767_ext_subaru_4fwhm_aper",
+  "fluxerr_ia767_ext_subaru_disk_sersic",
+  "fluxerr_ia767_ext_subaru_sersic",
+  "fluxerr_ia767_ext_subaru_templfit",
+  "fluxerr_ia797_ext_subaru_1fwhm_aper",
+  "fluxerr_ia797_ext_subaru_2fwhm_aper",
+  "fluxerr_ia797_ext_subaru_3fwhm_aper",
+  "fluxerr_ia797_ext_subaru_4fwhm_aper",
+  "fluxerr_ia797_ext_subaru_disk_sersic",
+  "fluxerr_ia797_ext_subaru_sersic",
+  "fluxerr_ia797_ext_subaru_templfit",
+  "fluxerr_ia827_ext_subaru_1fwhm_aper",
+  "fluxerr_ia827_ext_subaru_2fwhm_aper",
+  "fluxerr_ia827_ext_subaru_3fwhm_aper",
+  "fluxerr_ia827_ext_subaru_4fwhm_aper",
+  "fluxerr_ia827_ext_subaru_disk_sersic",
+  "fluxerr_ia827_ext_subaru_sersic",
+  "fluxerr_ia827_ext_subaru_templfit",
+  "fluxerr_ia856_ext_subaru_1fwhm_aper",
+  "fluxerr_ia856_ext_subaru_2fwhm_aper",
+  "fluxerr_ia856_ext_subaru_3fwhm_aper",
+  "fluxerr_ia856_ext_subaru_4fwhm_aper",
+  "fluxerr_ia856_ext_subaru_disk_sersic",
+  "fluxerr_ia856_ext_subaru_sersic",
+  "fluxerr_ia856_ext_subaru_templfit",
+  "fluxerr_j_ext_ukirt_1fwhm_aper",
+  "fluxerr_j_ext_ukirt_2fwhm_aper",
+  "fluxerr_j_ext_ukirt_3fwhm_aper",
+  "fluxerr_j_ext_ukirt_4fwhm_aper",
+  "fluxerr_j_ext_ukirt_disk_sersic",
+  "fluxerr_j_ext_ukirt_sersic",
+  "fluxerr_j_ext_ukirt_templfit",
+  "fluxerr_j_ext_vista_1fwhm_aper",
+  "fluxerr_j_ext_vista_2fwhm_aper",
+  "fluxerr_j_ext_vista_3fwhm_aper",
+  "fluxerr_j_ext_vista_4fwhm_aper",
+  "fluxerr_j_ext_vista_disk_sersic",
+  "fluxerr_j_ext_vista_sersic",
+  "fluxerr_j_ext_vista_templfit",
+  "fluxerr_k_ext_ukirt_1fwhm_aper",
+  "fluxerr_k_ext_ukirt_2fwhm_aper",
+  "fluxerr_k_ext_ukirt_3fwhm_aper",
+  "fluxerr_k_ext_ukirt_4fwhm_aper",
+  "fluxerr_k_ext_ukirt_disk_sersic",
+  "fluxerr_k_ext_ukirt_sersic",
+  "fluxerr_k_ext_ukirt_templfit",
+  "fluxerr_ks_ext_vista_1fwhm_aper",
+  "fluxerr_ks_ext_vista_2fwhm_aper",
+  "fluxerr_ks_ext_vista_3fwhm_aper",
+  "fluxerr_ks_ext_vista_4fwhm_aper",
+  "fluxerr_ks_ext_vista_disk_sersic",
+  "fluxerr_ks_ext_vista_sersic",
+  "fluxerr_ks_ext_vista_templfit",
+  "fluxerr_nuv_ext_galex_1fwhm_aper",
+  "fluxerr_nuv_ext_galex_2fwhm_aper",
+  "fluxerr_nuv_ext_galex_3fwhm_aper",
+  "fluxerr_nuv_ext_galex_4fwhm_aper",
+  "fluxerr_nuv_ext_galex_disk_sersic",
+  "fluxerr_nuv_ext_galex_sersic",
+  "fluxerr_nuv_ext_galex_templfit",
+  "fluxerr_r2_ext_hsc_disk_sersic",
+  "fluxerr_r_ext_hsc_disk_sersic",
+  "fluxerr_uprime_ext_megacam_disk_sersic",
+  "fluxerr_uprime_ext_megacam_sersic",
+  "fluxerr_uprime_ext_megacam_templfit",
+  "fluxerr_ustar_ext_megacam_1fwhm_aper",
+  "fluxerr_ustar_ext_megacam_2fwhm_aper",
+  "fluxerr_ustar_ext_megacam_3fwhm_aper",
+  "fluxerr_ustar_ext_megacam_4fwhm_aper",
+  "fluxerr_ustar_ext_megacam_disk_sersic",
+  "fluxerr_ustar_ext_megacam_sersic",
+  "fluxerr_ustar_ext_megacam_templfit",
+  "fluxerr_vis_to_ch1_ext_irac_templfit",
+  "fluxerr_vis_to_ch2_ext_irac_templfit",
+  "fluxerr_vis_to_fuv_ext_galex_templfit",
+  "fluxerr_vis_to_h_ext_ukirt_templfit",
+  "fluxerr_vis_to_h_ext_vista_templfit",
+  "fluxerr_vis_to_ia427_ext_subaru_templfit",
+  "fluxerr_vis_to_ia445_ext_subaru_templfit",
+  "fluxerr_vis_to_ia464_ext_subaru_templfit",
+  "fluxerr_vis_to_ia484_ext_subaru_templfit",
+  "fluxerr_vis_to_ia505_ext_subaru_templfit",
+  "fluxerr_vis_to_ia527_ext_subaru_templfit",
+  "fluxerr_vis_to_ia550_ext_subaru_templfit",
+  "fluxerr_vis_to_ia574_ext_subaru_templfit",
+  "fluxerr_vis_to_ia598_ext_subaru_templfit",
+  "fluxerr_vis_to_ia624_ext_subaru_templfit",
+  "fluxerr_vis_to_ia651_ext_subaru_templfit",
+  "fluxerr_vis_to_ia679_ext_subaru_templfit",
+  "fluxerr_vis_to_ia709_ext_subaru_templfit",
+  "fluxerr_vis_to_ia738_ext_subaru_templfit",
+  "fluxerr_vis_to_ia767_ext_subaru_templfit",
+  "fluxerr_vis_to_ia797_ext_subaru_templfit",
+  "fluxerr_vis_to_ia827_ext_subaru_templfit",
+  "fluxerr_vis_to_ia856_ext_subaru_templfit",
+  "fluxerr_vis_to_j_ext_ukirt_templfit",
+  "fluxerr_vis_to_j_ext_vista_templfit",
+  "fluxerr_vis_to_k_ext_ukirt_templfit",
+  "fluxerr_vis_to_ks_ext_vista_templfit",
+  "fluxerr_vis_to_nuv_ext_galex_templfit",
+  "fluxerr_vis_to_uprime_ext_megacam_templfit",
+  "fluxerr_vis_to_ustar_ext_megacam_templfit",
+  "fluxerr_vis_to_y_ext_hsc_templfit",
+  "fluxerr_vis_to_y_ext_vista_templfit",
+  "fluxerr_y_ext_hsc_1fwhm_aper",
+  "fluxerr_y_ext_hsc_2fwhm_aper",
+  "fluxerr_y_ext_hsc_3fwhm_aper",
+  "fluxerr_y_ext_hsc_4fwhm_aper",
+  "fluxerr_y_ext_hsc_disk_sersic",
+  "fluxerr_y_ext_hsc_sersic",
+  "fluxerr_y_ext_hsc_templfit",
+  "fluxerr_y_ext_vista_1fwhm_aper",
+  "fluxerr_y_ext_vista_2fwhm_aper",
+  "fluxerr_y_ext_vista_3fwhm_aper",
+  "fluxerr_y_ext_vista_4fwhm_aper",
+  "fluxerr_y_ext_vista_disk_sersic",
+  "fluxerr_y_ext_vista_sersic",
+  "fluxerr_y_ext_vista_templfit",
+  "patch_id_list",
+  "sersic_fract_ch1_ext_irac_disk_sersic",
+  "sersic_fract_ch1_ext_irac_disk_sersic_err",
+  "sersic_fract_ch2_ext_irac_disk_sersic",
+  "sersic_fract_ch2_ext_irac_disk_sersic_err",
+  "sersic_fract_fuv_ext_galex_disk_sersic",
+  "sersic_fract_fuv_ext_galex_disk_sersic_err",
+  "sersic_fract_h_ext_ukirt_disk_sersic",
+  "sersic_fract_h_ext_ukirt_disk_sersic_err",
+  "sersic_fract_h_ext_vista_disk_sersic",
+  "sersic_fract_h_ext_vista_disk_sersic_err",
+  "sersic_fract_i2_ext_hsc_disk_sersic",
+  "sersic_fract_i2_ext_hsc_disk_sersic_err",
+  "sersic_fract_i_ext_hsc_disk_sersic",
+  "sersic_fract_i_ext_hsc_disk_sersic_err",
+  "sersic_fract_ia427_ext_subaru_disk_sersic",
+  "sersic_fract_ia427_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia445_ext_subaru_disk_sersic",
+  "sersic_fract_ia445_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia464_ext_subaru_disk_sersic",
+  "sersic_fract_ia464_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia484_ext_subaru_disk_sersic",
+  "sersic_fract_ia484_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia505_ext_subaru_disk_sersic",
+  "sersic_fract_ia505_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia527_ext_subaru_disk_sersic",
+  "sersic_fract_ia527_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia550_ext_subaru_disk_sersic",
+  "sersic_fract_ia550_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia574_ext_subaru_disk_sersic",
+  "sersic_fract_ia574_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia598_ext_subaru_disk_sersic",
+  "sersic_fract_ia598_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia624_ext_subaru_disk_sersic",
+  "sersic_fract_ia624_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia651_ext_subaru_disk_sersic",
+  "sersic_fract_ia651_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia679_ext_subaru_disk_sersic",
+  "sersic_fract_ia679_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia709_ext_subaru_disk_sersic",
+  "sersic_fract_ia709_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia738_ext_subaru_disk_sersic",
+  "sersic_fract_ia738_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia767_ext_subaru_disk_sersic",
+  "sersic_fract_ia767_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia797_ext_subaru_disk_sersic",
+  "sersic_fract_ia797_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia827_ext_subaru_disk_sersic",
+  "sersic_fract_ia827_ext_subaru_disk_sersic_err",
+  "sersic_fract_ia856_ext_subaru_disk_sersic",
+  "sersic_fract_ia856_ext_subaru_disk_sersic_err",
+  "sersic_fract_j_ext_ukirt_disk_sersic",
+  "sersic_fract_j_ext_ukirt_disk_sersic_err",
+  "sersic_fract_j_ext_vista_disk_sersic",
+  "sersic_fract_j_ext_vista_disk_sersic_err",
+  "sersic_fract_k_ext_ukirt_disk_sersic",
+  "sersic_fract_k_ext_ukirt_disk_sersic_err",
+  "sersic_fract_ks_ext_vista_disk_sersic",
+  "sersic_fract_ks_ext_vista_disk_sersic_err",
+  "sersic_fract_nuv_ext_galex_disk_sersic",
+  "sersic_fract_nuv_ext_galex_disk_sersic_err",
+  "sersic_fract_r2_ext_hsc_disk_sersic",
+  "sersic_fract_r2_ext_hsc_disk_sersic_err",
+  "sersic_fract_r_ext_hsc_disk_sersic",
+  "sersic_fract_r_ext_hsc_disk_sersic_err",
+  "sersic_fract_uprime_ext_megacam_disk_sersic",
+  "sersic_fract_uprime_ext_megacam_disk_sersic_err",
+  "sersic_fract_ustar_ext_megacam_disk_sersic",
+  "sersic_fract_ustar_ext_megacam_disk_sersic_err",
+  "sersic_fract_y_ext_hsc_disk_sersic",
+  "sersic_fract_y_ext_hsc_disk_sersic_err",
+  "sersic_fract_y_ext_vista_disk_sersic",
+  "sersic_fract_y_ext_vista_disk_sersic_err"
+ ],
+ "sentinel_like_min_max": {},
+ "common_metadata": {
+  "ncol": 721,
+  "fields_with_unit": 721,
+  "fields_with_description": 721,
+  "schema_meta_keys": [],
+  "only_in_common_metadata": [],
+  "only_in_partitions": []
+ },
+ "types": {
+  "_healpix_29": "int64",
+  "_healpix_19": "int64",
+  "_healpix_9": "int32",
+  "ra_from_object_id": "double",
+  "dec_from_object_id": "double",
+  "basic_download_data_oid": "int64",
+  "object_id": "int64",
+  "flux_ia427_ext_subaru_1fwhm_aper": "float",
+  "flux_ia427_ext_subaru_2fwhm_aper": "float",
+  "flux_ia427_ext_subaru_3fwhm_aper": "float",
+  "flux_ia427_ext_subaru_4fwhm_aper": "float",
+  "flux_ia445_ext_subaru_1fwhm_aper": "float",
+  "flux_ia445_ext_subaru_2fwhm_aper": "float",
+  "flux_ia445_ext_subaru_3fwhm_aper": "float",
+  "flux_ia445_ext_subaru_4fwhm_aper": "float",
+  "flux_ia464_ext_subaru_1fwhm_aper": "float",
+  "flux_ia464_ext_subaru_2fwhm_aper": "float",
+  "flux_ia464_ext_subaru_3fwhm_aper": "float",
+  "flux_ia464_ext_subaru_4fwhm_aper": "float",
+  "flux_ia484_ext_subaru_1fwhm_aper": "float",
+  "flux_ia484_ext_subaru_2fwhm_aper": "float",
+  "flux_ia484_ext_subaru_3fwhm_aper": "float",
+  "flux_ia484_ext_subaru_4fwhm_aper": "float",
+  "flux_ia505_ext_subaru_1fwhm_aper": "float",
+  "flux_ia505_ext_subaru_2fwhm_aper": "float",
+  "flux_ia505_ext_subaru_3fwhm_aper": "float",
+  "flux_ia505_ext_subaru_4fwhm_aper": "float",
+  "flux_ia527_ext_subaru_1fwhm_aper": "float",
+  "flux_ia527_ext_subaru_2fwhm_aper": "float",
+  "flux_ia527_ext_subaru_3fwhm_aper": "float",
+  "flux_ia527_ext_subaru_4fwhm_aper": "float",
+  "flux_ia550_ext_subaru_1fwhm_aper": "float",
+  "flux_ia550_ext_subaru_2fwhm_aper": "float",
+  "flux_ia550_ext_subaru_3fwhm_aper": "float",
+  "flux_ia550_ext_subaru_4fwhm_aper": "float",
+  "flux_ia574_ext_subaru_1fwhm_aper": "float",
+  "flux_ia574_ext_subaru_2fwhm_aper": "float",
+  "flux_ia574_ext_subaru_3fwhm_aper": "float",
+  "flux_ia574_ext_subaru_4fwhm_aper": "float",
+  "flux_ia598_ext_subaru_1fwhm_aper": "float",
+  "flux_ia598_ext_subaru_2fwhm_aper": "float",
+  "flux_ia598_ext_subaru_3fwhm_aper": "float",
+  "flux_ia598_ext_subaru_4fwhm_aper": "float",
+  "flux_ia624_ext_subaru_1fwhm_aper": "float",
+  "flux_ia624_ext_subaru_2fwhm_aper": "float",
+  "flux_ia624_ext_subaru_3fwhm_aper": "float",
+  "flux_ia624_ext_subaru_4fwhm_aper": "float",
+  "flux_ia651_ext_subaru_1fwhm_aper": "float",
+  "flux_ia651_ext_subaru_2fwhm_aper": "float",
+  "flux_ia651_ext_subaru_3fwhm_aper": "float",
+  "flux_ia651_ext_subaru_4fwhm_aper": "float",
+  "flux_ia679_ext_subaru_1fwhm_aper": "float",
+  "flux_ia679_ext_subaru_2fwhm_aper": "float",
+  "flux_ia679_ext_subaru_3fwhm_aper": "float",
+  "flux_ia679_ext_subaru_4fwhm_aper": "float",
+  "flux_ia709_ext_subaru_1fwhm_aper": "float",
+  "flux_ia709_ext_subaru_2fwhm_aper": "float",
+  "flux_ia709_ext_subaru_3fwhm_aper": "float",
+  "flux_ia709_ext_subaru_4fwhm_aper": "float",
+  "flux_ia738_ext_subaru_1fwhm_aper": "float",
+  "flux_ia738_ext_subaru_2fwhm_aper": "float",
+  "flux_ia738_ext_subaru_3fwhm_aper": "float",
+  "flux_ia738_ext_subaru_4fwhm_aper": "float",
+  "flux_ia767_ext_subaru_1fwhm_aper": "float",
+  "flux_ia767_ext_subaru_2fwhm_aper": "float",
+  "flux_ia767_ext_subaru_3fwhm_aper": "float",
+  "flux_ia767_ext_subaru_4fwhm_aper": "float",
+  "flux_ia797_ext_subaru_1fwhm_aper": "float",
+  "flux_ia797_ext_subaru_2fwhm_aper": "float",
+  "flux_ia797_ext_subaru_3fwhm_aper": "float",
+  "flux_ia797_ext_subaru_4fwhm_aper": "float",
+  "flux_ia827_ext_subaru_1fwhm_aper": "float",
+  "flux_ia827_ext_subaru_2fwhm_aper": "float",
+  "flux_ia827_ext_subaru_3fwhm_aper": "float",
+  "flux_ia827_ext_subaru_4fwhm_aper": "float",
+  "flux_ia856_ext_subaru_1fwhm_aper": "float",
+  "flux_ia856_ext_subaru_2fwhm_aper": "float",
+  "flux_ia856_ext_subaru_3fwhm_aper": "float",
+  "flux_ia856_ext_subaru_4fwhm_aper": "float",
+  "flux_ustar_ext_megacam_1fwhm_aper": "float",
+  "flux_ustar_ext_megacam_2fwhm_aper": "float",
+  "flux_ustar_ext_megacam_3fwhm_aper": "float",
+  "flux_ustar_ext_megacam_4fwhm_aper": "float",
+  "flux_r_ext_hsc_1fwhm_aper": "float",
+  "flux_r_ext_hsc_2fwhm_aper": "float",
+  "flux_r_ext_hsc_3fwhm_aper": "float",
+  "flux_r_ext_hsc_4fwhm_aper": "float",
+  "flux_r2_ext_hsc_1fwhm_aper": "float",
+  "flux_r2_ext_hsc_2fwhm_aper": "float",
+  "flux_r2_ext_hsc_3fwhm_aper": "float",
+  "flux_r2_ext_hsc_4fwhm_aper": "float",
+  "flux_i_ext_hsc_1fwhm_aper": "float",
+  "flux_i_ext_hsc_2fwhm_aper": "float",
+  "flux_i_ext_hsc_3fwhm_aper": "float",
+  "flux_i_ext_hsc_4fwhm_aper": "float",
+  "flux_i2_ext_hsc_1fwhm_aper": "float",
+  "flux_i2_ext_hsc_2fwhm_aper": "float",
+  "flux_i2_ext_hsc_3fwhm_aper": "float",
+  "flux_i2_ext_hsc_4fwhm_aper": "float",
+  "flux_y_ext_hsc_1fwhm_aper": "float",
+  "flux_y_ext_hsc_2fwhm_aper": "float",
+  "flux_y_ext_hsc_3fwhm_aper": "float",
+  "flux_y_ext_hsc_4fwhm_aper": "float",
+  "flux_h_ext_vista_1fwhm_aper": "float",
+  "flux_h_ext_vista_2fwhm_aper": "float",
+  "flux_h_ext_vista_3fwhm_aper": "float",
+  "flux_h_ext_vista_4fwhm_aper": "float",
+  "flux_j_ext_vista_1fwhm_aper": "float",
+  "flux_j_ext_vista_2fwhm_aper": "float",
+  "flux_j_ext_vista_3fwhm_aper": "float",
+  "flux_j_ext_vista_4fwhm_aper": "float",
+  "flux_y_ext_vista_1fwhm_aper": "float",
+  "flux_y_ext_vista_2fwhm_aper": "float",
+  "flux_y_ext_vista_3fwhm_aper": "float",
+  "flux_y_ext_vista_4fwhm_aper": "float",
+  "flux_ks_ext_vista_1fwhm_aper": "float",
+  "flux_ks_ext_vista_2fwhm_aper": "float",
+  "flux_ks_ext_vista_3fwhm_aper": "float",
+  "flux_ks_ext_vista_4fwhm_aper": "float",
+  "flux_j_ext_ukirt_1fwhm_aper": "float",
+  "flux_j_ext_ukirt_2fwhm_aper": "float",
+  "flux_j_ext_ukirt_3fwhm_aper": "float",
+  "flux_j_ext_ukirt_4fwhm_aper": "float",
+  "flux_h_ext_ukirt_1fwhm_aper": "float",
+  "flux_h_ext_ukirt_2fwhm_aper": "float",
+  "flux_h_ext_ukirt_3fwhm_aper": "float",
+  "flux_h_ext_ukirt_4fwhm_aper": "float",
+  "flux_k_ext_ukirt_1fwhm_aper": "float",
+  "flux_k_ext_ukirt_2fwhm_aper": "float",
+  "flux_k_ext_ukirt_3fwhm_aper": "float",
+  "flux_k_ext_ukirt_4fwhm_aper": "float",
+  "flux_ch1_ext_irac_1fwhm_aper": "float",
+  "flux_ch1_ext_irac_2fwhm_aper": "float",
+  "flux_ch1_ext_irac_3fwhm_aper": "float",
+  "flux_ch1_ext_irac_4fwhm_aper": "float",
+  "flux_ch2_ext_irac_1fwhm_aper": "float",
+  "flux_ch2_ext_irac_2fwhm_aper": "float",
+  "flux_ch2_ext_irac_3fwhm_aper": "float",
+  "flux_ch2_ext_irac_4fwhm_aper": "float",
+  "flux_fuv_ext_galex_1fwhm_aper": "float",
+  "flux_fuv_ext_galex_2fwhm_aper": "float",
+  "flux_fuv_ext_galex_3fwhm_aper": "float",
+  "flux_fuv_ext_galex_4fwhm_aper": "float",
+  "flux_nuv_ext_galex_1fwhm_aper": "float",
+  "flux_nuv_ext_galex_2fwhm_aper": "float",
+  "flux_nuv_ext_galex_3fwhm_aper": "float",
+  "flux_nuv_ext_galex_4fwhm_aper": "float",
+  "fluxerr_ia427_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia427_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia427_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia427_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia445_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia445_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia445_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia445_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia464_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia464_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia464_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia464_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia484_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia484_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia484_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia484_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia505_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia505_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia505_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia505_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia527_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia527_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia527_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia527_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia550_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia550_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia550_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia550_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia574_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia574_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia574_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia574_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia598_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia598_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia598_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia598_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia624_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia624_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia624_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia624_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia651_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia651_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia651_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia651_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia679_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia679_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia679_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia679_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia709_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia709_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia709_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia709_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia738_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia738_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia738_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia738_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia767_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia767_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia767_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia767_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia797_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia797_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia797_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia797_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia827_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia827_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia827_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia827_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ia856_ext_subaru_1fwhm_aper": "float",
+  "fluxerr_ia856_ext_subaru_2fwhm_aper": "float",
+  "fluxerr_ia856_ext_subaru_3fwhm_aper": "float",
+  "fluxerr_ia856_ext_subaru_4fwhm_aper": "float",
+  "fluxerr_ustar_ext_megacam_1fwhm_aper": "float",
+  "fluxerr_ustar_ext_megacam_2fwhm_aper": "float",
+  "fluxerr_ustar_ext_megacam_3fwhm_aper": "float",
+  "fluxerr_ustar_ext_megacam_4fwhm_aper": "float",
+  "fluxerr_r_ext_hsc_1fwhm_aper": "float",
+  "fluxerr_r_ext_hsc_2fwhm_aper": "float",
+  "fluxerr_r_ext_hsc_3fwhm_aper": "float",
+  "fluxerr_r_ext_hsc_4fwhm_aper": "float",
+  "fluxerr_r2_ext_hsc_1fwhm_aper": "float",
+  "fluxerr_r2_ext_hsc_2fwhm_aper": "float",
+  "fluxerr_r2_ext_hsc_3fwhm_aper": "float",
+  "fluxerr_r2_ext_hsc_4fwhm_aper": "float",
+  "fluxerr_i_ext_hsc_1fwhm_aper": "float",
+  "fluxerr_i_ext_hsc_2fwhm_aper": "float",
+  "fluxerr_i_ext_hsc_3fwhm_aper": "float",
+  "fluxerr_i_ext_hsc_4fwhm_aper": "float",
+  "fluxerr_i2_ext_hsc_1fwhm_aper": "float",
+  "fluxerr_i2_ext_hsc_2fwhm_aper": "float",
+  "fluxerr_i2_ext_hsc_3fwhm_aper": "float",
+  "fluxerr_i2_ext_hsc_4fwhm_aper": "float",
+  "fluxerr_y_ext_hsc_1fwhm_aper": "float",
+  "fluxerr_y_ext_hsc_2fwhm_aper": "float",
+  "fluxerr_y_ext_hsc_3fwhm_aper": "float",
+  "fluxerr_y_ext_hsc_4fwhm_aper": "float",
+  "fluxerr_h_ext_vista_1fwhm_aper": "float",
+  "fluxerr_h_ext_vista_2fwhm_aper": "float",
+  "fluxerr_h_ext_vista_3fwhm_aper": "float",
+  "fluxerr_h_ext_vista_4fwhm_aper": "float",
+  "fluxerr_j_ext_vista_1fwhm_aper": "float",
+  "fluxerr_j_ext_vista_2fwhm_aper": "float",
+  "fluxerr_j_ext_vista_3fwhm_aper": "float",
+  "fluxerr_j_ext_vista_4fwhm_aper": "float",
+  "fluxerr_y_ext_vista_1fwhm_aper": "float",
+  "fluxerr_y_ext_vista_2fwhm_aper": "float",
+  "fluxerr_y_ext_vista_3fwhm_aper": "float",
+  "fluxerr_y_ext_vista_4fwhm_aper": "float",
+  "fluxerr_ks_ext_vista_1fwhm_aper": "float",
+  "fluxerr_ks_ext_vista_2fwhm_aper": "float",
+  "fluxerr_ks_ext_vista_3fwhm_aper": "float",
+  "fluxerr_ks_ext_vista_4fwhm_aper": "float",
+  "fluxerr_j_ext_ukirt_1fwhm_aper": "float",
+  "fluxerr_j_ext_ukirt_2fwhm_aper": "float",
+  "fluxerr_j_ext_ukirt_3fwhm_aper": "float",
+  "fluxerr_j_ext_ukirt_4fwhm_aper": "float",
+  "fluxerr_h_ext_ukirt_1fwhm_aper": "float",
+  "fluxerr_h_ext_ukirt_2fwhm_aper": "float",
+  "fluxerr_h_ext_ukirt_3fwhm_aper": "float",
+  "fluxerr_h_ext_ukirt_4fwhm_aper": "float",
+  "fluxerr_k_ext_ukirt_1fwhm_aper": "float",
+  "fluxerr_k_ext_ukirt_2fwhm_aper": "float",
+  "fluxerr_k_ext_ukirt_3fwhm_aper": "float",
+  "fluxerr_k_ext_ukirt_4fwhm_aper": "float",
+  "fluxerr_ch1_ext_irac_1fwhm_aper": "float",
+  "fluxerr_ch1_ext_irac_2fwhm_aper": "float",
+  "fluxerr_ch1_ext_irac_3fwhm_aper": "float",
+  "fluxerr_ch1_ext_irac_4fwhm_aper": "float",
+  "fluxerr_ch2_ext_irac_1fwhm_aper": "float",
+  "fluxerr_ch2_ext_irac_2fwhm_aper": "float",
+  "fluxerr_ch2_ext_irac_3fwhm_aper": "float",
+  "fluxerr_ch2_ext_irac_4fwhm_aper": "float",
+  "fluxerr_fuv_ext_galex_1fwhm_aper": "float",
+  "fluxerr_fuv_ext_galex_2fwhm_aper": "float",
+  "fluxerr_fuv_ext_galex_3fwhm_aper": "float",
+  "fluxerr_fuv_ext_galex_4fwhm_aper": "float",
+  "fluxerr_nuv_ext_galex_1fwhm_aper": "float",
+  "fluxerr_nuv_ext_galex_2fwhm_aper": "float",
+  "fluxerr_nuv_ext_galex_3fwhm_aper": "float",
+  "fluxerr_nuv_ext_galex_4fwhm_aper": "float",
+  "flux_ia427_ext_subaru_templfit": "float",
+  "flux_ia445_ext_subaru_templfit": "float",
+  "flux_ia464_ext_subaru_templfit": "float",
+  "flux_ia484_ext_subaru_templfit": "float",
+  "flux_ia505_ext_subaru_templfit": "float",
+  "flux_ia527_ext_subaru_templfit": "float",
+  "flux_ia550_ext_subaru_templfit": "float",
+  "flux_ia574_ext_subaru_templfit": "float",
+  "flux_ia598_ext_subaru_templfit": "float",
+  "flux_ia624_ext_subaru_templfit": "float",
+  "flux_ia651_ext_subaru_templfit": "float",
+  "flux_ia679_ext_subaru_templfit": "float",
+  "flux_ia709_ext_subaru_templfit": "float",
+  "flux_ia738_ext_subaru_templfit": "float",
+  "flux_ia767_ext_subaru_templfit": "float",
+  "flux_ia797_ext_subaru_templfit": "float",
+  "flux_ia827_ext_subaru_templfit": "float",
+  "flux_ia856_ext_subaru_templfit": "float",
+  "flux_ustar_ext_megacam_templfit": "float",
+  "flux_uprime_ext_megacam_templfit": "float",
+  "flux_r_ext_hsc_templfit": "float",
+  "flux_r2_ext_hsc_templfit": "float",
+  "flux_i_ext_hsc_templfit": "float",
+  "flux_i2_ext_hsc_templfit": "float",
+  "flux_y_ext_hsc_templfit": "float",
+  "flux_h_ext_vista_templfit": "float",
+  "flux_j_ext_vista_templfit": "float",
+  "flux_y_ext_vista_templfit": "float",
+  "flux_ks_ext_vista_templfit": "float",
+  "flux_j_ext_ukirt_templfit": "float",
+  "flux_h_ext_ukirt_templfit": "float",
+  "flux_k_ext_ukirt_templfit": "float",
+  "flux_ch1_ext_irac_templfit": "float",
+  "flux_ch2_ext_irac_templfit": "float",
+  "flux_fuv_ext_galex_templfit": "float",
+  "flux_nuv_ext_galex_templfit": "float",
+  "fluxerr_ia427_ext_subaru_templfit": "float",
+  "fluxerr_ia445_ext_subaru_templfit": "float",
+  "fluxerr_ia464_ext_subaru_templfit": "float",
+  "fluxerr_ia484_ext_subaru_templfit": "float",
+  "fluxerr_ia505_ext_subaru_templfit": "float",
+  "fluxerr_ia527_ext_subaru_templfit": "float",
+  "fluxerr_ia550_ext_subaru_templfit": "float",
+  "fluxerr_ia574_ext_subaru_templfit": "float",
+  "fluxerr_ia598_ext_subaru_templfit": "float",
+  "fluxerr_ia624_ext_subaru_templfit": "float",
+  "fluxerr_ia651_ext_subaru_templfit": "float",
+  "fluxerr_ia679_ext_subaru_templfit": "float",
+  "fluxerr_ia709_ext_subaru_templfit": "float",
+  "fluxerr_ia738_ext_subaru_templfit": "float",
+  "fluxerr_ia767_ext_subaru_templfit": "float",
+  "fluxerr_ia797_ext_subaru_templfit": "float",
+  "fluxerr_ia827_ext_subaru_templfit": "float",
+  "fluxerr_ia856_ext_subaru_templfit": "float",
+  "fluxerr_ustar_ext_megacam_templfit": "float",
+  "fluxerr_uprime_ext_megacam_templfit": "float",
+  "fluxerr_r_ext_hsc_templfit": "float",
+  "fluxerr_r2_ext_hsc_templfit": "float",
+  "fluxerr_i_ext_hsc_templfit": "float",
+  "fluxerr_i2_ext_hsc_templfit": "float",
+  "fluxerr_y_ext_hsc_templfit": "float",
+  "fluxerr_h_ext_vista_templfit": "float",
+  "fluxerr_j_ext_vista_templfit": "float",
+  "fluxerr_y_ext_vista_templfit": "float",
+  "fluxerr_ks_ext_vista_templfit": "float",
+  "fluxerr_j_ext_ukirt_templfit": "float",
+  "fluxerr_h_ext_ukirt_templfit": "float",
+  "fluxerr_k_ext_ukirt_templfit": "float",
+  "fluxerr_ch1_ext_irac_templfit": "float",
+  "fluxerr_ch2_ext_irac_templfit": "float",
+  "fluxerr_fuv_ext_galex_templfit": "float",
+  "fluxerr_nuv_ext_galex_templfit": "float",
+  "flux_vis_to_ia427_ext_subaru_templfit": "float",
+  "flux_vis_to_ia445_ext_subaru_templfit": "float",
+  "flux_vis_to_ia464_ext_subaru_templfit": "float",
+  "flux_vis_to_ia484_ext_subaru_templfit": "float",
+  "flux_vis_to_ia505_ext_subaru_templfit": "float",
+  "flux_vis_to_ia527_ext_subaru_templfit": "float",
+  "flux_vis_to_ia550_ext_subaru_templfit": "float",
+  "flux_vis_to_ia574_ext_subaru_templfit": "float",
+  "flux_vis_to_ia598_ext_subaru_templfit": "float",
+  "flux_vis_to_ia624_ext_subaru_templfit": "float",
+  "flux_vis_to_ia651_ext_subaru_templfit": "float",
+  "flux_vis_to_ia679_ext_subaru_templfit": "float",
+  "flux_vis_to_ia709_ext_subaru_templfit": "float",
+  "flux_vis_to_ia738_ext_subaru_templfit": "float",
+  "flux_vis_to_ia767_ext_subaru_templfit": "float",
+  "flux_vis_to_ia797_ext_subaru_templfit": "float",
+  "flux_vis_to_ia827_ext_subaru_templfit": "float",
+  "flux_vis_to_ia856_ext_subaru_templfit": "float",
+  "flux_vis_to_ustar_ext_megacam_templfit": "float",
+  "flux_vis_to_uprime_ext_megacam_templfit": "float",
+  "flux_vis_to_r_ext_hsc_templfit": "float",
+  "flux_vis_to_r2_ext_hsc_templfit": "float",
+  "flux_vis_to_i_ext_hsc_templfit": "float",
+  "flux_vis_to_i2_ext_hsc_templfit": "float",
+  "flux_vis_to_y_ext_hsc_templfit": "float",
+  "flux_vis_to_h_ext_vista_templfit": "float",
+  "flux_vis_to_j_ext_vista_templfit": "float",
+  "flux_vis_to_y_ext_vista_templfit": "float",
+  "flux_vis_to_ks_ext_vista_templfit": "float",
+  "flux_vis_to_j_ext_ukirt_templfit": "float",
+  "flux_vis_to_h_ext_ukirt_templfit": "float",
+  "flux_vis_to_k_ext_ukirt_templfit": "float",
+  "flux_vis_to_ch1_ext_irac_templfit": "float",
+  "flux_vis_to_ch2_ext_irac_templfit": "float",
+  "flux_vis_to_fuv_ext_galex_templfit": "float",
+  "flux_vis_to_nuv_ext_galex_templfit": "float",
+  "fluxerr_vis_to_ia427_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia445_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia464_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia484_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia505_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia527_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia550_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia574_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia598_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia624_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia651_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia679_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia709_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia738_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia767_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia797_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia827_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ia856_ext_subaru_templfit": "float",
+  "fluxerr_vis_to_ustar_ext_megacam_templfit": "float",
+  "fluxerr_vis_to_uprime_ext_megacam_templfit": "float",
+  "fluxerr_vis_to_r_ext_hsc_templfit": "float",
+  "fluxerr_vis_to_r2_ext_hsc_templfit": "float",
+  "fluxerr_vis_to_i_ext_hsc_templfit": "float",
+  "fluxerr_vis_to_i2_ext_hsc_templfit": "float",
+  "fluxerr_vis_to_y_ext_hsc_templfit": "float",
+  "fluxerr_vis_to_h_ext_vista_templfit": "float",
+  "fluxerr_vis_to_j_ext_vista_templfit": "float",
+  "fluxerr_vis_to_y_ext_vista_templfit": "float",
+  "fluxerr_vis_to_ks_ext_vista_templfit": "float",
+  "fluxerr_vis_to_j_ext_ukirt_templfit": "float",
+  "fluxerr_vis_to_h_ext_ukirt_templfit": "float",
+  "fluxerr_vis_to_k_ext_ukirt_templfit": "float",
+  "fluxerr_vis_to_ch1_ext_irac_templfit": "float",
+  "fluxerr_vis_to_ch2_ext_irac_templfit": "float",
+  "fluxerr_vis_to_fuv_ext_galex_templfit": "float",
+  "fluxerr_vis_to_nuv_ext_galex_templfit": "float",
+  "flux_ia427_ext_subaru_sersic": "float",
+  "flux_ia445_ext_subaru_sersic": "float",
+  "flux_ia464_ext_subaru_sersic": "float",
+  "flux_ia484_ext_subaru_sersic": "float",
+  "flux_ia505_ext_subaru_sersic": "float",
+  "flux_ia527_ext_subaru_sersic": "float",
+  "flux_ia550_ext_subaru_sersic": "float",
+  "flux_ia574_ext_subaru_sersic": "float",
+  "flux_ia598_ext_subaru_sersic": "float",
+  "flux_ia624_ext_subaru_sersic": "float",
+  "flux_ia651_ext_subaru_sersic": "float",
+  "flux_ia679_ext_subaru_sersic": "float",
+  "flux_ia709_ext_subaru_sersic": "float",
+  "flux_ia738_ext_subaru_sersic": "float",
+  "flux_ia767_ext_subaru_sersic": "float",
+  "flux_ia797_ext_subaru_sersic": "float",
+  "flux_ia827_ext_subaru_sersic": "float",
+  "flux_ia856_ext_subaru_sersic": "float",
+  "flux_ustar_ext_megacam_sersic": "float",
+  "flux_uprime_ext_megacam_sersic": "float",
+  "flux_r_ext_hsc_sersic": "float",
+  "flux_r2_ext_hsc_sersic": "float",
+  "flux_i_ext_hsc_sersic": "float",
+  "flux_i2_ext_hsc_sersic": "float",
+  "flux_y_ext_hsc_sersic": "float",
+  "flux_h_ext_vista_sersic": "float",
+  "flux_j_ext_vista_sersic": "float",
+  "flux_y_ext_vista_sersic": "float",
+  "flux_ks_ext_vista_sersic": "float",
+  "flux_j_ext_ukirt_sersic": "float",
+  "flux_h_ext_ukirt_sersic": "float",
+  "flux_k_ext_ukirt_sersic": "float",
+  "flux_ch1_ext_irac_sersic": "float",
+  "flux_ch2_ext_irac_sersic": "float",
+  "flux_fuv_ext_galex_sersic": "float",
+  "flux_nuv_ext_galex_sersic": "float",
+  "fluxerr_ia427_ext_subaru_sersic": "float",
+  "fluxerr_ia445_ext_subaru_sersic": "float",
+  "fluxerr_ia464_ext_subaru_sersic": "float",
+  "fluxerr_ia484_ext_subaru_sersic": "float",
+  "fluxerr_ia505_ext_subaru_sersic": "float",
+  "fluxerr_ia527_ext_subaru_sersic": "float",
+  "fluxerr_ia550_ext_subaru_sersic": "float",
+  "fluxerr_ia574_ext_subaru_sersic": "float",
+  "fluxerr_ia598_ext_subaru_sersic": "float",
+  "fluxerr_ia624_ext_subaru_sersic": "float",
+  "fluxerr_ia651_ext_subaru_sersic": "float",
+  "fluxerr_ia679_ext_subaru_sersic": "float",
+  "fluxerr_ia709_ext_subaru_sersic": "float",
+  "fluxerr_ia738_ext_subaru_sersic": "float",
+  "fluxerr_ia767_ext_subaru_sersic": "float",
+  "fluxerr_ia797_ext_subaru_sersic": "float",
+  "fluxerr_ia827_ext_subaru_sersic": "float",
+  "fluxerr_ia856_ext_subaru_sersic": "float",
+  "fluxerr_ustar_ext_megacam_sersic": "float",
+  "fluxerr_uprime_ext_megacam_sersic": "float",
+  "fluxerr_r_ext_hsc_sersic": "float",
+  "fluxerr_r2_ext_hsc_sersic": "float",
+  "fluxerr_i_ext_hsc_sersic": "float",
+  "fluxerr_i2_ext_hsc_sersic": "float",
+  "fluxerr_y_ext_hsc_sersic": "float",
+  "fluxerr_h_ext_vista_sersic": "float",
+  "fluxerr_j_ext_vista_sersic": "float",
+  "fluxerr_y_ext_vista_sersic": "float",
+  "fluxerr_ks_ext_vista_sersic": "float",
+  "fluxerr_j_ext_ukirt_sersic": "float",
+  "fluxerr_h_ext_ukirt_sersic": "float",
+  "fluxerr_k_ext_ukirt_sersic": "float",
+  "fluxerr_ch1_ext_irac_sersic": "float",
+  "fluxerr_ch2_ext_irac_sersic": "float",
+  "fluxerr_fuv_ext_galex_sersic": "float",
+  "fluxerr_nuv_ext_galex_sersic": "float",
+  "flux_ia427_ext_subaru_disk_sersic": "float",
+  "flux_ia445_ext_subaru_disk_sersic": "float",
+  "flux_ia464_ext_subaru_disk_sersic": "float",
+  "flux_ia484_ext_subaru_disk_sersic": "float",
+  "flux_ia505_ext_subaru_disk_sersic": "float",
+  "flux_ia527_ext_subaru_disk_sersic": "float",
+  "flux_ia550_ext_subaru_disk_sersic": "float",
+  "flux_ia574_ext_subaru_disk_sersic": "float",
+  "flux_ia598_ext_subaru_disk_sersic": "float",
+  "flux_ia624_ext_subaru_disk_sersic": "float",
+  "flux_ia651_ext_subaru_disk_sersic": "float",
+  "flux_ia679_ext_subaru_disk_sersic": "float",
+  "flux_ia709_ext_subaru_disk_sersic": "float",
+  "flux_ia738_ext_subaru_disk_sersic": "float",
+  "flux_ia767_ext_subaru_disk_sersic": "float",
+  "flux_ia797_ext_subaru_disk_sersic": "float",
+  "flux_ia827_ext_subaru_disk_sersic": "float",
+  "flux_ia856_ext_subaru_disk_sersic": "float",
+  "flux_ustar_ext_megacam_disk_sersic": "float",
+  "flux_uprime_ext_megacam_disk_sersic": "float",
+  "flux_r_ext_hsc_disk_sersic": "float",
+  "flux_r2_ext_hsc_disk_sersic": "float",
+  "flux_i_ext_hsc_disk_sersic": "float",
+  "flux_i2_ext_hsc_disk_sersic": "float",
+  "flux_y_ext_hsc_disk_sersic": "float",
+  "flux_h_ext_vista_disk_sersic": "float",
+  "flux_j_ext_vista_disk_sersic": "float",
+  "flux_y_ext_vista_disk_sersic": "float",
+  "flux_ks_ext_vista_disk_sersic": "float",
+  "flux_j_ext_ukirt_disk_sersic": "float",
+  "flux_h_ext_ukirt_disk_sersic": "float",
+  "flux_k_ext_ukirt_disk_sersic": "float",
+  "flux_ch1_ext_irac_disk_sersic": "float",
+  "flux_ch2_ext_irac_disk_sersic": "float",
+  "flux_fuv_ext_galex_disk_sersic": "float",
+  "flux_nuv_ext_galex_disk_sersic": "float",
+  "fluxerr_ia427_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia445_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia464_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia484_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia505_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia527_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia550_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia574_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia598_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia624_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia651_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia679_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia709_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia738_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia767_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia797_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia827_ext_subaru_disk_sersic": "float",
+  "fluxerr_ia856_ext_subaru_disk_sersic": "float",
+  "fluxerr_ustar_ext_megacam_disk_sersic": "float",
+  "fluxerr_uprime_ext_megacam_disk_sersic": "float",
+  "fluxerr_r_ext_hsc_disk_sersic": "float",
+  "fluxerr_r2_ext_hsc_disk_sersic": "float",
+  "fluxerr_i_ext_hsc_disk_sersic": "float",
+  "fluxerr_i2_ext_hsc_disk_sersic": "float",
+  "fluxerr_y_ext_hsc_disk_sersic": "float",
+  "fluxerr_h_ext_vista_disk_sersic": "float",
+  "fluxerr_j_ext_vista_disk_sersic": "float",
+  "fluxerr_y_ext_vista_disk_sersic": "float",
+  "fluxerr_ks_ext_vista_disk_sersic": "float",
+  "fluxerr_j_ext_ukirt_disk_sersic": "float",
+  "fluxerr_h_ext_ukirt_disk_sersic": "float",
+  "fluxerr_k_ext_ukirt_disk_sersic": "float",
+  "fluxerr_ch1_ext_irac_disk_sersic": "float",
+  "fluxerr_ch2_ext_irac_disk_sersic": "float",
+  "fluxerr_fuv_ext_galex_disk_sersic": "float",
+  "fluxerr_nuv_ext_galex_disk_sersic": "float",
+  "sersic_fract_ia427_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia445_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia464_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia484_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia505_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia527_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia550_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia574_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia598_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia624_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia651_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia679_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia709_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia738_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia767_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia797_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia827_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ia856_ext_subaru_disk_sersic": "float",
+  "sersic_fract_ustar_ext_megacam_disk_sersic": "float",
+  "sersic_fract_uprime_ext_megacam_disk_sersic": "float",
+  "sersic_fract_r_ext_hsc_disk_sersic": "float",
+  "sersic_fract_r2_ext_hsc_disk_sersic": "float",
+  "sersic_fract_i_ext_hsc_disk_sersic": "float",
+  "sersic_fract_i2_ext_hsc_disk_sersic": "float",
+  "sersic_fract_y_ext_hsc_disk_sersic": "float",
+  "sersic_fract_h_ext_vista_disk_sersic": "float",
+  "sersic_fract_j_ext_vista_disk_sersic": "float",
+  "sersic_fract_y_ext_vista_disk_sersic": "float",
+  "sersic_fract_ks_ext_vista_disk_sersic": "float",
+  "sersic_fract_j_ext_ukirt_disk_sersic": "float",
+  "sersic_fract_h_ext_ukirt_disk_sersic": "float",
+  "sersic_fract_k_ext_ukirt_disk_sersic": "float",
+  "sersic_fract_ch1_ext_irac_disk_sersic": "float",
+  "sersic_fract_ch2_ext_irac_disk_sersic": "float",
+  "sersic_fract_fuv_ext_galex_disk_sersic": "float",
+  "sersic_fract_nuv_ext_galex_disk_sersic": "float",
+  "sersic_fract_ia427_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia445_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia464_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia484_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia505_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia527_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia550_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia574_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia598_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia624_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia651_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia679_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia709_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia738_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia767_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia797_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia827_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ia856_ext_subaru_disk_sersic_err": "float",
+  "sersic_fract_ustar_ext_megacam_disk_sersic_err": "float",
+  "sersic_fract_uprime_ext_megacam_disk_sersic_err": "float",
+  "sersic_fract_r_ext_hsc_disk_sersic_err": "float",
+  "sersic_fract_r2_ext_hsc_disk_sersic_err": "float",
+  "sersic_fract_i_ext_hsc_disk_sersic_err": "float",
+  "sersic_fract_i2_ext_hsc_disk_sersic_err": "float",
+  "sersic_fract_y_ext_hsc_disk_sersic_err": "float",
+  "sersic_fract_h_ext_vista_disk_sersic_err": "float",
+  "sersic_fract_j_ext_vista_disk_sersic_err": "float",
+  "sersic_fract_y_ext_vista_disk_sersic_err": "float",
+  "sersic_fract_ks_ext_vista_disk_sersic_err": "float",
+  "sersic_fract_j_ext_ukirt_disk_sersic_err": "float",
+  "sersic_fract_h_ext_ukirt_disk_sersic_err": "float",
+  "sersic_fract_k_ext_ukirt_disk_sersic_err": "float",
+  "sersic_fract_ch1_ext_irac_disk_sersic_err": "float",
+  "sersic_fract_ch2_ext_irac_disk_sersic_err": "float",
+  "sersic_fract_fuv_ext_galex_disk_sersic_err": "float",
+  "sersic_fract_nuv_ext_galex_disk_sersic_err": "float",
+  "flag_ia427_ext_subaru": "int32",
+  "flag_ia445_ext_subaru": "int32",
+  "flag_ia464_ext_subaru": "int32",
+  "flag_ia484_ext_subaru": "int32",
+  "flag_ia505_ext_subaru": "int32",
+  "flag_ia527_ext_subaru": "int32",
+  "flag_ia550_ext_subaru": "int32",
+  "flag_ia574_ext_subaru": "int32",
+  "flag_ia598_ext_subaru": "int32",
+  "flag_ia624_ext_subaru": "int32",
+  "flag_ia651_ext_subaru": "int32",
+  "flag_ia679_ext_subaru": "int32",
+  "flag_ia709_ext_subaru": "int32",
+  "flag_ia738_ext_subaru": "int32",
+  "flag_ia767_ext_subaru": "int32",
+  "flag_ia797_ext_subaru": "int32",
+  "flag_ia827_ext_subaru": "int32",
+  "flag_ia856_ext_subaru": "int32",
+  "flag_ustar_ext_megacam": "int32",
+  "flag_uprime_ext_megacam": "int32",
+  "flag_r_ext_hsc": "int32",
+  "flag_r2_ext_hsc": "int32",
+  "flag_i_ext_hsc": "int32",
+  "flag_i2_ext_hsc": "int32",
+  "flag_y_ext_hsc": "int32",
+  "flag_h_ext_vista": "int32",
+  "flag_j_ext_vista": "int32",
+  "flag_y_ext_vista": "int32",
+  "flag_ks_ext_vista": "int32",
+  "flag_j_ext_ukirt": "int32",
+  "flag_h_ext_ukirt": "int32",
+  "flag_k_ext_ukirt": "int32",
+  "flag_ch1_ext_irac": "int32",
+  "flag_ch2_ext_irac": "int32",
+  "flag_fuv_ext_galex": "int32",
+  "flag_nuv_ext_galex": "int32",
+  "avg_trans_wave_ia427_ext_subaru": "float",
+  "avg_trans_wave_ia445_ext_subaru": "float",
+  "avg_trans_wave_ia464_ext_subaru": "float",
+  "avg_trans_wave_ia484_ext_subaru": "float",
+  "avg_trans_wave_ia505_ext_subaru": "float",
+  "avg_trans_wave_ia527_ext_subaru": "float",
+  "avg_trans_wave_ia550_ext_subaru": "float",
+  "avg_trans_wave_ia574_ext_subaru": "float",
+  "avg_trans_wave_ia598_ext_subaru": "float",
+  "avg_trans_wave_ia624_ext_subaru": "float",
+  "avg_trans_wave_ia651_ext_subaru": "float",
+  "avg_trans_wave_ia679_ext_subaru": "float",
+  "avg_trans_wave_ia709_ext_subaru": "float",
+  "avg_trans_wave_ia738_ext_subaru": "float",
+  "avg_trans_wave_ia767_ext_subaru": "float",
+  "avg_trans_wave_ia797_ext_subaru": "float",
+  "avg_trans_wave_ia827_ext_subaru": "float",
+  "avg_trans_wave_ia856_ext_subaru": "float",
+  "avg_trans_wave_ustar_ext_megacam": "float",
+  "avg_trans_wave_uprime_ext_megacam": "float",
+  "avg_trans_wave_r_ext_hsc": "float",
+  "avg_trans_wave_r2_ext_hsc": "float",
+  "avg_trans_wave_i_ext_hsc": "float",
+  "avg_trans_wave_i2_ext_hsc": "float",
+  "avg_trans_wave_y_ext_hsc": "float",
+  "avg_trans_wave_h_ext_vista": "float",
+  "avg_trans_wave_j_ext_vista": "float",
+  "avg_trans_wave_y_ext_vista": "float",
+  "avg_trans_wave_ks_ext_vista": "float",
+  "avg_trans_wave_j_ext_ukirt": "float",
+  "avg_trans_wave_h_ext_ukirt": "float",
+  "avg_trans_wave_k_ext_ukirt": "float",
+  "avg_trans_wave_ch1_ext_irac": "float",
+  "avg_trans_wave_ch2_ext_irac": "float",
+  "avg_trans_wave_fuv_ext_galex": "float",
+  "avg_trans_wave_nuv_ext_galex": "float",
+  "patch_id_list": "string",
+  "calblock_id_list": "string"
+ },
+ "metadata_bytes": 2310028,
+ "metadata": {
+  "rows": 382188,
+  "row_groups": 19,
+  "files_referenced": 19,
+  "rows_match_hats_nrows": true,
+  "rows_match_footers": true,
+  "referenced_missing": [],
+  "n_referenced_missing": 0,
+  "not_referenced": [],
+  "n_not_referenced": 0,
+  "stale_rowcounts": []
+ },
+ "margins_and_indexes": [],
+ "seconds": 0.5
+}

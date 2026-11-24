@@ -1,0 +1,17 @@
+{
+ "catalogue": "hubble/hsc_v4",
+ "files_scanned": 501,
+ "files_total": 501,
+ "complete": true,
+ "pixel_membership_from_radec": true,
+ "totals": {
+  "rows": 139162343,
+  "nonfinite": 0,
+  "out_of_range": 0,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [],
+ "n_bad_partitions": 0,
+ "seconds": 6.0
+}

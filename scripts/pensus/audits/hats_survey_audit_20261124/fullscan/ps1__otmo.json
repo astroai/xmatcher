@@ -1,0 +1,98 @@
+{
+ "catalogue": "ps1/otmo",
+ "files_scanned": 27161,
+ "files_total": 27161,
+ "complete": true,
+ "pixel_membership_from_radec": false,
+ "totals": {
+  "rows": 10560724292,
+  "nonfinite": 0,
+  "out_of_range": 8,
+  "h29_outside": 0,
+  "radec_outside": 0
+ },
+ "bad_partitions": [
+  {
+   "partition": "5/5116",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": -2.10665387596262e-06,
+     "dec": 37.09407887242168
+    }
+   ]
+  },
+  {
+   "partition": "5/3967",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": -5.6239323618439705e-06,
+     "dec": 77.83832637418884
+    }
+   ]
+  },
+  {
+   "partition": "5/5056",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": -1.6889270533217584e-06,
+     "dec": 20.8290428390201
+    }
+   ]
+  },
+  {
+   "partition": "6/3051",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": 360.0000021286596,
+     "dec": 61.94141898802618
+    }
+   ]
+  },
+  {
+   "partition": "6/13663",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": -3.019739434076466e-06,
+     "dec": 44.223079046952975
+    }
+   ]
+  },
+  {
+   "partition": "6/17404",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": -1.3704298945926131e-06,
+     "dec": -2.3577775800468506
+    }
+   ]
+  },
+  {
+   "partition": "6/14199",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": -6.591916753875825e-07,
+     "dec": 58.27255483301825
+    }
+   ]
+  },
+  {
+   "partition": "6/20416",
+   "out_of_range": 1,
+   "examples": [
+    {
+     "ra": 360.0,
+     "dec": 30.28736225
+    }
+   ]
+  }
+ ],
+ "n_bad_partitions": 8,
+ "seconds": 398.2
+}
