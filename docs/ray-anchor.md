@@ -188,6 +188,21 @@ the anchor ID name; changing any of them into the same output directory wipes
 the old dataset first. An output directory that already holds a dataset but no
 valid `resume.state` is refused.
 
+`--anchor-partitions ORDER/PIX[,ORDER/PIX…]` runs only those anchor partitions,
+for example a pilot on one coarse and one fine Gaia partition
+(`--anchor-partitions 2/69,6/42837`). The subset is part of the fingerprint
+(a later full run into the same directory starts over) and the output
+`properties` name it as `xmatcher_anchor_partitions`. An unknown partition is
+an error. Row estimates (one Parquet footer per partition) are read only for
+the partitions a plan selects.
+
+Each task reports its wall time, peak resident memory and, per survey, the
+candidate partitions, rows read, invalid rows dropped, matched anchor rows and
+read/match seconds. The driver logs one line per task (`-v`) and keeps the
+records under `task_stats` in `resume.state`, keyed by output partition. Under
+Ray each task runs in a fresh worker process (`max_calls=1`), so the peak is
+per task; on the serial path it is the running maximum of the process.
+
 The driver joins the cluster at `RAY_ADDRESS` when it is set; if that
 connection fails it starts a local cluster with a warning, or stops under
 `--fallback-policy error`. Without `RAY_ADDRESS` it starts a private local

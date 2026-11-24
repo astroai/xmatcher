@@ -384,3 +384,110 @@ def test_invalid_anchor_rows_still_abort(survey_tree: Path) -> None:
     with pytest.raises(CrossMatchError, match="non-finite or out-of-range"):
         for index in range(len(plan.anchor.partitions)):
             run_anchor_partition(plan, index)
+
+
+# --------------------------------------------------------------------------- #
+# anchor-partition subsets (pilots) and per-task stats
+# --------------------------------------------------------------------------- #
+def test_parse_anchor_partitions() -> None:
+    from xmatcher.ray_anchor import parse_anchor_partitions
+
+    assert parse_anchor_partitions(None) is None
+    assert parse_anchor_partitions("") is None
+    assert parse_anchor_partitions("2/69, 6/42837 2/69") == [(2, 69), (6, 42837)]
+    assert parse_anchor_partitions("Norder=3/Npix=5") == [(3, 5)]
+    assert parse_anchor_partitions([(0, 4)]) == [(0, 4)]
+    with pytest.raises(CrossMatchError, match="ORDER/PIX"):
+        parse_anchor_partitions("2:69")
+    with pytest.raises(CrossMatchError, match="not a HEALPix cell"):
+        parse_anchor_partitions("0/12")
+
+
+def test_anchor_partition_subset_runs_only_those_partitions(survey_tree: Path, monkeypatch) -> None:
+    monkeypatch.setitem(sys.modules, "ray", None)
+    anchor = _source("anchor", survey_tree / "anchor")
+    survey = _source("a", survey_tree / "a", id_column="sid")
+    full = build_anchor_plan(anchor, [survey], sep_arcsec=1.5, out_dir=str(survey_tree / "x"))
+    first = full.anchor.partitions[0]
+    spec = f"{first.order}/{first.pix}"
+
+    out = survey_tree / "pilot"
+    ray_anchor_match(anchor, [survey], sep_arcsec=1.5, output_file=str(out), anchor_partitions=spec)
+    files = list((out / "dataset").rglob("Npix=*.parquet"))
+    assert [f.name for f in files] == [f"Npix={first.pix}.parquet"]
+    rows = pl.read_parquet(files[0])
+    assert rows.height == pl.read_parquet(survey_tree / "anchor" / first.rel).height
+    props = (out / "properties").read_text()
+    assert f"xmatcher_anchor_partitions={spec}" in props
+    assert f"hats_nrows={rows.height}" in props
+
+    import json
+
+    state = json.loads((out / "resume.state").read_text())
+    stats = state["task_stats"][f"Norder={first.order}/Dir=0/Npix={first.pix}.parquet"]
+    assert stats["anchor_rows"] == rows.height
+    assert stats["seconds"] >= 0.0 and stats["peak_rss_gib"] > 0.0
+    survey_stats = stats["surveys"]["a"]
+    assert {"partitions", "rows", "read_s", "match_s", "invalid", "matched"} <= set(survey_stats)
+    assert survey_stats["matched"] == int((rows["a_n_within"] > 0).sum())
+
+    # the full run into the same directory is a different request: it starts over
+    ray_anchor_match(anchor, [survey], sep_arcsec=1.5, output_file=str(out))
+    assert "xmatcher_anchor_partitions" not in (out / "properties").read_text()
+    assert "hats_nrows=6" in (out / "properties").read_text()
+
+
+def test_anchor_partition_subset_rejects_unknown_cells(survey_tree: Path) -> None:
+    anchor = _source("anchor", survey_tree / "anchor")
+    survey = _source("a", survey_tree / "a", id_column="sid")
+    with pytest.raises(CrossMatchError, match="not in the anchor tree"):
+        build_anchor_plan(
+            anchor,
+            [survey],
+            sep_arcsec=1.5,
+            out_dir=str(survey_tree / "out"),
+            anchor_partitions="5/7",
+        )
+
+
+def test_anchor_partitions_need_the_anchor_engine() -> None:
+    cm = CrossMatch()
+    with pytest.raises(CrossMatchError, match="only to engine='ray-anchor'"):
+        cm.crossmatch_multi(
+            ["a.parquet", "b.parquet", "c.parquet"],
+            output_file="out.hats",
+            engine="ray-union",
+            anchor_partitions="2/69",
+        )
+
+
+def test_cli_anchor_partitions_reach_the_engine(monkeypatch, tmp_path: Path) -> None:
+    from xmatcher import cli
+
+    seen: dict[str, object] = {}
+
+    def spy(self, catalogues, output_file, progress_cb=None, **params):
+        seen["anchor_partitions"] = params.get("anchor_partitions")
+
+    monkeypatch.setattr(CrossMatch, "_ray_anchor_multi", spy)
+    code = cli.main(
+        [
+            "match",
+            "anchor",
+            "survey",
+            "--engine",
+            "ray-anchor",
+            "--anchor-partitions",
+            "2/69,6/42837",
+            "-o",
+            str(tmp_path / "subset.hats"),
+        ]
+    )
+    assert code == 0
+    assert seen["anchor_partitions"] == "2/69,6/42837"
+    assert (
+        cli.main(
+            ["match", "a.parquet", "b.parquet", "--engine", "fast", "--anchor-partitions", "2/69"]
+        )
+        == 2
+    )

@@ -104,6 +104,7 @@ _MATCH_PARAM_KEYS = frozenset(
         "max_tuples",
         "chunk_memory_gb",
         "anchor_id_name",
+        "anchor_partitions",
         "retries",
         "fresh_after",
         "min_free_gb",

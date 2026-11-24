@@ -29,6 +29,12 @@ resume machinery as ``ray-union``), builds a partition plan once, and runs one
 Ray task per anchor partition.  Each task writes its output partition directly
 to ``<out>/dataset/Norder=…/Dir=…/Npix=….parquet``; a completed partition is
 skipped on a rerun, so an interrupted run resumes without re-reading the sky.
+
+``anchor_partitions`` (CLI ``--anchor-partitions ORDER/PIX,…``) restricts a run
+to a subset of anchor partitions, e.g. for a pilot; the output then advertises
+the subset in ``properties`` (``xmatcher_anchor_partitions``).  Each task
+records its wall time, peak resident memory and, per survey, the candidate
+partitions and rows it read (``task_stats`` in ``resume.state``).
 """
 
 from __future__ import annotations
@@ -38,7 +44,9 @@ import json
 import logging
 import math
 import re
+import resource
 import shutil
+import sys
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
@@ -116,6 +124,43 @@ class AnchorPlan:
     fallback_policy: str = "warn"
     chunk_memory_gb: float = DEFAULT_CHUNK_MEMORY_GB
     task_rows: int = DEFAULT_TASK_ROWS
+    #: ``(order, pix)`` of the anchor partitions this plan is restricted to
+    #: (``None``: every anchor partition).
+    anchor_subset: list[tuple[int, int]] | None = None
+
+
+def parse_anchor_partitions(
+    value: str | Sequence[str] | Sequence[tuple[int, int]] | None,
+) -> list[tuple[int, int]] | None:
+    """Parse ``ORDER/PIX`` tokens (comma or space separated) into pairs.
+
+    ``"2/69,6/42837"`` gives ``[(2, 69), (6, 42837)]``; pairs pass through.
+    ``None`` or an empty value means "every anchor partition".
+    """
+    if value is None:
+        return None
+    items: list[Any]
+    if isinstance(value, str):
+        items = [t for t in re.split(r"[,\s]+", value.strip()) if t]
+    else:
+        items = list(value)
+    out: list[tuple[int, int]] = []
+    for item in items:
+        if isinstance(item, str):
+            match = re.fullmatch(r"(?:Norder=)?(\d+)/(?:Npix=)?(\d+)", item.strip())
+            if match is None:
+                raise CrossMatchError(
+                    f"anchor partition {item!r}: expected ORDER/PIX (e.g. 2/69 or 6/42837)"
+                )
+            pair = (int(match.group(1)), int(match.group(2)))
+        else:
+            order, pix = item
+            pair = (int(order), int(pix))
+        if pair[0] < 0 or pair[0] > 29 or pair[1] < 0 or pair[1] >= 12 * 4 ** pair[0]:
+            raise CrossMatchError(f"anchor partition {pair[0]}/{pair[1]} is not a HEALPix cell")
+        if pair not in out:
+            out.append(pair)
+    return out or None
 
 
 def _safe_tag(name: str, used: set[str]) -> str:
@@ -199,8 +244,8 @@ def _build_catalogue_plan(
         for part in parts:
             part.pix = int(cds.from_ring(np.asarray([part.pix], dtype=np.uint64), part.order)[0])
     parts.sort(key=lambda p: (p.order, p.pix))
-    for part in parts:
-        _est_rows(part, storage, hats_threshold)
+    # Row estimates (one footer read each) are made lazily for the partitions a
+    # plan actually selects, not for every partition of every input.
 
     schema_rel = parts[0].rel
     schema = _catalogue_schema(storage, schema_rel)
@@ -393,6 +438,7 @@ def build_anchor_plan(
     matcher: str = "sky",
     fallback_policy: str = "warn",
     motion_halo_arcsec: float | None = None,
+    anchor_partitions: str | Sequence[str] | Sequence[tuple[int, int]] | None = None,
 ) -> AnchorPlan:
     """Build a picklable anchor plan; every source must point at a local HATS tree.
 
@@ -402,6 +448,9 @@ def build_anchor_plan(
     :data:`DEFAULT_MOTION_HALO_ARCSEC` with ``target_epoch``, else 0).  The
     plan therefore scales with the anchor partition, not with the coarsest
     partition of any input.
+
+    ``anchor_partitions`` (``ORDER/PIX`` tokens or pairs) keeps only those
+    anchor partitions; naming one the anchor tree does not have is an error.
     """
     if not surveys:
         raise CrossMatchError("ray-anchor needs at least one survey after the anchor")
@@ -426,6 +475,18 @@ def build_anchor_plan(
         cache_root=cache_root,
         hats_threshold=hats_threshold,
     )
+    subset = parse_anchor_partitions(anchor_partitions)
+    if subset is not None:
+        by_cell = {(p.order, p.pix): p for p in anchor_plan.partitions}
+        missing = [f"{o}/{p}" for o, p in subset if (o, p) not in by_cell]
+        if missing:
+            orders = sorted({p.order for p in anchor_plan.partitions})
+            raise CrossMatchError(
+                f"anchor partition(s) {', '.join(missing)} are not in the anchor tree "
+                f"'{anchor.name}' (its partitions have orders {orders})"
+            )
+        keep = set(subset)
+        anchor_plan.partitions = [p for p in anchor_plan.partitions if (p.order, p.pix) in keep]
     survey_plans: list[CataloguePlan] = []
     tags: list[str] = []
     for source in surveys:
@@ -493,6 +554,7 @@ def build_anchor_plan(
         fallback_policy=fallback_policy,
         chunk_memory_gb=float(chunk_memory_gb),
         task_rows=int(task_rows),
+        anchor_subset=subset,
     )
 
 
@@ -511,13 +573,18 @@ def _read_frame(
     plan: AnchorPlan,
     *,
     invalid: dict[int, int] | None = None,
+    stats: dict[str, Any] | None = None,
 ) -> pl.DataFrame:
     """Read selected columns from the given partitions, rename, and align epochs.
 
     With ``invalid`` (a survey read), rows with a non-finite coordinate or
     ``|dec| > 90`` are dropped and counted per partition index into it;
-    without it (the anchor) such rows abort the task.
+    without it (the anchor) such rows abort the task.  ``stats`` receives the
+    partitions and rows read and the read seconds.
     """
+    started = time.perf_counter()
+    if stats is not None:
+        stats.update(partitions=len(idxs), rows=0, read_s=0.0)
     if not idxs:
         return pl.DataFrame(
             {name: pl.Series(name, [], dtype=dtype) for name, dtype in cat.dtypes.items()}
@@ -539,6 +606,8 @@ def _read_frame(
                 frame = frame.filter(pl.Series(ok))
         frames.append(frame)
     frame = pl.concat(frames, how="diagonal_relaxed")
+    if stats is not None:
+        stats.update(rows=int(frame.height), read_s=round(time.perf_counter() - started, 3))
     if invalid is None:
         _check_coords(frame, cat.ra, cat.dec, f"catalogue '{cat.name}'")
     if plan.target_epoch is not None and frame.height:
@@ -711,33 +780,76 @@ def _output_rel(part: PartitionPlan) -> str:
     return f"Norder={part.order}/Dir={_hats_dir(part.pix)}/Npix={part.pix}.parquet"
 
 
+def _peak_rss_gib() -> float:
+    """Peak resident set size of this process, GiB (``ru_maxrss``)."""
+    peak = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+    # Linux reports KiB, macOS bytes.
+    return round(peak / (1024**3 if sys.platform == "darwin" else 1024**2), 3)
+
+
 def run_anchor_partition(plan: AnchorPlan, index: int) -> dict[str, Any]:
-    """Process one anchor partition and write its output partition."""
+    """Process one anchor partition and write its output partition.
+
+    The result carries ``stats``: wall seconds, the process's peak resident
+    memory (per task under Ray, where each task gets a fresh worker; a running
+    maximum on the serial path) and, per survey, the candidate partitions,
+    rows read, invalid rows dropped, matched anchor rows and read/match
+    seconds.
+    """
+    started = time.perf_counter()
     part = plan.anchor.partitions[index]
-    anchor_frame = _read_frame(plan.anchor, [index], plan)
+    anchor_stats: dict[str, Any] = {}
+    anchor_frame = _read_frame(plan.anchor, [index], plan, stats=anchor_stats)
+    stats: dict[str, Any] = {"anchor_rows": int(anchor_frame.height), "surveys": {}}
+
+    def finish(result: dict[str, Any]) -> dict[str, Any]:
+        stats["seconds"] = round(time.perf_counter() - started, 3)
+        stats["peak_rss_gib"] = _peak_rss_gib()
+        stats["anchor_read_s"] = anchor_stats.get("read_s", 0.0)
+        result["stats"] = stats
+        return result
+
     if anchor_frame.height == 0:
-        return {"index": index, "rows": 0, "rel": _output_rel(part), "invalid": {}}
+        return finish({"index": index, "rows": 0, "rel": _output_rel(part), "invalid": {}})
     output = anchor_frame.select(plan.anchor.final_cols)
     invalid: dict[str, dict[int, int]] = {}
     for survey, tag in zip(plan.surveys, plan.survey_tags, strict=True):
         dropped: dict[int, int] = {}
+        survey_stats: dict[str, Any] = {}
         survey_frame = _read_frame(
-            survey, plan.candidates[index].get(tag, []), plan, invalid=dropped
+            survey,
+            plan.candidates[index].get(tag, []),
+            plan,
+            invalid=dropped,
+            stats=survey_stats,
         )
         if dropped:
             invalid[tag] = dropped
-        output = output.hstack(_match_survey(output, survey_frame, plan, survey, tag))
+        match_started = time.perf_counter()
+        block = _match_survey(output, survey_frame, plan, survey, tag)
+        del survey_frame
+        survey_stats.update(
+            invalid=int(sum(dropped.values())),
+            matched=int((block[f"{tag}_n_within"] > 0).sum()),
+            match_s=round(time.perf_counter() - match_started, 3),
+        )
+        stats["surveys"][tag] = survey_stats
+        output = output.hstack(block)
     output = output.select(plan.out_columns)
     dest = Path(plan.out_dir) / "dataset" / _output_rel(part)
     dest.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write_parquet(output, dest)
-    return {"index": index, "rows": output.height, "rel": _output_rel(part), "invalid": invalid}
+    return finish(
+        {"index": index, "rows": output.height, "rel": _output_rel(part), "invalid": invalid}
+    )
 
 
 def _anchor_task_factory() -> Any:
     import ray  # noqa: PLC0415
 
-    @ray.remote
+    # One task per worker process: tasks are large and memory-heavy, a fresh
+    # process returns its memory, and ``ru_maxrss`` is then a per-task peak.
+    @ray.remote(max_calls=1)
     def anchor_task(plan: AnchorPlan, index: int) -> dict[str, Any]:
         return run_anchor_partition(plan, index)
 
@@ -807,6 +919,9 @@ def _write_metadata(
     props["xmatcher_invalid_survey_rows"] = (
         " ".join(f"{tag}:{totals.get(tag, 0)}" for tag in plan.survey_tags) or "none"
     )
+    if plan.anchor_subset is not None:
+        # A partial master (pilot): name the anchor partitions it covers.
+        props["xmatcher_anchor_partitions"] = " ".join(f"{o}/{p}" for o, p in plan.anchor_subset)
     return _write_hats_tree(out, info_rows, props)
 
 
@@ -876,6 +991,7 @@ def ray_anchor_match(
     matcher: str = "sky",
     fallback_policy: str = "warn",
     motion_halo_arcsec: float | None = None,
+    anchor_partitions: str | Sequence[str] | Sequence[tuple[int, int]] | None = None,
 ) -> None:
     """Build a Gaia-anchored master HATS catalogue at ``output_file``.
 
@@ -883,6 +999,7 @@ def ray_anchor_match(
     (counted per survey in the output ``properties`` as
     ``xmatcher_invalid_survey_rows`` and in ``resume.state``); invalid anchor
     rows still abort, since every anchor row must appear in the master.
+    ``anchor_partitions`` restricts the run to those anchor partitions.
     """
     out = Path(str(output_file))
     out.mkdir(parents=True, exist_ok=True)
@@ -909,6 +1026,7 @@ def ray_anchor_match(
         matcher=matcher,
         fallback_policy=fallback_policy,
         motion_halo_arcsec=motion_halo_arcsec,
+        anchor_partitions=anchor_partitions,
     )
     _LAST_PLAN = plan
 
@@ -916,6 +1034,7 @@ def ray_anchor_match(
     state_path = out / _STATE_NAME
     prior = None
     invalid: dict[str, dict[str, int]] = {}
+    task_stats: dict[str, Any] = {}
     if state_path.exists():
         try:
             prior_state = json.loads(state_path.read_text())
@@ -925,6 +1044,7 @@ def ray_anchor_match(
                     str(k): {str(i): int(n) for i, n in v.items()}
                     for k, v in (prior_state.get("invalid_rows") or {}).items()
                 }
+                task_stats = dict(prior_state.get("task_stats") or {})
         except (OSError, ValueError, AttributeError, TypeError):
             prior = None
     if prior is None and any((out / sub).exists() for sub in ("dataset", "chunks")):
@@ -943,10 +1063,26 @@ def ray_anchor_match(
                     **extra,
                     "fingerprint": fingerprint,
                     "invalid_rows": invalid,
+                    "task_stats": task_stats,
                 },
                 indent=2,
             ),
             state_path,
+        )
+
+    def record(result: dict[str, Any] | None) -> None:
+        _merge_invalid(invalid, result)
+        stats = (result or {}).get("stats")
+        if not stats:
+            return
+        task_stats[str(result["rel"])] = stats  # type: ignore[index]
+        logger.info(
+            "anchor task %s: %d rows, %.1f s, peak RSS %.2f GiB, %d survey rows read",
+            result["rel"],  # type: ignore[index]
+            int(stats.get("anchor_rows", 0)),
+            float(stats.get("seconds", 0.0)),
+            float(stats.get("peak_rss_gib", 0.0)),
+            sum(int(s.get("rows", 0)) for s in (stats.get("surveys") or {}).values()),
         )
 
     write_state("running")
@@ -977,7 +1113,7 @@ def ray_anchor_match(
 
     if ray is None:
         for done, index in enumerate(todo, start=1):
-            _merge_invalid(invalid, run_anchor_partition(plan, index))
+            record(run_anchor_partition(plan, index))
             if done % 50 == 0:
                 write_state("running")
             if progress_cb and (done == len(todo) or done % 10 == 0):
@@ -996,7 +1132,7 @@ def ray_anchor_match(
                 if not ready:
                     continue
                 for result in ray.get(ready):
-                    _merge_invalid(invalid, result)
+                    record(result)
                 write_state("running")
                 done += len(ready)
                 if progress_cb:
@@ -1029,6 +1165,7 @@ __all__ = [
     "anchor_cone_radius_deg",
     "build_anchor_plan",
     "last_plan",
+    "parse_anchor_partitions",
     "ray_anchor_match",
     "run_anchor_partition",
 ]

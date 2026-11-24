@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `ray-anchor`: `--anchor-partitions ORDER/PIX,…` (`anchor_partitions=`)
+  restricts a run to a subset of anchor partitions (pilots); the output
+  `properties` name the subset (`xmatcher_anchor_partitions`). Each task
+  records wall time, peak RSS and per-survey candidate partitions, rows read,
+  invalid rows, matched rows and read/match seconds (`task_stats` in
+  `resume.state`, one `-v` log line per task). Ray tasks run with
+  `max_calls=1`, and partition row estimates are read lazily for the
+  partitions a plan selects instead of every partition of every input.
+
 - Read-only community roots (`cache.community_roots`, `XMATCHER_COMMUNITY_ROOTS`;
   default `/arc/projects/hats` on CANFAR). A remote HATS catalogue whose
   `access_identifier` and version directory match a `PENSUS_SYNC.json` or

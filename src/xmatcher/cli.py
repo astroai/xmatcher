@@ -817,6 +817,7 @@ def _build_params(args) -> dict:
         max_tuples=getattr(args, "max_tuples", None),
         chunk_memory_gb=getattr(args, "chunk_memory_gb", None),
         anchor_id_name=getattr(args, "anchor_id_name", "source_id"),
+        anchor_partitions=getattr(args, "anchor_partitions", None),
         retries=getattr(args, "retries", None),
         fresh_after=getattr(args, "fresh_after", None),
         min_free_gb=getattr(args, "min_free_gb", None),
@@ -1097,6 +1098,14 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         default="source_id",
         help="Output name for the anchor catalogue's ID column (default: source_id). "
         "Used by engine=ray-anchor, e.g. to rename Gaia's VizieR 'Source' column.",
+    )
+    g_ray.add_argument(
+        "--anchor-partitions",
+        dest="anchor_partitions",
+        metavar="ORDER/PIX[,ORDER/PIX…]",
+        help="engine=ray-anchor only: process just these anchor HATS partitions "
+        "(e.g. a pilot: --anchor-partitions 2/69,6/42837). The output's properties "
+        "name the subset (xmatcher_anchor_partitions).",
     )
     g_ray.add_argument(
         "--retries",
@@ -2523,6 +2532,9 @@ def _execute_match(args, cm: CrossMatch, console: Console) -> int:
         console.hint("     'xmatcher discover <endpoint>' to explore remote tables.")
         return 2
 
+    if getattr(args, "anchor_partitions", None) and args.engine != "ray-anchor":
+        console.error("Error: --anchor-partitions applies only to --engine ray-anchor.")
+        return 2
     params = _build_params(args)
     n = len(args.catalogues)
     label = f"Cross-matching {n} catalogue{'s' if n != 1 else ''}"

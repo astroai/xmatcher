@@ -981,6 +981,8 @@ class CrossMatch:
         """
         check_match_params(params, method="crossmatch", n_catalogues=2)
         engine_choice = (params.get("engine") or "auto").lower()
+        if params.get("anchor_partitions") and engine_choice != "ray-anchor":
+            raise CrossMatchError("anchor_partitions applies only to engine='ray-anchor'.")
         if engine_choice == "ray-union":
             # the distributed N-way join *is* the union engine: two inputs go
             # through the same full-outer-join pipeline as any N
@@ -1967,6 +1969,7 @@ class CrossMatch:
             anchor_id_name=str(params.get("anchor_id_name") or "source_id"),
             matcher=matcher,
             fallback_policy=str(params.get("fallback_policy", "warn")),
+            anchor_partitions=params.get("anchor_partitions"),
         )
         self.last_ray_anchor_plan = ray_anchor.last_plan()
 
@@ -1985,6 +1988,8 @@ class CrossMatch:
             raise CrossMatchError("At least two catalogues are required for crossmatching.")
 
         engine_choice = (params.get("engine") or "auto").lower()
+        if params.get("anchor_partitions") and not (engine_choice == "ray-anchor" or anchor_match):
+            raise CrossMatchError("anchor_partitions applies only to engine='ray-anchor'.")
         if engine_choice == "ray-anchor" or anchor_match:
             self._ray_anchor_multi(
                 catalogues,
