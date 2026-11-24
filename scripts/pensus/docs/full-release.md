@@ -145,11 +145,12 @@ baseline `266e85c`. The baseline includes the fork's Ray anchor memory
 reservation update and concurrent footer planning. The wide PENSUS
 cascade has its own pixel geometry and projected input budget.
 
-The merged-revision source prepared for headless verification is
-`src-r3.tar.gz`. Acceptance of the final CANFAR session request could not
-be confirmed during authenticated session timeouts. The launch decision
-still requires the merged regression receipt, a successful live wide
-pilot and the final inventory and science selections.
+The code verification for commit `90164fe` ran on CANFAR headless
+session `g7jye0ck` from the checksum-pinned `src-code-final.tar.gz`.
+Its receipt is `code-final-r2/qa-result.json`. The locked install, lint,
+format and type checks passed, along with all 134 synthetic regression
+tests. The science launch decision still requires the live wide pilot
+and final inventory and science selections.
 
 The production manifest should record the live inventory decisions,
 science-reviewed band mappings, priority, pair radii and coordinate epochs.
