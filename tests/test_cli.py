@@ -101,7 +101,7 @@ def test_cli_describe(capsys):
 
 def test_cli_describe_no_dangling_whitespace_without_suggestion(capsys):
     """Unknown name with no close matches must not leave a blank hint line."""
-    name = "zzzz_no_close_match_catalogue_xyzzy"
+    name = "qxzvplugh9999"  # no underscore words shared with any bundled catalogue name
     assert main(["describe", name]) == 1
     err = capsys.readouterr().err
     assert f"Catalogue '{name}' not found." in err
