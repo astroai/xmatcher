@@ -218,6 +218,11 @@ catalogues:
     service_id: hats_service
     release: "dr3"
     access_identifier: "https://data.lsdb.io/hats/gaia_dr3/gaia"
+    # /arc/projects/hats/gaia/dr3 is a byte copy of this LSDB tree (same
+    # properties, builder and creation date) without a sync record.
+    local_paths: ["/arc/projects/hats/gaia/dr3"]
+    hats_nrows: 1811709771
+    obs_collection: "gaia"
     estimated_size: 'huge'
     ra_column: "ra"
     dec_column: "dec"
@@ -263,12 +268,17 @@ catalogues:
     service_id: hats_service
     release: "allsky"
     access_identifier: "https://data.lsdb.io/hats/two_mass/two_mass"
+    # /arc/projects/hats/2mass/psc carries a PENSUS_SYNC.json for this URL and
+    # version, so the community index finds it without local_paths.
+    hats_nrows: 470992970
+    obs_collection: "two_mass"
     estimated_size: 'huge'
     ra_column: "ra"
-    dec_column: "dec"
+    # The LSDB tree names declination `decl` (hats_col_dec=decl).
+    dec_column: "decl"
     id_column: "designation"
     epoch: 2000.0
-    default_columns: ["designation", "ra", "dec", "j_m", "h_m", "k_m", "j_msigcom", "h_msigcom", "k_msigcom", "ph_qual", "rd_flg", "glon", "glat"]
+    default_columns: ["designation", "ra", "decl", "j_m", "h_m", "k_m", "j_msigcom", "h_msigcom", "k_msigcom", "ph_qual", "rd_flg", "glon", "glat"]
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.2
 
@@ -278,6 +288,10 @@ catalogues:
     service_id: hats_service
     release: "allwise"
     access_identifier: "https://data.lsdb.io/hats/wise/allwise/allwise"
+    # /arc/projects/hats/allwise/catalog is a byte copy of this LSDB tree.
+    local_paths: ["/arc/projects/hats/allwise/catalog"]
+    hats_nrows: 747634026
+    obs_collection: "allwise"
     estimated_size: 'huge'
     ra_column: "ra"
     dec_column: "dec"
@@ -300,6 +314,11 @@ catalogues:
     service_id: hats_service
     release: "dr4"
     access_identifier: "https://linea.data.lsdb.io/hats/skymapper/catalog/sky_mapper_dr4"
+    # /arc/projects/hats/skymapper/dr4 is the same build (properties, builder
+    # and creation date match) without a sync record.
+    local_paths: ["/arc/projects/hats/skymapper/dr4"]
+    hats_nrows: 724329344
+    obs_collection: "sky_mapper_dr4"
     estimated_size: 'large'
     ra_column: "raj2000"
     dec_column: "dej2000"
@@ -308,7 +327,8 @@ catalogues:
     default_columns: ["object_id", "raj2000", "dej2000", "u_psf", "v_psf", "g_psf", "r_psf", "i_psf", "z_psf", "e_u_psf", "e_v_psf", "e_g_psf", "e_r_psf", "e_i_psf", "e_z_psf", "class_star", "flags", "mean_epoch"]
     ra_err_column: "e_raj2000"
     dec_err_column: "e_dej2000"
-    pos_err_units: "arcsec"
+    # e_raj2000/e_dej2000 are int64; SkyMapper DR4 documents them in mas.
+    pos_err_units: "mas"
     default_pos_error_arcsec: 0.1
 
   sdss_dr16_hats:
@@ -480,6 +500,11 @@ catalogues:
     service_id: hats_service
     release: "dr3"
     access_identifier: "${XMATCHER_GAIA_XP_HATS}"
+    # Community copy (pensus xp_layout, positions from gaia/dr3); used when the
+    # environment variable is unset.  Its schema was not read remotely.
+    local_paths: ["/arc/projects/hats/gaia/dr3_xp_continuous"]
+    hats_nrows: 219197643
+    obs_collection: "gaia_dr3_xp_continuous"
     ra_column: "ra"
     dec_column: "dec"
     id_column: "source_id"
@@ -497,6 +522,498 @@ catalogues:
     id_column: "objectId"
     epoch: 2025.0
     estimated_size: 'huge'
+
+  # --- Community HATS trees under /arc/projects/hats (CANFAR) ---
+  # Read in place through `local_paths` (never written; see docs/hats-sources.md).
+  # `access_identifier` is the same tree over ARC VOSpace, used only where /arc is
+  # not mounted.  `hats_nrows`/`obs_collection` pin the build each entry describes:
+  # a rebuilt tree fails verification instead of matching silently.  Column
+  # contracts were read from each tree's properties and _common_metadata.
+
+  sdss_dr16_photoprimary:
+    # unverified: `id` (int64) is assumed to be the packed SDSS objID; fluxes are nanomaggies, IVAR in nmgy^-2
+    # epoch: imaging spans 1998-2009 and the tree has no per-row epoch; 2000.0 matches sdss_dr16_hats
+    # no positional-error columns in this tree
+    description: "SDSS DR16 photoPrimary imaging (community tree; directory says dr13, properties and build record say DR16)"
+    archive: hats
+    service_id: hats_service
+    release: "dr16"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/sdss/photoprimary_dr13"
+    local_paths: ["/arc/projects/hats/sdss/photoprimary_dr13"]
+    hats_nrows: 469050917
+    obs_collection: "dr16"
+    estimated_size: 'huge'
+    ra_column: "RA"
+    dec_column: "DEC"
+    id_column: "id"
+    epoch: 2000.0
+    default_columns: ["id", "RA", "DEC", "OBJC_TYPE", "OBJC_FLAGS", "OBJC_FLAGS2", "RESOLVE_STATUS", "PSFFLUX_u", "PSFFLUX_g", "PSFFLUX_r", "PSFFLUX_i", "PSFFLUX_z", "PSFFLUX_IVAR_u", "PSFFLUX_IVAR_g", "PSFFLUX_IVAR_r", "PSFFLUX_IVAR_i", "PSFFLUX_IVAR_z", "MODELFLUX_u", "MODELFLUX_g", "MODELFLUX_r", "MODELFLUX_i", "MODELFLUX_z", "MODELFLUX_IVAR_u", "MODELFLUX_IVAR_g", "MODELFLUX_IVAR_r", "MODELFLUX_IVAR_i", "MODELFLUX_IVAR_z", "EXTINCTION_u", "EXTINCTION_g", "EXTINCTION_r", "EXTINCTION_i", "EXTINCTION_z"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  ps1_otmo:
+    # epochMean is an MJD, not a Julian year, so it is projected but not used as epoch_column
+    # pmra/pmdec exist in the tree but are not wired as motion columns (units unverified)
+    # unverified: raMeanErr/decMeanErr taken as arcsec (PS1 convention)
+    # probe could not confirm every data partition (listing truncated); verify_tree checks metadata only
+    description: "Pan-STARRS1 DR2 ObjectThin+MeanObject (community tree, 10.56 B rows; not the CDS ps1_dr2_hats product)"
+    archive: hats
+    service_id: hats_service
+    release: "dr2-otmo"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/ps1/otmo"
+    local_paths: ["/arc/projects/hats/ps1/otmo"]
+    hats_nrows: 10560724292
+    obs_collection: "otmo"
+    estimated_size: 'huge'
+    ra_column: "raMean"
+    dec_column: "decMean"
+    id_column: "objID"
+    epoch: 2012.0
+    default_columns: ["objID", "raMean", "decMean", "raMeanErr", "decMeanErr", "epochMean", "nDetections", "qualityFlag", "objInfoFlag", "gMeanPSFMag", "gMeanPSFMagErr", "gMeanKronMag", "gMeanKronMagErr", "gFlags", "rMeanPSFMag", "rMeanPSFMagErr", "rMeanKronMag", "rMeanKronMagErr", "rFlags", "iMeanPSFMag", "iMeanPSFMagErr", "iMeanKronMag", "iMeanKronMagErr", "iFlags", "zMeanPSFMag", "zMeanPSFMagErr", "zMeanKronMag", "zMeanKronMagErr", "zFlags", "yMeanPSFMag", "yMeanPSFMagErr", "yMeanKronMag", "yMeanKronMagErr", "yFlags"]
+    ra_err_column: "raMeanErr"
+    dec_err_column: "decMeanErr"
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  vhs_dr7:
+    # epoch: approximate survey mid-point (2010-2019); no per-row epoch column
+    description: "VISTA Hemisphere Survey DR7 vhsSource (VSA, priOrSec seamless)"
+    archive: hats
+    service_id: hats_service
+    release: "dr7"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/vhs/dr7"
+    local_paths: ["/arc/projects/hats/vhs/dr7"]
+    hats_nrows: 1496104720
+    obs_collection: "dr7"
+    estimated_size: 'huge'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "sourceid"
+    epoch: 2014.0
+    default_columns: ["sourceid", "ra", "dec", "mergedclass", "priorsec", "japermag3", "japermag3err", "hapermag3", "hapermag3err", "ksapermag3", "ksapermag3err"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.3
+
+  ls_dr11_sweep:
+    # no single id column: RELEASE+BRICKID+OBJID is the key
+    # REF_EPOCH is 0 for non-Gaia sources, so it is not used as epoch_column; PMRA/PMDEC (Gaia) not wired
+    # RA_IVAR/DEC_IVAR are inverse variances, not error columns
+    # probe could not confirm every data partition (listing truncated)
+    description: "Legacy Surveys DR11 sweeps (north+south, PHOTSYS)"
+    archive: hats
+    service_id: hats_service
+    release: "dr11"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/legacysurvey/dr11"
+    local_paths: ["/arc/projects/hats/legacysurvey/dr11"]
+    hats_nrows: 3967618454
+    obs_collection: "dr11"
+    estimated_size: 'huge'
+    ra_column: "RA"
+    dec_column: "DEC"
+    epoch: 2017.0
+    default_columns: ["RELEASE", "BRICKID", "OBJID", "TYPE", "RA", "DEC", "EBV", "PHOTSYS", "MASKBITS", "FITBITS", "REF_CAT", "REF_ID", "FLUX_G", "FLUX_R", "FLUX_I", "FLUX_Z", "FLUX_W1", "FLUX_W2", "FLUX_W3", "FLUX_W4", "FLUX_IVAR_G", "FLUX_IVAR_R", "FLUX_IVAR_I", "FLUX_IVAR_Z", "FLUX_IVAR_W1", "FLUX_IVAR_W2", "FLUX_IVAR_W3", "FLUX_IVAR_W4", "NOBS_G", "NOBS_R", "NOBS_I", "NOBS_Z"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  des_y6_gold:
+    # epoch: approximate (2013-2019); no per-row epoch column
+    description: "DES Y6 Gold (Pensus QA soft-fail: a few out-of-range coordinates; ray-anchor drops them)"
+    archive: hats
+    service_id: hats_service
+    release: "y6"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/des/y6_gold"
+    local_paths: ["/arc/projects/hats/des/y6_gold"]
+    hats_nrows: 691483608
+    obs_collection: "des_y6_gold"
+    estimated_size: 'huge'
+    ra_column: "RA"
+    dec_column: "DEC"
+    id_column: "COADD_OBJECT_ID"
+    epoch: 2016.0
+    default_columns: ["COADD_OBJECT_ID", "RA", "DEC", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND", "EXT_MASH", "EXT_XGB", "EBV_SFD98", "WAVG_MAG_PSF_G", "WAVG_MAG_PSF_R", "WAVG_MAG_PSF_I", "WAVG_MAG_PSF_Z", "WAVG_MAG_PSF_Y", "WAVG_MAGERR_PSF_G", "WAVG_MAGERR_PSF_R", "WAVG_MAGERR_PSF_I", "WAVG_MAGERR_PSF_Z", "WAVG_MAGERR_PSF_Y", "BDF_MAG_G_CORRECTED", "BDF_MAG_R_CORRECTED", "BDF_MAG_I_CORRECTED", "BDF_MAG_Z_CORRECTED", "BDF_MAG_Y_CORRECTED", "BDF_MAG_ERR_G", "BDF_MAG_ERR_R", "BDF_MAG_ERR_I", "BDF_MAG_ERR_Z", "BDF_MAG_ERR_Y"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  delve_dr3_gold:
+    # epoch: approximate; no per-row epoch column
+    description: "DELVE DR3 Gold (Pensus QA soft-fail: a few out-of-range coordinates)"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/delve/dr3_gold"
+    local_paths: ["/arc/projects/hats/delve/dr3_gold"]
+    hats_nrows: 2588267795
+    obs_collection: "delve_dr3_gold"
+    estimated_size: 'huge'
+    ra_column: "RA"
+    dec_column: "DEC"
+    id_column: "COADD_OBJECT_ID"
+    epoch: 2018.0
+    default_columns: ["COADD_OBJECT_ID", "RA", "DEC", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND", "EXT_MASH", "EXT_XGB", "EBV_SFD98", "WAVG_MAG_PSF_G", "WAVG_MAG_PSF_R", "WAVG_MAG_PSF_I", "WAVG_MAG_PSF_Z", "WAVG_MAGERR_PSF_G", "WAVG_MAGERR_PSF_R", "WAVG_MAGERR_PSF_I", "WAVG_MAGERR_PSF_Z", "BDF_MAG_G_CORRECTED", "BDF_MAG_R_CORRECTED", "BDF_MAG_I_CORRECTED", "BDF_MAG_Z_CORRECTED", "BDF_MAG_ERR_G", "BDF_MAG_ERR_R", "BDF_MAG_ERR_I", "BDF_MAG_ERR_Z"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  uhs_dr3:
+    # hats_nrows/obs_collection deliberately not pinned while the tree is rebuilt (dr3_cephwrap swap)
+    # epoch: approximate; no per-row epoch column
+    description: "UKIRT Hemisphere Survey DR3 (being rebuilt with RA wrapped into [0,360); not pinned)"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/uhs/dr3"
+    local_paths: ["/arc/projects/hats/uhs/dr3"]
+    estimated_size: 'huge'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "sourceid"
+    epoch: 2014.0
+    default_columns: ["sourceid", "ra", "dec", "mergedclass", "priorsec", "japermag3", "japermag3err", "hapermag3", "hapermag3err", "kapermag3", "kapermag3err"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.3
+
+  ukidss_dr11_las:
+    # epoch: approximate (2005-2012)
+    description: "UKIDSS DR11 Large Area Survey lasSource (WSA, seamless)"
+    archive: hats
+    service_id: hats_service
+    release: "dr11"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/ukidss/dr11_las"
+    local_paths: ["/arc/projects/hats/ukidss/dr11_las"]
+    hats_nrows: 77685267
+    obs_collection: "dr11_las"
+    estimated_size: 'large'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "sourceid"
+    epoch: 2008.0
+    default_columns: ["sourceid", "ra", "dec", "mergedclass", "priorsec", "yapermag3", "yapermag3err", "japermag3", "japermag3err", "hapermag3", "hapermag3err", "kapermag3", "kapermag3err"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.3
+
+  ukidss_dr11_gcs:
+    # epoch: approximate (2005-2012)
+    description: "UKIDSS DR11 Galactic Clusters Survey gcsSource (WSA, seamless)"
+    archive: hats
+    service_id: hats_service
+    release: "dr11"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/ukidss/dr11_gcs"
+    local_paths: ["/arc/projects/hats/ukidss/dr11_gcs"]
+    hats_nrows: 64835919
+    obs_collection: "dr11_gcs"
+    estimated_size: 'large'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "sourceid"
+    epoch: 2008.0
+    default_columns: ["sourceid", "ra", "dec", "mergedclass", "priorsec", "zapermag3", "zapermag3err", "yapermag3", "yapermag3err", "japermag3", "japermag3err", "hapermag3", "hapermag3err", "kapermag3", "kapermag3err"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.3
+
+  viking_dr5:
+    # epoch: approximate (2009-2018)
+    description: "VISTA VIKING DR5 vikingSource (VSA, seamless)"
+    archive: hats
+    service_id: hats_service
+    release: "dr5"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/viking/dr5"
+    local_paths: ["/arc/projects/hats/viking/dr5"]
+    hats_nrows: 82063585
+    obs_collection: "dr5"
+    estimated_size: 'large'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "sourceid"
+    epoch: 2013.0
+    default_columns: ["sourceid", "ra", "dec", "mergedclass", "priorsec", "zapermag3", "zapermag3err", "yapermag3", "yapermag3err", "japermag3", "japermag3err", "hapermag3", "hapermag3err", "ksapermag3", "ksapermag3err"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.3
+
+  vvvx_dr1:
+    # epoch: approximate (2010-2023)
+    description: "VISTA VVVX DR1 vvvxSource (VSA, priOrSec seamless)"
+    archive: hats
+    service_id: hats_service
+    release: "dr1"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/vvvx/dr1"
+    local_paths: ["/arc/projects/hats/vvvx/dr1"]
+    hats_nrows: 886574093
+    obs_collection: "dr1"
+    estimated_size: 'huge'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "sourceid"
+    epoch: 2017.0
+    default_columns: ["sourceid", "ra", "dec", "mergedclass", "priorsec", "japermag3", "japermag3err", "hapermag3", "hapermag3err", "ksapermag3", "ksapermag3err"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.3
+
+  vmc_dr7:
+    # epoch: approximate
+    description: "VISTA Magellanic Clouds survey DR7 vmcSource (VSA, seamless)"
+    archive: hats
+    service_id: hats_service
+    release: "dr7"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/vmc/dr7"
+    local_paths: ["/arc/projects/hats/vmc/dr7"]
+    hats_nrows: 64359516
+    obs_collection: "dr7"
+    estimated_size: 'large'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "sourceid"
+    epoch: 2014.0
+    default_columns: ["sourceid", "ra", "dec", "mergedclass", "priorsec", "yapermag3", "yapermag3err", "japermag3", "japermag3err", "ksapermag3", "ksapermag3err"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.3
+
+  galex_guvcat_ais:
+    # nuv_poserr/fuv_poserr are total positional errors (arcsec), not per-axis, so not wired
+    # epoch: approximate (2003-2012)
+    description: "GALEX GUVcat AIS GR6+7 (Bianchi et al. 2017; MAST HLSP)"
+    archive: hats
+    service_id: hats_service
+    release: "gr67"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/galex/guvcat_ais_gr67"
+    local_paths: ["/arc/projects/hats/galex/guvcat_ais_gr67"]
+    hats_nrows: 82992062
+    obs_collection: "galex_gr67"
+    estimated_size: 'large'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "objid"
+    epoch: 2007.0
+    default_columns: ["objid", "ra", "dec", "fuv_mag", "fuv_magerr", "nuv_mag", "nuv_magerr", "fuv_flags", "nuv_flags", "fuv_artifact", "nuv_artifact", "fuv_poserr", "nuv_poserr", "e_bv", "primgid", "inlargeobj"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 3.0
+
+  splus_dr4_dual:
+    # epoch: approximate; no per-row epoch column
+    description: "S-PLUS DR4 dual-mode photometry (NOIRLab Data Lab splus_dr4.dual)"
+    archive: hats
+    service_id: hats_service
+    release: "dr4"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/splus/dr4"
+    local_paths: ["/arc/projects/hats/splus/dr4"]
+    hats_nrows: 80155547
+    obs_collection: "dr4"
+    estimated_size: 'large'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "id"
+    epoch: 2018.0
+    default_columns: ["id", "ra", "dec", "field", "class_star", "u_auto", "e_u_auto", "g_auto", "e_g_auto", "r_auto", "e_r_auto", "i_auto", "e_i_auto", "z_auto", "e_z_auto", "j0378_auto", "e_j0378_auto", "j0395_auto", "e_j0395_auto", "j0410_auto", "e_j0410_auto", "j0430_auto", "e_j0430_auto", "j0515_auto", "e_j0515_auto", "j0660_auto", "e_j0660_auto", "j0861_auto", "e_j0861_auto"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  jplus_dr3:
+    # UNUSABLE AS IS: CLASS_STAR, FLAGS, MASK_FLAGS and every MAG_* column are stored as strings
+    # (per-filter arrays serialized as text). xmatcher carries them verbatim and never casts them;
+    # rebuild the tree with numeric columns before using its photometry.
+    # no single id column: TILE_ID+NUMBER is the key; epoch approximate
+    description: "J-PLUS DR3 MagABDualObj (CEFCA)"
+    archive: hats
+    service_id: hats_service
+    release: "dr3"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/jplus/dr3"
+    local_paths: ["/arc/projects/hats/jplus/dr3"]
+    hats_nrows: 16419372
+    obs_collection: "dr3"
+    estimated_size: 'medium'
+    ra_column: "ALPHA_J2000"
+    dec_column: "DELTA_J2000"
+    epoch: 2018.0
+    default_columns: ["TILE_ID", "NUMBER", "ALPHA_J2000", "DELTA_J2000", "CLASS_STAR", "FLAGS", "MASK_FLAGS", "MAG_AUTO", "MAG_ERR_AUTO", "MAG_PSFCOR", "MAG_ERR_PSFCOR", "MAG_APER_3_0", "MAG_ERR_APER_3_0"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  jpas_e2dr:
+    # UNUSABLE AS IS: CLASS_STAR, FLAGS, MASK_FLAGS and every MAG_* column are stored as strings
+    # (per-filter arrays serialized as text). xmatcher carries them verbatim and never casts them;
+    # rebuild the tree with numeric columns before using its photometry.
+    # no single id column: TILE_ID+NUMBER is the key; epoch approximate
+    description: "J-PAS e2DR MagABDualObj (CEFCA)"
+    archive: hats
+    service_id: hats_service
+    release: "e2dr"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/jpas/e2dr"
+    local_paths: ["/arc/projects/hats/jpas/e2dr"]
+    hats_nrows: 4804561
+    obs_collection: "e2dr"
+    estimated_size: 'medium'
+    ra_column: "ALPHA_J2000"
+    dec_column: "DELTA_J2000"
+    epoch: 2018.0
+    default_columns: ["TILE_ID", "NUMBER", "ALPHA_J2000", "DELTA_J2000", "CLASS_STAR", "FLAGS", "MASK_FLAGS", "MAG_AUTO", "MAG_ERR_AUTO", "MAG_APER_COR_3_0", "MAG_ERR_APER_COR_3_0", "MAG_APER_3_0", "MAG_ERR_APER_3_0"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.1
+
+  pristine_dr2:
+    # unverified: RA/Dec are taken as the Gaia DR3 positions (epoch 2016.0); RA_Pr/Dec_Pr are the Pristine ones
+    # the env-var entry pristine_dr2_hats expects ra/dec and does not match this tree
+    description: "Pristine DR2 CaHK photometric metallicities (Martin et al. 2024; Zenodo 21092750)"
+    archive: hats
+    service_id: hats_service
+    release: "dr2"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/pristine/dr2"
+    local_paths: ["/arc/projects/hats/pristine/dr2"]
+    hats_nrows: 25224342
+    obs_collection: "pristine_dr2"
+    estimated_size: 'medium'
+    ra_column: "RA"
+    dec_column: "Dec"
+    id_column: "source_id"
+    epoch: 2016.0
+    default_columns: ["source_id", "RA", "Dec", "E(B-V)", "merged_CASU_flag", "G_0", "dG", "BP_0", "d_BP", "RP_0", "d_RP", "CaHK_0", "d_CaHK", "FeH_Pristine", "FeH_Pristine_16th", "FeH_Pristine_84th", "mcfrac_Pristine", "Pvar", "RUWE", "Cstar", "Cstar_1sigma"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.05
+
+  catwise2020_catalog:
+    # PMRA/PMDec are arcsec/yr in CatWISE2020, so they are projected but not wired as motion columns
+    # epoch: ra/dec refer to MJD 57170 (2015.4); MeanObsMJD is an MJD, not a Julian year
+    description: "CatWISE2020 catalog from the IPAC tiles (Marocco et al. 2021)"
+    archive: hats
+    service_id: hats_service
+    release: "2020"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/catwise/2020"
+    local_paths: ["/arc/projects/hats/catwise/2020"]
+    hats_nrows: 1890715640
+    obs_collection: "2020"
+    estimated_size: 'huge'
+    ra_column: "ra"
+    dec_column: "dec"
+    id_column: "source_name"
+    epoch: 2015.4
+    default_columns: ["source_name", "source_id", "ra", "dec", "sigra", "sigdec", "w1mpro", "w1sigmpro", "w2mpro", "w2sigmpro", "w1snr", "w2snr", "nb", "na", "cc_flags", "ab_flags", "PMRA", "PMDec", "sigPMRA", "sigPMDec", "MeanObsMJD"]
+    ra_err_column: "sigra"
+    dec_err_column: "sigdec"
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.2
+
+  hsc_pdr3_forced_g:
+    # HSC exists only as five per-band forced trees; match each band separately or join on `id`
+    # unverified: coord_ra/coord_dec assumed in degrees (properties declare them as the HATS coordinates)
+    # instFlux units unverified (pipeline counts/nJy); epoch approximate
+    description: "HSC-SSP PDR3 forced photometry, g band (one of five per-band trees)"
+    archive: hats
+    service_id: hats_service
+    release: "pdr3"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_g"
+    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_g"]
+    hats_nrows: 783961389
+    obs_collection: "hsc_pdr3-forced-G"
+    estimated_size: 'huge'
+    ra_column: "coord_ra"
+    dec_column: "coord_dec"
+    id_column: "id"
+    epoch: 2016.0
+    default_columns: ["id", "coord_ra", "coord_dec", "parent", "deblend_nChild", "base_PsfFlux_instFlux", "base_PsfFlux_instFluxErr", "modelfit_CModel_instFlux", "modelfit_CModel_instFluxErr", "base_ClassificationExtendedness_value"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.05
+
+  hsc_pdr3_forced_r:
+    # HSC exists only as five per-band forced trees; match each band separately or join on `id`
+    # unverified: coord_ra/coord_dec assumed in degrees (properties declare them as the HATS coordinates)
+    # instFlux units unverified (pipeline counts/nJy); epoch approximate
+    description: "HSC-SSP PDR3 forced photometry, r band (one of five per-band trees)"
+    archive: hats
+    service_id: hats_service
+    release: "pdr3"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_r"
+    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_r"]
+    hats_nrows: 779192787
+    obs_collection: "hsc_pdr3-forced-R"
+    estimated_size: 'huge'
+    ra_column: "coord_ra"
+    dec_column: "coord_dec"
+    id_column: "id"
+    epoch: 2016.0
+    default_columns: ["id", "coord_ra", "coord_dec", "parent", "deblend_nChild", "base_PsfFlux_instFlux", "base_PsfFlux_instFluxErr", "modelfit_CModel_instFlux", "modelfit_CModel_instFluxErr", "base_ClassificationExtendedness_value"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.05
+
+  hsc_pdr3_forced_i:
+    # HSC exists only as five per-band forced trees; match each band separately or join on `id`
+    # unverified: coord_ra/coord_dec assumed in degrees (properties declare them as the HATS coordinates)
+    # instFlux units unverified (pipeline counts/nJy); epoch approximate
+    description: "HSC-SSP PDR3 forced photometry, i band (one of five per-band trees)"
+    archive: hats
+    service_id: hats_service
+    release: "pdr3"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_i"
+    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_i"]
+    hats_nrows: 757603782
+    obs_collection: "hsc_pdr3-forced-I"
+    estimated_size: 'huge'
+    ra_column: "coord_ra"
+    dec_column: "coord_dec"
+    id_column: "id"
+    epoch: 2016.0
+    default_columns: ["id", "coord_ra", "coord_dec", "parent", "deblend_nChild", "base_PsfFlux_instFlux", "base_PsfFlux_instFluxErr", "modelfit_CModel_instFlux", "modelfit_CModel_instFluxErr", "base_ClassificationExtendedness_value"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.05
+
+  hsc_pdr3_forced_z:
+    # HSC exists only as five per-band forced trees; match each band separately or join on `id`
+    # unverified: coord_ra/coord_dec assumed in degrees (properties declare them as the HATS coordinates)
+    # instFlux units unverified (pipeline counts/nJy); epoch approximate
+    # probe could not confirm every data partition (listing truncated)
+    description: "HSC-SSP PDR3 forced photometry, z band (one of five per-band trees)"
+    archive: hats
+    service_id: hats_service
+    release: "pdr3"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_z"
+    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_z"]
+    hats_nrows: 771110298
+    obs_collection: "hsc_pdr3-forced-Z"
+    estimated_size: 'huge'
+    ra_column: "coord_ra"
+    dec_column: "coord_dec"
+    id_column: "id"
+    epoch: 2016.0
+    default_columns: ["id", "coord_ra", "coord_dec", "parent", "deblend_nChild", "base_PsfFlux_instFlux", "base_PsfFlux_instFluxErr", "modelfit_CModel_instFlux", "modelfit_CModel_instFluxErr", "base_ClassificationExtendedness_value"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.05
+
+  hsc_pdr3_forced_y:
+    # HSC exists only as five per-band forced trees; match each band separately or join on `id`
+    # unverified: coord_ra/coord_dec assumed in degrees (properties declare them as the HATS coordinates)
+    # instFlux units unverified (pipeline counts/nJy); epoch approximate
+    description: "HSC-SSP PDR3 forced photometry, y band (one of five per-band trees)"
+    archive: hats
+    service_id: hats_service
+    release: "pdr3"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_y"
+    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_y"]
+    hats_nrows: 731099731
+    obs_collection: "hsc_pdr3-forced-Y"
+    estimated_size: 'huge'
+    ra_column: "coord_ra"
+    dec_column: "coord_dec"
+    id_column: "id"
+    epoch: 2016.0
+    default_columns: ["id", "coord_ra", "coord_dec", "parent", "deblend_nChild", "base_PsfFlux_instFlux", "base_PsfFlux_instFluxErr", "modelfit_CModel_instFlux", "modelfit_CModel_instFluxErr", "base_ClassificationExtendedness_value"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.05
+
+  euclid_dr1_mer_wide:
+    # the tree is partitioned on ra/dec_from_object_id (the properties' coordinates), which match ra/dec to ~1e-7 deg
+    # epoch approximate (2023-2024)
+    description: "Euclid DR1 MER catalogue, wide survey (IRSA reformatted HATS)"
+    archive: hats
+    service_id: hats_service
+    release: "dr1"
+    access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats"
+    local_paths: ["/arc/projects/hats/euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats"]
+    hats_nrows: 888152165
+    obs_collection: "mer_catalogue_wide_survey"
+    estimated_size: 'huge'
+    ra_column: "ra_from_object_id"
+    dec_column: "dec_from_object_id"
+    id_column: "object_id"
+    epoch: 2024.0
+    default_columns: ["object_id", "ra_from_object_id", "dec_from_object_id", "ra", "dec", "flux_vis_psf", "fluxerr_vis_psf", "flux_y_templfit", "fluxerr_y_templfit", "flux_j_templfit", "fluxerr_j_templfit", "flux_h_templfit", "fluxerr_h_templfit", "point_like_prob", "spurious_flag", "det_quality_flag", "gaia_id"]
+    pos_err_units: "arcsec"
+    default_pos_error_arcsec: 0.05
 
   galex_ais:
     description: "GALEX All-Sky Imaging Survey (AIS) via CDS VizieR TAP"

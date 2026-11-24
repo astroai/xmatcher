@@ -412,6 +412,9 @@ Examples:
   # Preview the YAML without writing
   xmatcher adopt noirlab catwise2020.main --name catwise --dry-run
 
+  # Draft an entry from a HATS tree (community copy read in place, never written)
+  xmatcher adopt hats /arc/projects/hats/vhs/dr7 --name vhs_dr7 --dry-run
+
   # Match an ad-hoc table id without adopting (endpoint auto-guessed for VizieR)
   xmatcher match sources.csv II/349/ps1 --ra 150.1 --dec 2.18 --radius-deg 0.05
 """
@@ -1554,7 +1557,8 @@ def _build_adopt_subparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="xmatcher adopt",
         description=(
-            "Probe a remote TAP table and append a catalogue entry to "
+            "Probe a remote TAP table (or read a HATS tree's properties with "
+            "endpoint 'hats') and append a catalogue entry to "
             "~/.config/xmatcher/xmatcher.yaml (merged over the bundled config)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1562,11 +1566,17 @@ def _build_adopt_subparser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "endpoint",
-        help="Endpoint short-name (vizier, noirlab, gaia) or a known public TAP name.",
+        help=(
+            "Endpoint short-name (vizier, noirlab, gaia), a known public TAP name, "
+            "or 'hats' to draft an entry from a HATS tree."
+        ),
     )
     parser.add_argument(
         "table",
-        help="Table id (e.g. II/349/ps1 or ls_dr10.tractor).",
+        help=(
+            "Table id (e.g. II/349/ps1 or ls_dr10.tractor); with 'hats', a local "
+            "tree path or an http(s) HATS URL."
+        ),
     )
     parser.add_argument(
         "--name",
@@ -2315,6 +2325,52 @@ def handle_discover(
     return 0
 
 
+def handle_adopt_hats(
+    cm: CrossMatch,
+    location: str,
+    console: Console,
+    *,
+    catalogue_name: str | None = None,
+    alias: str | None = None,
+    dry_run: bool = False,
+) -> int:
+    """Draft a catalogue entry from a HATS tree into the user config overlay."""
+    from .community import draft_hats_entry  # noqa: PLC0415
+
+    try:
+        name, entry, notes = draft_hats_entry(location, name=catalogue_name)
+    except (ValueError, OSError) as exc:
+        console.error(str(exc))
+        return 1
+    snippet = format_catalogue_yaml(name, entry)
+    note_text = "".join(f"  # unverified: {note}\n" for note in notes)
+    if dry_run:
+        console.info(f"Dry run — would write to {user_config_path()}:\n")
+        sys.stdout.write(snippet)
+        sys.stdout.write(note_text)
+        if alias:
+            sys.stdout.write(f"  # alias: {alias.lower()} -> {name}\n")
+        return 0
+    if name in cm.catalogues_config:
+        console.error(
+            f"Catalogue '{name}' already exists in the active config. "
+            "Pass --name to choose a different key."
+        )
+        return 1
+    try:
+        path = append_catalogue_to_user_config(
+            name, entry, alias=alias, archives={"hats": cm.archives_config["hats"]}
+        )
+    except (ConfigError, KeyError) as exc:
+        console.error(str(exc))
+        return 1
+    console.info(f"Adopted {console.bold(name)} → {path}")
+    for note in notes:
+        console.hint(f"  unverified: {note}")
+    console.hint(f"Try: xmatcher describe {alias or name}")
+    return 0
+
+
 def handle_adopt(
     cm: CrossMatch,
     endpoint: str,
@@ -2325,7 +2381,15 @@ def handle_adopt(
     alias: str | None = None,
     dry_run: bool = False,
 ) -> int:
-    """Probe *table* on *endpoint* and append it to the user config overlay."""
+    """Probe *table* on *endpoint* and append it to the user config overlay.
+
+    ``endpoint == "hats"`` drafts the entry from a HATS tree's properties
+    (and schema) instead: *table* is then a local tree path or a remote URL.
+    """
+    if endpoint.casefold() == "hats":
+        return handle_adopt_hats(
+            cm, table, console, catalogue_name=catalogue_name, alias=alias, dry_run=dry_run
+        )
     try:
         archive_name, service_id, tap_url = endpoint_archive(endpoint)
     except Exception as exc:
@@ -2585,11 +2649,13 @@ def _run_sync_subcommand(argv: Sequence[str]) -> int:
         return 1
 
     def body() -> int:
+        from .community import resolve_in_place
         from .mirror import SyncStats, sync_catalogue
-        from .storage import all_cache_roots
+        from .storage import all_cache_roots, community_roots
 
         cache_cfg = cm.config.get("cache", {}) if isinstance(cm.config, dict) else {}
         roots = all_cache_roots(cache_cfg)
+        read_roots = community_roots(cache_cfg)
         if args.cache_root:
             roots = [args.cache_root, *(r for r in roots if r != args.cache_root)]
         cache_root = roots[0]
@@ -2601,6 +2667,14 @@ def _run_sync_subcommand(argv: Sequence[str]) -> int:
             resolved = cm.resolve_name(name)
             cat_cfg = cm.catalogues_config.get(resolved, {})
             src = cm.resolve_source(name, {})
+            in_place = resolve_in_place(src, read_roots=read_roots, cache_root=cache_root)
+            if in_place is not None:
+                console.info(
+                    f"  {name}: served in place by the read-only "
+                    f"{in_place.read_only_origin} copy {in_place.access_identifier}; "
+                    "nothing to sync"
+                )
+                continue
             one_limit = rate_limit
             if args.rate_limit_rps is None:
                 one_limit = float((cat_cfg.get("sync") or {}).get("rate_limit_rps", rate_limit))
@@ -2617,6 +2691,7 @@ def _run_sync_subcommand(argv: Sequence[str]) -> int:
                     hats_threshold=int(args.hats_threshold),
                     fresh_after=args.fresh_after,
                     min_free_gb=args.min_free_gb,
+                    read_roots=[],  # checked above
                 )
             total.merge(stats)
             console.info(

@@ -127,6 +127,15 @@ class CatalogueSource:
     photometry: list[dict[str, Any]] = field(default_factory=list)
     property_evidence: list[dict[str, Any]] = field(default_factory=list)
 
+    # Equivalent read-only copies (catalogue ``local_paths``) and the pins a
+    # copy must match (``hats_nrows`` / ``obs_collection`` in the entry).
+    local_paths: list[str] = field(default_factory=list)
+    expected_hats_nrows: int | None = None
+    expected_obs_collection: str | None = None
+    # Set when the source is served in place from a read-only copy
+    # ("community" or "local_paths"); such a tree is never written.
+    read_only_origin: str | None = None
+
     def lazy(self) -> pl.LazyFrame:
         """Return the catalogue as a LazyFrame (local sources only)."""
         if self._frame is not None:

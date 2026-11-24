@@ -733,6 +733,31 @@ from xmatcher.storage import open_storage
   stored under `<cache>/<name>/<version>/`. The CANFAR working and output
   directory is `/arc/projects/astroai/xmatcher`. `/arc/projects/hats` is the
   community HATS tree: xmatcher reads it and never writes to it.
+- **Cache roots.** `xmatcher.storage.all_cache_roots(cache_cfg)` returns the
+  writable roots (primary, then `replica_roots(cache_cfg)`: `cache.replica_roots`
+  followed by the legacy `cache.roots`). `community_roots(cache_cfg)` returns
+  the read-only roots (`XMATCHER_COMMUNITY_ROOTS`, else
+  `cache.community_roots`, else `[/arc/projects/hats]` on CANFAR when it
+  exists). `assert_writable(path, label)` raises
+  `xmatcher.ReadOnlyRootError` (a `ConfigError`) for a path inside a read-only
+  root or `/arc/projects/hats`; `LocalStorage`/`VOSpaceStorage` opened there
+  read normally and refuse every write.
+- **Read-only copies.** `ensure_mirrored`, `locate_mirrored` and
+  `sync_catalogue` take `read_roots=` (default `community_roots()`) and first
+  call `xmatcher.community.resolve_in_place(src, read_roots=..., cache_root=...)`,
+  which returns `src` repointed at a verified community tree (matched by
+  `PENSUS_SYNC.json`/`sync.json` source URL and version) or `local_paths`
+  copy, with `read_only_origin` set and the entry metadata kept, or `None`.
+  `verify_tree(path, src)` is the check (properties, partition index, complete
+  sync record, pinned `hats_nrows`/`obs_collection`/coordinate columns).
+  `community_index(roots, cache_root=...)` lists the sync records, cached under
+  the writable cache root. `draft_hats_entry(location, name=...)` backs
+  `xmatcher adopt hats`.
+- **Catalogue keys.** `local_paths` (list of equivalent read-only trees),
+  `hats_nrows` and `obs_collection` (pins a copy must match) map to
+  `CatalogueSource.local_paths`, `expected_hats_nrows` and
+  `expected_obs_collection`. When `access_identifier` uses an unset
+  environment variable, the first `local_paths` entry stands in for it.
 - **Remote HATS.** Trees over HTTP(S), `vos:`, `s3://` or `hf://` are
   mirrored into the cache. The manifest records each file's size; a file whose
   advertised size is unchanged is skipped, so use `--force` to pick up

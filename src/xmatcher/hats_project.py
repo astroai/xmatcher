@@ -255,9 +255,14 @@ def project_hats(
     full tree first.  Other remote sources are mirrored unless ``sync=False``,
     in which case a cached copy must already exist.
     """
+    from .community import resolve_in_place
     from .mirror import _mirrored_source, ensure_mirrored, locate_mirrored
+    from .storage import assert_writable
 
     out = Path(output).expanduser()
+    assert_writable(out, "project-hats output")
+    # A verified read-only community/local copy is projected in place.
+    source = resolve_in_place(source, cache_root=cache_root) or source
     if (
         sync
         and source.access_method == "hats"

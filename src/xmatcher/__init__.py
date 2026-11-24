@@ -41,6 +41,7 @@ _EXPORTS = {
     "normalize_candidate_hypotheses": "candidates",
     "CrossMatchError": "exceptions",
     "ConfigError": "exceptions",
+    "ReadOnlyRootError": "exceptions",
     "InputError": "exceptions",
     "TapError": "exceptions",
     "StiltsError": "exceptions",
@@ -74,6 +75,7 @@ __all__ = [
     "normalize_candidate_hypotheses",
     "CrossMatchError",
     "ConfigError",
+    "ReadOnlyRootError",
     "InputError",
     "TapError",
     "StiltsError",
@@ -110,7 +112,14 @@ if TYPE_CHECKING:
         write_candidate_release,
     )
     from .crossmatch import CrossMatch
-    from .exceptions import ConfigError, CrossMatchError, InputError, StiltsError, TapError
+    from .exceptions import (
+        ConfigError,
+        CrossMatchError,
+        InputError,
+        ReadOnlyRootError,
+        StiltsError,
+        TapError,
+    )
     from .hats_export import export_hats, scan_hats
     from .hats_project import project_hats
     from .io_utils import (

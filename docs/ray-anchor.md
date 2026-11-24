@@ -84,9 +84,21 @@ consumer needs the conditions separately.
 
 ## Candidate search
 
-For each anchor partition, the plan selects the survey partitions that
-intersect a cone around the anchor pixel of radius 2 × (match radius +
-largest partition diagonal). Within those rows, the search uses
+For each anchor partition, the plan selects the survey partitions whose own
+cells overlap a cone around the anchor cell's centre. The cone radius is that
+anchor cell's centre-to-boundary radius plus the match radius plus a motion
+halo (0 without `target_epoch`; 600″ with one, split between anchor and survey
+motion; a larger propagated move is an error). The cone depends only on the
+anchor partition, so a survey with order-0 partitions no longer widens every
+task to the whole sky: at order 2 the cone is about 10° plus the radius.
+
+Survey rows with a non-finite coordinate or `|dec| > 90` are dropped before
+matching instead of aborting the task; the count per survey is written to the
+output `properties` as `xmatcher_invalid_survey_rows` (and per partition to
+`resume.state`). Invalid anchor rows still abort, because every anchor row
+must appear in the master.
+
+Within those rows, the search uses
 torchsky's exact zone index (`torchsky.catalogs.SkyIndex`): one query returns
 the two nearest survey sources and the count inside the radius, under a single
 inclusive rule (separation ≤ radius), with ties going to the lowest survey
@@ -186,7 +198,24 @@ worker.
 
 ## CANFAR local products
 
-The bundled configuration exposes local HATS aliases for products staged on
+On CANFAR, inputs whose trees are in the community root `/arc/projects/hats`
+are read there in place (see
+[HATS sources](hats-sources.md#community-trees-on-canfar)); only the other
+remote inputs are mirrored into the cache root `/arc/projects/astroai/hats`.
+For example, in
+
+```bash
+xmatcher match gaia_lsdb_hats twomass_hats vhs_dr7 ps1_otmo \
+  --engine ray-anchor -r 1.5 -o msa_master.hats
+```
+
+`gaia_lsdb_hats` reads `/arc/projects/hats/gaia/dr3` (`local_paths`),
+`twomass_hats` reads `/arc/projects/hats/2mass/psc` (its `PENSUS_SYNC.json`
+matches the LSDB URL and version), and `vhs_dr7` / `ps1_otmo` read their
+community trees; nothing is copied. The entries' `default_columns` keep the
+master narrow. The log names the copy used for each input.
+
+The bundled configuration also exposes local HATS aliases for products staged on
 CANFAR (the full list of names and variables is in
 [HATS sources](hats-sources.md#cds-pinned-hats-products)). Point the
 environment variables at the HATS roots before resolving the alias:

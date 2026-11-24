@@ -232,6 +232,49 @@ root is `--cache-root`, else `$XMATCHER_CACHE_ROOT`, else
 `/arc/projects/astroai/xmatcher`. `/arc/projects/hats` is the community HATS
 tree: xmatcher reads it and never writes to it.
 
+### Community trees used in place
+
+A catalogue whose HATS tree already sits in a read-only *community root* is
+read there instead of being mirrored again. On AstroAI/CANFAR sessions the
+community root defaults to `/arc/projects/hats`; set
+`XMATCHER_COMMUNITY_ROOTS` (`:`-separated, empty to disable) or
+`cache.community_roots` in `xmatcher.yaml` elsewhere. Two things find a copy:
+
+- **Sync records.** A tree copied with xmatcher-style versioning carries a
+  `PENSUS_SYNC.json` (or xmatcher's `sync.json`) naming the upstream URL and
+  version directory. When both match a remote HATS catalogue's
+  `access_identifier`, that tree is used (on CANFAR, `twomass_hats` reads
+  `/arc/projects/hats/2mass/psc` this way).
+- **`local_paths`.** A catalogue entry can list equivalent copies without a
+  sync record (`gaia_lsdb_hats` lists `/arc/projects/hats/gaia/dr3`).
+
+The copy must have `properties` and a partition index, a complete sync record
+when it has one, and the `hats_nrows` / `obs_collection` / coordinate columns
+the entry pins. If it passes, it is read in place with the entry's metadata
+(epoch, motion, error and id columns, `default_columns`); if not, the warning
+names the reason and xmatcher falls back to the writable cache. `xmatcher sync`
+reports such catalogues as served in place and downloads nothing. The index of
+sync records is cached in `<cache>/registry/community_index.json` for a day
+(`XMATCHER_COMMUNITY_INDEX_TTL` seconds), and a new survey or product
+directory invalidates it early.
+
+```yaml
+cache:
+  root: /arc/projects/astroai/hats      # writable primary
+  replica_roots: [vos:projects/astroai/hats]  # written after each sync (`roots:` still works)
+  community_roots: [/arc/projects/hats]  # read only: never synced, replicated or written
+```
+
+Nothing is ever written inside a community root, nor under
+`/arc/projects/hats` whatever the configuration: a cache root, replica root,
+registry snapshot, index or output directory there raises `ReadOnlyRootError`
+before anything is created. The bundled configuration has entries for the
+community trees with no other alias (`sdss_dr16_photoprimary`, `ps1_otmo`,
+`vhs_dr7`, `ls_dr11_sweep`, `des_y6_gold`, ...); see
+[HATS sources](hats-sources.md#community-trees-on-canfar).
+`xmatcher adopt hats <path-or-url> --name NAME` drafts an entry for another
+tree from its properties and schema.
+
 ```bash
 # Mirror three configured catalogues
 xmatcher sync gaia allwise twomass

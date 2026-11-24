@@ -67,7 +67,6 @@ from .ray_union import (
     _input_fingerprint,
     _list_partitions,
     _partition_index,
-    _pixel_diagonal_deg,
     _plan_source,
     _read_hats_properties,
     _write_hats_tree,
@@ -79,6 +78,9 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TASK_ROWS = 2_000_000
 DEFAULT_CHUNK_MEMORY_GB = 8.0
+#: Candidate halo added to each anchor cone when coordinates are propagated
+#: to a target epoch: the anchor and survey motions may each use half of it.
+DEFAULT_MOTION_HALO_ARCSEC = 600.0
 _BYTES_PER_ROW = 96.0
 _STATE_NAME = "resume.state"
 
@@ -101,6 +103,8 @@ class AnchorPlan:
     surveys: list[CataloguePlan]
     survey_tags: list[str]
     sep_arcsec: float
+    #: Motion halo (degrees) beyond ``radius`` in every anchor cone; 0 when no
+    #: target epoch is requested.
     delta_deg: float
     out_dir: str
     anchor_id: str
@@ -324,20 +328,50 @@ def _survey_meta_columns(tag: str) -> list[str]:
     ]
 
 
+def _cell_radius_deg(order: int, pix: int) -> float:
+    """Largest angular distance from a HEALPix cell's centre to its boundary.
+
+    The boundary is sampled at the vertices of the cell's descendants three
+    orders deeper (eight points per edge), which bounds the curved HEALPix
+    edges far more tightly than the corner-to-corner diagonal.
+    """
+    from .ray_union import _cdshealpix, _pixel_center_deg
+
+    cds = _cdshealpix()
+    sub = min(int(order) + 3, 29)
+    shift = 2 * (sub - int(order))
+    children = np.arange(int(pix) << shift, (int(pix) + 1) << shift, dtype=np.uint64)
+    lon, lat = cds.vertices(children, sub)
+    lon_v = np.asarray(lon.value, dtype=float).ravel()
+    lat_v = np.asarray(lat.value, dtype=float).ravel()
+    c_lon, c_lat = (math.radians(v) for v in _pixel_center_deg(int(order), int(pix)))
+    cos_d = np.sin(lat_v) * math.sin(c_lat) + np.cos(lat_v) * math.cos(c_lat) * np.cos(
+        lon_v - c_lon
+    )
+    radius = float(np.degrees(np.max(np.arccos(np.clip(cos_d, -1.0, 1.0)))))
+    # Sampling error between boundary points is far below 1e-3 of the radius.
+    return radius * (1.0 + 1e-3)
+
+
+def anchor_cone_radius_deg(part: PartitionPlan, sep_arcsec: float, halo_deg: float) -> float:
+    """Search-cone radius for one anchor partition: its own centre-to-boundary
+    radius plus the match radius and the motion halo (never a global maximum)."""
+    return min(180.0, _cell_radius_deg(part.order, part.pix) + sep_arcsec / 3600.0 + halo_deg)
+
+
 def _candidate_partitions(
     anchor_part: PartitionPlan,
     survey: CataloguePlan,
     *,
-    sep_arcsec: float,
-    delta_deg: float,
+    cone_radius_deg: float,
 ) -> list[int]:
+    """Survey partitions whose own cells overlap the anchor partition's cone."""
     if not survey.partitions:
         return []
     depth = max(p.order for p in survey.partitions)
     starts, ends, indices = _partition_index(survey, depth)
-    cone_radius = min(180.0, 2.0 * (sep_arcsec / 3600.0 + delta_deg))
     seen: set[int] = set()
-    for lo, hi in _cone_ranges(anchor_part.order, anchor_part.pix, cone_radius, depth):
+    for lo, hi in _cone_ranges(anchor_part.order, anchor_part.pix, cone_radius_deg, depth):
         first = int(np.searchsorted(ends, lo, side="right"))
         last = int(np.searchsorted(starts, hi, side="left"))
         seen.update(indices[first:last].tolist())
@@ -358,8 +392,17 @@ def build_anchor_plan(
     anchor_id_name: str = "source_id",
     matcher: str = "sky",
     fallback_policy: str = "warn",
+    motion_halo_arcsec: float | None = None,
 ) -> AnchorPlan:
-    """Build a picklable anchor plan; every source must point at a local HATS tree."""
+    """Build a picklable anchor plan; every source must point at a local HATS tree.
+
+    Each anchor partition reads only the survey partitions whose cells overlap
+    its own cone: the partition's centre-to-boundary radius plus
+    ``sep_arcsec`` plus a motion halo (``motion_halo_arcsec``; default
+    :data:`DEFAULT_MOTION_HALO_ARCSEC` with ``target_epoch``, else 0).  The
+    plan therefore scales with the anchor partition, not with the coarsest
+    partition of any input.
+    """
     if not surveys:
         raise CrossMatchError("ray-anchor needs at least one survey after the anchor")
     if not math.isfinite(sep_arcsec) or sep_arcsec <= 0:
@@ -399,10 +442,11 @@ def build_anchor_plan(
         )
         tags.append(tag)
 
-    delta = 0.0
-    for plan in (anchor_plan, *survey_plans):
-        for part in plan.partitions:
-            delta = max(delta, _pixel_diagonal_deg(part.order, part.pix))
+    if motion_halo_arcsec is None:
+        motion_halo_arcsec = DEFAULT_MOTION_HALO_ARCSEC if target_epoch is not None else 0.0
+    if not math.isfinite(motion_halo_arcsec) or motion_halo_arcsec < 0:
+        raise CrossMatchError(f"motion_halo_arcsec must be >= 0, got {motion_halo_arcsec}")
+    delta = float(motion_halo_arcsec) / 3600.0
 
     out_columns = list(anchor_plan.final_cols)
     for survey, tag in zip(survey_plans, tags, strict=True):
@@ -414,10 +458,9 @@ def build_anchor_plan(
     for part in anchor_plan.partitions:
         cand: dict[str, list[int]] = {}
         est = 0
+        cone = anchor_cone_radius_deg(part, float(sep_arcsec), delta)
         for survey, tag, storage in zip(survey_plans, tags, storages[1:], strict=True):
-            idxs = _candidate_partitions(
-                part, survey, sep_arcsec=float(sep_arcsec), delta_deg=delta
-            )
+            idxs = _candidate_partitions(part, survey, cone_radius_deg=cone)
             cand[tag] = idxs
             est += sum(_est_rows(survey.partitions[i], storage, hats_threshold) for i in idxs)
         est += _est_rows(part, storages[0], hats_threshold)
@@ -456,12 +499,25 @@ def build_anchor_plan(
 # --------------------------------------------------------------------------- #
 # task internals
 # --------------------------------------------------------------------------- #
+def _valid_coords(frame: pl.DataFrame, ra: str, dec: str) -> np.ndarray:
+    ra_v = frame[ra].cast(pl.Float64).fill_null(np.nan).to_numpy()
+    dec_v = frame[dec].cast(pl.Float64).fill_null(np.nan).to_numpy()
+    return np.isfinite(ra_v) & np.isfinite(dec_v) & (dec_v >= -90.0) & (dec_v <= 90.0)
+
+
 def _read_frame(
     cat: CataloguePlan,
     idxs: Sequence[int],
     plan: AnchorPlan,
+    *,
+    invalid: dict[int, int] | None = None,
 ) -> pl.DataFrame:
-    """Read selected columns from the given partitions, rename, and align epochs."""
+    """Read selected columns from the given partitions, rename, and align epochs.
+
+    With ``invalid`` (a survey read), rows with a non-finite coordinate or
+    ``|dec| > 90`` are dropped and counted per partition index into it;
+    without it (the anchor) such rows abort the task.
+    """
     if not idxs:
         return pl.DataFrame(
             {name: pl.Series(name, [], dtype=dtype) for name, dtype in cat.dtypes.items()}
@@ -474,10 +530,17 @@ def _read_frame(
             frame = pl.read_parquet(Path(storage.root) / part.rel, columns=cat.cols)
         else:
             frame = storage.read_parquet(part.rel).select(cat.cols)
+        frame = frame.rename(dict(zip(cat.cols, cat.final_cols, strict=True)))
+        if invalid is not None and frame.height:
+            ok = _valid_coords(frame, cat.ra, cat.dec)
+            bad = int(frame.height - int(ok.sum()))
+            if bad:
+                invalid[int(index)] = bad
+                frame = frame.filter(pl.Series(ok))
         frames.append(frame)
     frame = pl.concat(frames, how="diagonal_relaxed")
-    frame = frame.rename(dict(zip(cat.cols, cat.final_cols, strict=True)))
-    _check_coords(frame, cat.ra, cat.dec, f"catalogue '{cat.name}'")
+    if invalid is None:
+        _check_coords(frame, cat.ra, cat.dec, f"catalogue '{cat.name}'")
     if plan.target_epoch is not None and frame.height:
         src_meta = _plan_source(cat)
         empty_src = CatalogueSource(
@@ -504,17 +567,17 @@ def _read_frame(
         moved = np.linalg.norm(after - before, axis=1)
         moved_deg = matchers._chord_to_arcsec(float(np.nanmax(moved))) / 3600.0
         # Survey candidates are chosen from the catalogue-epoch tiling with a
-        # cone of 2 * (radius + delta) around the anchor pixel centre; the
-        # margin beyond a stationary match is at least radius + delta, split
-        # between anchor and survey motion.  A larger move could pair rows the
-        # cone never read, so it is an error rather than a silent miss.
-        limit_deg = 0.5 * (plan.sep_arcsec / 3600.0 + plan.delta_deg)
+        # cone of (cell radius + radius + halo) around each anchor cell centre;
+        # the halo is split between anchor and survey motion.  A larger move
+        # could pair rows the cone never read, so it is an error rather than
+        # a silent miss.
+        limit_deg = 0.5 * plan.delta_deg
         if moved_deg > limit_deg:
             raise CrossMatchError(
                 f"catalogue '{cat.name}': propagation to epoch {plan.target_epoch} moves a "
                 f"source by {moved_deg * 3600.0:.1f} arcsec, beyond the "
                 f"{limit_deg * 3600.0:.1f} arcsec candidate halo; check its proper-motion "
-                "columns and units, or match at the catalogue epoch"
+                "columns and units, raise motion_halo_arcsec, or match at the catalogue epoch"
             )
     return frame
 
@@ -653,16 +716,22 @@ def run_anchor_partition(plan: AnchorPlan, index: int) -> dict[str, Any]:
     part = plan.anchor.partitions[index]
     anchor_frame = _read_frame(plan.anchor, [index], plan)
     if anchor_frame.height == 0:
-        return {"index": index, "rows": 0, "rel": _output_rel(part)}
+        return {"index": index, "rows": 0, "rel": _output_rel(part), "invalid": {}}
     output = anchor_frame.select(plan.anchor.final_cols)
+    invalid: dict[str, dict[int, int]] = {}
     for survey, tag in zip(plan.surveys, plan.survey_tags, strict=True):
-        survey_frame = _read_frame(survey, plan.candidates[index].get(tag, []), plan)
+        dropped: dict[int, int] = {}
+        survey_frame = _read_frame(
+            survey, plan.candidates[index].get(tag, []), plan, invalid=dropped
+        )
+        if dropped:
+            invalid[tag] = dropped
         output = output.hstack(_match_survey(output, survey_frame, plan, survey, tag))
     output = output.select(plan.out_columns)
     dest = Path(plan.out_dir) / "dataset" / _output_rel(part)
     dest.parent.mkdir(parents=True, exist_ok=True)
     _atomic_write_parquet(output, dest)
-    return {"index": index, "rows": output.height, "rel": _output_rel(part)}
+    return {"index": index, "rows": output.height, "rel": _output_rel(part), "invalid": invalid}
 
 
 def _anchor_task_factory() -> Any:
@@ -678,7 +747,25 @@ def _anchor_task_factory() -> Any:
 # --------------------------------------------------------------------------- #
 # output metadata
 # --------------------------------------------------------------------------- #
-def _write_metadata(plan: AnchorPlan) -> dict[str, Any]:
+def _merge_invalid(
+    acc: dict[str, dict[str, int]], result: dict[str, Any] | None
+) -> dict[str, dict[str, int]]:
+    """Fold one task's dropped-row counts into ``acc`` (keyed by survey
+    partition, so a partition read by several anchor tasks counts once)."""
+    for tag, counts in ((result or {}).get("invalid") or {}).items():
+        slot = acc.setdefault(str(tag), {})
+        for idx, n in counts.items():
+            slot[str(idx)] = int(n)
+    return acc
+
+
+def _invalid_totals(acc: dict[str, dict[str, int]]) -> dict[str, int]:
+    return {tag: sum(counts.values()) for tag, counts in sorted(acc.items()) if counts}
+
+
+def _write_metadata(
+    plan: AnchorPlan, invalid: dict[str, dict[str, int]] | None = None
+) -> dict[str, Any]:
     out = Path(plan.out_dir)
     dataset = out / "dataset"
     dataset.mkdir(parents=True, exist_ok=True)
@@ -714,6 +801,12 @@ def _write_metadata(plan: AnchorPlan) -> dict[str, Any]:
         "hats_cols_default": " ".join(plan.out_columns),
         "hats_npix_suffix": ".parquet",
     }
+    totals = _invalid_totals(invalid or {})
+    # Survey rows with non-finite coordinates or |dec| > 90 were dropped
+    # before matching; record how many per survey (0 when none).
+    props["xmatcher_invalid_survey_rows"] = (
+        " ".join(f"{tag}:{totals.get(tag, 0)}" for tag in plan.survey_tags) or "none"
+    )
     return _write_hats_tree(out, info_rows, props)
 
 
@@ -782,8 +875,15 @@ def ray_anchor_match(
     anchor_id_name: str = "source_id",
     matcher: str = "sky",
     fallback_policy: str = "warn",
+    motion_halo_arcsec: float | None = None,
 ) -> None:
-    """Build a Gaia-anchored master HATS catalogue at ``output_file``."""
+    """Build a Gaia-anchored master HATS catalogue at ``output_file``.
+
+    Survey rows with a non-finite coordinate or ``|dec| > 90`` are dropped
+    (counted per survey in the output ``properties`` as
+    ``xmatcher_invalid_survey_rows`` and in ``resume.state``); invalid anchor
+    rows still abort, since every anchor row must appear in the master.
+    """
     out = Path(str(output_file))
     out.mkdir(parents=True, exist_ok=True)
     for source in (anchor, *surveys):
@@ -808,16 +908,24 @@ def ray_anchor_match(
         anchor_id_name=anchor_id_name,
         matcher=matcher,
         fallback_policy=fallback_policy,
+        motion_halo_arcsec=motion_halo_arcsec,
     )
     _LAST_PLAN = plan
 
     fingerprint = _fingerprint(plan)
     state_path = out / _STATE_NAME
     prior = None
+    invalid: dict[str, dict[str, int]] = {}
     if state_path.exists():
         try:
-            prior = json.loads(state_path.read_text()).get("fingerprint")
-        except (OSError, ValueError):
+            prior_state = json.loads(state_path.read_text())
+            prior = prior_state.get("fingerprint")
+            if prior == fingerprint:
+                invalid = {
+                    str(k): {str(i): int(n) for i, n in v.items()}
+                    for k, v in (prior_state.get("invalid_rows") or {}).items()
+                }
+        except (OSError, ValueError, AttributeError, TypeError):
             prior = None
     if prior is None and any((out / sub).exists() for sub in ("dataset", "chunks")):
         raise CrossMatchError(
@@ -826,9 +934,22 @@ def ray_anchor_match(
         )
     if prior is not None and prior != fingerprint:
         _clean_output(out)
-    _atomic_write_text(
-        json.dumps({"status": "running", "fingerprint": fingerprint}, indent=2), state_path
-    )
+
+    def write_state(status: str, **extra: Any) -> None:
+        _atomic_write_text(
+            json.dumps(
+                {
+                    "status": status,
+                    **extra,
+                    "fingerprint": fingerprint,
+                    "invalid_rows": invalid,
+                },
+                indent=2,
+            ),
+            state_path,
+        )
+
+    write_state("running")
     if progress_cb:
         progress_cb(
             f"anchor plan: {len(plan.anchor.partitions)} anchor partitions, "
@@ -842,16 +963,10 @@ def ray_anchor_match(
     ]
     started = time.time()
     if not todo:
-        assembled = _write_metadata(plan)
+        assembled = _write_metadata(plan, invalid)
         if progress_cb:
             progress_cb(f"anchor: {assembled['rows']} rows, reused existing partitions")
-        _atomic_write_text(
-            json.dumps(
-                {"status": "done", "rows": assembled["rows"], "fingerprint": fingerprint},
-                indent=2,
-            ),
-            state_path,
-        )
+        write_state("done", rows=assembled["rows"])
         return
 
     ray: Any = None
@@ -862,7 +977,9 @@ def ray_anchor_match(
 
     if ray is None:
         for done, index in enumerate(todo, start=1):
-            run_anchor_partition(plan, index)
+            _merge_invalid(invalid, run_anchor_partition(plan, index))
+            if done % 50 == 0:
+                write_state("running")
             if progress_cb and (done == len(todo) or done % 10 == 0):
                 progress_cb(f"anchor: {done}/{len(todo)} partitions")
     else:
@@ -878,7 +995,9 @@ def ray_anchor_match(
                 ready, refs = ray.wait(refs, num_returns=min(32, len(refs)), timeout=5.0)
                 if not ready:
                     continue
-                ray.get(ready)
+                for result in ray.get(ready):
+                    _merge_invalid(invalid, result)
+                write_state("running")
                 done += len(ready)
                 if progress_cb:
                     elapsed = max(time.time() - started, 1e-6)
@@ -890,13 +1009,14 @@ def ray_anchor_match(
             if owns_ray:
                 ray.shutdown()
 
-    assembled = _write_metadata(plan)
-    _atomic_write_text(
-        json.dumps(
-            {"status": "done", "rows": assembled["rows"], "fingerprint": fingerprint}, indent=2
-        ),
-        state_path,
-    )
+    assembled = _write_metadata(plan, invalid)
+    write_state("done", rows=assembled["rows"])
+    totals = _invalid_totals(invalid)
+    if totals:
+        logger.warning(
+            "ray-anchor dropped survey rows with invalid coordinates: %s",
+            ", ".join(f"{tag}={n}" for tag, n in totals.items()),
+        )
     if progress_cb:
         progress_cb(
             f"anchor: {assembled['rows']} rows, {assembled['partitions']} output partitions"
@@ -904,7 +1024,9 @@ def ray_anchor_match(
 
 
 __all__ = [
+    "DEFAULT_MOTION_HALO_ARCSEC",
     "AnchorPlan",
+    "anchor_cone_radius_deg",
     "build_anchor_plan",
     "last_plan",
     "ray_anchor_match",

@@ -253,6 +253,48 @@ xmatcher export-hats ./tns.hats tns.fits --columns RA,DEC,Name
 Parquet scans Npix partitions lazily and FITS streams in bounded memory.
 Prefer keeping HATS for survey-scale catalogues.
 
+## Community trees on CANFAR
+
+`/arc/projects/hats` holds HATS trees laid out as `<survey>/<product>`. It is
+read-only for xmatcher: trees there are used in place and never synced,
+replicated or written (see [the user guide](usage.md#community-trees-used-in-place)).
+Bundled entries that read them:
+
+| Entry | Tree | Rows | How it is found |
+|---|---|---:|---|
+| `twomass_psc_hats` (`twomass_hats`) | `2mass/psc` | 470,992,970 | `PENSUS_SYNC.json` (LSDB URL + version) |
+| `gaia_lsdb_hats` | `gaia/dr3` | 1,811,709,771 | `local_paths` (byte copy of the LSDB tree) |
+| `allwise_hats` | `allwise/catalog` | 747,634,026 | `local_paths` (byte copy of the LSDB tree) |
+| `skymapper_dr4_hats` | `skymapper/dr4` | 724,329,344 | `local_paths` (same build as LIneA) |
+| `gaia_xp_hats` | `gaia/dr3_xp_continuous` | 219,197,643 | `local_paths` (schema not read remotely) |
+| `sdss_dr16_photoprimary` | `sdss/photoprimary_dr13` | 469,050,917 | `local_paths` |
+| `ps1_otmo` | `ps1/otmo` | 10,560,724,292 | `local_paths` |
+| `vhs_dr7` | `vhs/dr7` | 1,496,104,720 | `local_paths` |
+| `ls_dr11_sweep` | `legacysurvey/dr11` | 3,967,618,454 | `local_paths` |
+| `des_y6_gold` | `des/y6_gold` | 691,483,608 | `local_paths` |
+| `delve_dr3_gold` | `delve/dr3_gold` | 2,588,267,795 | `local_paths` |
+| `uhs_dr3` | `uhs/dr3` | (not pinned: being rebuilt) | `local_paths` |
+| `ukidss_dr11_las`, `ukidss_dr11_gcs` | `ukidss/dr11_las`, `ukidss/dr11_gcs` | 77,685,267; 64,835,919 | `local_paths` |
+| `viking_dr5`, `vvvx_dr1`, `vmc_dr7` | `viking/dr5`, `vvvx/dr1`, `vmc/dr7` | 82,063,585; 886,574,093; 64,359,516 | `local_paths` |
+| `galex_guvcat_ais` | `galex/guvcat_ais_gr67` | 82,992,062 | `local_paths` |
+| `splus_dr4_dual` | `splus/dr4` | 80,155,547 | `local_paths` |
+| `jplus_dr3`, `jpas_e2dr` | `jplus/dr3`, `jpas/e2dr` | 16,419,372; 4,804,561 | `local_paths` (magnitudes stored as strings) |
+| `pristine_dr2` | `pristine/dr2` | 25,224,342 | `local_paths` |
+| `catwise2020_catalog` | `catwise/2020` | 1,890,715,640 | `local_paths` |
+| `hsc_pdr3_forced_{g,r,i,z,y}` | `hsc/pdr3/forced_*` | 731–784 M each | `local_paths` |
+| `euclid_dr1_mer_wide` | `euclid/dr1/mer_catalogue_wide_survey/…-hats` | 888,152,165 | `local_paths` |
+
+These are different releases or products from the CDS aliases
+(`sdss_dr16_hats`, `ps1_dr2_hats`, `vhs_dr5_hats`, ...), so they have their own
+names; resolution never substitutes one for the other. The SDSS tree sits in a
+`dr13` directory but its properties and build record say DR16 photoPrimary,
+hence the name. Each entry pins `hats_nrows` and `obs_collection`, so a rebuilt
+tree fails verification with a warning instead of matching silently, and on
+CANFAR it is not copied from VOSpace either: the run stops and asks for the
+entry to be updated. Off the platform the same entries' `access_identifier`
+(`vos://cadc.nrc.ca~arc/projects/hats/...`) mirrors the tree over VOSpace.
+Each entry's comments list the fields that metadata could not confirm.
+
 ## Metadata the mirror needs
 
 `xmatcher` finds partitions from `dataset/partition_info.parquet` when it

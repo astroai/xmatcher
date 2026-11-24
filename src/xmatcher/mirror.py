@@ -80,6 +80,8 @@ DEFAULT_PAGE_SIZE = 100_000
 DEFAULT_ESTIMATED_SIZE = 500_000
 _TAP_CEILING_FACTOR = 1.5
 _MANIFEST_NAME = "sync.json"
+#: Version of the HATS layout ``_write_hats_native`` produces (see there).
+_HATS_LAYOUT = 2
 _HATS_METADATA_NAMES = frozenset(
     {
         "properties",
@@ -1803,7 +1805,10 @@ def _mirror_tap(
                     f"{manifest.get('total_rows')} to {n}. Re-run with --force to re-sync."
                 )
 
-    if changed or force or not cache.exists(f"{prefix}/properties"):
+    # Layout 2: rows start from the twelve order-0 base cells (layout 1 put a
+    # frame below the threshold entirely into pixel 0); rebuild older trees.
+    stale_layout = manifest.get("hats_layout") != _HATS_LAYOUT
+    if changed or force or stale_layout or not cache.exists(f"{prefix}/properties"):
         page_rels = [
             page_rel(int(index), entry)
             for index, entry in sorted(
@@ -1821,6 +1826,7 @@ def _mirror_tap(
     manifest["version"] = version
     manifest["source"] = src.access_identifier
     manifest["page_size"] = page_size
+    manifest["hats_layout"] = _HATS_LAYOUT
     manifest["ordering"] = key
     manifest["total_rows"] = _manifest_total_rows(manifest)
     manifest["fetched_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -1891,24 +1897,27 @@ def _write_hats_native(
     dataset = out_dir / "dataset"
     dataset.mkdir(parents=True, exist_ok=True)
 
+    def split(sub: pl.DataFrame, order: int) -> list[tuple[int, int, pl.DataFrame]]:
+        lon = Longitude(sub[ra_column].cast(pl.Float64).to_numpy(), unit="deg")
+        lat = Latitude(sub[dec_column].cast(pl.Float64).to_numpy(), unit="deg")
+        cells = cdshealpix.nested.lonlat_to_healpix(
+            lon, lat, np.full(sub.height, order, dtype=np.uint64)
+        )
+        parts = sub.with_columns(pl.Series("_mask", cells)).partition_by("_mask", as_dict=True)
+        return [(order, int(k[0]), psub.drop("_mask")) for k, psub in parts.items()]
+
     segments: list[tuple[int, int, pl.DataFrame]] = []
     if not frame.is_empty():
-        stack: list[tuple[int, int, pl.DataFrame]] = [(0, 0, frame)]
+        # Start from the twelve order-0 base cells: a small frame must still
+        # land in the cell that contains each row, never all in pixel 0.
+        stack: list[tuple[int, int, pl.DataFrame]] = split(frame, 0)
         while stack:
             order, pix, sub = stack.pop()
             if sub.height <= threshold or order >= max_order:
                 if sub.height:
                     segments.append((order, pix, sub))
                 continue
-            lon = Longitude(sub[ra_column].cast(pl.Float64).to_numpy(), unit="deg")
-            lat = Latitude(sub[dec_column].cast(pl.Float64).to_numpy(), unit="deg")
-            child = cdshealpix.nested.lonlat_to_healpix(
-                lon, lat, np.full(sub.height, order + 1, dtype=np.uint64)
-            )
-            parts = sub.with_columns(pl.Series("_mask", child)).partition_by("_mask", as_dict=True)
-            for k, psub in parts.items():
-                cpix = k[0]
-                stack.append((order + 1, int(cpix), psub.drop("_mask")))
+            stack.extend(split(sub, order + 1))
 
     info: list[dict[str, Any]] = []
     for order, pix, sub in segments:
@@ -2225,12 +2234,42 @@ def _replicate_to_roots(cache: Storage, src: CatalogueSource, replica_roots: lis
         f"{prefix}/dataset/partition_info.parquet"
     ):
         return  # nothing durable was mirrored (fresh gate / no-op)
+    from .storage import read_only_root_for
+
     for root in replica_roots:
+        if read_only_root_for(root) is not None:
+            logger.error("replica root %s is inside a read-only root; not replicated", root)
+            continue
         try:
             _replicate_tree(cache, open_storage(root), prefix)
             logger.info("replicated '%s' mirror to replica root %s", src.name, root)
         except Exception as exc:  # noqa: BLE001 - best-effort by contract
             logger.warning("replica root %s copy failed for '%s': %s", root, src.name, exc)
+
+
+def _refuse_community_self_mirror(src: CatalogueSource) -> None:
+    """Refuse to copy a community tree into the cache where it is mounted.
+
+    An entry whose ``access_identifier`` is the community tree over VOSpace
+    (``vos://…~arc/projects/hats/…``) is only mirrored where ``/arc`` is not
+    mounted.  On the platform its ``local_paths`` copy failed verification
+    (logged above), and copying terabytes from the same tree would hide that.
+    """
+    from .storage import PLATFORM_COMMUNITY_ROOT, read_only_root_for
+
+    ident = str(src.access_identifier or "")
+    if (
+        src.access_method == "hats"
+        and ident.startswith("vos:")
+        and read_only_root_for(ident) is not None
+        and os.path.isdir(PLATFORM_COMMUNITY_ROOT)
+    ):
+        raise CrossMatchError(
+            f"'{src.name}' names the community tree {ident}, which is mounted under "
+            f"{PLATFORM_COMMUNITY_ROOT}, but none of its local_paths passed verification "
+            "(see the warnings above); refusing to copy the community tree into the "
+            "cache. Update the entry's local_paths / hats_nrows / obs_collection."
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -2251,8 +2290,16 @@ def sync_catalogue(
     estimated_size: int | None = None,
     fresh_after: float | None = None,
     min_free_gb: float | None = None,
+    read_roots: list[str] | None = None,
 ) -> SyncStats:
     """Mirror ``src`` into the cache, incrementally. Returns :class:`SyncStats`.
+
+    A catalogue served in place by a verified read-only copy (a community
+    tree under ``read_roots`` whose sync record matches, or one of the
+    entry's ``local_paths``; see :mod:`xmatcher.community`) is not mirrored:
+    the call returns empty stats.  The cache root and every replica root must
+    be writable; one inside a read-only root raises
+    :class:`~xmatcher.exceptions.ReadOnlyRootError` before anything is written.
 
     ``replica_roots``: after a complete sync, best-effort copies of the
     mirrored HATS tree are written onto each replica root (the union's
@@ -2268,11 +2315,18 @@ def sync_catalogue(
     download would cross it.  A local cache is locked per tree for the whole
     sync: a second concurrent sync of the same tree fails fast.
     """
-    from .storage import assert_headroom, default_cache_root
+    from .community import resolve_in_place
+    from .storage import assert_headroom, assert_writable, default_cache_root
 
     root = cache_root or default_cache_root()
-    cache = open_storage(root)
+    assert_writable(root, "cache root")
+    for replica in replica_roots or []:
+        assert_writable(replica, "replica cache root")
     stats = SyncStats()
+    if resolve_in_place(src, read_roots=read_roots, cache_root=root) is not None:
+        return stats  # a verified read-only copy serves it in place
+    _refuse_community_self_mirror(src)
+    cache = open_storage(root)
     if src.access_method == "hats" and not _is_remote_hats(src):
         return stats  # already a local HATS catalogue
     if src.access_method not in ("hats", "tap"):
@@ -2335,8 +2389,12 @@ def locate_mirrored(
     src: CatalogueSource,
     cache_root: str | None = None,
     cache_roots: list[str] | None = None,
+    read_roots: list[str] | None = None,
 ) -> tuple[str, str]:
     """Return ``(storage_root, rel)`` of the mirrored HATS copy of ``src``.
+
+    A verified read-only copy (community tree or ``local_paths``) wins and is
+    returned as ``(tree_path, "")``, like a local HATS catalogue.
 
     ``cache_roots`` (primary first) probes each root in order and returns the
     first one holding the copy — the union reader's fallback across
@@ -2346,10 +2404,14 @@ def locate_mirrored(
     ``--no-sync``), or when a remote HATS mirror's last sync did not complete
     (no ``fetched_at`` in its manifest).
     """
+    from .community import resolve_in_place
     from .storage import default_cache_root
 
     if cache_roots is None:
         cache_roots = [cache_root or default_cache_root()]
+    in_place = resolve_in_place(src, read_roots=read_roots, cache_root=cache_roots[0])
+    if in_place is not None:
+        return str(in_place.path), ""
     if src.access_method == "hats" and not _is_remote_hats(src):
         path = src.path
         if path is None and src.access_identifier:
@@ -2408,17 +2470,25 @@ def ensure_mirrored(
     estimated_size: int | None = None,
     fresh_after: float | None = None,
     min_free_gb: float | None = None,
+    read_roots: list[str] | None = None,
 ) -> CatalogueSource:
     """Mirror a remote source and return a source pointing at the local HATS copy.
 
-    Local HATS catalogues are returned unchanged; other local inputs (plain
-    parquet/csv/fits) are converted once into the cache as HATS.
-    ``replica_roots`` forwards to :func:`sync_catalogue` (best-effort
-    replicated copies for the multi-root union reader).
+    A verified read-only copy (a community tree under ``read_roots`` whose
+    sync record matches the source, or one of the entry's ``local_paths``)
+    is used in place and nothing is written.  Local HATS catalogues are
+    returned unchanged; other local inputs (plain parquet/csv/fits) are
+    converted once into the cache as HATS.  ``replica_roots`` forwards to
+    :func:`sync_catalogue` (best-effort replicated copies for the multi-root
+    union reader).
     """
+    from .community import resolve_in_place
     from .storage import assert_headroom, default_cache_root
 
     root = cache_root or default_cache_root()
+    in_place = resolve_in_place(src, read_roots=read_roots, cache_root=root)
+    if in_place is not None:
+        return in_place
     assert_headroom(root, _min_free_gb(min_free_gb), f"cache root '{root}'")
     if src.access_method == "hats" and not _is_remote_hats(src):
         return src
@@ -2427,7 +2497,9 @@ def ensure_mirrored(
             raise CrossMatchError(
                 f"ray-union needs file-backed local inputs; '{src.name}' is an in-memory frame."
             )
-        rel = f"{_safe_name(src.name)}/local-{_sha1_str(str(src.path), 8)}"
+        # "local2-": layout 2 of _write_hats_native (earlier conversions put
+        # small frames entirely into pixel 0 and are not reused).
+        rel = f"{_safe_name(src.name)}/local2-{_sha1_str(str(src.path), 8)}"
         cache = open_storage(root)
         if force or not cache.exists(f"{rel}/properties"):
             frame = io_utils.scan_frame(src.path).collect()
@@ -2465,6 +2537,7 @@ def ensure_mirrored(
         estimated_size=estimated_size,
         fresh_after=fresh_after,
         min_free_gb=min_free_gb,
+        read_roots=[],  # already checked above
     )
     if stats.failed:
         raise CrossMatchError(

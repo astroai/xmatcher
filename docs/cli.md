@@ -47,7 +47,7 @@ Every subcommand accepts these options, before or after the subcommand name:
 | [`describe`](#xmatcher-describe) | Show columns, access information and defaults for a catalogue. |
 | [`discover`](#xmatcher-discover) | Browse tables and inspect schemas on a remote TAP endpoint. |
 | [`search`](#xmatcher-search) | Search every known TAP endpoint for table names matching a substring. |
-| [`adopt`](#xmatcher-adopt) | Probe a remote TAP table and append an entry to `~/.config/xmatcher/xmatcher.yaml`. |
+| [`adopt`](#xmatcher-adopt) | Probe a remote TAP table, or draft from a HATS tree, and append an entry to `~/.config/xmatcher/xmatcher.yaml`. |
 | [`sync`](#xmatcher-sync) | Mirror remote TAP or HATS catalogues into the local HATS cache. |
 | [`project-hats`](#xmatcher-project-hats) | Write a narrower HATS tree retaining only specified columns. |
 | [`export-hats`](#xmatcher-export-hats) | Flatten a configured, synced or local HATS catalogue to one `.parquet` or `.fits` file. |
@@ -274,17 +274,27 @@ xmatcher search des
 
 ## `xmatcher adopt`
 
-Probes a remote TAP table and appends a catalogue entry to
-`~/.config/xmatcher/xmatcher.yaml`, which is merged over the bundled
-configuration.
+Probes a remote TAP table, or reads a HATS tree's metadata, and appends a
+catalogue entry to `~/.config/xmatcher/xmatcher.yaml`, which is merged over
+the bundled configuration.
 
 ```bash
 xmatcher adopt <endpoint> <table> [--name NAME] [--alias ALIAS] [--dry-run]
+xmatcher adopt hats <path-or-url> [--name NAME] [--alias ALIAS] [--dry-run]
 ```
 
-- `endpoint`: short name (`vizier`, `noirlab`, `gaia`) or a known public TAP
-  name.
-- `table`: table id (e.g. `II/349/ps1` or `ls_dr10.tractor`).
+- `endpoint`: short name (`vizier`, `noirlab`, `gaia`), a known public TAP
+  name, or `hats`.
+- `table`: table id (e.g. `II/349/ps1` or `ls_dr10.tractor`); with `hats`, a
+  local tree path or an `http(s)` HATS URL.
+
+With `hats`, the entry is drafted from the tree's `properties` (coordinate,
+id and epoch columns, `hats_nrows`, `obs_collection`) and, for a local tree,
+its `dataset/_common_metadata` schema (motion, parallax and positional-error
+columns). A local tree with a sync record gets the upstream URL as
+`access_identifier` and the path in `local_paths`; otherwise the path is the
+`access_identifier`. Fields that metadata cannot confirm (units, epochs) are
+printed as `# unverified:` lines. Nothing is written to the tree.
 
 ### Options
 
@@ -308,7 +318,10 @@ xmatcher sync <catalogues...> [options]
 
 `catalogues` are configured names or aliases, explicit `vizier:<id>` /
 `tap:<endpoint>/<table>` identifiers, or `hats:` identifiers (URLs or registry
-names). The command exits with status 1 if any file or page failed.
+names). The command exits with status 1 if any file or page failed. A
+catalogue served in place by a verified read-only community copy or
+`local_paths` entry is reported as such and not downloaded; a cache or
+replica root inside a read-only root is refused.
 
 ### Options
 

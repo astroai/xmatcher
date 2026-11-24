@@ -7,8 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Read-only community roots (`cache.community_roots`, `XMATCHER_COMMUNITY_ROOTS`;
+  default `/arc/projects/hats` on CANFAR). A remote HATS catalogue whose
+  `access_identifier` and version directory match a `PENSUS_SYNC.json` or
+  `sync.json` record under a community root is read there in place, keeping the
+  catalogue entry's metadata, after verification (properties, partition index,
+  complete sync record, pinned `hats_nrows`/`obs_collection`/coordinate
+  columns); otherwise the writable cache is used. The record index is cached
+  under `<cache>/registry/community_index.json` with a TTL and an mtime
+  signature. `xmatcher sync` reports such catalogues as served in place.
+- Catalogue keys `local_paths` (equivalent read-only copies without a sync
+  record, same verification), `hats_nrows` and `obs_collection` (pins). An
+  unset environment variable in `access_identifier` falls back to the first
+  `local_paths` entry.
+- Bundled entries for the community trees without an alias:
+  `sdss_dr16_photoprimary`, `ps1_otmo`, `vhs_dr7`, `ls_dr11_sweep`,
+  `des_y6_gold`, `delve_dr3_gold`, `uhs_dr3`, `ukidss_dr11_las`,
+  `ukidss_dr11_gcs`, `viking_dr5`, `vvvx_dr1`, `vmc_dr7`, `galex_guvcat_ais`,
+  `splus_dr4_dual`, `jplus_dr3`, `jpas_e2dr` (string-typed magnitudes, marked
+  unusable as is), `pristine_dr2`, `catwise2020_catalog`,
+  `hsc_pdr3_forced_{g,r,i,z,y}` and `euclid_dr1_mer_wide`, each with
+  `default_columns` and the column contract read from the tree.
+  `gaia_lsdb_hats`, `allwise_hats`, `skymapper_dr4_hats` and `gaia_xp_hats`
+  list their community copies in `local_paths`.
+- `xmatcher adopt hats <path-or-url>` drafts a catalogue entry from a HATS
+  tree's properties and schema (`--dry-run` prints it with `# unverified:`
+  notes).
+- `xmatcher.ReadOnlyRootError`: every write path (sync, replication, registry
+  snapshot, community index, `assert_headroom`, storage writes, ray-union /
+  ray-anchor / project-hats outputs) refuses a path inside a read-only root,
+  and `/arc/projects/hats` is always protected.
+
 ### Changed
 
+- `cache.replica_roots` names the writable replica roots; `cache.roots` keeps
+  working with the same meaning. A cache or replica root inside a read-only
+  root is a configuration error.
+- `ray-anchor` sizes each anchor partition's candidate cone from that
+  partition alone (its centre-to-boundary radius + match radius + a motion
+  halo of 600″ when `target_epoch` is set) and selects survey partitions by
+  overlap with their own cells. Previously the cone was 2 × (radius + the
+  largest partition diagonal of any input), so one order-0 survey partition
+  made every task read the whole sky and planning abort at the default
+  `--task-rows`. The resume fingerprint is unchanged.
+- `ray-anchor` drops survey rows with non-finite coordinates or `|dec| > 90`
+  instead of aborting, and records the count per survey as
+  `xmatcher_invalid_survey_rows` in the output `properties` (per partition in
+  `resume.state`). Invalid anchor rows still abort.
 - CANFAR defaults: the cache root for mirrored catalogues is now
   `/arc/projects/astroai/hats` (was `/arc/projects/hats`) and the default output
   root is `/arc/projects/astroai/xmatcher` (was `/arc/projects/hats/xmatcher`).
@@ -26,6 +73,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `twomass_psc_hats` named the declination column `dec`; the LSDB tree (and
+  its community copy) calls it `decl`.
+- `skymapper_dr4_hats` positional errors (`e_raj2000`/`e_dej2000`) are in mas,
+  not arcsec.
+- HATS trees written by xmatcher (TAP mirrors, local conversions) put every
+  row of a frame below the partition threshold into order-0 pixel 0, whatever
+  its position. Rows now start from the twelve order-0 base cells, so each
+  partition holds only the rows it covers. TAP mirrors built with the old
+  layout are rebuilt from their cached pages on the next sync, and local
+  conversions are redone (new `local2-` cache directory).
 - An in-memory union (`--union`, `join_type="1or2"`/`"all2"`/`"2not1"`,
   `crossmatch_multi`, `union_match`) written to `.hats` failed when a source
   appeared only in a later catalogue, whose first-catalogue position is null.

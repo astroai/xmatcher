@@ -74,9 +74,12 @@ def test_anchor_keeps_every_anchor_row_and_ambiguity(survey_tree: Path) -> None:
     plan = build_anchor_plan(
         anchor, [survey_a, survey_b], sep_arcsec=1.5, out_dir=str(survey_tree / "out")
     )
-    run_anchor_partition(plan, 0)
-    output = next((survey_tree / "out" / "dataset").rglob("*.parquet"))
-    result = pl.read_parquet(output).sort("source_id")
+    # Rows at different longitudes land in different base cells.
+    for index in range(len(plan.anchor.partitions)):
+        run_anchor_partition(plan, index)
+    result = pl.concat(
+        [pl.read_parquet(p) for p in (survey_tree / "out" / "dataset").rglob("*.parquet")]
+    ).sort("source_id")
 
     assert result.height == 6
     assert result["source_id"].to_list() == [1, 2, 3, 4, 5, 6]
@@ -198,7 +201,9 @@ def test_anchor_cli_path_mirrors_remote_hats(
             cache_root=str(tmp_path / "cache"),
         )
         assert (out / "properties").is_file()
-        result = pl.read_parquet(next((out / "dataset").glob("Norder=*/*/*.parquet")))
+        result = pl.concat(
+            [pl.read_parquet(p) for p in (out / "dataset").glob("Norder=*/*/*.parquet")]
+        )
         assert result.height == 6
         assert "source_id" in result.columns
         assert "a_n_within" in result.columns
@@ -226,3 +231,156 @@ def test_engine_routes_to_anchor(monkeypatch) -> None:
     assert seen["catalogues"] == ["anchor", "survey"]
     assert seen["output"] == "out.hats"
     assert seen["engine"] == "ray-anchor"
+
+
+# --------------------------------------------------------------------------- #
+# per-partition candidate cones (mixed-order inputs)
+# --------------------------------------------------------------------------- #
+def _ang_deg(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
+    import math
+
+    r1, d1, r2, d2 = map(math.radians, (ra1, dec1, ra2, dec2))
+    cos_d = math.sin(d1) * math.sin(d2) + math.cos(d1) * math.cos(d2) * math.cos(r1 - r2)
+    return math.degrees(math.acos(max(-1.0, min(1.0, cos_d))))
+
+
+@pytest.fixture()
+def mixed_order_trees(tmp_path: Path):
+    import numpy as np
+
+    rng = np.random.default_rng(7)
+    # A dense anchor patch (deep partitions) plus a sparse all-sky sprinkle.
+    n_dense = 4000
+    ra = np.concatenate([rng.uniform(40.0, 44.0, n_dense), rng.uniform(0, 360, 400)])
+    dec = np.concatenate(
+        [rng.uniform(-2.0, 2.0, n_dense), np.degrees(np.arcsin(rng.uniform(-1, 1, 400)))]
+    )
+    anchor = pl.DataFrame({"id": np.arange(ra.size), "ra": ra, "dec": dec})
+    _write_hats_native(anchor, tmp_path / "anchor", ra_column="ra", dec_column="dec", threshold=200)
+    # A sparse all-sky survey stays at order 0 (one huge cell per base pixel).
+    s_ra = rng.uniform(0, 360, 300)
+    s_dec = np.degrees(np.arcsin(rng.uniform(-1, 1, 300)))
+    survey = pl.DataFrame({"sid": np.arange(300), "ra": s_ra, "dec": s_dec})
+    _write_hats_native(survey, tmp_path / "s0", ra_column="ra", dec_column="dec", threshold=10_000)
+    # A dense survey patch at deeper orders.
+    d_ra = rng.uniform(40.0, 44.0, 3000)
+    d_dec = rng.uniform(-2.0, 2.0, 3000)
+    deep = pl.DataFrame({"sid": np.arange(3000), "ra": d_ra, "dec": d_dec})
+    _write_hats_native(deep, tmp_path / "deep", ra_column="ra", dec_column="dec", threshold=150)
+    return tmp_path
+
+
+def test_anchor_cones_are_per_partition_and_select_by_overlap(mixed_order_trees: Path) -> None:
+    from xmatcher.ray_anchor import _cell_radius_deg, anchor_cone_radius_deg
+    from xmatcher.ray_union import _pixel_center_deg
+
+    root = mixed_order_trees
+    plan = build_anchor_plan(
+        _source("anchor", root / "anchor"),
+        [
+            _source("s0", root / "s0", id_column="sid"),
+            _source("deep", root / "deep", id_column="sid"),
+        ],
+        sep_arcsec=2.0,
+        out_dir=str(root / "out"),
+    )
+    orders = {p.order for p in plan.anchor.partitions}
+    assert len(orders) > 1  # mixed anchor orders
+    assert {p.order for p in plan.surveys[0].partitions} == {0}
+    assert max(p.order for p in plan.surveys[1].partitions) >= 2
+    assert plan.delta_deg == 0.0  # no target epoch -> no motion halo
+
+    deep_total = len(plan.surveys[1].partitions)
+    for part, cand in zip(plan.anchor.partitions, plan.candidates, strict=True):
+        cone = anchor_cone_radius_deg(part, plan.sep_arcsec, plan.delta_deg)
+        a_ra, a_dec = _pixel_center_deg(part.order, part.pix)
+        for survey, tag in zip(plan.surveys, plan.survey_tags, strict=True):
+            for idx in cand[tag]:
+                sp = survey.partitions[idx]
+                s_ra, s_dec = _pixel_center_deg(sp.order, sp.pix)
+                # every selected survey cell overlaps the anchor partition's cone
+                # (cdshealpix's cone cover may add cells just beyond its edge)
+                assert _ang_deg(a_ra, a_dec, s_ra, s_dec) <= cone + 2.0 * _cell_radius_deg(
+                    sp.order, sp.pix
+                )
+        if part.order >= 3:
+            # a deep anchor partition never reads the whole sky
+            assert len(cand["s0"]) < len(plan.surveys[0].partitions)
+            assert len(cand["deep"]) < deep_total
+
+
+def test_anchor_cone_scales_with_the_anchor_partition() -> None:
+    from xmatcher.ray_anchor import anchor_cone_radius_deg
+    from xmatcher.ray_union import PartitionPlan
+
+    def part(order: int) -> PartitionPlan:
+        return PartitionPlan(order=order, pix=0, rel="x")
+
+    radii = [anchor_cone_radius_deg(part(k), 1.0, 0.0) for k in range(0, 6)]
+    assert all(a > b for a, b in zip(radii, radii[1:], strict=False))
+    # order-2 cell radius is ~10 deg, far below the old 2 x (radius + max diagonal)
+    assert 5.0 < radii[2] < 15.0
+    halo = anchor_cone_radius_deg(part(4), 1.0, 600.0 / 3600.0) - radii[4]
+    assert abs(halo - 600.0 / 3600.0) < 1e-12
+
+
+def test_anchor_target_epoch_gets_a_motion_halo(survey_tree: Path) -> None:
+    anchor = _source(
+        "anchor", survey_tree / "anchor", epoch=2016.0, pm_ra_column="pmra", pm_dec_column="pmdec"
+    )
+    survey = _source("a", survey_tree / "a", id_column="sid", epoch=2016.0)
+    plan = build_anchor_plan(
+        anchor, [survey], sep_arcsec=1.5, out_dir=str(survey_tree / "out"), target_epoch=2016.0
+    )
+    assert plan.delta_deg == pytest.approx(600.0 / 3600.0)
+
+
+# --------------------------------------------------------------------------- #
+# invalid survey coordinates are dropped and counted; anchors stay strict
+# --------------------------------------------------------------------------- #
+def _corrupt_first_partition(tree: Path, rows: pl.DataFrame) -> None:
+    part = next((tree / "dataset").rglob("Npix=*.parquet"))
+    frame = pl.read_parquet(part)
+    extra = rows.with_columns(
+        [
+            pl.lit(None, dtype=frame.schema[c]).alias(c)
+            for c in frame.columns
+            if c not in rows.columns
+        ]
+    ).select(frame.columns)
+    pl.concat([frame, extra.cast(frame.schema)]).write_parquet(part)
+
+
+def test_invalid_survey_rows_are_dropped_and_counted(survey_tree: Path, monkeypatch) -> None:
+    monkeypatch.setitem(sys.modules, "ray", None)
+    _corrupt_first_partition(
+        survey_tree / "a",
+        pl.DataFrame({"sid": [901, 902], "ra": [10.0, float("nan")], "dec": [95.0, 0.0]}),
+    )
+    anchor = _source("anchor", survey_tree / "anchor")
+    survey = _source("a", survey_tree / "a", id_column="sid")
+    out = survey_tree / "out"
+    ray_anchor_match(anchor, [survey], sep_arcsec=1.5, output_file=str(out))
+    props = (out / "properties").read_text()
+    assert "xmatcher_invalid_survey_rows=a:2" in props
+    state = (out / "resume.state").read_text()
+    assert '"invalid_rows"' in state
+    rows = pl.concat([pl.read_parquet(p) for p in (out / "dataset").rglob("Npix=*.parquet")])
+    assert rows.height == 6  # every anchor row kept
+    assert 901 not in rows["sid_a"].drop_nulls().to_list()
+    # a resumed run (all partitions done) keeps the count
+    ray_anchor_match(anchor, [survey], sep_arcsec=1.5, output_file=str(out))
+    assert "xmatcher_invalid_survey_rows=a:2" in (out / "properties").read_text()
+
+
+def test_invalid_anchor_rows_still_abort(survey_tree: Path) -> None:
+    _corrupt_first_partition(
+        survey_tree / "anchor",
+        pl.DataFrame({"id": [99], "ra": [float("nan")], "dec": [0.0]}),
+    )
+    anchor = _source("anchor", survey_tree / "anchor")
+    survey = _source("a", survey_tree / "a", id_column="sid")
+    plan = build_anchor_plan(anchor, [survey], sep_arcsec=1.5, out_dir=str(survey_tree / "out"))
+    with pytest.raises(CrossMatchError, match="non-finite or out-of-range"):
+        for index in range(len(plan.anchor.partitions)):
+            run_anchor_partition(plan, index)

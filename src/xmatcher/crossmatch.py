@@ -365,7 +365,16 @@ class CrossMatch:
         self.last_ray_union_plan: Any = None
         self.last_ray_anchor_plan: Any = None
         self._validate_config()
+        # Community roots configured here are protected for the whole process,
+        # so a storage opened anywhere below refuses to write into them.
+        from .storage import community_roots, register_read_only_roots
+
+        register_read_only_roots(community_roots(self._cache_cfg()))
         logger.info("CrossMatch initialised from %s", self.config_file)
+
+    def _cache_cfg(self) -> dict[str, Any]:
+        cfg = self.config.get("cache", {}) if isinstance(self.config, dict) else {}
+        return cfg if isinstance(cfg, dict) else {}
 
     # ------------------------------------------------------------------ config
     def _load_config(self) -> dict[str, Any]:
@@ -417,6 +426,22 @@ class CrossMatch:
             if cat["service_id"] not in self.archives_config[cat["archive"]]:
                 raise ConfigError(
                     f"Catalogue '{name}' references unknown service '{cat['service_id']}'."
+                )
+            local_paths = cat.get("local_paths")
+            if local_paths is not None and not (
+                isinstance(local_paths, str)
+                or (
+                    isinstance(local_paths, list)
+                    and all(isinstance(p, str) and p.strip() for p in local_paths)
+                )
+            ):
+                raise ConfigError(
+                    f"Catalogue '{name}' has invalid 'local_paths'; expected a list of paths."
+                )
+            nrows = cat.get("hats_nrows")
+            if nrows is not None and (isinstance(nrows, bool) or not str(nrows).strip().isdigit()):
+                raise ConfigError(
+                    f"Catalogue '{name}' has invalid 'hats_nrows'; expected a row count."
                 )
             for field_name in ("parallax_column", "radial_velocity_column"):
                 value = cat.get(field_name)
@@ -850,6 +875,12 @@ class CrossMatch:
             and not is_remote_hats_uri(access_identifier)
         ):
             expanded = os.path.expandvars(os.path.expanduser(access_identifier))
+            raw_local = cfg.get("local_paths")
+            if (not expanded or "$" in expanded) and raw_local:
+                # An unset environment variable falls back to the entry's
+                # equivalent read-only copies (verified when used).
+                first = raw_local if isinstance(raw_local, str) else raw_local[0]
+                expanded = os.path.expandvars(os.path.expanduser(str(first)))
             if not expanded or "$" in expanded:
                 raise ConfigError(
                     f"Catalogue '{cfg['_catalogue_name']}' points at local HATS path "
@@ -888,6 +919,14 @@ class CrossMatch:
             tap_url=cfg.get("access_url") or cfg.get("tap_url"),
             default_columns=cfg.get("default_columns"),
         )
+        raw_local = cfg.get("local_paths")
+        if isinstance(raw_local, str):
+            raw_local = [raw_local]
+        src.local_paths = [str(p) for p in (raw_local or [])]
+        if cfg.get("hats_nrows") is not None:
+            src.expected_hats_nrows = int(cfg["hats_nrows"])
+        if cfg.get("obs_collection") is not None:
+            src.expected_obs_collection = str(cfg["obs_collection"])
         raw_fallbacks = cfg.get("fallback")
         if isinstance(raw_fallbacks, str):
             raw_fallbacks = [raw_fallbacks]
@@ -1581,10 +1620,11 @@ class CrossMatch:
 
         from . import ray_union
         from .mirror import ensure_mirrored, locate_mirrored
-        from .storage import all_cache_roots, assert_headroom
+        from .storage import all_cache_roots, assert_headroom, assert_writable, community_roots
 
-        cache_cfg = self.config.get("cache", {}) if isinstance(self.config, dict) else {}
+        cache_cfg = self._cache_cfg()
         roots = all_cache_roots(cache_cfg)
+        read_roots = community_roots(cache_cfg)
         if params.get("cache_root"):
             # an explicit --cache-root wins the primary slot; configured
             # replicas still ride along as fallback copies.
@@ -1634,6 +1674,7 @@ class CrossMatch:
             engine_output = str(out_dir)
         else:
             out_dir = Path(out_text)
+            assert_writable(out_dir, "output directory", cache_cfg)
             out_dir.mkdir(parents=True, exist_ok=True)
             engine_output = out_text
         assert_headroom(str(out_dir.parent), min_free, f"output directory '{out_dir.parent}'")
@@ -1713,6 +1754,7 @@ class CrossMatch:
                             ),
                             fresh_after=fresh_after,
                             min_free_gb=min_free,
+                            read_roots=read_roots,
                         )
                         for src in sources
                     ]
@@ -1730,7 +1772,9 @@ class CrossMatch:
                             src.access_method == "hats"
                             and is_remote_hats_uri(src.access_identifier)
                         ):
-                            root, rel = locate_mirrored(src, cache_roots=roots)
+                            root, rel = locate_mirrored(
+                                src, cache_roots=roots, read_roots=read_roots
+                            )
                             sources[i] = _mirrored_source(src, open_storage(root), rel, root)
                 _append_run("mirror_done", attempt=attempt, sources=[s.name for s in sources])
                 ray_union.ray_union_match(
@@ -1841,10 +1885,11 @@ class CrossMatch:
 
         from . import ray_anchor
         from .mirror import _mirrored_source, ensure_mirrored, locate_mirrored
-        from .storage import all_cache_roots, assert_headroom
+        from .storage import all_cache_roots, assert_headroom, assert_writable, community_roots
 
-        cache_cfg = self.config.get("cache", {}) if isinstance(self.config, dict) else {}
+        cache_cfg = self._cache_cfg()
         roots = all_cache_roots(cache_cfg)
+        read_roots = community_roots(cache_cfg)
         if params.get("cache_root"):
             roots = [params["cache_root"], *(r for r in roots if r != params["cache_root"])]
         cache_root = roots[0]
@@ -1864,6 +1909,7 @@ class CrossMatch:
         )
         assert_headroom(cache_root, min_free, f"cache root '{cache_root}'")
         out_dir = Path(str(output_file))
+        assert_writable(out_dir, "output directory", cache_cfg)
         out_dir.mkdir(parents=True, exist_ok=True)
         assert_headroom(str(out_dir.parent), min_free, f"output directory '{out_dir.parent}'")
 
@@ -1893,6 +1939,7 @@ class CrossMatch:
                         else None
                     ),
                     min_free_gb=min_free,
+                    read_roots=read_roots,
                 )
                 for src in sources
             ]
@@ -1903,7 +1950,7 @@ class CrossMatch:
                 if src.access_method == "tap" or (
                     src.access_method == "hats" and is_remote_hats_uri(src.access_identifier)
                 ):
-                    root, rel = locate_mirrored(src, cache_roots=roots)
+                    root, rel = locate_mirrored(src, cache_roots=roots, read_roots=read_roots)
                     sources[i] = _mirrored_source(src, open_storage(root), rel, root)
 
         ray_anchor.ray_anchor_match(

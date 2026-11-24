@@ -21,6 +21,7 @@ import builtins
 import contextlib
 import logging
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -28,7 +29,7 @@ from pathlib import Path
 
 import polars as pl
 
-from .exceptions import ConfigError
+from .exceptions import ConfigError, ReadOnlyRootError
 
 logger = logging.getLogger(__name__)
 
@@ -126,8 +127,19 @@ class LocalStorage(Storage):
 
     def __init__(self, root: str | Path) -> None:
         self.root = Path(os.path.expandvars(str(root))).expanduser()
+        #: The read-only root holding this storage, if any.  Reads work as
+        #: usual; every write method refuses (see :func:`assert_writable`).
+        self.read_only_root = read_only_root_for(self.root)
         if not self.root.exists():
+            self._check_writable()
             self.root.mkdir(parents=True, exist_ok=True)
+
+    def _check_writable(self) -> None:
+        if getattr(self, "read_only_root", None) is not None:
+            raise ReadOnlyRootError(
+                f"refusing to write under {self.root}: it is inside the read-only "
+                f"community root {self.read_only_root}"
+            )
 
     def _path(self, rel: str) -> Path:
         rel = _safe_rel(rel)
@@ -163,6 +175,7 @@ class LocalStorage(Storage):
         return dict(pl.read_parquet_schema(self._path(rel)))
 
     def write_parquet(self, df: pl.DataFrame, rel: str) -> None:
+        self._check_writable()
         target = self._path(rel)
         target.parent.mkdir(parents=True, exist_ok=True)
         tmp = _tmp_path(target)
@@ -175,15 +188,18 @@ class LocalStorage(Storage):
             raise
 
     def rename(self, src: str, dst: str) -> None:
+        self._check_writable()
         src_p = self._path(src)
         dst_p = self._path(dst)
         dst_p.parent.mkdir(parents=True, exist_ok=True)
         os.replace(src_p, dst_p)
 
     def mkdir(self, rel: str) -> None:
+        self._check_writable()
         self._path(rel).mkdir(parents=True, exist_ok=True)
 
     def stage_out(self, local: Path, rel: str) -> None:
+        self._check_writable()
         target = self._path(rel)
         target.parent.mkdir(parents=True, exist_ok=True)
         tmp = _tmp_path(target)
@@ -199,6 +215,7 @@ class LocalStorage(Storage):
         shutil.copy2(self._path(rel), local)
 
     def rm(self, rel: str) -> None:
+        self._check_writable()
         path = self._path(rel)
         if path.is_symlink():
             path.unlink()
@@ -224,6 +241,8 @@ class VOSpaceStorage(Storage):
         if not isinstance(root, str) or not root.startswith("vos:"):
             raise ConfigError(f"VOSpaceStorage root must be a 'vos:' URI, got {root!r}")
         self.root = root.rstrip("/")
+        #: VOSpace URIs naming the community HATS tree are read-only.
+        self.read_only_root = _vos_read_only_root(self.root)
         self._binary: str | None = shutil.which("vos")
         self._client = None  # python-vos client when no binary
         if self._binary is None:
@@ -273,10 +292,18 @@ class VOSpaceStorage(Storage):
     def _uri(self, rel: str) -> str:
         return f"{self.root}/{_safe_rel(rel)}"
 
+    def _check_writable(self) -> None:
+        if getattr(self, "read_only_root", None) is not None:
+            raise ReadOnlyRootError(
+                f"refusing to write under {self.root}: it is inside the read-only "
+                f"community root {self.read_only_root}"
+            )
+
     def _ensure_root(self) -> None:
         if self._binary is not None:
             proc = self._run(["vos", "vls", str(self.root)])
             if proc.returncode != 0:
+                self._check_writable()
                 mk = self._run(["vos", "vmkdir", "-p", str(self.root)])
                 if mk.returncode != 0:
                     raise ConfigError(
@@ -286,6 +313,7 @@ class VOSpaceStorage(Storage):
             try:
                 self._client.get_node(self.root)  # type: ignore[union-attr]
             except Exception:
+                self._check_writable()
                 try:
                     self._client.mkdir(self.root)  # type: ignore[union-attr]
                 except Exception as exc:
@@ -379,6 +407,7 @@ class VOSpaceStorage(Storage):
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     def write_parquet(self, df: pl.DataFrame, rel: str) -> None:
+        self._check_writable()
         import tempfile
 
         tmpdir = tempfile.mkdtemp(prefix="xmatcher-vos-")
@@ -390,6 +419,7 @@ class VOSpaceStorage(Storage):
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     def rename(self, src: str, dst: str) -> None:
+        self._check_writable()
         if self._binary is not None:
             proc = self._run(self._argv("mv", src, dst))
             if proc.returncode != 0:
@@ -401,6 +431,7 @@ class VOSpaceStorage(Storage):
             raise OSError(f"vos move failed: {exc}") from exc
 
     def mkdir(self, rel: str) -> None:
+        self._check_writable()
         if self._binary is not None:
             proc = self._run(self._argv("mkdir", rel))
             if proc.returncode != 0:
@@ -450,6 +481,7 @@ class VOSpaceStorage(Storage):
         self.mkdir(parent)
 
     def stage_out(self, local: Path, rel: str) -> None:
+        self._check_writable()
         self._mkdir_parents(rel)
         if self._binary is not None:
             proc = self._run(self._argv("put", str(local), rel))
@@ -467,6 +499,7 @@ class VOSpaceStorage(Storage):
         self._in_get(rel, local)
 
     def rm(self, rel: str) -> None:
+        self._check_writable()
         if self._binary is not None:
             proc = self._run(self._argv("rm", rel))
             if proc.returncode != 0 and "not found" not in proc.stderr.lower():
@@ -499,6 +532,105 @@ def platform_arc_root() -> str | None:
 PLATFORM_CACHE_ROOT = "/arc/projects/astroai/hats"
 #: Platform root for crossmatch outputs (bare relative output names).
 PLATFORM_OUTPUT_ROOT = "/arc/projects/astroai/xmatcher"
+#: Community HATS tree on AstroAI/CANFAR sessions.  xmatcher reads trees
+#: under it in place and never writes there; it is always a protected root,
+#: whether or not it is configured as a community (read) root.
+PLATFORM_COMMUNITY_ROOT = "/arc/projects/hats"
+
+_REGISTERED_READ_ONLY: set[str] = set()
+_VOS_COMMUNITY = re.compile(r"^vos:(?://[^/]*~arc/|arc:)?/?projects/hats(?:/|$)")
+
+
+def _split_roots(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items: list[object] = list(value.split(os.pathsep))
+    elif isinstance(value, (list, tuple)):
+        items = list(value)
+    else:
+        raise ConfigError(f"expected a list of paths, got {value!r}")
+    out: list[str] = []
+    for item in items:
+        text = str(item).strip()
+        if text and text not in out:
+            out.append(text)
+    return out
+
+
+def community_roots(cache_cfg: dict | None = None) -> list[str]:
+    """Read-only community roots whose HATS trees are used in place.
+
+    ``XMATCHER_COMMUNITY_ROOTS`` (``os.pathsep``-separated; an empty value
+    disables them) wins over ``cache_cfg["community_roots"]``; on
+    AstroAI/CANFAR sessions the default is ``[/arc/projects/hats]`` when that
+    directory exists, else ``[]``.  These trees are never synced, replicated
+    or written to; an index of their sync records is kept under the writable
+    cache root.
+    """
+    env = os.environ.get("XMATCHER_COMMUNITY_ROOTS")
+    if env is not None:
+        return _split_roots(env)
+    cache_cfg = cache_cfg or {}
+    if "community_roots" in cache_cfg:
+        return _split_roots(cache_cfg.get("community_roots"))
+    if platform_arc_root() and os.path.isdir(PLATFORM_COMMUNITY_ROOT):
+        return [PLATFORM_COMMUNITY_ROOT]
+    return []
+
+
+def register_read_only_roots(roots: object) -> None:
+    """Add ``roots`` to the process-wide protected (never written) set."""
+    for root in _split_roots(roots):
+        _REGISTERED_READ_ONLY.add(root)
+
+
+def read_only_roots(cache_cfg: dict | None = None) -> list[str]:
+    """Every protected root: community roots, registered roots, and
+    :data:`PLATFORM_COMMUNITY_ROOT` (always)."""
+    out = [PLATFORM_COMMUNITY_ROOT]
+    for root in (*community_roots(cache_cfg), *sorted(_REGISTERED_READ_ONLY)):
+        if root not in out:
+            out.append(root)
+    return out
+
+
+def _vos_read_only_root(uri: str) -> str | None:
+    return PLATFORM_COMMUNITY_ROOT if _VOS_COMMUNITY.match(uri) else None
+
+
+def _inside(path: str, root: str) -> bool:
+    for a, b in (
+        (os.path.abspath(path), os.path.abspath(root)),
+        (os.path.realpath(path), os.path.realpath(root)),
+    ):
+        if a == b or a.startswith(b.rstrip(os.sep) + os.sep):
+            return True
+    return False
+
+
+def read_only_root_for(path: str | Path, cache_cfg: dict | None = None) -> str | None:
+    """The protected root containing ``path`` (POSIX or ``vos:``), else ``None``."""
+    text = os.path.expandvars(os.path.expanduser(str(path)))
+    if text.startswith("vos:"):
+        return _vos_read_only_root(text)
+    for root in read_only_roots(cache_cfg):
+        if root.startswith("vos:"):
+            continue
+        if _inside(text, os.path.expandvars(os.path.expanduser(root))):
+            return root
+    return None
+
+
+def assert_writable(path: str | Path, label: str, cache_cfg: dict | None = None) -> None:
+    """Raise :class:`ReadOnlyRootError` when ``path`` lies inside a read-only root."""
+    root = read_only_root_for(path, cache_cfg)
+    if root is not None:
+        raise ReadOnlyRootError(
+            f"{label} ({path}) is inside the read-only community root {root}; xmatcher "
+            "never writes there. Use a writable cache root (XMATCHER_CACHE_ROOT, "
+            f"default {PLATFORM_CACHE_ROOT} on CANFAR) or output directory instead."
+        )
 
 
 def default_cache_root() -> str:
@@ -537,23 +669,43 @@ def default_output_root() -> str | None:
     return None
 
 
+def replica_roots(cache_cfg: dict | None = None) -> list[str]:
+    """Writable replica roots: ``cache_cfg["replica_roots"]`` then the legacy
+    ``cache_cfg["roots"]`` (same meaning, kept for backward compatibility).
+
+    Replicas receive best-effort copies of each completed sync and are probed
+    after the primary by the ``--no-sync`` readers.  They are never read-only:
+    a replica inside a community root is a configuration error.
+    """
+    cache_cfg = cache_cfg or {}
+    out: list[str] = []
+    for key in ("replica_roots", "roots"):
+        for text in _split_roots(cache_cfg.get(key) or []):
+            if text not in out:
+                out.append(text)
+    return out
+
+
 def all_cache_roots(cache_cfg: dict | None = None) -> list[str]:
-    """Ordered, deduplicated cache roots: primary first, then replicas.
+    """Ordered, deduplicated writable cache roots: primary first, then replicas.
 
     Primary = ``$XMATCHER_CACHE_ROOT`` → ``cache_cfg["root"]`` →
-    :func:`default_cache_root`.  Every entry of ``cache_cfg["roots"]`` is
-    appended after it (blank entries dropped; the primary is never duplicated
-    as a replica).  Never returns ``[]``.  Replicas may be ``vos:`` URIs —
-    :func:`open_storage` routes those — or shared POSIX dirs; they are the
-    mirror-fallback copies the union reads when the primary copy is gone.
+    :func:`default_cache_root`.  :func:`replica_roots` are appended after it
+    (blank entries dropped; the primary is never duplicated as a replica).
+    Never returns ``[]``.  Replicas may be ``vos:`` URIs — :func:`open_storage`
+    routes those — or shared POSIX dirs; they are the mirror-fallback copies
+    the union reads when the primary copy is gone.  Read-only community roots
+    (:func:`community_roots`) are never part of this list; a primary or
+    replica inside one raises :class:`ReadOnlyRootError`.
     """
     cache_cfg = cache_cfg or {}
     primary = os.environ.get("XMATCHER_CACHE_ROOT") or cache_cfg.get("root") or default_cache_root()
-    roots = [primary]
-    for entry in cache_cfg.get("roots") or []:
-        text = str(entry).strip()
-        if text and text not in roots:
+    roots = [str(primary)]
+    for text in replica_roots(cache_cfg):
+        if text not in roots:
             roots.append(text)
+    for i, root in enumerate(roots):
+        assert_writable(root, "cache root" if i == 0 else "replica cache root", cache_cfg)
     return roots
 
 
@@ -569,6 +721,7 @@ def assert_headroom(path: str | Path, min_free_gb: float, label: str) -> None:
     """
     from .exceptions import CrossMatchError
 
+    assert_writable(path, label)
     if str(path).startswith("vos:"):
         logger.debug("%s is a VOSpace root; its free space cannot be checked", label)
         return

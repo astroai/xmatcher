@@ -54,6 +54,9 @@ def _read_cache(path: Path) -> dict[str, Any] | None:
 
 
 def _write_cache(path: Path, records: list[dict[str, str]]) -> None:
+    from .storage import assert_writable  # noqa: PLC0415
+
+    assert_writable(path.parent, "HATS registry snapshot directory")
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "version": _CACHE_VERSION,
