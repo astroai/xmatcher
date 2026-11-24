@@ -298,8 +298,11 @@ catalogues:
     id_column: "source_id"
     epoch: 2010.0
     default_columns: ["source_id", "ra", "dec", "w1mpro", "w2mpro", "w3mpro", "w4mpro", "w1sigmpro", "w2sigmpro", "w3sigmpro", "w4sigmpro", "ph_qual", "ext_flg", "var_flg", "pmra", "pmdec", "sigpmra", "sigpmdec"]
-    pm_ra_column: "pmra"
-    pm_dec_column: "pmdec"
+    # pmra/pmdec are carried as data but NOT wired as motion columns: the
+    # AllWISE motion fit is not astrometry (the Explanatory Supplement warns
+    # against using it to move positions). Propagating ra/dec by it moved a
+    # source by 1630" over 2010->2016 in the Gaia-master pilot, and its typical
+    # 0.1-0.5"/yr errors would blur faint positions beyond a 1.5" radius.
     ra_err_column: "sigra"
     dec_err_column: "sigdec"
     pos_err_units: "arcsec"

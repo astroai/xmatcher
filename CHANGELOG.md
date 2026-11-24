@@ -82,6 +82,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `allwise_hats` no longer wires `pmra`/`pmdec` as motion columns (they stay
+  in the projection): the AllWISE motion fit is not astrometry, and
+  `--target-epoch` propagation by it moved a source by 1630" in the
+  Gaia-master pilot (the halo check aborted the run).
 - `twomass_psc_hats` named the declination column `dec`; the LSDB tree (and
   its community copy) calls it `decl`.
 - `skymapper_dr4_hats` positional errors (`e_raj2000`/`e_dej2000`) are in mas,

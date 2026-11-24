@@ -168,6 +168,14 @@ def test_hats_aliases_resolve_without_network() -> None:
     assert local.id_column == "source_id"
 
 
+def test_allwise_motion_fit_is_not_used_to_move_positions() -> None:
+    # The AllWISE motion fit is not astrometry: propagating by it moved a
+    # source by 1630" over 2010->2016 (Gaia-master pilot). It stays as data.
+    source = CrossMatch().resolve_source("allwise_hats", {})
+    assert source.pm_ra_column is None and source.pm_dec_column is None
+    assert {"pmra", "pmdec"} <= set(source.default_columns or [])
+
+
 def test_anchor_rejects_unsupported_matcher(survey_tree: Path) -> None:
     anchor = _source("anchor", survey_tree / "anchor")
     survey = _source("a", survey_tree / "a", id_column="sid")
