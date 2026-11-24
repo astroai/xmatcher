@@ -50,7 +50,8 @@ Read them as indexes, using their own metadata and the parent association.
 | S-PLUS field overlaps | 9.61% of rows have a different-field neighbour within 0.5″. Preserve field and flux provenance, require independent position and photometry checks for a common-source link, and keep real same-sky repeats. [S-PLUS DR4](https://splus.cloud/documentation/DR4) |
 | GALEX calibrated vs instrumental magnitudes | The measured AUTO offsets are 18.82 mag in FUV and 20.08 mag in NUV. The pilot uses calibrated microjansky flux and its uncertainty, masks the `-999` sentinel and preserves calibrated AB magnitude columns. [GALEX data dictionary](https://www.galex.caltech.edu/wiki/Public%3ADocumentation/Appendix_A.1) |
 | Euclid MER wide quality | Of 888,152,165 rows, 199,125,435 are NIR-detected, 55,966,502 have the spurious flag, and 160,144,348 have nonzero detection quality. A stringent VIS selection is an opt-in science view. Retain detection band, per-band and detection quality flags and source provenance for SED and photo-z. [Euclid MER photometry cookbook](https://euclid.esac.esa.int/dr/dr1/dpdd/merdpd/merphotometrycookbook.html) |
-| Sampled Euclid deep and LoTSS names | The sample reports repeated native IDs or names. Measure their full repetition rates and determine a patch or component key before using those products as identity inputs. Keep candidates and original measurements. |
+| Euclid MER deep keys | The full follow-up found two repeated `object_id` values. `object_id,tileid` uniquely addresses all 51,820,952 measurements. Keep the object ID for upstream associations and the tile key for measurement identity. [CANFAR key check](canfar-native-key-followup.json) |
+| LoTSS DR3 names | Thirty names repeat across 13,667,877 rows. Adding RA and Dec still leaves two excess rows in duplicate groups. Keep the name and original measurements in a radio link, and require a stable row key before using LoTSS as an identity source. [CANFAR key check](canfar-native-key-followup.json) |
 
 ## Running and recovering
 
@@ -62,7 +63,29 @@ by a `result.json` or `error.json`. The same run path with
 `--rollback` restores the verified backups when a live file still matches the
 applied repair. Keep run directories for provenance and rollback.
 
-For ATLAS, run `arc/rebuild_atlas_audit_20261124.sh` from
+For ATLAS, run `bash arc/rebuild_atlas_audit_20261124.sh RUN_DIR` from
 `scripts/pensus` and use the path recorded in its `source.path` as
 `--atlas-source`. The rebuild writes its temporary data to `/scratch`
 and its candidate to the supplied project directory.
+
+## Verification
+
+CANFAR headless job `bmggmioe` passed lint, formatting, type checking and
+138 regressions on the committed repair code. The consolidated receipt
+verified all 253 source audit files. Job `q6b6pprm` checked the live
+partition layouts and projected schemas for all 26 pilot inputs after
+the SDSS provenance update. Job `i7kvuywm` verified the Euclid deep and
+LoTSS keys over their complete catalogues.
+
+Logs, application receipts and original-file backups are under
+`/arc/projects/astroai/pensus/repairs/hats-audit-20261124/`.
+
+| Applied catalogue repair | Run beneath the repair directory |
+| --- | --- |
+| ATLAS DR5, ten recovered partitions and 150,198,243 total rows | `atlas-r3/atlas__dr5` |
+| LSST DP1 object photo-z, deepest order recorded in both properties files | `coords-r2/lsst__dp1__object_photoz` |
+| DELVE DR3 Gold, eight corrected RAs in seven partitions | `coords-r2/delve__dr3_gold` |
+| PS1 OTMO, eight corrected RAs in eight partitions and verified 10,560,724,292 total rows | `coords-r2/ps1__otmo` |
+| DES Y6 historical copy, two corrected RAs | `history-r1/des__y6_gold_prera_backup` |
+| UHS DR3 historical copy, one corrected RA | `history-r1/uhs__dr3_prera_backup` |
+| UNIONS GAaP SP photo-z, 20 partitions with typed null `N_EPOCH` and 637,129,635 total rows | `gaap-r2/unions__gaap_sp_ugriz_photoz_ext` |
