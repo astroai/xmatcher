@@ -24,7 +24,7 @@ from .sources import CatalogueSource
 # Persisted v1 wire names stay fixed across the package rename to preserve IDs.
 OBSERVATION_RELEASE_SCHEMA_VERSION = "xmatch.observations.release.v1"
 SOURCE_ID_SCHEMA_VERSION = "xmatch.source.v1"
-_FLUX_FACTORS = {"Jy": 1.0, "mJy": 1e-3, "uJy": 1e-6, "nanomaggy": 3.631e-6}
+_FLUX_FACTORS = {"Jy": 1.0, "mJy": 1e-3, "uJy": 1e-6, "nJy": 1e-9, "nanomaggy": 3.631e-6}
 _STATUSES = {
     "measured",
     "upper_limit",
@@ -239,7 +239,13 @@ def _mapping(
     for name in required:
         _text(raw.get(name), name)
     result = dict(raw)
-    for name in ("observation_time", "zeropoint_jy", "limit_sigma", "limit_confidence"):
+    for name in (
+        "observation_time",
+        "zeropoint_jy",
+        "flux_scale_jy",
+        "limit_sigma",
+        "limit_confidence",
+    ):
         if result.get(name) is not None:
             value = result[name]
             if (
@@ -305,11 +311,15 @@ def normalize_photometry(source: CatalogueSource) -> pl.LazyFrame:
         "passband_uri",
         "value_column",
         "error_column",
+        "error_kind",
         "unit",
         "method",
         "calibration_id",
         "zeropoint_jy",
+        "flux_scale_jy",
+        "missing_values",
         "status_column",
+        "status_char_index",
         "status_values",
         "quality_column",
         "observation_time_column",
@@ -327,9 +337,35 @@ def normalize_photometry(source: CatalogueSource) -> pl.LazyFrame:
             raise ValueError("duplicate photometry mapping creates duplicate measurement identity")
         seen.add(mapping_id)
         value = _column(frame, mapping["value_column"])
-        error = _column(frame, mapping.get("error_column"))
+        missing = mapping.get("missing_values", [])
+        if not isinstance(missing, list) or any(
+            isinstance(item, bool) or not isinstance(item, (int, float)) or not math.isfinite(item)
+            for item in missing
+        ):
+            raise ValueError("missing_values must be a list of finite numeric sentinels")
+        raw_error = _column(frame, mapping.get("error_column"))
+        error_kind = mapping.get("error_kind", "sigma")
+        if error_kind not in ("sigma", "variance", "inverse_variance"):
+            raise ValueError("error_kind must be sigma, variance or inverse_variance")
+        if error_kind != "sigma" and not mapping.get("error_column"):
+            raise ValueError("variance and inverse_variance require an error_column")
+        raw_error_valid = raw_error.is_not_null() & raw_error.is_finite()
+        raw_error_valid &= raw_error > 0 if error_kind == "inverse_variance" else raw_error >= 0
+        if error_kind == "inverse_variance":
+            error = pl.when(raw_error_valid).then(1.0 / raw_error.sqrt()).otherwise(None)
+        elif error_kind == "variance":
+            error = pl.when(raw_error_valid).then(raw_error.sqrt()).otherwise(None)
+        else:
+            error = raw_error
         valid_value = value.is_not_null() & value.is_finite()
-        valid_error = error.is_not_null() & error.is_finite() & (error >= 0)
+        valid_error = raw_error_valid & error.is_not_null() & error.is_finite()
+        status_char_index = mapping.get("status_char_index")
+        if status_char_index is not None and (
+            type(status_char_index) is not int
+            or status_char_index < 0
+            or not mapping.get("status_column")
+        ):
+            raise ValueError("status_char_index requires a zero-based index and status_column")
         if mapping.get("status_column"):
             status_values = mapping.get("status_values")
             if (
@@ -340,9 +376,10 @@ def normalize_photometry(source: CatalogueSource) -> pl.LazyFrame:
                 raise ValueError(
                     "status_column requires explicit status_values using canonical statuses"
                 )
-            status = _column(frame, mapping["status_column"], pl.String).replace_strict(
-                status_values, default="invalid", return_dtype=pl.String
-            )
+            status = _column(frame, mapping["status_column"], pl.String)
+            if status_char_index is not None:
+                status = status.str.slice(status_char_index, 1)
+            status = status.replace_strict(status_values, default="invalid", return_dtype=pl.String)
         else:
             status = (
                 pl.when(value.is_null())
@@ -351,6 +388,8 @@ def normalize_photometry(source: CatalogueSource) -> pl.LazyFrame:
                 .then(pl.lit("measured"))
                 .otherwise(pl.lit("invalid"))
             )
+        if missing:
+            status = pl.when(value.is_in(missing)).then(pl.lit("missing")).otherwise(status)
         status = (
             pl.when(status.is_in(["measured", "upper_limit"]) & ~valid_value)
             .then(pl.lit("invalid"))
@@ -358,6 +397,14 @@ def normalize_photometry(source: CatalogueSource) -> pl.LazyFrame:
         )
         unit = mapping["unit"]
         factor = _FLUX_FACTORS.get(unit)
+        scale = mapping.get("flux_scale_jy")
+        if scale is not None:
+            if scale <= 0 or factor is not None or unit in {"ABmag", "Vegamag"}:
+                raise ValueError(
+                    "flux_scale_jy must be positive and used with a native linear unit"
+                )
+            _text(mapping.get("calibration_id"), "calibration_id")
+            factor = scale
         zero = 3631.0 if unit == "ABmag" else mapping.get("zeropoint_jy")
         magnitude = unit in {"ABmag", "Vegamag"} and zero is not None
         if factor is not None:
@@ -387,7 +434,7 @@ def normalize_photometry(source: CatalogueSource) -> pl.LazyFrame:
         status = pl.when(invalid_upper_limit).then(pl.lit("invalid")).otherwise(status)
         measured = status == "measured"
         flags = pl.concat_list(
-            pl.when(error.is_not_null() & ~valid_error)
+            pl.when(raw_error.is_not_null() & ~valid_error)
             .then(pl.lit("invalid_uncertainty"))
             .otherwise(pl.lit(None, dtype=pl.String)),
             pl.when(valid_value & (factor is None) & (not magnitude))

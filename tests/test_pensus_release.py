@@ -230,6 +230,83 @@ def test_motion_changes_tile_ownership_and_bound_is_enforced(tmp_path):
     assert table["position_epoch_jyear"].item() == pytest.approx(2017)
 
 
+def test_link_catalogue_pilot_preserves_competitors_and_unmatched_rows(tmp_path):
+    hats_root, draft, spec = _example(tmp_path)
+    config = yaml.safe_load(spec.read_text())
+    a, b, c = config["surveys"]
+    config["pilot_only"] = True
+    a["pilot_radius_arcsec"] = 0.75
+    c["pilot_radius_arcsec"] = 0.8
+    a["position_epoch"] = {"column": "mjd", "format": "mjd", "missing_values": [-999]}
+    for path in (hats_root / "a" / "dataset").rglob("*.parquet"):
+        frame = pl.read_parquet(path).with_columns(
+            pl.when(pl.col("obj") == 1).then(51544.5).otherwise(-999).alias("mjd")
+        )
+        frame.write_parquet(path)
+    config.pop("pair_radii_arcsec")
+    config["surveys"] = [a, c]
+    config["link_catalogues"] = [{**b, "candidate_radius_arcsec": 1}]
+    spec.write_text(yaml.safe_dump(config))
+    with pytest.raises(ValueError, match="--pilot"):
+        release.build_plan(spec, hats_root)
+    release.main(
+        [
+            "plan",
+            "--pilot",
+            "--spec",
+            str(spec),
+            "--hats-root",
+            str(hats_root),
+            "--draft",
+            str(draft),
+        ]
+    )
+    plan, _ = release._load(draft)
+    assert plan["radii"] == [[0.8], []]
+    assert [s["tag"] for s in plan["surveys"]] == ["a", "c"]
+    assert [s["tag"] for s in plan["link_catalogues"]] == ["b"]
+    path = tmp_path / "candidates.parquet"
+    release.main(
+        [
+            "candidates",
+            "--draft",
+            str(draft),
+            "--left",
+            "a",
+            "--right",
+            "b",
+            "--pixel",
+            "4",
+            "--radius-arcsec",
+            "1",
+            "--output",
+            str(path),
+            "--left-column",
+            "flux",
+            "--right-column",
+            "flags",
+        ]
+    )
+    table = pl.read_parquet(path)
+    candidates = table.select("left_id", "right_id", "sep_arcsec").rows()
+    assert [row[:2] for row in candidates] == [
+        ("1", '{"brick":7,"obj":3}'),
+        ("1", '{"brick":7,"obj":4}'),
+        ("2", None),
+    ]
+    assert candidates[0][2] == pytest.approx(0.432)
+    assert candidates[2][2] is None
+    assert table["left_epoch_jyear"].to_list() == [2000.0, 2000.0, None]
+    assert table["left_native_flux"].null_count() == 0
+    assert table["right_native_flags"].to_list() == [3, 0, None]
+    summary = release._radius_summary(path, [0.4, 0.5])
+    assert summary["primaries"] == 2
+    assert summary["radius_summary"] == [
+        {"radius_arcsec": 0.4, "pairs": 0, "unmatched": 2, "single": 0, "multiple": 0},
+        {"radius_arcsec": 0.5, "pairs": 2, "unmatched": 1, "single": 0, "multiple": 1},
+    ]
+
+
 def test_tiled_cascade_agrees_with_a_global_spherical_oracle(tmp_path):
     rng = np.random.default_rng(74)
     root, draft, spec = (tmp_path / name for name in ("hats", "draft", "surveys.yaml"))

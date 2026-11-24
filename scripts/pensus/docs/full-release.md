@@ -9,7 +9,7 @@ combinations around a position and can repeat a survey row in a crowded
 field. The Gaia-centric `ray-anchor` route retains every Gaia row and leaves
 out objects that have no Gaia counterpart.
 
-The full release uses an ordered cascade of reciprocal-nearest matches.
+The initial full-sky implementation uses an ordered cascade of reciprocal-nearest matches.
 Each survey seeds components from its unclaimed rows. Its nearest pairs
 with each later survey are resolved independently, so a component contains
 at most one row per survey. Every eligible native row is retained, including
@@ -45,8 +45,9 @@ while retaining the partition inventory and shared schema.
 ## Survey review
 
 The November 23 CANFAR headless inventory found 62 mounted HATS object
-tables. The [26-survey pilot manifest](../config/full-union-canfar-pilot.yaml)
-pins verified column names for 27,588,645,537 advertised input rows. Plan from
+tables. The [science pilot manifest](../config/full-union-canfar-pilot.yaml)
+selects 23 identity catalogues and three separately linked catalogues.
+Their combined advertised input count is 27,588,645,537 rows. Plan from
 the live inventory and record the reason for each excluded tree.
 Check permissions on restricted products before distributing a public view.
 
@@ -68,12 +69,10 @@ HEALPix index. The PSC projection already carries J, H and Ks measurements
 and their uncertainties. The XSC photometry would require a corresponding
 measurement table.
 
-The current cascade treats selected object catalogues uniformly. Lower
-resolution and blended catalogues such as GALEX, AllWISE W3/W4, and SPHEREx
-need separate calibration before using a one-to-one association as a science
-default. Preserve ambiguous candidates or native-ID-linked measurements in
-an accompanying table when those cases are needed. The earlier v0 attachment
-policy is documented in [matching-policy.md](matching-policy.md).
+The current cascade treats selected identity catalogues uniformly. GALEX,
+AllWISE and CatWISE have moved to the candidate and link workflow.
+The [science policy](science-policy.md) records flux conventions, initial
+pair caps, covariance and density scoring, and the release gates.
 
 Release finalization requires a marker for every sky pixel, exact aggregate
 per-survey row counts and agreement of native-ID membership tallies before

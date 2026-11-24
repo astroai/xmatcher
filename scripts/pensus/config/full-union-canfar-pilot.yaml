@@ -1,26 +1,24 @@
-# Candidate projection for a multi-survey CANFAR pilot. Use plan --pilot.
-# Reviewed against first-partition schemas from the mounted November 23 inventory.
-# Survey order and radii are provisional. See docs/full-release.md.
+# CANFAR pilot with schema-reviewed native projections. Run plan --pilot.
+# Match caps are starting values for reciprocal-nearest comparisons.
+# Links are pinned for a separate candidate/beam workflow.
+pilot_only: true
 order: 7
-radius_arcsec: 1.5
+radius_arcsec: 1.0
 pair_radii_arcsec:
-  gaia/catwise: 2.0
-  gaia/tmass: 2.0
-  gaia/galex: 3.0
+  gaia/ps1: 0.8
+  gaia/tmass: 1.5
+  gaia/sdss: 1.1
+  legacy/tmass: 1.6
 
 surveys:
   - tag: gaia
     release: gaia_dr3
     path: gaia/dr3
     id: source_id
+    pilot_radius_arcsec: 0.5
     epoch_jyear: 2016.0
+    position_epoch: {column: ref_epoch, format: jyear}
     columns:
-      - phot_g_mean_flux
-      - phot_g_mean_flux_error
-      - phot_bp_mean_flux
-      - phot_bp_mean_flux_error
-      - phot_rp_mean_flux
-      - phot_rp_mean_flux_error
       - phot_g_mean_mag
       - phot_bp_mean_mag
       - phot_rp_mean_mag
@@ -31,219 +29,203 @@ surveys:
       - ref_epoch
       - ruwe
       - has_xp_continuous
+      - ra_error
+      - dec_error
+      - ra_dec_corr
+      - pmra_error
+      - pmdec_error
+      - pmra_pmdec_corr
+      - astrometric_params_solved
+      - duplicated_source
+      - phot_bp_rp_excess_factor
+      - phot_bp_n_blended_transits
+      - phot_rp_n_blended_transits
+    bands:
+      g: {"filter": "Gaia DR3 G", "value": "phot_g_mean_flux", "uncertainty": "phot_g_mean_flux_error", "uncertainty_kind": "sigma", "unit": "electron/s", "method": "Gaia mean", "flux_scale_jy": 1.736305931677915e-07, "calibration_id": "Gaia DR3 Table 5.4 AB"}
+      bp: {"filter": "Gaia DR3 BP", "value": "phot_bp_mean_flux", "uncertainty": "phot_bp_mean_flux_error", "uncertainty_kind": "sigma", "unit": "electron/s", "method": "Gaia mean", "flux_scale_jy": 2.6207539492470443e-07, "calibration_id": "Gaia DR3 Table 5.4 AB"}
+      rp: {"filter": "Gaia DR3 RP", "value": "phot_rp_mean_flux", "uncertainty": "phot_rp_mean_flux_error", "uncertainty_kind": "sigma", "unit": "electron/s", "method": "Gaia mean", "flux_scale_jy": 3.2993337447670226e-07, "calibration_id": "Gaia DR3 Table 5.4 AB"}
+
   - tag: legacy
     release: legacy_dr11
     path: legacysurvey/dr11
-    id: [RELEASE, BRICKID, OBJID]
+    id: ["RELEASE", "BRICKID", "OBJID"]
+    pilot_radius_arcsec: 0.8
     columns:
-      - FLUX_G
-      - FLUX_IVAR_G
-      - FLUX_R
-      - FLUX_IVAR_R
-      - FLUX_I
-      - FLUX_IVAR_I
-      - FLUX_Z
-      - FLUX_IVAR_Z
-      - FLUX_W1
-      - FLUX_IVAR_W1
-      - FLUX_W2
-      - FLUX_IVAR_W2
-      - FLUX_W3
-      - FLUX_IVAR_W3
-      - FLUX_W4
-      - FLUX_IVAR_W4
-      - TYPE
-      - MASKBITS
-      - FITBITS
+      - MW_TRANSMISSION_G
+      - MW_TRANSMISSION_R
+      - MW_TRANSMISSION_I
+      - MW_TRANSMISSION_Z
+      - MW_TRANSMISSION_W1
+      - MW_TRANSMISSION_W2
+      - MW_TRANSMISSION_W3
+      - MW_TRANSMISSION_W4
       - PHOTSYS
+      - TYPE
+      - REF_CAT
+      - REF_ID
+      - REF_EPOCH
+      - EBV
+      - RA_IVAR
+      - DEC_IVAR
+    bands:
+      G: {"filter": "Legacy DR11 G", "value": "FLUX_G", "uncertainty": "FLUX_IVAR_G", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "Tractor model", "flags": ["MASKBITS", "FITBITS", "NOBS_G", "FRACFLUX_G"], "passband_selector": "PHOTSYS"}
+      R: {"filter": "Legacy DR11 R", "value": "FLUX_R", "uncertainty": "FLUX_IVAR_R", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "Tractor model", "flags": ["MASKBITS", "FITBITS", "NOBS_R", "FRACFLUX_R"], "passband_selector": "PHOTSYS"}
+      I: {"filter": "Legacy DR11 I", "value": "FLUX_I", "uncertainty": "FLUX_IVAR_I", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "Tractor model", "flags": ["MASKBITS", "FITBITS", "NOBS_I", "FRACFLUX_I"], "passband_selector": "PHOTSYS"}
+      Z: {"filter": "Legacy DR11 Z", "value": "FLUX_Z", "uncertainty": "FLUX_IVAR_Z", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "Tractor model", "flags": ["MASKBITS", "FITBITS", "NOBS_Z", "FRACFLUX_Z"], "passband_selector": "PHOTSYS"}
+      W1: {"filter": "Legacy DR11 W1", "value": "FLUX_W1", "uncertainty": "FLUX_IVAR_W1", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "Tractor unWISE forced", "flags": ["MASKBITS", "FITBITS", "NOBS_W1", "FRACFLUX_W1"]}
+      W2: {"filter": "Legacy DR11 W2", "value": "FLUX_W2", "uncertainty": "FLUX_IVAR_W2", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "Tractor unWISE forced", "flags": ["MASKBITS", "FITBITS", "NOBS_W2", "FRACFLUX_W2"]}
+      W3: {"filter": "Legacy DR11 W3", "value": "FLUX_W3", "uncertainty": "FLUX_IVAR_W3", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "Tractor unWISE forced", "flags": ["MASKBITS", "FITBITS", "NOBS_W3", "FRACFLUX_W3"]}
+      W4: {"filter": "Legacy DR11 W4", "value": "FLUX_W4", "uncertainty": "FLUX_IVAR_W4", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "Tractor unWISE forced", "flags": ["MASKBITS", "FITBITS", "NOBS_W4", "FRACFLUX_W4"]}
+
   - tag: ps1
     release: ps1_otmo
     path: ps1/otmo
     id: objID
+    pilot_radius_arcsec: 0.8
+    position_epoch: {column: epochMean, format: mjd, missing_values: [-999]}
     columns:
-      - gMeanPSFMag
-      - gMeanPSFMagErr
-      - gFlags
-      - rMeanPSFMag
-      - rMeanPSFMagErr
-      - rFlags
-      - iMeanPSFMag
-      - iMeanPSFMagErr
-      - iFlags
-      - zMeanPSFMag
-      - zMeanPSFMagErr
-      - zFlags
-      - yMeanPSFMag
-      - yMeanPSFMagErr
-      - yFlags
-      - gMeanKronMag
-      - gMeanKronMagErr
-      - rMeanKronMag
-      - rMeanKronMagErr
-      - iMeanKronMag
-      - iMeanKronMagErr
-      - zMeanKronMag
-      - zMeanKronMagErr
-      - yMeanKronMag
-      - yMeanKronMagErr
-      - qualityFlag
-      - objInfoFlag
       - epochMean
+      - raMeanErr
+      - decMeanErr
       - nDetections
+      - nStackDetections
+    bands:
+      g_psf: {"filter": "PS1 g", "value": "gMeanPSFMag", "uncertainty": "gMeanPSFMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["gFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      g_kron: {"filter": "PS1 g", "value": "gMeanKronMag", "uncertainty": "gMeanKronMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "Kron", "flags": ["gFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      r_psf: {"filter": "PS1 r", "value": "rMeanPSFMag", "uncertainty": "rMeanPSFMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["rFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      r_kron: {"filter": "PS1 r", "value": "rMeanKronMag", "uncertainty": "rMeanKronMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "Kron", "flags": ["rFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      i_psf: {"filter": "PS1 i", "value": "iMeanPSFMag", "uncertainty": "iMeanPSFMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["iFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      i_kron: {"filter": "PS1 i", "value": "iMeanKronMag", "uncertainty": "iMeanKronMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "Kron", "flags": ["iFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      z_psf: {"filter": "PS1 z", "value": "zMeanPSFMag", "uncertainty": "zMeanPSFMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["zFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      z_kron: {"filter": "PS1 z", "value": "zMeanKronMag", "uncertainty": "zMeanKronMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "Kron", "flags": ["zFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      y_psf: {"filter": "PS1 y", "value": "yMeanPSFMag", "uncertainty": "yMeanPSFMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["yFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+      y_kron: {"filter": "PS1 y", "value": "yMeanKronMag", "uncertainty": "yMeanKronMagErr", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "Kron", "flags": ["yFlags", "qualityFlag", "objInfoFlag"], "missing_values": [-999]}
+
   - tag: des
     release: des_y6_gold
     path: des/y6_gold
     id: COADD_OBJECT_ID
+    pilot_radius_arcsec: 0.85
     columns:
-      - WAVG_MAG_PSF_G
-      - WAVG_MAGERR_PSF_G
-      - WAVG_MAG_PSF_R
-      - WAVG_MAGERR_PSF_R
-      - WAVG_MAG_PSF_I
-      - WAVG_MAGERR_PSF_I
-      - WAVG_MAG_PSF_Z
-      - WAVG_MAGERR_PSF_Z
-      - WAVG_MAG_PSF_Y
-      - WAVG_MAGERR_PSF_Y
-      - BDF_MAG_G_CORRECTED
-      - BDF_MAG_ERR_G
-      - BDF_MAG_R_CORRECTED
-      - BDF_MAG_ERR_R
-      - BDF_MAG_I_CORRECTED
-      - BDF_MAG_ERR_I
-      - BDF_MAG_Z_CORRECTED
-      - BDF_MAG_ERR_Z
-      - BDF_MAG_Y_CORRECTED
-      - BDF_MAG_ERR_Y
-      - FLAGS_GOLD
-      - FLAGS_FOOTPRINT
-      - FLAGS_FOREGROUND
+      - EXT_MASH
+      - EXT_XGB
+      - EBV_SFD98
+    bands:
+      G_bdf: {"filter": "DES DECam G", "value": "BDF_FLUX_G", "uncertainty": "BDF_FLUX_ERR_G", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      G_psf: {"filter": "DES DECam G", "value": "WAVG_MAG_PSF_G", "uncertainty": "WAVG_MAGERR_PSF_G", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      R_bdf: {"filter": "DES DECam R", "value": "BDF_FLUX_R", "uncertainty": "BDF_FLUX_ERR_R", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      R_psf: {"filter": "DES DECam R", "value": "WAVG_MAG_PSF_R", "uncertainty": "WAVG_MAGERR_PSF_R", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      I_bdf: {"filter": "DES DECam I", "value": "BDF_FLUX_I", "uncertainty": "BDF_FLUX_ERR_I", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      I_psf: {"filter": "DES DECam I", "value": "WAVG_MAG_PSF_I", "uncertainty": "WAVG_MAGERR_PSF_I", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      Z_bdf: {"filter": "DES DECam Z", "value": "BDF_FLUX_Z", "uncertainty": "BDF_FLUX_ERR_Z", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      Z_psf: {"filter": "DES DECam Z", "value": "WAVG_MAG_PSF_Z", "uncertainty": "WAVG_MAGERR_PSF_Z", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      Y_bdf: {"filter": "DES DECam Y", "value": "BDF_FLUX_Y", "uncertainty": "BDF_FLUX_ERR_Y", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      Y_psf: {"filter": "DES DECam Y", "value": "WAVG_MAG_PSF_Y", "uncertainty": "WAVG_MAGERR_PSF_Y", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+
   - tag: delve
     release: delve_dr3_gold
     path: delve/dr3_gold
     id: COADD_OBJECT_ID
+    pilot_radius_arcsec: 0.85
     columns:
-      - WAVG_MAG_PSF_G
-      - WAVG_MAGERR_PSF_G
-      - WAVG_MAG_PSF_R
-      - WAVG_MAGERR_PSF_R
-      - WAVG_MAG_PSF_I
-      - WAVG_MAGERR_PSF_I
-      - WAVG_MAG_PSF_Z
-      - WAVG_MAGERR_PSF_Z
-      - BDF_MAG_G_CORRECTED
-      - BDF_MAG_ERR_G
-      - BDF_MAG_R_CORRECTED
-      - BDF_MAG_ERR_R
-      - BDF_MAG_I_CORRECTED
-      - BDF_MAG_ERR_I
-      - BDF_MAG_Z_CORRECTED
-      - BDF_MAG_ERR_Z
-      - FLAGS_GOLD
-      - FLAGS_FOOTPRINT
-      - FLAGS_FOREGROUND
+      - EXT_MASH
+      - EXT_XGB
+      - EBV_SFD98
+    bands:
+      G_bdf: {"filter": "DELVE DECam G", "value": "BDF_FLUX_G", "uncertainty": "BDF_FLUX_ERR_G", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      G_psf: {"filter": "DELVE DECam G", "value": "WAVG_MAG_PSF_G", "uncertainty": "WAVG_MAGERR_PSF_G", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      R_bdf: {"filter": "DELVE DECam R", "value": "BDF_FLUX_R", "uncertainty": "BDF_FLUX_ERR_R", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      R_psf: {"filter": "DELVE DECam R", "value": "WAVG_MAG_PSF_R", "uncertainty": "WAVG_MAGERR_PSF_R", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      I_bdf: {"filter": "DELVE DECam I", "value": "BDF_FLUX_I", "uncertainty": "BDF_FLUX_ERR_I", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      I_psf: {"filter": "DELVE DECam I", "value": "WAVG_MAG_PSF_I", "uncertainty": "WAVG_MAGERR_PSF_I", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      Z_bdf: {"filter": "DELVE DECam Z", "value": "BDF_FLUX_Z", "uncertainty": "BDF_FLUX_ERR_Z", "uncertainty_kind": "sigma", "unit": "FITVD native flux", "method": "BDF observed", "flags": ["BDF_FLAGS", "BDF_DEBLEND_FLAGS", "FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+      Z_psf: {"filter": "DELVE DECam Z", "value": "WAVG_MAG_PSF_Z", "uncertainty": "WAVG_MAGERR_PSF_Z", "uncertainty_kind": "sigma", "unit": "mag", "method": "weighted mean PSF", "flags": ["FLAGS_GOLD", "FLAGS_FOOTPRINT", "FLAGS_FOREGROUND"]}
+
   - tag: skymapper
     release: skymapper_dr4
     path: skymapper/dr4
     id: object_id
+    pilot_radius_arcsec: 1.25
+    position_epoch: {column: mean_epoch, format: mjd}
     columns:
-      - u_psf
-      - e_u_psf
-      - v_psf
-      - e_v_psf
-      - g_psf
-      - e_g_psf
-      - r_psf
-      - e_r_psf
-      - i_psf
-      - e_i_psf
-      - z_psf
-      - e_z_psf
-      - flags
+      - mean_epoch
+      - rms_epoch
+      - class_star
+    bands:
+      u: {"filter": "SkyMapper u", "value": "u_psf", "uncertainty": "e_u_psf", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["flags"]}
+      v: {"filter": "SkyMapper v", "value": "v_psf", "uncertainty": "e_v_psf", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["flags"]}
+      g: {"filter": "SkyMapper g", "value": "g_psf", "uncertainty": "e_g_psf", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["flags"]}
+      r: {"filter": "SkyMapper r", "value": "r_psf", "uncertainty": "e_r_psf", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["flags"]}
+      i: {"filter": "SkyMapper i", "value": "i_psf", "uncertainty": "e_i_psf", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["flags"]}
+      z: {"filter": "SkyMapper z", "value": "z_psf", "uncertainty": "e_z_psf", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "PSF", "flags": ["flags"]}
+
   - tag: sdss
     release: sdss_photoprimary_dr13
     path: sdss/photoprimary_dr13
     id: id
+    pilot_radius_arcsec: 1.1
     columns:
-      - PSFFLUX_u
-      - PSFFLUX_IVAR_u
-      - PSFFLUX_g
-      - PSFFLUX_IVAR_g
-      - PSFFLUX_r
-      - PSFFLUX_IVAR_r
-      - PSFFLUX_i
-      - PSFFLUX_IVAR_i
-      - PSFFLUX_z
-      - PSFFLUX_IVAR_z
-      - MODELFLUX_u
-      - MODELFLUX_IVAR_u
-      - MODELFLUX_g
-      - MODELFLUX_IVAR_g
-      - MODELFLUX_r
-      - MODELFLUX_IVAR_r
-      - MODELFLUX_i
-      - MODELFLUX_IVAR_i
-      - MODELFLUX_z
-      - MODELFLUX_IVAR_z
+      - OBJC_FLAGS
+      - OBJC_FLAGS2
+      - RESOLVE_STATUS
+      - NDETECT
+      - EXTINCTION_r
+    bands:
+      u_psf: {"filter": "SDSS u", "value": "PSFFLUX_u", "uncertainty": "PSFFLUX_IVAR_u", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "PSF", "flags": ["FLAGS_u"]}
+      u_model: {"filter": "SDSS u", "value": "MODELFLUX_u", "uncertainty": "MODELFLUX_IVAR_u", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "MODEL", "flags": ["FLAGS_u"]}
+      g_psf: {"filter": "SDSS g", "value": "PSFFLUX_g", "uncertainty": "PSFFLUX_IVAR_g", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "PSF", "flags": ["FLAGS_g"]}
+      g_model: {"filter": "SDSS g", "value": "MODELFLUX_g", "uncertainty": "MODELFLUX_IVAR_g", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "MODEL", "flags": ["FLAGS_g"]}
+      r_psf: {"filter": "SDSS r", "value": "PSFFLUX_r", "uncertainty": "PSFFLUX_IVAR_r", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "PSF", "flags": ["FLAGS_r"]}
+      r_model: {"filter": "SDSS r", "value": "MODELFLUX_r", "uncertainty": "MODELFLUX_IVAR_r", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "MODEL", "flags": ["FLAGS_r"]}
+      i_psf: {"filter": "SDSS i", "value": "PSFFLUX_i", "uncertainty": "PSFFLUX_IVAR_i", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "PSF", "flags": ["FLAGS_i"]}
+      i_model: {"filter": "SDSS i", "value": "MODELFLUX_i", "uncertainty": "MODELFLUX_IVAR_i", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "MODEL", "flags": ["FLAGS_i"]}
+      z_psf: {"filter": "SDSS z", "value": "PSFFLUX_z", "uncertainty": "PSFFLUX_IVAR_z", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "PSF", "flags": ["FLAGS_z"]}
+      z_model: {"filter": "SDSS z", "value": "MODELFLUX_z", "uncertainty": "MODELFLUX_IVAR_z", "uncertainty_kind": "inverse_variance", "unit": "nanomaggy", "method": "MODEL", "flags": ["FLAGS_z"]}
+
   - tag: atlas
     release: atlas_dr5
     path: atlas/dr5
     id: id
+    pilot_radius_arcsec: 1.0
     columns:
-      - UAPERMAG3
-      - UAPERMAG3ERR
-      - UERRBITS
-      - GAPERMAG3
-      - GAPERMAG3ERR
-      - GERRBITS
-      - RAPERMAG3
-      - RAPERMAG3ERR
-      - RERRBITS
-      - IAPERMAG3
-      - IAPERMAG3ERR
-      - IERRBITS
-      - ZAPERMAG3
-      - ZAPERMAG3ERR
-      - ZERRBITS
+      - UMJD
+      - GMJD
+      - RMJD
+      - IMJD
+      - ZMJD
+    bands:
+      U: {"filter": "VST ATLAS U", "value": "UAPERMAG3", "uncertainty": "UAPERMAG3ERR", "uncertainty_kind": "sigma", "unit": "mag", "method": "AperMag3", "flags": ["UERRBITS", "UPPERRBITS"]}
+      G: {"filter": "VST ATLAS G", "value": "GAPERMAG3", "uncertainty": "GAPERMAG3ERR", "uncertainty_kind": "sigma", "unit": "mag", "method": "AperMag3", "flags": ["GERRBITS", "GPPERRBITS"]}
+      R: {"filter": "VST ATLAS R", "value": "RAPERMAG3", "uncertainty": "RAPERMAG3ERR", "uncertainty_kind": "sigma", "unit": "mag", "method": "AperMag3", "flags": ["RERRBITS", "RPPERRBITS"]}
+      I: {"filter": "VST ATLAS I", "value": "IAPERMAG3", "uncertainty": "IAPERMAG3ERR", "uncertainty_kind": "sigma", "unit": "mag", "method": "AperMag3", "flags": ["IERRBITS", "IPPERRBITS"]}
+      Z: {"filter": "VST ATLAS Z", "value": "ZAPERMAG3", "uncertainty": "ZAPERMAG3ERR", "uncertainty_kind": "sigma", "unit": "mag", "method": "AperMag3", "flags": ["ZERRBITS", "ZPPERRBITS"]}
+
   - tag: kids
     release: kids_dr5
     path: kids/dr5
     id: id
+    pilot_radius_arcsec: 0.85
     columns:
-      - MAG_GAAP_u
-      - MAGERR_GAAP_u
-      - FLAG_GAAP_u
-      - MAG_GAAP_g
-      - MAGERR_GAAP_g
-      - FLAG_GAAP_g
-      - MAG_GAAP_r
-      - MAGERR_GAAP_r
-      - FLAG_GAAP_r
-      - MAG_GAAP_i1
-      - MAGERR_GAAP_i1
-      - FLAG_GAAP_i1
-      - MAG_GAAP_i2
-      - MAGERR_GAAP_i2
-      - FLAG_GAAP_i2
-      - MAG_GAAP_Z
-      - MAGERR_GAAP_Z
-      - FLAG_GAAP_Z
-      - MAG_GAAP_Y
-      - MAGERR_GAAP_Y
-      - FLAG_GAAP_Y
-      - MAG_GAAP_J
-      - MAGERR_GAAP_J
-      - FLAG_GAAP_J
-      - MAG_GAAP_H
-      - MAGERR_GAAP_H
-      - FLAG_GAAP_H
-      - MAG_GAAP_Ks
-      - MAGERR_GAAP_Ks
-      - FLAG_GAAP_Ks
+      - Agaper
+      - Bgaper
+      - CLASS_STAR
+    bands:
+      u: {"filter": "KiDS DR5 GAaP u", "value": "MAG_GAAP_u", "uncertainty": "MAGERR_GAAP_u", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_u", "ast_flag"]}
+      g: {"filter": "KiDS DR5 GAaP g", "value": "MAG_GAAP_g", "uncertainty": "MAGERR_GAAP_g", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_g", "ast_flag"]}
+      r: {"filter": "KiDS DR5 GAaP r", "value": "MAG_GAAP_r", "uncertainty": "MAGERR_GAAP_r", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_r", "ast_flag"]}
+      i1: {"filter": "KiDS DR5 GAaP i1", "value": "MAG_GAAP_i1", "uncertainty": "MAGERR_GAAP_i1", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_i1", "ast_flag"]}
+      i2: {"filter": "KiDS DR5 GAaP i2", "value": "MAG_GAAP_i2", "uncertainty": "MAGERR_GAAP_i2", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_i2", "ast_flag"]}
+      Z: {"filter": "KiDS DR5 GAaP Z", "value": "MAG_GAAP_Z", "uncertainty": "MAGERR_GAAP_Z", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_Z", "ast_flag"]}
+      Y: {"filter": "KiDS DR5 GAaP Y", "value": "MAG_GAAP_Y", "uncertainty": "MAGERR_GAAP_Y", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_Y", "ast_flag"]}
+      J: {"filter": "KiDS DR5 GAaP J", "value": "MAG_GAAP_J", "uncertainty": "MAGERR_GAAP_J", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_J", "ast_flag"]}
+      H: {"filter": "KiDS DR5 GAaP H", "value": "MAG_GAAP_H", "uncertainty": "MAGERR_GAAP_H", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_H", "ast_flag"]}
+      Ks: {"filter": "KiDS DR5 GAaP Ks", "value": "MAG_GAAP_Ks", "uncertainty": "MAGERR_GAAP_Ks", "uncertainty_kind": "sigma", "unit": "mag", "method": "GAaP optimal", "flags": ["FLAG_GAAP_Ks", "ast_flag"]}
+
   - tag: clauds
     release: clauds
     path: clauds
     id: object_id
+    pilot_radius_arcsec: 0.85
     columns:
       - u
       - u_err
@@ -265,86 +247,206 @@ surveys:
       - H_err
       - Ks
       - Ks_err
+
   - tag: splus
     release: splus_dr4
     path: splus/dr4
     id: id
+    pilot_radius_arcsec: 1.1
     columns:
-      - u_auto
-      - e_u_auto
-      - g_auto
-      - e_g_auto
-      - r_auto
-      - e_r_auto
-      - i_auto
-      - e_i_auto
-      - z_auto
-      - e_z_auto
-      - j0378_auto
-      - e_j0378_auto
-      - j0395_auto
-      - e_j0395_auto
-      - j0410_auto
-      - e_j0410_auto
-      - j0430_auto
-      - e_j0430_auto
-      - j0515_auto
-      - e_j0515_auto
-      - j0660_auto
-      - e_j0660_auto
-      - j0861_auto
-      - e_j0861_auto
+      - class_star
+      - field
+    bands:
+      u: {"filter": "S-PLUS u", "value": "u_auto", "uncertainty": "e_u_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      g: {"filter": "S-PLUS g", "value": "g_auto", "uncertainty": "e_g_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      r: {"filter": "S-PLUS r", "value": "r_auto", "uncertainty": "e_r_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      i: {"filter": "S-PLUS i", "value": "i_auto", "uncertainty": "e_i_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      z: {"filter": "S-PLUS z", "value": "z_auto", "uncertainty": "e_z_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      j0378: {"filter": "S-PLUS j0378", "value": "j0378_auto", "uncertainty": "e_j0378_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      j0395: {"filter": "S-PLUS j0395", "value": "j0395_auto", "uncertainty": "e_j0395_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      j0410: {"filter": "S-PLUS j0410", "value": "j0410_auto", "uncertainty": "e_j0410_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      j0430: {"filter": "S-PLUS j0430", "value": "j0430_auto", "uncertainty": "e_j0430_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      j0515: {"filter": "S-PLUS j0515", "value": "j0515_auto", "uncertainty": "e_j0515_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      j0660: {"filter": "S-PLUS j0660", "value": "j0660_auto", "uncertainty": "e_j0660_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+      j0861: {"filter": "S-PLUS j0861", "value": "j0861_auto", "uncertainty": "e_j0861_auto", "uncertainty_kind": "sigma", "unit": "ABmag", "method": "dual AUTO"}
+
   - tag: lsst
     release: lsst_dp1_object
     path: lsst/dp1/object_collection/object_lc
     id: objectId
+    pilot_radius_arcsec: 0.7
     columns:
-      - u_psfFlux
-      - u_psfFluxErr
-      - u_psfFlux_flag
-      - g_psfFlux
-      - g_psfFluxErr
-      - g_psfFlux_flag
-      - r_psfFlux
-      - r_psfFluxErr
-      - r_psfFlux_flag
-      - i_psfFlux
-      - i_psfFluxErr
-      - i_psfFlux_flag
-      - z_psfFlux
-      - z_psfFluxErr
-      - z_psfFlux_flag
-      - y_psfFlux
-      - y_psfFluxErr
-      - y_psfFlux_flag
-      - u_cModelFlux
-      - u_cModelFluxErr
-      - g_cModelFlux
-      - g_cModelFluxErr
-      - r_cModelFlux
-      - r_cModelFluxErr
-      - i_cModelFlux
-      - i_cModelFluxErr
-      - z_cModelFlux
-      - z_cModelFluxErr
-      - y_cModelFlux
-      - y_cModelFluxErr
+      - coord_raErr
+      - coord_decErr
+      - deblend_skipped
+    bands:
+      u_psf: {"filter": "Rubin DP1 u", "value": "u_psfFlux", "uncertainty": "u_psfFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "psf", "flags": ["u_psfFlux_flag"]}
+      u_cmodel: {"filter": "Rubin DP1 u", "value": "u_cModelFlux", "uncertainty": "u_cModelFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "cModel"}
+      g_psf: {"filter": "Rubin DP1 g", "value": "g_psfFlux", "uncertainty": "g_psfFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "psf", "flags": ["g_psfFlux_flag"]}
+      g_cmodel: {"filter": "Rubin DP1 g", "value": "g_cModelFlux", "uncertainty": "g_cModelFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "cModel"}
+      r_psf: {"filter": "Rubin DP1 r", "value": "r_psfFlux", "uncertainty": "r_psfFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "psf", "flags": ["r_psfFlux_flag"]}
+      r_cmodel: {"filter": "Rubin DP1 r", "value": "r_cModelFlux", "uncertainty": "r_cModelFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "cModel"}
+      i_psf: {"filter": "Rubin DP1 i", "value": "i_psfFlux", "uncertainty": "i_psfFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "psf", "flags": ["i_psfFlux_flag"]}
+      i_cmodel: {"filter": "Rubin DP1 i", "value": "i_cModelFlux", "uncertainty": "i_cModelFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "cModel"}
+      z_psf: {"filter": "Rubin DP1 z", "value": "z_psfFlux", "uncertainty": "z_psfFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "psf", "flags": ["z_psfFlux_flag"]}
+      z_cmodel: {"filter": "Rubin DP1 z", "value": "z_cModelFlux", "uncertainty": "z_cModelFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "cModel"}
+      y_psf: {"filter": "Rubin DP1 y", "value": "y_psfFlux", "uncertainty": "y_psfFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "psf", "flags": ["y_psfFlux_flag"]}
+      y_cmodel: {"filter": "Rubin DP1 y", "value": "y_cModelFlux", "uncertainty": "y_cModelFluxErr", "uncertainty_kind": "sigma", "unit": "nJy", "method": "cModel"}
+
+  - tag: tmass
+    release: twomass_psc
+    path: 2mass/psc
+    id: designation
+    pilot_radius_arcsec: 1.5
+    position_epoch: {column: jdate, format: jd}
+    columns:
+      - jdate
+      - err_maj
+      - err_min
+      - err_ang
+      - prox
+      - dup_src
+      - use_src
+    bands:
+      j: {"filter": "2MASS/2MASS.J", "value": "j_m", "uncertainty": "j_msigcom", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "PSC", "flags": ["ph_qual", "rd_flg", "bl_flg", "cc_flg"], "zeropoint_jy": 1594, "calibration_id": "2MASS PSC Cohen et al.", "status_column": "rd_flg", "status_char_index": 0, "status_values": {"0": "upper_limit", "1": "measured", "2": "measured", "3": "measured", "4": "measured", "6": "upper_limit", "9": "missing"}, "limit_confidence": 0.95, "limit_convention": "2MASS PSC read flag"}
+      h: {"filter": "2MASS/2MASS.H", "value": "h_m", "uncertainty": "h_msigcom", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "PSC", "flags": ["ph_qual", "rd_flg", "bl_flg", "cc_flg"], "zeropoint_jy": 1024, "calibration_id": "2MASS PSC Cohen et al.", "status_column": "rd_flg", "status_char_index": 1, "status_values": {"0": "upper_limit", "1": "measured", "2": "measured", "3": "measured", "4": "measured", "6": "upper_limit", "9": "missing"}, "limit_confidence": 0.95, "limit_convention": "2MASS PSC read flag"}
+      k: {"filter": "2MASS/2MASS.Ks", "value": "k_m", "uncertainty": "k_msigcom", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "PSC", "flags": ["ph_qual", "rd_flg", "bl_flg", "cc_flg"], "zeropoint_jy": 666.7, "calibration_id": "2MASS PSC Cohen et al.", "status_column": "rd_flg", "status_char_index": 2, "status_values": {"0": "upper_limit", "1": "measured", "2": "measured", "3": "measured", "4": "measured", "6": "upper_limit", "9": "missing"}, "limit_confidence": 0.95, "limit_convention": "2MASS PSC read flag"}
+
+  - tag: uhs
+    release: uhs_dr3
+    path: uhs/dr3
+    id: sourceid
+    pilot_radius_arcsec: 1.1
+    bands:
+      j: {"filter": "UHS/WFCAM j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      h: {"filter": "UHS/WFCAM h", "value": "hapermag3", "uncertainty": "hapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      k: {"filter": "UHS/WFCAM k", "value": "kapermag3", "uncertainty": "kapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: vhs
+    release: vhs_dr7
+    path: vhs/dr7
+    id: sourceid
+    pilot_radius_arcsec: 1.1
+    bands:
+      j: {"filter": "VHS/VIRCAM j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      h: {"filter": "VHS/VIRCAM h", "value": "hapermag3", "uncertainty": "hapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      ks: {"filter": "VHS/VIRCAM ks", "value": "ksapermag3", "uncertainty": "ksapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: viking
+    release: viking_dr5
+    path: viking/dr5
+    id: sourceid
+    pilot_radius_arcsec: 1.0
+    bands:
+      z: {"filter": "VIKING/VIRCAM z", "value": "zapermag3", "uncertainty": "zapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      y: {"filter": "VIKING/VIRCAM y", "value": "yapermag3", "uncertainty": "yapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      j: {"filter": "VIKING/VIRCAM j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      h: {"filter": "VIKING/VIRCAM h", "value": "hapermag3", "uncertainty": "hapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      ks: {"filter": "VIKING/VIRCAM ks", "value": "ksapermag3", "uncertainty": "ksapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: video
+    release: video_dr6
+    path: video/dr6
+    id: sourceid
+    pilot_radius_arcsec: 1.0
+    bands:
+      z: {"filter": "VIDEO/VIRCAM z", "value": "zapermag3", "uncertainty": "zapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      y: {"filter": "VIDEO/VIRCAM y", "value": "yapermag3", "uncertainty": "yapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      j: {"filter": "VIDEO/VIRCAM j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      h: {"filter": "VIDEO/VIRCAM h", "value": "hapermag3", "uncertainty": "hapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      ks: {"filter": "VIDEO/VIRCAM ks", "value": "ksapermag3", "uncertainty": "ksapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: vmc
+    release: vmc_dr7
+    path: vmc/dr7
+    id: sourceid
+    pilot_radius_arcsec: 1.0
+    bands:
+      y: {"filter": "VMC/VIRCAM y", "value": "yapermag3", "uncertainty": "yapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      j: {"filter": "VMC/VIRCAM j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      ks: {"filter": "VMC/VIRCAM ks", "value": "ksapermag3", "uncertainty": "ksapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: vvvx
+    release: vvvx_dr1
+    path: vvvx/dr1
+    id: sourceid
+    pilot_radius_arcsec: 1.0
+    bands:
+      j: {"filter": "VVVX/VIRCAM j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      h: {"filter": "VVVX/VIRCAM h", "value": "hapermag3", "uncertainty": "hapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      ks: {"filter": "VVVX/VIRCAM ks", "value": "ksapermag3", "uncertainty": "ksapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: ulas
+    release: ukidss_las_dr11
+    path: ukidss/dr11_las
+    id: sourceid
+    pilot_radius_arcsec: 1.1
+    bands:
+      y: {"filter": "UKIDSS/LAS y", "value": "yapermag3", "uncertainty": "yapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      j: {"filter": "UKIDSS/LAS j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      h: {"filter": "UKIDSS/LAS h", "value": "hapermag3", "uncertainty": "hapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      k: {"filter": "UKIDSS/LAS k", "value": "kapermag3", "uncertainty": "kapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: ugcs
+    release: ukidss_gcs_dr11
+    path: ukidss/dr11_gcs
+    id: sourceid
+    pilot_radius_arcsec: 1.1
+    bands:
+      z: {"filter": "UKIDSS/GCS z", "value": "zapermag3", "uncertainty": "zapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      y: {"filter": "UKIDSS/GCS y", "value": "yapermag3", "uncertainty": "yapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      j: {"filter": "UKIDSS/GCS j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      h: {"filter": "UKIDSS/GCS h", "value": "hapermag3", "uncertainty": "hapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      k: {"filter": "UKIDSS/GCS k", "value": "kapermag3", "uncertainty": "kapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: udxs
+    release: ukidss_dxs_dr11
+    path: ukidss/dr11_dxs
+    id: sourceid
+    pilot_radius_arcsec: 1.1
+    bands:
+      j: {"filter": "UKIDSS/DXS j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      k: {"filter": "UKIDSS/DXS k", "value": "kapermag3", "uncertainty": "kapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+  - tag: uuds
+    release: ukidss_uds_dr11
+    path: ukidss/dr11_uds
+    id: sourceid
+    pilot_radius_arcsec: 1.1
+    bands:
+      j: {"filter": "UKIDSS/UDS j", "value": "japermag3", "uncertainty": "japermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      h: {"filter": "UKIDSS/UDS h", "value": "hapermag3", "uncertainty": "hapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+      k: {"filter": "UKIDSS/UDS k", "value": "kapermag3", "uncertainty": "kapermag3err", "uncertainty_kind": "sigma", "unit": "Vegamag", "method": "AperMag3", "flags": ["mergedclass", "priorsec"]}
+
+link_catalogues:
   - tag: catwise
     release: catwise_2020
     path: catwise/2020
     id: source_name
+    candidate_radius_arcsec: 4.0
     epoch_jyear: 2015.4
     columns:
       - w1mpro
       - w1sigmpro
       - w2mpro
       - w2sigmpro
-      - cc_flags
-      - ab_flags
+      - sigra
+      - sigdec
+      - sigradec
+      - MeanObsMJD
+      - w1snr
+      - w1rchi2
+      - w2snr
+      - w2rchi2
+    bands:
+      w1: {"filter": "WISE W1", "value": "w1flux", "uncertainty": "w1sigflux", "uncertainty_kind": "sigma", "unit": "DN", "method": "profile fit", "flags": ["cc_flags", "ab_flags", "nb", "na"]}
+      w2: {"filter": "WISE W2", "value": "w2flux", "uncertainty": "w2sigflux", "uncertainty_kind": "sigma", "unit": "DN", "method": "profile fit", "flags": ["cc_flags", "ab_flags", "nb", "na"]}
+
   - tag: allwise
     release: allwise
     path: allwise/catalog
     id: source_id
+    candidate_radius_arcsec: 5.0
     columns:
       - w1mpro
       - w1sigmpro
@@ -354,174 +456,35 @@ surveys:
       - w3sigmpro
       - w4mpro
       - w4sigmpro
-      - cc_flags
-      - ph_qual
-      - ext_flg
-  - tag: tmass
-    release: twomass_psc
-    path: 2mass/psc
-    id: designation
-    columns:
-      - j_m
-      - j_msigcom
-      - h_m
-      - h_msigcom
-      - k_m
-      - k_msigcom
-      - ph_qual
-      - rd_flg
-  - tag: uhs
-    release: uhs_dr3
-    path: uhs/dr3
-    id: sourceid
-    columns:
-      - japermag3
-      - japermag3err
-      - hapermag3
-      - hapermag3err
-      - kapermag3
-      - kapermag3err
-      - mergedclass
-      - priorsec
-  - tag: vhs
-    release: vhs_dr7
-    path: vhs/dr7
-    id: sourceid
-    columns:
-      - japermag3
-      - japermag3err
-      - hapermag3
-      - hapermag3err
-      - ksapermag3
-      - ksapermag3err
-      - mergedclass
-      - priorsec
-  - tag: viking
-    release: viking_dr5
-    path: viking/dr5
-    id: sourceid
-    columns:
-      - zapermag3
-      - zapermag3err
-      - yapermag3
-      - yapermag3err
-      - japermag3
-      - japermag3err
-      - hapermag3
-      - hapermag3err
-      - ksapermag3
-      - ksapermag3err
-      - mergedclass
-      - priorsec
-  - tag: video
-    release: video_dr6
-    path: video/dr6
-    id: sourceid
-    columns:
-      - zapermag3
-      - zapermag3err
-      - yapermag3
-      - yapermag3err
-      - japermag3
-      - japermag3err
-      - hapermag3
-      - hapermag3err
-      - ksapermag3
-      - ksapermag3err
-      - mergedclass
-      - priorsec
-  - tag: vmc
-    release: vmc_dr7
-    path: vmc/dr7
-    id: sourceid
-    columns:
-      - yapermag3
-      - yapermag3err
-      - japermag3
-      - japermag3err
-      - ksapermag3
-      - ksapermag3err
-      - mergedclass
-      - priorsec
-  - tag: vvvx
-    release: vvvx_dr1
-    path: vvvx/dr1
-    id: sourceid
-    columns:
-      - japermag3
-      - japermag3err
-      - hapermag3
-      - hapermag3err
-      - ksapermag3
-      - ksapermag3err
-      - mergedclass
-      - priorsec
-  - tag: ulas
-    release: ukidss_las_dr11
-    path: ukidss/dr11_las
-    id: sourceid
-    columns:
-      - yapermag3
-      - yapermag3err
-      - japermag3
-      - japermag3err
-      - hapermag3
-      - hapermag3err
-      - kapermag3
-      - kapermag3err
-      - mergedclass
-      - priorsec
-  - tag: ugcs
-    release: ukidss_gcs_dr11
-    path: ukidss/dr11_gcs
-    id: sourceid
-    columns:
-      - zapermag3
-      - zapermag3err
-      - yapermag3
-      - yapermag3err
-      - japermag3
-      - japermag3err
-      - hapermag3
-      - hapermag3err
-      - kapermag3
-      - kapermag3err
-      - mergedclass
-      - priorsec
-  - tag: udxs
-    release: ukidss_dxs_dr11
-    path: ukidss/dr11_dxs
-    id: sourceid
-    columns:
-      - japermag3
-      - japermag3err
-      - kapermag3
-      - kapermag3err
-      - mergedclass
-      - priorsec
-  - tag: uuds
-    release: ukidss_uds_dr11
-    path: ukidss/dr11_uds
-    id: sourceid
-    columns:
-      - japermag3
-      - japermag3err
-      - hapermag3
-      - hapermag3err
-      - kapermag3
-      - kapermag3err
-      - mergedclass
-      - priorsec
+      - sigra
+      - sigdec
+      - sigradec
+      - w1snr
+      - w1rchi2
+      - w2snr
+      - w2rchi2
+      - w3snr
+      - w3rchi2
+      - w4snr
+      - w4rchi2
+    bands:
+      w1: {"filter": "WISE W1", "value": "w1flux", "uncertainty": "w1sigflux", "uncertainty_kind": "sigma", "unit": "DN", "method": "profile fit", "flags": ["ph_qual", "cc_flags", "ext_flg", "nb", "na"]}
+      w2: {"filter": "WISE W2", "value": "w2flux", "uncertainty": "w2sigflux", "uncertainty_kind": "sigma", "unit": "DN", "method": "profile fit", "flags": ["ph_qual", "cc_flags", "ext_flg", "nb", "na"]}
+      w3: {"filter": "WISE W3", "value": "w3flux", "uncertainty": "w3sigflux", "uncertainty_kind": "sigma", "unit": "DN", "method": "profile fit", "flags": ["ph_qual", "cc_flags", "ext_flg", "nb", "na"]}
+      w4: {"filter": "WISE W4", "value": "w4flux", "uncertainty": "w4sigflux", "uncertainty_kind": "sigma", "unit": "DN", "method": "profile fit", "flags": ["ph_qual", "cc_flags", "ext_flg", "nb", "na"]}
+
   - tag: galex
     release: galex_guvcat_gr67
     path: galex/guvcat_ais_gr67
     id: objid
+    candidate_radius_arcsec: 5.0
     columns:
-      - fuv_mag
-      - fuv_magerr
-      - fuv_artifact
-      - nuv_mag
-      - nuv_magerr
-      - nuv_artifact
-      - fuv_flags
-      - nuv_flags
+      - primgid
+      - inlargeobj
+      - fuv_poserr
+      - nuv_poserr
+      - fuv_weight
+      - nuv_weight
+    bands:
+      fuv: {"filter": "GALEX FUV", "value": "fuv_flux", "uncertainty": "fuv_fluxerr", "uncertainty_kind": "sigma", "unit": "uJy", "method": "GUVcat", "flags": ["fuv_artifact", "fuv_flags"]}
+      nuv: {"filter": "GALEX NUV", "value": "nuv_flux", "uncertainty": "nuv_fluxerr", "uncertainty_kind": "sigma", "unit": "uJy", "method": "GUVcat", "flags": ["nuv_artifact", "nuv_flags"]}

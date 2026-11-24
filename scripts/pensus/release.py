@@ -17,6 +17,7 @@ from importlib.metadata import version
 from pathlib import Path
 
 import polars as pl
+import pyarrow.parquet as pq
 import yaml
 
 from xmatcher import astro_utils, community, matchers, ray_union
@@ -32,6 +33,7 @@ from .release_match import (
     INDEX,
     NATIVE_INDEX,
     Survey,
+    calibration_candidates,
     match_tile,
     output_columns,
     signature,
@@ -223,23 +225,47 @@ def _survey(spec: dict, hats_root: Path, target: float | None) -> dict:
     if not isinstance(columns, list) or any(not isinstance(c, str) or not c for c in columns):
         raise ValueError(f"{release}: columns must list concrete column names")
     bands = spec.get("bands", {})
+    if not isinstance(bands, dict):
+        raise ValueError(f"{release}: bands must map names to measurement definitions")
     for name, band in bands.items():
         if not isinstance(band, dict) or any(
             not isinstance(band.get(key), str) or not band[key]
             for key in ("value", "unit", "filter")
         ):
             raise ValueError(f"{release}/{name}: value, unit and filter are required")
-        columns = [*columns, band["value"], *band.get("flags", [])]
+        flags = band.get("flags", [])
+        if not isinstance(flags, list) or any(not isinstance(flag, str) for flag in flags):
+            raise ValueError(f"{release}/{name}: flags must list column names")
+        columns = [*columns, band["value"], *flags]
         if band.get("uncertainty"):
             columns.append(band["uncertainty"])
-        if band.get("uncertainty") and not band.get("uncertainty_kind"):
-            raise ValueError(f"{release}/{name}: uncertainty_kind is required")
+            if band.get("uncertainty_kind") not in ("sigma", "variance", "inverse_variance"):
+                raise ValueError(f"{release}/{name}: specify a supported uncertainty_kind")
     if not columns:
         raise ValueError(f"{release}: select photometry columns or declare bands")
     columns = list(dict.fromkeys([*keys, ra, dec, *columns]))
     epoch = spec.get("epoch_jyear")
     if epoch is not None:
         epoch = _number(epoch, f"{release}.epoch_jyear")
+    epoch_source = spec.get("position_epoch")
+    if epoch_source is not None:
+        if (
+            not isinstance(epoch_source, dict)
+            or not isinstance(epoch_source.get("column"), str)
+            or epoch_source.get("format") not in ("jyear", "mjd", "jd")
+            or set(epoch_source) - {"column", "format", "missing_values"}
+        ):
+            raise ValueError(f"{release}: position_epoch requires a column and jyear, mjd or jd")
+        missing_values = epoch_source.get("missing_values", [])
+        if not isinstance(missing_values, list):
+            raise ValueError(f"{release}: position_epoch missing_values must be a list")
+        epoch_source = {
+            **epoch_source,
+            "missing_values": [
+                _number(v, f"{release}.position_epoch.missing_values") for v in missing_values
+            ],
+        }
+        columns = list(dict.fromkeys([*columns, epoch_source["column"]]))
     pm = spec.get("pm", [])
     motion = _number(spec.get("motion_bound_arcsec", 0), f"{release}.motion_bound_arcsec")
     if pm:
@@ -248,7 +274,7 @@ def _survey(spec: dict, hats_root: Path, target: float | None) -> dict:
             or len(pm) != 2
             or len(set(pm)) != 2
             or target is None
-            or epoch is None
+            or (epoch is None and epoch_source is None)
             or motion <= 0
         ):
             raise ValueError(f"{release}: PM requires two columns, epochs and a positive bound")
@@ -262,9 +288,13 @@ def _survey(spec: dict, hats_root: Path, target: float | None) -> dict:
     read_columns = list(dict.fromkeys([*columns, *pm, *([INDEX] if filter_index else [])]))
     if missing := set(read_columns) - schema.keys():
         raise ValueError(f"{release}: projected columns are missing: {sorted(missing)}")
-    for column in [ra, dec, *pm]:
+    for column in [ra, dec, *pm, *([epoch_source["column"]] if epoch_source else [])]:
         if not schema[column].is_numeric():
             raise ValueError(f"{release}: {column} must be numeric")
+    for name, band in bands.items():
+        for column in (band["value"], band.get("uncertainty")):
+            if column and not schema[column].is_numeric():
+                raise ValueError(f"{release}/{name}: {column} must be a numeric scalar")
     survey = {
         "tag": tag,
         "release": release,
@@ -281,6 +311,7 @@ def _survey(spec: dict, hats_root: Path, target: float | None) -> dict:
         "read_columns": read_columns,
         "bands": bands,
         "epoch": epoch,
+        "epoch_source": epoch_source,
         "pm": pm,
         "motion_bound_arcsec": motion,
         "filter_index": filter_index,
@@ -303,6 +334,8 @@ def _survey(spec: dict, hats_root: Path, target: float | None) -> dict:
 
 def build_plan(specification: Path, hats_root: Path, *, pilot: bool = False) -> dict:
     spec = yaml.safe_load(specification.read_text())
+    if (spec.get("pilot_only") or spec.get("link_catalogues")) and not pilot:
+        raise ValueError("This manifest describes a pilot. Use --pilot.")
     order = spec["order"]
     if type(order) is not int or not 0 <= order <= 29:
         raise ValueError("order must be a HEALPix order from 0 to 29")
@@ -315,12 +348,24 @@ def build_plan(specification: Path, hats_root: Path, *, pilot: bool = False) -> 
     surveys = [_survey(s, hats_root, target) for s in spec["surveys"]]
     if not surveys:
         raise ValueError("Select at least one photometry catalogue")
+    links = []
+    for link in spec.get("link_catalogues", []):
+        candidate_radius = _number(
+            link["candidate_radius_arcsec"], "candidate_radius_arcsec", positive=True
+        )
+        if candidate_radius > 648_000:
+            raise ValueError("Match radius cannot exceed 180 degrees")
+        links.append(
+            {
+                **_survey(link, hats_root, None),
+                "candidate_radius_arcsec": candidate_radius,
+            }
+        )
     tags = [s["tag"] for s in surveys]
-    releases = [s["release"] for s in surveys]
-    roots = [s["root"] for s in surveys]
-    if any(len(set(values)) != len(surveys) for values in (tags, releases, roots)):
+    inputs = [*surveys, *links]
+    if any(len({s[field] for s in inputs}) != len(inputs) for field in ("tag", "release", "root")):
         raise ValueError("A survey tag, release or HATS tree was selected more than once")
-    selected = {Path(s["root"]).relative_to(hats_root).as_posix() for s in surveys}
+    selected = {Path(s["root"]).relative_to(hats_root).as_posix() for s in inputs}
     excluded = spec.get("exclude", {})
     if not isinstance(excluded, dict) or any(
         not isinstance(reason, str) or not reason.strip() for reason in excluded.values()
@@ -343,9 +388,19 @@ def build_plan(specification: Path, hats_root: Path, *, pilot: bool = False) -> 
     if len(output) != len(set(output)):
         raise ValueError("Survey projections produce colliding output names")
     overrides = dict(spec.get("pair_radii_arcsec", {}))
+    caps = {
+        entry["tag"]: _number(
+            entry.get("pilot_radius_arcsec", radius),
+            f"{entry['tag']}.pilot_radius_arcsec",
+            positive=True,
+        )
+        for entry in spec["surveys"]
+    }
+    if max(caps.values()) > 648_000:
+        raise ValueError("Match radius cannot exceed 180 degrees")
     radii = [
         [
-            _number(overrides.pop(f"{a}/{b}", radius), f"{a}/{b}", positive=True)
+            _number(overrides.pop(f"{a}/{b}", max(caps[a], caps[b])), f"{a}/{b}", positive=True)
             for b in tags[i + 1 :]
         ]
         for i, a in enumerate(tags)
@@ -361,7 +416,9 @@ def build_plan(specification: Path, hats_root: Path, *, pilot: bool = False) -> 
         "order": order,
         "target_epoch_jyear": target,
         "radii": radii,
+        "algorithm": "reciprocal_nearest",
         "surveys": surveys,
+        "link_catalogues": links,
         "excluded": excluded,
         "unreviewed": unreviewed,
         "inventory": candidates,
@@ -594,6 +651,7 @@ def _status(
                 **report,
                 "verified_sha256": deep,
                 "aggregate_metadata": aggregate_metadata,
+                "algorithm": plan["algorithm"],
                 "inputs": [{k: v for k, v in s.items() if k != "parts"} for s in plan["surveys"]],
                 "excluded": plan["excluded"],
                 "radii_arcsec": plan["radii"],
@@ -616,6 +674,97 @@ def _pending(root: Path, batch_size: int) -> dict:
         if any(_done(root, digest, plan, pixel) is None for pixel in range(start, stop)):
             ranges.append({"start": start, "stop": stop})
     return {"plan_sha256": digest, "ranges": ranges}
+
+
+def _calibrate(args: argparse.Namespace) -> dict:
+    plan, digest = _load(args.draft)
+    tags = {s["tag"]: s for s in (*plan["surveys"], *plan["link_catalogues"])}
+    if args.left == args.right or args.left not in tags or args.right not in tags:
+        raise ValueError("Select two distinct input tags from the plan")
+    if args.pixel not in tile_ids(plan["order"]):
+        raise ValueError(f"Tile {args.pixel} is outside order {plan['order']}")
+    radius = _number(args.radius_arcsec, "radius-arcsec", positive=True)
+    if radius > 648_000 or args.max_rows < 1:
+        raise ValueError("Use a radius up to 180 degrees and a positive max-rows guard")
+    dest = args.output.resolve()
+    if dest.is_relative_to(Path(plan["hats_root"])) or dest.exists():
+        raise ValueError("Choose a new candidate output path outside the HATS survey root")
+    memory = int(_number(args.pool_gib, "pool-gib", positive=True) * 1024**3)
+    pair = [tags[args.left], tags[args.right]]
+    extra_columns = (args.left_column, args.right_column)
+    for cat, columns in zip(pair, extra_columns, strict=True):
+        if missing := set(columns) - set(cat["read_columns"]):
+            raise ValueError(f"{cat['tag']}: columns are outside the plan: {sorted(missing)}")
+    frame = calibration_candidates(
+        pair, plan, args.pixel, radius, memory, args.max_rows, extra_columns
+    )
+    receipt = {
+        "plan_sha256": digest,
+        "left": args.left,
+        "right": args.right,
+        "order": plan["order"],
+        "pixel": args.pixel,
+        "radius_arcsec": radius,
+        "left_columns": extra_columns[0],
+        "right_columns": extra_columns[1],
+        "rows": frame.height,
+        "pairs": frame.height - frame["right_id"].null_count(),
+        "output": str(dest),
+    }
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=dest.parent, prefix=".pensus-candidates-") as tmp:
+        staged = Path(tmp) / "candidates.parquet"
+        table = frame.to_arrow().replace_schema_metadata({"pensus_calibration": _json(receipt)})
+        pq.write_table(table, staged, compression="zstd")
+        os.link(staged, dest)
+    return receipt
+
+
+def _radius_summary(path: Path, requested: list[float]) -> dict:
+    metadata = pq.read_metadata(path).metadata or {}
+    if b"pensus_calibration" not in metadata:
+        raise ValueError("Input is missing the PENSUS candidate receipt")
+    receipt = json.loads(metadata[b"pensus_calibration"])
+    radii = sorted({_number(r, "radius-arcsec", positive=True) for r in requested})
+    if not radii or radii[-1] > receipt["radius_arcsec"]:
+        raise ValueError("Summary radii must be within the exported candidate radius")
+    counts = [
+        (pl.col("sep_arcsec") <= radius).fill_null(False).sum().alias(f"r{i}")
+        for i, radius in enumerate(radii)
+    ]
+    totals = [pl.len().alias("primaries")]
+    for i in range(len(radii)):
+        count = pl.col(f"r{i}")
+        totals.extend(
+            (
+                expr.alias(f"{name}_{i}")
+                for name, expr in (
+                    ("pairs", count.sum()),
+                    ("unmatched", (count == 0).sum()),
+                    ("single", (count == 1).sum()),
+                    ("multiple", (count > 1).sum()),
+                )
+            )
+        )
+    data = (
+        pl.scan_parquet(path)
+        .group_by("left_id")
+        .agg(counts)
+        .select(totals)
+        .collect(engine="streaming")
+        .row(0, named=True)
+    )
+    return {
+        "input": receipt,
+        "primaries": data["primaries"],
+        "radius_summary": [
+            {
+                "radius_arcsec": radius,
+                **{k: data[f"{k}_{i}"] for k in ("pairs", "unmatched", "single", "multiple")},
+            }
+            for i, radius in enumerate(radii)
+        ],
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -643,6 +792,21 @@ def main(argv: list[str] | None = None) -> int:
     status = commands.add_parser("status", help="Check tile completion and survey row conservation")
     pending = commands.add_parser("pending", help="List tile ranges to submit or resume")
     pending.add_argument("--tiles-per-job", type=int, default=64)
+    calibrate = commands.add_parser(
+        "candidates", help="Write all positional candidates for a pilot tile and pair"
+    )
+    calibrate.add_argument("--left", required=True)
+    calibrate.add_argument("--right", required=True)
+    calibrate.add_argument("--pixel", type=int, required=True)
+    calibrate.add_argument("--radius-arcsec", type=float, required=True)
+    calibrate.add_argument("--output", type=Path, required=True)
+    calibrate.add_argument("--pool-gib", type=float, default=4)
+    calibrate.add_argument("--max-rows", type=int, default=1_000_000)
+    calibrate.add_argument("--left-column", action="append", default=[])
+    calibrate.add_argument("--right-column", action="append", default=[])
+    summary = commands.add_parser("radius-summary", help="Compare candidate occupancy across radii")
+    summary.add_argument("--candidates", type=Path, required=True)
+    summary.add_argument("--radius-arcsec", type=float, action="append", required=True)
     finalize = commands.add_parser("finalize", help="Seal a complete draft as a HATS catalogue")
     finalize.add_argument("--deep", action="store_true", help="Verify every output SHA-256")
     finalize.add_argument(
@@ -650,7 +814,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Also write the combined Parquet row-group footers for smaller releases",
     )
-    for command in (plan, run, status, pending, finalize):
+    for command in (plan, run, status, pending, calibrate, finalize):
         command.add_argument(
             "--draft", type=Path, required=True, help=f"Draft under {work_root}/drafts/views"
         )
@@ -671,6 +835,7 @@ def main(argv: list[str] | None = None) -> int:
                 "sha256": result["sha256"],
                 "draft": str(draft),
                 "surveys": len(data["surveys"]),
+                "link_catalogues": len(data["link_catalogues"]),
             }
         elif args.command == "run":
             with (args.draft / PLAN).open("rb") as lock:
@@ -687,6 +852,10 @@ def main(argv: list[str] | None = None) -> int:
                 )
         elif args.command == "pending":
             result = _pending(args.draft, args.tiles_per_job)
+        elif args.command == "candidates":
+            result = _calibrate(args)
+        elif args.command == "radius-summary":
+            result = _radius_summary(args.candidates, args.radius_arcsec)
         else:
             result = _status(args.draft, False)
     except (

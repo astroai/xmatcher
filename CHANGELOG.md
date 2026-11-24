@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- PENSUS now has a resumable CANFAR workflow for source-preserving photometry
+  unions, with explicit catalogue roles, per-row position epochs, a pilot
+  candidate export, and radius summaries. The headless verifier runs the
+  code checks independently of the mounted survey data.
+- Observation mappings now support nJy, calibrated linear native units,
+  variance and inverse variance, numeric missing sentinels, and per-band
+  characters in native status flags.
+
 - `ray-anchor`: `--anchor-partitions ORDER/PIX,…` (`anchor_partitions=`)
   restricts a run to a subset of anchor partitions (pilots); the output
   `properties` name the subset (`xmatcher_anchor_partitions`). Each task

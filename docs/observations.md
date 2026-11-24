@@ -113,11 +113,13 @@ Each mapping requires `passband`, `value_column`, and `unit`. Optional fields ar
 
 | Fields | Meaning |
 |---|---|
-| `error_column` | Native symmetric measurement uncertainty |
+| `error_column`, `error_kind` | Native uncertainty and its representation. Supported kinds are `sigma` (default), `variance` and `inverse_variance`. |
 | `method`, `calibration_id` | Upstream PSF/aperture/model convention and calibration reference |
 | `passband_version`, `passband_uri` | Supplied filter-curve version and reference; no curve is downloaded |
 | `zeropoint_jy` | Positive Vega zero-point flux density for this passband/convention |
-| `status_column`, `status_values` | Explicit native-code to canonical-status mapping |
+| `flux_scale_jy` | Positive Jy per native linear unit, requiring `calibration_id` |
+| `status_column`, `status_values`, `status_char_index` | Explicit status mapping, with an optional zero-based index for a per-band character in the native code |
+| `missing_values` | Explicit numeric missing-data sentinels |
 | `quality_column` | Native quality code, retained without interpreting it |
 | `observation_time_column` or `observation_time` | Native observation time, requiring `time_format` and `time_scale` |
 | `limit_sigma`, `limit_confidence`, `limit_convention` | Supplied limit semantics (`limit_sigma > 0`, `0 < limit_confidence < 1`); sigma and probability are never inferred from one another |
@@ -126,11 +128,12 @@ Each mapping requires `passband`, `value_column`, and `unit`. Optional fields ar
 `measurement_id` is `xmatch.photometry.v1:` plus the SHA-256 of its `source_id`
 and the mapping; identical mappings in one source are rejected.
 
-Supported flux-density units are `Jy`, `mJy`, `uJy`, and `nanomaggy`; one
+Supported flux-density units include `Jy`, `mJy`, `uJy`, `nJy` and `nanomaggy`. One
 nanomaggy is represented as 3.631 microJy. `ABmag` uses the 3631 Jy zero-point
 convention. `Vegamag` converts only when `zeropoint_jy` is supplied. Other native
-units, including integrated energy-band fluxes and instrument counts, remain
-native-only. The complete raw values and dtype remain in the source inventory.
+units remain native-only unless a documented linear `flux_scale_jy` is
+supplied. Integrated energy flux requires its own spectral model. The
+complete raw values and dtypes remain in the source inventory.
 
 Negative measured fluxes survive. Magnitude uncertainties produce separate
 `flux_error_lower_jy` and `flux_error_upper_jy`, representing the transformed
@@ -139,6 +142,9 @@ intervals are not a fitted noise distribution. Invalid native uncertainties
 (`invalid_uncertainty`), unconverted units (`native_only`) and nonfinite
 conversions (`conversion_nonfinite`) are flagged in `flags`, and invalid
 normalized values remain null.
+The ledger's `native_error` stores the standard deviation in native units.
+Variance and positive inverse variance are transformed before applying the
+flux conversion. Zero inverse variance gives a null error.
 Magnitude interval endpoints are converted directly with the zero point in
 logarithmic form to avoid intermediate overflow. A finite native uncertainty
 whose converted bound is unrepresentable is flagged

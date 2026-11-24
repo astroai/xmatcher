@@ -85,6 +85,56 @@ def test_magnitudes_have_asymmetric_flux_errors_and_vega_requires_zeropoint():
     assert normalize_photometry(source).collect()["flux_jy"][0] == pytest.approx(1e-5)
 
 
+def test_linear_calibration_and_inverse_variance_keep_signed_flux_and_sentinels():
+    from xmatcher.observations import normalize_photometry
+
+    source = _source(
+        {"id": [1, 2, 3], "f": [-2.0, 2.0, -999.0], "ivar": [4.0, 0.0, 1.0]},
+        photometry=[
+            {
+                "passband": "band",
+                "value_column": "f",
+                "error_column": "ivar",
+                "error_kind": "inverse_variance",
+                "unit": "DN",
+                "flux_scale_jy": 1e-6,
+                "calibration_id": "test scale",
+                "missing_values": [-999],
+            }
+        ],
+    )
+    table = normalize_photometry(source).collect()
+    assert table["flux_jy"].to_list() == [-2e-6, 2e-6, None]
+    assert table["flux_error_jy"].to_list() == [5e-7, None, None]
+    assert table["status"].to_list() == ["measured", "measured", "missing"]
+    assert table["native_error"].to_list() == [0.5, None, 1.0]
+    assert "invalid_uncertainty" in table["flags"][1]
+
+
+def test_band_specific_read_flag_keeps_two_mass_limit_out_of_measurements():
+    from xmatcher.observations import normalize_photometry
+
+    source = _source(
+        {"id": [1, 2, 3], "m": [14.0, 12.0, None], "read": ["206", "222", "292"]},
+        photometry=[
+            {
+                "passband": "2MASS H",
+                "value_column": "m",
+                "unit": "Vegamag",
+                "zeropoint_jy": 1024,
+                "status_column": "read",
+                "status_char_index": 1,
+                "status_values": {"0": "upper_limit", "2": "measured", "9": "missing"},
+                "limit_confidence": 0.95,
+            }
+        ],
+    )
+    rows = normalize_photometry(source).collect().to_dicts()
+    assert [r["status"] for r in rows] == ["upper_limit", "measured", "missing"]
+    assert rows[0]["flux_jy"] is None
+    assert rows[0]["upper_limit_jy"] == pytest.approx(1024 * 10 ** (-0.4 * 14))
+
+
 def test_photometry_keeps_missing_upper_limit_and_observation_epoch_distinct():
     from xmatcher.observations import normalize_photometry
 

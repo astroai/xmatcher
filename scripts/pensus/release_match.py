@@ -203,10 +203,20 @@ def read_pool(
         raise ValueError(f"Null, empty or duplicate native ID in {cat['release']} tile pool")
     xyz = _radec_to_xyz(ra, dec)
     epoch = np.full(len(ra), np.nan if cat["epoch"] is None else cat["epoch"])
+    if source := cat["epoch_source"]:
+        raw_epoch = frame[source["column"]].cast(pl.Float64).to_numpy()
+        measured = np.isfinite(raw_epoch) & ~np.isin(raw_epoch, source["missing_values"])
+        values = raw_epoch[measured]
+        fmt = source["format"]
+        if fmt == "jd":
+            values = 2000.0 + (values - 2_451_545.0) / 365.25
+        elif fmt == "mjd":
+            values = 2000.0 + (values - 51_544.5) / 365.25
+        epoch[measured] = values
     index = native_index
     if cat["pm"] and len(ra):
         pm_ra, pm_dec = (frame[c].cast(pl.Float64).to_numpy() for c in cat["pm"])
-        valid = np.isfinite(pm_ra) & np.isfinite(pm_dec)
+        valid = np.isfinite(pm_ra) & np.isfinite(pm_dec) & np.isfinite(epoch)
         if valid.any():
             assert target_epoch is not None
             dec = dec.copy()
@@ -275,6 +285,72 @@ def reciprocal(
     chords = np.linalg.norm(l_xyz[left_rows] - r_xyz[right_rows], axis=1)
     keep = chords <= limit
     return left.rows[left_rows[keep]], other.rows[right_rows[keep]], _chord_to_arcsec(chords[keep])
+
+
+def calibration_candidates(
+    pair: list[dict],
+    plan: dict,
+    pixel: int,
+    radius: float,
+    memory_bytes: int,
+    max_rows: int,
+    extra_columns: tuple[list[str], list[str]],
+) -> pl.DataFrame:
+    """Read pilot columns and retain the full cone plus unmatched primaries."""
+    order = plan["order"]
+    depth = max(order, min(29, order + 4), max(p[0] for cat in pair for p in cat["parts"]))
+    pools = []
+    for i, cat in enumerate(pair):
+        columns = [*cat["id_columns"], cat["ra"], cat["dec"], *cat["pm"]]
+        if source := cat["epoch_source"]:
+            columns.append(source["column"])
+        columns.extend(extra_columns[i])
+        if cat["filter_index"]:
+            columns.append(INDEX)
+        survey = Survey({**cat, "read_columns": list(dict.fromkeys(columns))}, depth)
+        halo = cat["motion_bound_arcsec"] + (radius if i else 0.0)
+        pool = read_pool(
+            survey, coverage(order, pixel, halo, depth), plan["target_epoch_jyear"], memory_bytes
+        )
+        memory_bytes -= int(pool.frame.estimated_size() + 120 * len(pool.ids))
+        pools.append(pool)
+    left, right = pools
+    owned = np.flatnonzero(left.index >> (2 * (29 - order)) == pixel)
+    owned = owned[np.argsort(left.ids[owned], kind="stable")]
+    right_sorted = np.argsort(right.ids, kind="stable")
+    tree = cKDTree(right.xyz[right_sorted])
+    query = left.xyz[owned]
+    chord = np.nextafter(_arcsec_to_chord(radius), np.inf)
+    numbers = tree.query_ball_point(query, chord, return_length=True)
+    if np.maximum(1, numbers).sum() > max_rows:
+        raise ValueError(f"Pilot candidate tile {pixel} exceeds {max_rows} rows")
+    neighbours = tree.query_ball_point(query, chord, return_sorted=True)
+    primary = np.repeat(owned, np.maximum(1, numbers))
+    partner = np.array(
+        [int(right_sorted[j]) if j >= 0 else -1 for group in neighbours for j in (group or [-1])],
+        dtype=np.int64,
+    )
+    valid = partner >= 0
+    seps = np.full(len(primary), np.nan)
+    seps[valid] = _chord_to_arcsec(
+        np.linalg.norm(left.xyz[primary[valid]] - right.xyz[partner[valid]], axis=1)
+    )
+    select = pl.Series(partner).set(pl.Series(~valid), None)
+    return pl.DataFrame(
+        {
+            "left_id": key_text(left.frame[pair[0]["id"]]).gather(primary),
+            "right_id": key_text(right.frame[pair[1]["id"]]).gather(select),
+            "left_ra": left.ra[primary],
+            "left_dec": left.dec[primary],
+            "right_ra": pl.Series(right.ra).gather(select),
+            "right_dec": pl.Series(right.dec).gather(select),
+            "left_epoch_jyear": pl.Series(left.epoch[primary]).fill_nan(None),
+            "right_epoch_jyear": pl.Series(right.epoch).gather(select).fill_nan(None),
+            "sep_arcsec": pl.Series(seps).fill_nan(None),
+            **{f"left_native_{c}": left.frame[c].gather(primary) for c in extra_columns[0]},
+            **{f"right_native_{c}": right.frame[c].gather(select) for c in extra_columns[1]},
+        }
+    )
 
 
 def match_tile(
