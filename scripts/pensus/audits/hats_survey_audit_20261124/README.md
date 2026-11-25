@@ -70,6 +70,10 @@ and its candidate to the supplied project directory.
 
 ## Verification
 
+The [follow-up registry QA](registry-qa.md) reconciles the mounted builds
+with public releases and documents the scope of the ATLAS primary-source
+selection and the provisional PS1 check.
+
 CANFAR headless job `bmggmioe` passed lint, formatting, type checking and
 138 regressions on the committed repair code. The consolidated receipt
 verified all 253 source audit files. Job `q6b6pprm` checked the live
