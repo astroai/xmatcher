@@ -271,19 +271,20 @@ including why SDSS DR16 is the photometry source, are in
 ## Limits
 
 - The anchor must have a usable identifier column (`id_column` in the
-  catalogue entry, `--id1`, or a recognised name such as `source_id`/`Source`
+  catalogue entry, `--id-column-1`, or a recognised name such as `source_id`/`Source`
   in its HATS schema).
 - The current engine supports `matcher="sky"` and keeps the best counterpart
   per survey. Use `ray-union` for `skyerr`/`skyellipse`.
-- It always performs a left join from the anchor. `--join` accepts only
-  `1and2`, `1or2` or `all`, all of which mean that left join.
-- These options are rejected rather than silently ignored: `--find all`,
-  `--id-join`, `--probabilistic`, `--priors`, `--filter-expr`,
+- The output always keeps every row from the first catalogue. Use the
+  engine's default output selection. The accepted values `matched` and
+  `all-sources` also use this layout.
+- The engine rejects `--matches all`,
+  `--id-join`, `--probabilistic`, `--priors`, `--post-match-filter`,
   `--extra-distance-cols`, `--columns-1`/`--columns-2`,
   `--memory-budget-bytes`, `--pm-prior`, and a region
-  (`--ra`/`--dec`/`--radius-deg`).
+  (`--cone-ra-deg`/`--cone-dec-deg`/`--cone-radius-deg`).
 - The output is a local HATS directory; a `vos:` output is refused (stage it
   with `xmatcher sync` afterwards).
 - A single anchor partition whose survey candidate pool exceeds
   `--task-rows` or `--chunk-memory-gb` aborts with an actionable error; raise
-  the limits or lower `--hats-threshold`.
+  the limits or lower `--hats-split-rows` where row counts are estimated.

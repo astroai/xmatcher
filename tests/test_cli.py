@@ -6,7 +6,15 @@ import polars as pl
 import pytest
 
 import xmatcher
-from xmatcher.cli import Progress, main
+from xmatcher.cli import (
+    Progress,
+    _build_convert_subparser,
+    _build_match_subparser,
+    _build_params,
+    _build_project_hats_subparser,
+    _build_sync_subparser,
+    main,
+)
 
 
 @pytest.fixture
@@ -200,19 +208,21 @@ def test_cli_match_help_uses_grouped_sections(capsys):
         main(["match", "--help"])
     assert exc.value.code == 0
     out = capsys.readouterr().out
-    # The grouped help sections every match command advertises.
-    for section in (
-        "Output",
-        "Geometry",
-        "Match algorithm",
-        "ID join",
-        "Probabilistic",
-        "Proper motion",
-        "Advanced filters",
-        "Matcher-specific",
-        "Region",
-    ):
-        assert section in out, f"match --help missing section {section!r}"
+    synopsis, description = out.split("\n\n", 1)
+    assert synopsis == "usage: xmatcher match CATALOGUE1 CATALOGUE2 [CATALOGUE ...] [options]"
+    assert description.startswith("Cross-match two or more catalogues.")
+    sections = (
+        "Sky coordinates and match radius",
+        "Counterpart criteria",
+        "Match selection",
+        "Output catalogue",
+        "Proper motion and coordinate epoch",
+        "Remote cone search",
+        "Execution engine",
+        "Distributed HATS matching",
+    )
+    offsets = [out.index(f"\n{section}:") for section in sections]
+    assert offsets == sorted(offsets)
 
 
 def test_cli_match_help_preserves_example_lines(capsys):
@@ -222,9 +232,115 @@ def test_cli_match_help_preserves_example_lines(capsys):
     assert exc.value.code == 0
     out = capsys.readouterr().out
     assert "Examples:\n  # Two local files" in out
-    assert "\n  # Explicit radius" in out
-    assert "--side1 KEY=VALUE" in out
-    assert "ra_err_column=ra_err" in out
+    assert "\n  # Keep every target" in out
+    assert "--matches best --keep-rows all-from-1" in out
+    assert "--catalogue-option 1 ra_err_column=ra_err" in out
+
+
+@pytest.mark.parametrize(
+    ("preferred", "legacy"),
+    [
+        (["--match-radius-arcsec", "2.5"], ["--radius", "2.5"]),
+        (["--match-method", "angular-separation"], ["--matcher", "sky"]),
+        (["--match-method", "scaled-positional-errors"], ["--matcher", "skyerr"]),
+        (["--match-method", "error-ellipse"], ["--matcher", "skyellipse"]),
+        (["--match-method", "likelihood-ratio"], ["--matcher", "lr"]),
+        (["--keep-rows", "matched"], ["--join", "1and2"]),
+        (["--keep-rows", "all-sources"], ["--join", "1or2"]),
+        (["--keep-rows", "all-from-1"], ["--join", "all1"]),
+        (["--keep-rows", "all-from-2"], ["--join", "all2"]),
+        (["--keep-rows", "unmatched-1"], ["--join", "1not2"]),
+        (["--keep-rows", "unmatched-2"], ["--join", "2not1"]),
+        (["--matches", "all"], ["--find", "all"]),
+        (["--ra-column-1", "RA", "--dec-column-1", "DEC"], ["--ra1", "RA", "--dec1", "DEC"]),
+        (["--ra-column-2", "ra", "--dec-column-2", "dec"], ["--ra2", "ra", "--dec2", "dec"]),
+        (["--id-column-1", "uid", "--id-column-2", "id"], ["--id1", "uid", "--id2", "id"]),
+        (
+            ["--catalogue-option", "2", "ra_err_column=e_RA,pos_err_units=mas"],
+            ["--side2", "ra_err_column=e_RA,pos_err_units=mas"],
+        ),
+        (["--catalogue-option", "3", "epoch=2016"], ["--side", "3", "epoch=2016"]),
+        (
+            ["--cone-ra-deg", "15", "--cone-dec-deg", "-20", "--cone-radius-deg", "0.1"],
+            ["--ra", "15", "--dec", "-20", "--radius-deg", "0.1"],
+        ),
+        (["--max-normalized-offset", "2.5"], ["--max-error", "2.5"]),
+        (["--post-match-filter", "g > 12"], ["--filter-expr", "g > 12"]),
+        (["--lr-primary-magnitude-column", "G"], ["--lr-color-column", "G"]),
+        (["--lr-counterpart-fraction", "0.7"], ["--lr-q", "0.7"]),
+        (["--macauff-magnitude-columns", "r,i"], ["--macauff-flux-cols", "r,i"]),
+        (["--hats-split-rows", "40000"], ["--hats-threshold", "40000"]),
+        (["--max-combinations-per-source", "300"], ["--max-tuples", "300"]),
+        (["--min-free-gib", "5"], ["--min-free-gb", "5"]),
+    ],
+)
+def test_cli_match_aliases_build_same_request(preferred, legacy):
+    parser = _build_match_subparser()
+    inputs = ["targets.fits", "comparison.parquet", "third.parquet"]
+    assert _build_params(parser.parse_args(inputs + preferred)) == _build_params(
+        parser.parse_args(inputs + legacy)
+    )
+
+
+def test_cli_match_preserves_implicit_union_and_legacy_all():
+    parser = _build_match_subparser()
+    inputs = ["targets.fits", "comparison.parquet"]
+    defaults = _build_params(parser.parse_args([*inputs, "--union"]))
+    assert defaults["matcher"] == "sky"
+    assert "join_type" not in defaults
+    assert _build_params(parser.parse_args([*inputs, "--join", "all"]))["join_type"] == "all"
+
+
+@pytest.mark.parametrize(
+    ("builder", "arguments", "preferred", "legacy"),
+    [
+        (_build_sync_subparser, ["gaia"], "--hats-split-rows", "--hats-threshold"),
+        (_build_sync_subparser, ["gaia"], "--min-free-gib", "--min-free-gb"),
+        (
+            _build_project_hats_subparser,
+            ["gaia", "core.hats", "--columns", "source_id,ra,dec"],
+            "--hats-split-rows",
+            "--hats-threshold",
+        ),
+        (_build_convert_subparser, ["in.fits", "out.hats"], "--hats-split-rows", "--hats-max-rows"),
+    ],
+)
+def test_cli_storage_option_aliases(builder, arguments, preferred, legacy):
+    parser = builder()
+    assert parser.parse_args(arguments + [preferred, "10"]) == parser.parse_args(
+        arguments + [legacy, "10"]
+    )
+
+
+def test_cli_match_keeps_unmatched_targets(local_files, tmp_path):
+    targets, comparison = local_files
+    pl.read_parquet(comparison).head(1).write_parquet(comparison)
+    output = tmp_path / "out.parquet"
+    assert (
+        main(
+            [
+                "match",
+                str(targets),
+                str(comparison),
+                "--engine",
+                "fast",
+                "--match-method",
+                "angular-separation",
+                "--match-radius-arcsec",
+                "1",
+                "--matches",
+                "best",
+                "--keep-rows",
+                "all-from-1",
+                "-o",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    rows = pl.read_parquet(output).sort("id")
+    assert rows["id"].to_list() == [1, 2]
+    assert rows["sep_arcsec"].is_null().to_list() == [False, True]
 
 
 def test_cli_match_side_overrides_enable_skyerr(tmp_path, capsys):

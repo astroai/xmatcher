@@ -82,103 +82,126 @@ xmatcher match [catalogues ...] [options]
     `hats:<url-or-registry-name>` (`https://...`, `vos:...`, `s3://...`,
     `hf://datasets/...`, or a registry name; see [HATS sources](hats-sources.md)).
 
-### Output & memory controls
+### Sky coordinates and match radius
 
 | Option | Default | Description |
 |---|---|---|
+| `-r ARCSEC`, `--match-radius-arcsec ARCSEC` | `1.0` | Maximum angular separation between counterparts, in (0, 648000] arcseconds. |
+| `--ra-column-1 COL`, `--dec-column-1 COL` | auto | Right ascension and declination columns in catalogue 1. |
+| `--ra-column-2 COL`, `--dec-column-2 COL` | auto | Right ascension and declination columns in catalogue 2. |
+
+### Counterpart criteria
+
+| Option | Default | Description |
+|---|---|---|
+| `--match-method METHOD` | `angular-separation` | Methods include `angular-separation`, `scaled-positional-errors`, `error-ellipse`, `likelihood-ratio`, `ml`, `xgb`, `auf` and `macauff`. |
+| `--max-normalized-offset N` | `3.0` | Dimensionless threshold. With scaled positional errors it multiplies the sum of the two radial positional errors. With error ellipses it bounds the Mahalanobis distance. The angular radius applies to both. |
+
+### Match selection and output catalogue
+
+| Option | Default | Description |
+|---|---|---|
+| `--matches best\|all` | `best` | Keep the best-ranked eligible match or all eligible matches. The method determines the ranking. |
+| `--post-match-filter SQL` | none | SQL condition applied to selected matches. A rejected best match leaves the primary source without a retained counterpart. |
+| `--extra-distance-cols COLUMN:WEIGHT,...` | none | Rank eligible pairs using sky position and weighted column differences (e.g. `g:0.5,bp_rp:0.3`). |
+| `--keep-rows ROWS` | `matched` (`all-sources` with `--union`) | Select output rows after match selection. See the table below. |
+| `--union` | off | Include unmatched sources from all inputs. |
+| `--fof` | off | Group sources linked by chains of matches (Friends-of-Friends). Retain groups containing a source from catalogue 1. |
 | `-o FILE`, `--output FILE` | CSV on stdout | Output path (`.parquet`, `.csv`, `.fits`, `.hats`). An existing file is overwritten. |
-| `--hats-threshold INT` | `100000` | Maximum rows per HEALPix pixel when writing `.hats` output or converting a TAP table to HATS. |
-| `--batch-size INT` | none | Positive integer, accepted for compatibility but not read by any engine; it does not limit memory. Use `--memory-budget-bytes`. |
-| `--memory-budget-bytes INT` | none | Spill pairwise local CSV/Parquet matching to disk above this memory budget. |
-| `--scratch-dir PATH` | system temp | Parent directory for bounded-memory partition files. |
-| `--partition-order ORDER` | `auto` | Sky-zone partition order of the spill path: an integer from 0 to 12, or `auto`. |
 
-### Geometry & spatial match options
+| `--keep-rows` | Compatibility value for `--join` | Rows retained |
+|---|---|---|
+| `matched` | `1and2` | Matched rows only. |
+| `all-sources` | `1or2` or `all` | Matched rows and unmatched sources from both catalogues. |
+| `all-from-1` | `all1` | Every row from catalogue 1, with counterpart fields where available. |
+| `all-from-2` | `all2` | Every row from catalogue 2, with counterpart fields where available. |
+| `unmatched-1` | `1not2` | Rows from catalogue 1 without a retained match. |
+| `unmatched-2` | `2not1` | Rows from catalogue 2 without a retained match. |
+
+`ray-anchor` uses its fixed output layout of one row per source in the
+first catalogue. See its [engine limits](ray-anchor.md#limits).
+
+### Proper motion and coordinate epoch
 
 | Option | Default | Description |
 |---|---|---|
-| `-r ARCSEC`, `--radius ARCSEC` | `1.0` | Match radius in arcseconds, in (0, 648000]. For `sky` it is the search radius; for every other matcher it is a hard ceiling on the separation. |
-| `--ra1 COL`, `--dec1 COL` | auto | RA / Dec column names for catalogue 1. |
-| `--ra2 COL`, `--dec2 COL` | auto | RA / Dec column names for catalogue 2. |
-| `--columns-1 COLS` | all | Comma-separated columns to read from catalogue 1. |
-| `--columns-2 COLS` | all | Comma-separated columns to read from catalogue 2. |
-| `--side1 KEY=VALUE` | none | Overrides for catalogue 1 (repeatable; comma-separated pairs allowed). |
-| `--side2 KEY=VALUE` | none | Overrides for catalogue 2 (same keys). |
-| `--side N KEY=VALUE` | none | Overrides for catalogue `N`, any position (same keys, e.g. `--side 3 ra_err_column=err`). |
-
-Keys accepted by `--side1`, `--side2` and `--side N`: `ra_column`,
-`dec_column`, `id_column`, `ra_err_column`, `dec_err_column`, `corr_column`,
-`pos_err_units`, `default_pos_error_arcsec`, `epoch`, `epoch_column`,
-`pm_ra_column`, `pm_dec_column`, `parallax_column`, `radial_velocity_column`,
-`frame`, `lr_magnitude_column`. An unknown key is an error.
-
-### Match algorithms & engines
-
-| Option | Default | Description |
-|---|---|---|
-| `--matcher ALGORITHM` | `sky` | Matching algorithm: `sky`, `skyerr`, `skyellipse`, `lr`, `ml`, `xgb`, `auf`, `macauff`. |
-| `--max-error FLOAT` | `3.0` | N-sigma cap for `skyerr`; Mahalanobis distance cap for `skyellipse`. |
-| `--engine ENGINE` | `auto` | `auto` (default dispatch), `fast` (torchsky exact zone index, in memory), `zone` (same search as `fast`), `torchsky` (torchsky `crossmatch_sky`; `sky`/`skyerr` only), `astropy`, `stilts` (Java `tmatch2`), `ray` (distributed zone match), `ray-union` (distributed N-way outer join over mirrored HATS inputs), `ray-anchor` (one row per anchor source; see [ray-anchor](ray-anchor.md)). |
-| `--fallback-policy POLICY` | `warn` | When an engine or matcher cannot honour the request: `warn` logs and substitutes a supported path; `error` aborts. Use `error` for reproducible runs. |
-| `--join JOIN_TYPE` | `1and2` (`1or2` with `--union`) | `1and2` (inner), `1or2` or `all` (full outer), `all1` (left), `all2` (right), `1not2` (left anti), `2not1` (right anti). |
-| `--find POLICY` | `best` | `best` keeps the best match; `all` keeps every pair within the radius. |
-| `--union` | off | Build a master union catalogue (full outer join across all inputs). |
-| `--fof` | off | Friends-of-Friends transitive closure across all catalogues. |
-
-### ID joins
-
-| Option | Default | Description |
-|---|---|---|
-| `--id-join` | off | Join on identifier columns instead of sky position. |
-| `--id1 COL` | auto | ID column for catalogue 1. |
-| `--id2 COL` | auto | ID column for catalogue 2. |
-
-### Proper motion & epoch alignment
-
-| Option | Default | Description |
-|---|---|---|
-| `--target-epoch FLOAT` | none | Julian-year epoch (e.g. `2016.0`) to which coordinates are propagated using proper motions. |
-| `--pm-prior` | off | Inflate positional errors for sources lacking measured proper motions (Wilson 2023). Requires `--target-epoch`. |
+| `--target-epoch JYEAR` | none | Propagate positions with available motion measurements to this Julian-year epoch, for example `2016.0`. |
+| `--pm-prior` | off | Add estimated drift uncertainty for sources lacking measured proper motions (Wilson 2023). Requires `--target-epoch`. |
 | `--pm-prior-mag-col COL` | none | Magnitude column used to refine the proper-motion drift dispersion. |
 
-### Probabilistic & Bayesian matching
+### Match by source identifier
 
 | Option | Default | Description |
 |---|---|---|
-| `--probabilistic` | off | Compute a positional Bayesian `p_match`. Both catalogues need positional errors. |
-| `--priors COLS` | empty | Comma-separated photometric prior columns (e.g. `g,r`); enables `p_match`. |
+| `--id-join` | off | Match rows with equal source identifiers. |
+| `--id-column-1 COL` | auto | Identifier column in catalogue 1. |
+| `--id-column-2 COL` | auto | Identifier column in catalogue 2. |
 
-### Advanced filtering & ranking
+### Remote cone search
 
-| Option | Default | Description |
-|---|---|---|
-| `--filter-expr SQL` | none | Polars SQL `WHERE` clause applied after candidate selection. A rejected `best` match is not replaced by the next candidate. |
-| `--extra-distance-cols SPEC` | none | `column:weight` pairs for multi-dimensional ranking (e.g. `g:0.5,bp_rp:0.3`). |
-
-### Matcher-specific options
-
-| Option | Default | Description |
-|---|---|---|
-| `--lr-magnitude-column COL` | none | Magnitude column for the likelihood-ratio matcher (required with `--matcher lr`). With three or more catalogues, one name for every secondary or a comma-separated list with one per secondary (`W1mag,Jmag`); `--matcher lr` with $N \ge 3$ runs one $N$-way association (see [API](api.md#nway_match)). |
-| `--lr-color-column COL` | none | Primary-catalogue magnitude column: the LR photometric term becomes the colour secondary − primary (e.g. W1 − G). |
-| `--lr-q FLOAT` | `0.8` | Prior probability $Q$ that a primary source has a counterpart (0–1). |
-| `--ml-color-cols COLS` | none | Comma-separated photometric features for `ml` / `xgb`. Without them, ranking falls back to separation. |
-| `--ml-model-path PATH` | none | Path to save or load a pre-trained Random Forest model (`joblib`). |
-| `--xgb-model-path PATH` | none | Path to save or load a pre-trained XGBoost model (`joblib`). |
-| `--macauff-flux-cols COLS` | none | Comma-separated magnitude columns for `macauff` flux likelihoods. |
-
-### Remote region cones (TAP queries)
-
-`--ra`, `--dec` and `--radius-deg` must be given together.
+Supply `--cone-ra-deg`, `--cone-dec-deg` and `--cone-radius-deg` together
+to select the region to retrieve from a remote catalogue.
 
 | Option | Description |
 |---|---|
-| `--ra FLOAT` | Region centre right ascension in degrees. |
-| `--dec FLOAT` | Region centre declination in degrees. |
-| `--radius-deg FLOAT` | Region radius in degrees for remote cone downloads. |
-| `--endpoint NAME_OR_URL` | TAP endpoint for ad-hoc table ids: a short name (`vizier`, `noirlab`, `gaia`, `cadc`) or an endpoint URL. |
+| `--cone-ra-deg DEG` | Right ascension of the search centre, in degrees. |
+| `--cone-dec-deg DEG` | Declination of the search centre, in degrees. |
+| `--cone-radius-deg DEG` | Angular radius of the remote search region, in degrees. |
+| `--endpoint NAME_OR_URL` | TAP endpoint for ad-hoc table IDs, as a configured name or URL. |
 
-### Distributed Ray union & Ray anchor
+### Input catalogue settings
+
+| Option | Default | Description |
+|---|---|---|
+| `--columns-1 COLS` | all | Comma-separated columns to read from catalogue 1. |
+| `--columns-2 COLS` | all | Comma-separated columns to read from catalogue 2. |
+| `--catalogue-option N KEY=VALUE` | none | Set a column name, uncertainty unit, frame or epoch for catalogue `N`. Repeat the flag or supply comma-separated pairs. |
+
+Keys accepted by `--catalogue-option` are `ra_column`, `dec_column`,
+`id_column`, `ra_err_column`, `dec_err_column`, `corr_column`,
+`pos_err_units`, `default_pos_error_arcsec`, `epoch`, `epoch_column`,
+`pm_ra_column`, `pm_dec_column`, `parallax_column`, `radial_velocity_column`,
+`frame` and `lr_magnitude_column`. An unknown key is an error.
+Specify positional uncertainty units with `pos_err_units`. The RA
+uncertainty and proper motion columns use the east component on the tangent
+plane (including the cosine of declination).
+
+### Bayesian match probabilities
+
+| Option | Default | Description |
+|---|---|---|
+| `--probabilistic` | off | Add a Bayesian match probability (`p_match`) to selected pairs. Both catalogues need positional uncertainties. |
+| `--priors COLS` | empty | Shared photometry columns used to estimate `p_match`, for example `g,r`. |
+
+### Photometry and likelihood ratios
+
+| Option | Default | Description |
+|---|---|---|
+| `--lr-magnitude-column COL` | none | Comparison catalogue magnitude for likelihood-ratio matching. Supply one name for all comparison catalogues or a comma-separated list, one per catalogue (e.g. `W1mag,Jmag`). With three or more inputs this runs one [N-way association](api.md#nway_match). |
+| `--lr-primary-magnitude-column COL` | none | Use comparison magnitude minus primary magnitude as the likelihood-ratio photometric term (e.g. supply `G` for W1 − G). |
+| `--lr-counterpart-fraction FRACTION` | `0.8` | Prior fraction of primary sources expected to have a counterpart in a comparison catalogue (0–1). |
+| `--ml-color-cols COLS` | none | Photometry columns for `ml` or `xgb`. With no photometry columns, ranking uses separation. |
+| `--ml-model-path PATH` | none | Path to save or load a Random Forest model (`joblib`). |
+| `--xgb-model-path PATH` | none | Path to save or load an XGBoost model (`joblib`). |
+| `--macauff-magnitude-columns COLS` | none | Shared magnitude columns for `macauff` photometric likelihoods. The default scatter is 0.1 mag when magnitude errors are unavailable. |
+
+### Execution engine
+
+| Option | Default | Description |
+|---|---|---|
+| `--engine ENGINE` | `auto` | `auto` selects a compatible backend. `fast` and `zone` use the in-memory spherical search. `torchsky` runs a direct angular or scaled-error search. `astropy` and `stilts` use their respective matchers. `ray` distributes pair matching, `ray-union` keeps sources across all inputs, and [`ray-anchor`](ray-anchor.md) emits one row per source in the first catalogue. |
+| `--fallback-policy POLICY` | `warn` | When the requested method or engine cannot run, `warn` reports and uses a supported path. `error` stops with an explanation. |
+
+### HATS output and local memory
+
+| Option | Default | Description |
+|---|---|---|
+| `--hats-split-rows INT` | `100000` | Row count above which HATS writers subdivide a HEALPix cell. Ray also uses this value as a leaf row estimate if it cannot read the footer count. |
+| `--memory-budget-bytes INT` | none | Memory budget for two local CSV or Parquet catalogues. Above this size the match uses temporary files. |
+| `--scratch-dir PATH` | system temp | Parent directory for temporary files used during memory-limited matching. |
+| `--partition-order ORDER` | `auto` | Sky partition order for memory-limited matching, from 0 to 12 or `auto`. |
+
+### Distributed HATS matching
 
 These options apply to `--engine ray-union` and `--engine ray-anchor`, except
 where the table says otherwise.
@@ -189,7 +212,7 @@ where the table says otherwise.
 | `--synclimit FLOAT` | `cache.rate_limit_rps`, else `1.0` | Requests/sec rate limit when mirroring remote catalogues. |
 | `--cache-root PATH` | `$XMATCHER_CACHE_ROOT`; on AstroAI/CANFAR sessions `/arc/projects/astroai/hats`; else `~/.cache/xmatcher` | Durable cache root for mirrored HATS catalogues. |
 | `--task-rows INT` | `2000000` | Target rows per Ray chunk task. |
-| `--max-tuples INT` | `10000` | Maximum output tuples per hub source row (`ray-union` only). |
+| `--max-combinations-per-source INT` | `10000` | Maximum counterpart combinations retained per source (`ray-union` only). |
 | `--chunk-memory-gb FLOAT` | `8.0` | Per-chunk candidate-pool memory guard in GiB. |
 | `--anchor-id-name COL` | `source_id` | Output name of the anchor catalogue's ID column (`ray-anchor` only). |
 | `--anchor-partitions ORDER/PIX,…` | all | Process only these anchor HATS partitions, e.g. a pilot (`ray-anchor` only); `properties` names the subset as `xmatcher_anchor_partitions`. |
@@ -197,7 +220,28 @@ where the table says otherwise.
 | `--task-memory-scale FLOAT` | `1.0` | Reserve this multiple of each task's estimated peak memory as Ray `memory`, capped at 90% of the largest node's (`ray-anchor` only); `0` schedules by CPU only. |
 | `--retries INT` | `0` | Driver-level retries after a backoff; mirror gaps refill incrementally and finished chunks are skipped (`ray-union` only). |
 | `--fresh-after DAYS` | always probe | Skip the mirror change-probe for copies fully synced within this many days. |
-| `--min-free-gb FLOAT` | `10.0` | Fail fast when the cache root or output filesystem has less free space than this many GiB. `XMATCHER_MIN_FREE_GB` overrides the default. |
+| `--min-free-gib FLOAT` | `10.0` | Fail fast when the cache root or output filesystem has less free space than this many GiB. `XMATCHER_MIN_FREE_GB` overrides the default. |
+
+### Compatibility spellings
+
+The parser accepts these names from existing scripts.
+
+| Preferred spelling | Previous spelling |
+|---|---|
+| `--match-radius-arcsec` | `--radius` |
+| `--match-method angular-separation` | `--matcher sky` |
+| `--match-method scaled-positional-errors` | `--matcher skyerr` |
+| `--match-method error-ellipse` | `--matcher skyellipse` |
+| `--match-method likelihood-ratio` | `--matcher lr` |
+| `--max-normalized-offset`, `--matches`, `--post-match-filter` | `--max-error`, `--find`, `--filter-expr` |
+| `--ra-column-N`, `--dec-column-N`, `--id-column-N` (N = 1 or 2) | `--ra1`, `--dec1`, `--id1` and the catalogue 2 equivalents |
+| `--catalogue-option N KEY=VALUE` | `--side N KEY=VALUE`, `--side1 KEY=VALUE`, `--side2 KEY=VALUE` |
+| `--cone-ra-deg`, `--cone-dec-deg`, `--cone-radius-deg` | `--ra`, `--dec`, `--radius-deg` |
+| `--lr-primary-magnitude-column`, `--lr-counterpart-fraction`, `--macauff-magnitude-columns` | `--lr-color-column`, `--lr-q`, `--macauff-flux-cols` |
+| `--hats-split-rows`, `--max-combinations-per-source`, `--min-free-gib` | `--hats-threshold` (`--hats-max-rows` for `convert`), `--max-tuples`, `--min-free-gb` |
+
+`--batch-size` remains accepted for scripts. Use `--memory-budget-bytes`
+to control memory-limited matching.
 
 ---
 
@@ -334,9 +378,9 @@ replica root inside a read-only root is refused.
 | `--force` | off | Refetch every file or page, ignoring the incremental manifest. |
 | `--cache-root PATH` | as for `match` | Durable cache root for mirrored HATS catalogues. |
 | `--threads INT` | `8` | Parallel download workers. |
-| `--hats-threshold INT` | `100000` | Maximum rows per HEALPix pixel when a TAP table is converted to HATS. |
+| `--hats-split-rows INT` | `100000` | Subdivide a HEALPix cell above this row count when a TAP table is converted to HATS. |
 | `--fresh-after DAYS` | always probe | Skip the change-probe for copies fully synced within this many days. |
-| `--min-free-gb FLOAT` | `10.0` | Fail fast when the cache root has less free space than this many GiB. `XMATCHER_MIN_FREE_GB` overrides the default. |
+| `--min-free-gib FLOAT` | `10.0` | Fail fast when the cache root has less free space than this many GiB. `XMATCHER_MIN_FREE_GB` overrides the default. |
 
 ---
 
@@ -361,7 +405,7 @@ xmatcher project-hats <source> <output> --columns <col1,col2,...> [options]
 | `--no-sync` | off | Do not mirror a remote source; require an existing cached copy. |
 | `--resume` | off | Resume an interrupted projection; requires a matching `project.state`. |
 | `--cache-root PATH` | as for `match` | Durable cache root for mirrored HATS catalogues. |
-| `--hats-threshold INT` | `100000` | Maximum rows per HEALPix pixel when a non-HATS source is converted. |
+| `--hats-split-rows INT` | `100000` | Subdivide a HEALPix cell above this row count when a source is converted to HATS. |
 | `--rate-limit FLOAT` | `1.0` | Requests/sec when projecting an HTTPS HATS tree directly. |
 
 ---
@@ -434,7 +478,7 @@ xmatcher convert survey.hats survey.fits --overwrite
 | `--columns COLS` | all | Comma-separated columns to keep, in this order. |
 | `--hdu HDU` | `1` | FITS table HDU (number or EXTNAME). |
 | `--ra-col COL`, `--dec-col COL` | auto | Position columns of a HATS output. Defaults to the source's HATS position columns, else the single matching common name (`ra`, `RA_ICRS`, ...); an ambiguous or missing match is an error. |
-| `--hats-max-rows INT` | `1000000` | Split a HEALPix cell holding more rows than this. |
+| `--hats-split-rows INT` | `1000000` | Subdivide a HEALPix cell above this row count, up to `--hats-max-order`. |
 | `--hats-max-order INT` | `10` | Deepest HEALPix order of a HATS output. |
 | `--keep-healpix29` | off | Keep a HATS input's `_healpix_29` column. |
 | `--batch-rows INT` | `262144` | Rows per streamed batch. |
@@ -444,7 +488,7 @@ xmatcher convert survey.hats survey.fits --overwrite
 
 - **HATS output.** Writing a HATS tree takes three passes over the input:
   1. count rows per HEALPix cell at `--hats-max-order`;
-  2. split cells holding more than `--hats-max-rows` rows, and spill each
+  2. split cells holding more than `--hats-split-rows` rows, and spill each
      batch's rows to their partition;
   3. write each partition sorted by `_healpix_29` (added as a column),
      followed by the metadata.
@@ -532,17 +576,18 @@ queried for the local sources' sky area only; the full table is not
 downloaded:
 
 ```bash
-xmatcher match my_targets.csv gaia -r 1.0 -o targets_gaia.parquet
+xmatcher match my_targets.csv gaia --match-radius-arcsec 1.0 \
+    --matches best --keep-rows all-from-1 -o targets_gaia.parquet
 ```
 
 ### 3. Astrometric error ellipse match (Mahalanobis distance)
 
 ```bash
 xmatcher match xray.fits optical.parquet \
-    --matcher skyellipse \
-    --max-error 3.0 \
-    --side1 ra_err_column=e_RA,dec_err_column=e_DE,pos_err_units=arcsec \
-    --side2 ra_err_column=ra_error,dec_err_column=dec_error,pos_err_units=mas
+    --match-method error-ellipse \
+    --max-normalized-offset 3.0 \
+    --catalogue-option 1 ra_err_column=e_RA,dec_err_column=e_DE,pos_err_units=arcsec \
+    --catalogue-option 2 ra_err_column=ra_error,dec_err_column=dec_error,pos_err_units=mas
 ```
 
 ### 4. Proper motion propagation & Wilson PM prior
@@ -552,18 +597,18 @@ columns, and only error-aware matchers use it, so both sides declare errors:
 
 ```bash
 xmatcher match historical_catalog.csv gaia_field.parquet \
-    --matcher skyerr \
+    --match-method scaled-positional-errors \
     --target-epoch 2016.0 \
     --pm-prior \
     -r 2.0 \
-    --side1 epoch=1995.0,ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \
-    --side2 epoch=2016.0,pm_ra_column=pmra,pm_dec_column=pmdec,ra_err_column=ra_error,dec_err_column=dec_error,pos_err_units=mas \
+    --catalogue-option 1 epoch=1995.0,ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \
+    --catalogue-option 2 epoch=2016.0,pm_ra_column=pmra,pm_dec_column=pmdec,ra_err_column=ra_error,dec_err_column=dec_error,pos_err_units=mas \
     -o propagated_matches.parquet
 ```
 
-With a remote catalogue in place of `gaia_field.parquet`, add `--ra`, `--dec`
-and `--radius-deg`: `skyerr`, `skyellipse` and `--target-epoch` requests do
-not derive a download cone automatically.
+For remote inputs with scaled errors, error ellipses or epoch propagation,
+supply the download cone with `--cone-ra-deg`, `--cone-dec-deg` and
+`--cone-radius-deg`.
 
 ### 5. Distributed multi-survey outer join (Ray union)
 

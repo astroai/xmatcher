@@ -502,9 +502,10 @@ decides.
 | `endpoint` | `str \| None` | TAP endpoint for a bare table id. |
 | `frame` | `str \| None` | Declared coordinate frame (registry default `"icrs"`). |
 
-The CLI exposes every key except `columns`, `astrometric_covariance_columns`
-and `endpoint` through repeatable `--side1` / `--side2` `KEY=VALUE` pairs; use
-`--columns-1` / `--columns-2` and `--endpoint` for those three.
+Use repeatable `--catalogue-option N KEY=VALUE` flags for the scalar
+per-catalogue astrometry and identifier settings. Use `--columns-1` and
+`--columns-2` for the input column selections and `--endpoint` for a TAP
+endpoint. Supply `astrometric_covariance_columns` through Python or YAML.
 
 ### `CatalogueSource`
 

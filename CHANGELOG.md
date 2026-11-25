@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Astronomy-oriented CLI aliases for the match radius, counterpart method,
+  match and output-row selection, catalogue settings and remote cone search.
+  The help names the units of positional and photometric options and groups
+  storage controls below the science options. Existing option spellings are
+  also accepted.
 - PENSUS now has a resumable CANFAR workflow for source-preserving photometry
   unions, with explicit catalogue roles, per-row position epochs, a pilot
   candidate export, and radius summaries. The headless verifier runs the

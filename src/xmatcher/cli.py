@@ -350,19 +350,20 @@ Examples:
   # Two local files, default radius (1 arcsec)
   xmatcher match a.parquet b.csv
 
-  # Explicit radius, engine, and output
-  xmatcher match a.parquet b.csv -r 1.5 --engine fast -o matches.parquet
+  # Keep every target and attach its best Gaia counterpart, if available
+  xmatcher match targets.fits gaia --match-radius-arcsec 1.0 \\
+      --matches best --keep-rows all-from-1 -o targets_with_gaia.parquet
 
-  # Adaptive positional errors from per-side columns
-  xmatcher match xray.fits optical.parquet --matcher skyerr \\
-      --side1 ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \\
-      --side2 ra_err_column=e_RAJ2000,dec_err_column=e_DEJ2000,pos_err_units=arcsec
+  # Match using each source's positional uncertainties
+  xmatcher match xray.fits optical.parquet --match-method scaled-positional-errors \\
+      --catalogue-option 1 ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \\
+      --catalogue-option 2 ra_err_column=e_RAJ2000,dec_err_column=e_DEJ2000,pos_err_units=arcsec
 
-  # Bayesian p_match with photometric priors (both sides need errors)
+  # Add Bayesian match probabilities using shared photometry and positional uncertainties
   xmatcher match a.parquet b.csv --probabilistic --priors g,r -o m.parquet
 
-  # ID join instead of sky position
-  xmatcher match a.csv b.csv --id-join --id1 source_id --id2 source_id
+  # Match by source identifier
+  xmatcher match a.csv b.csv --id-join --id-column-1 source_id --id-column-2 source_id
 
   # N-way match, union, and Friends-of-Friends
   xmatcher match gaia allwise.csv twomass.csv -r 1.5 -o nway.parquet
@@ -372,10 +373,10 @@ Examples:
   # Explicit catalogue identifiers
   xmatcher match targets.csv vizier:II/349/ps1 -r 1.0
   xmatcher match targets.csv tap:noirlab/nsc_dr2.object \\
-      --ra 150.1 --dec 2.2 --radius-deg 0.1
+      --cone-ra-deg 150.1 --cone-dec-deg 2.2 --cone-radius-deg 0.1
 
-  # Fail instead of substituting a fallback when the request cannot be honoured
-  xmatcher match a.parquet b.csv --matcher skyerr --fallback-policy error
+  # Require the requested match method and engine
+  xmatcher match a.parquet b.csv --match-method scaled-positional-errors --fallback-policy error
 """
 
 LIST_EXAMPLES = """\
@@ -416,7 +417,7 @@ Examples:
   xmatcher adopt hats /arc/projects/hats/vhs/dr7 --name vhs_dr7 --dry-run
 
   # Match an ad-hoc table id without adopting (endpoint auto-guessed for VizieR)
-  xmatcher match sources.csv II/349/ps1 --ra 150.1 --dec 2.18 --radius-deg 0.05
+  xmatcher match sources.csv II/349/ps1 --cone-ra-deg 150.1 --cone-dec-deg 2.18 --cone-radius-deg 0.05
 """
 
 COMPLETION_EXAMPLES = """\
@@ -676,6 +677,40 @@ def _positive_int(raw: str) -> int:
     return value
 
 
+_MATCH_METHOD_NAMES = {
+    "angular-separation": "sky",
+    "scaled-positional-errors": "skyerr",
+    "error-ellipse": "skyellipse",
+    "likelihood-ratio": "lr",
+    "ml": "ml",
+    "xgb": "xgb",
+    "auf": "auf",
+    "macauff": "macauff",
+}
+_ROW_SELECTION_NAMES = {
+    "matched": "1and2",
+    "all-sources": "1or2",
+    "all-from-1": "all1",
+    "all-from-2": "all2",
+    "unmatched-1": "1not2",
+    "unmatched-2": "2not1",
+}
+
+
+def _named_choice(names: dict[str, str], *legacy: str) -> Callable[[str], str]:
+    """Accept readable CLI values and their existing internal names."""
+    accepted = set(names.values()).union(legacy)
+
+    def parse(raw: str) -> str:
+        if raw in names:
+            return names[raw]
+        if raw in accepted:
+            return raw
+        raise argparse.ArgumentTypeError(f"{raw!r} is invalid; choose from {', '.join(names)}")
+
+    return parse
+
+
 def _parse_extra_distance_cols(raw):
     if not raw:
         return {}
@@ -695,7 +730,7 @@ def _parse_extra_distance_cols(raw):
     return result
 
 
-# Per-side override keys accepted by ``--side1/--side2``. Column names and units
+# Input catalogue settings accepted by ``--catalogue-option``. Column names and units
 # are strings; epoch and error floors are numeric. Dict-valued settings such as
 # ``astrometric_covariance_columns`` stay YAML/Python-only.
 _SIDE_CLI_TYPES: dict[str, Callable[[str], object]] = {
@@ -732,19 +767,21 @@ def _parse_side_overrides(values: Sequence[str] | None, side: int) -> dict[str, 
             value = value.strip()
             if not sep or not key or not value:
                 raise CrossMatchError(
-                    f"Invalid --side{side} override '{chunk}'; expected KEY=VALUE "
+                    f"Invalid setting for catalogue {side}: {chunk!r}. Expected KEY=VALUE "
                     f"(keys: {', '.join(_SIDE_CLI_TYPES)})."
                 )
             caster = _SIDE_CLI_TYPES.get(key)
             if caster is None:
                 raise CrossMatchError(
-                    f"Unknown --side{side} key '{key}'; expected one of: "
+                    f"Unknown key for catalogue {side}: {key!r}. Expected one of: "
                     f"{', '.join(_SIDE_CLI_TYPES)}."
                 )
             try:
                 parsed[f"{key}_{side}"] = caster(value)
             except ValueError as exc:
-                raise CrossMatchError(f"Invalid value for --side{side} {key}={value!r}.") from exc
+                raise CrossMatchError(
+                    f"Invalid setting for catalogue {side}: {key}={value!r}."
+                ) from exc
     return parsed
 
 
@@ -769,7 +806,8 @@ def _build_params(args) -> dict:
         n_catalogues = len(getattr(args, "catalogues", None) or [])
         if not 1 <= side <= n_catalogues:
             raise CrossMatchError(
-                f"--side {raw_side}: expected a catalogue number from 1 to {n_catalogues}."
+                f"--catalogue-option {raw_side}: expected a catalogue number "
+                f"from 1 to {n_catalogues}."
             )
         side_overrides.update(_parse_side_overrides([value], side))
     params = dict(
@@ -825,12 +863,11 @@ def _build_params(args) -> dict:
         min_free_gb=getattr(args, "min_free_gb", None),
         fallback_policy=getattr(args, "fallback_policy", None),
     )
-    # Without an explicit --join each operation keeps its own default
+    # Without an explicit row selection each operation keeps its own default
     # (inner for pairwise/multi matches, full outer for --union).
     if args.join_type is not None:
         params["join_type"] = args.join_type
-    # ``--side1/--side2`` are the more specific spelling of the per-side
-    # column flags, so they win when both are supplied.
+    # Catalogue settings override their individual column flags.
     params.update(side_overrides)
     params.update(lr_magnitudes)
     return params
@@ -864,17 +901,18 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     """Standalone parser for the ``match`` subcommand (and default ``xmatcher CAT1 CAT2``)."""
     parser = argparse.ArgumentParser(
         prog="xmatcher match",
+        usage="%(prog)s CATALOGUE1 CATALOGUE2 [CATALOGUE ...] [options]",
         description=(
             "Cross-match two or more catalogues.\n\n"
             "Inputs may be local Parquet/CSV/TSV/FITS files, HATS directories,\n"
             "configured catalogue names/aliases, or explicit identifiers:\n"
             "vizier:<id>, tap:<endpoint>/<table>, or hats:<url>.\n"
-            "Coordinate columns and matching strategy are auto-detected; flags\n"
-            "below refine geometry, algorithm, and output.\n\n"
+            "The default matches positions within 1 arcsecond. Coordinate columns\n"
+            "are inferred from the inputs when possible.\n\n"
             "Start here:\n"
             "  xmatcher match a.parquet b.csv -r 1.5\n"
             "  xmatcher match targets.csv gaia -o out.parquet\n"
-            "  xmatcher match targets.csv vizier:II/349/ps1 --ra 150.1 --dec 2.2 --radius-deg 0.1\n"
+            "  xmatcher match targets.csv gaia --keep-rows all-from-1 -o targets_with_gaia.parquet\n"
             "  xmatcher match a b c --union -o master.hats\n"
             "  xmatcher list --aliases"
         ),
@@ -888,7 +926,30 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "or vizier:<id> / tap:<endpoint>/<table> / hats:<url>.",
     )
 
-    g_out = parser.add_argument_group("Output")
+    g_geom = parser.add_argument_group("Sky coordinates and match radius")
+    g_alg = parser.add_argument_group("Counterpart criteria")
+    g_pairs = parser.add_argument_group("Match selection")
+    g_out = parser.add_argument_group("Output catalogue")
+    g_pm = parser.add_argument_group("Proper motion and coordinate epoch")
+    g_id = parser.add_argument_group("Match by source identifier")
+    g_reg = parser.add_argument_group("Remote cone search")
+    g_side = parser.add_argument_group(
+        "Input catalogue settings",
+        description=(
+            "Repeat or supply comma-separated KEY=VALUE pairs. Keys:\n"
+            "  ra_column, dec_column, id_column, ra_err_column, dec_err_column,\n"
+            "  corr_column, pos_err_units, default_pos_error_arcsec, epoch,\n"
+            "  epoch_column, pm_ra_column, pm_dec_column, parallax_column,\n"
+            "  radial_velocity_column, frame, lr_magnitude_column.\n"
+            "Example: --catalogue-option 1 ra_err_column=ra_err,pos_err_units=mas"
+        ),
+    )
+    g_prob = parser.add_argument_group("Bayesian match probabilities")
+    g_msm = parser.add_argument_group("Photometry and likelihood ratios")
+    g_engine = parser.add_argument_group("Execution engine")
+    g_storage = parser.add_argument_group("HATS output and local memory")
+    g_ray = parser.add_argument_group("Distributed HATS matching")
+
     g_out.add_argument(
         "-o",
         "--output",
@@ -897,121 +958,150 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         help="Output file (.parquet/.csv/.fits/.hats); an existing file is overwritten. "
         "Default: CSV to stdout.",
     )
-    g_out.add_argument(
+    g_storage.add_argument(
+        "--hats-split-rows",
         "--hats-threshold",
         dest="hats_threshold",
+        metavar="ROWS",
         type=int,
         default=100_000,
-        help="Max rows per HEALPix pixel for .hats output.",
+        help="Subdivide a HEALPix cell above this row count when writing HATS. "
+        "Also used to estimate leaf sizes when Ray cannot read row counts.",
     )
-    g_out.add_argument(
+    g_storage.add_argument(
         "--batch-size",
         dest="batch_size",
         type=_positive_int,
-        help="Accepted for compatibility; no engine uses it. Bound memory with "
-        "--memory-budget-bytes instead.",
+        help=argparse.SUPPRESS,
     )
-    g_out.add_argument(
+    g_storage.add_argument(
         "--memory-budget-bytes",
         type=int,
-        help="Spill pairwise local CSV/Parquet matching above this memory budget.",
+        help="Memory budget in bytes for matching two local CSV or Parquet catalogues. "
+        "Above this size, matching uses temporary files.",
     )
-    g_out.add_argument(
+    g_storage.add_argument(
         "--scratch-dir",
-        help="Parent directory for bounded-memory partition files.",
+        help="Parent directory for temporary files used during memory-limited matching.",
     )
-    g_out.add_argument(
+    g_storage.add_argument(
         "--partition-order",
         default="auto",
-        help="Sky-zone partition order (non-negative integer or 'auto').",
+        help="Sky partition order for memory-limited matching (0–12 or 'auto').",
     )
 
-    g_geom = parser.add_argument_group("Geometry (sky match)")
     g_geom.add_argument(
         "-r",
+        "--match-radius-arcsec",
         "--radius",
         dest="radius_arcsec",
+        metavar="ARCSEC",
         type=_bounded_float(0.0, 648_000.0, low_open=True),
         default=1.0,
-        help="Match radius (arcsec) for the sky matcher.",
+        help="Maximum angular separation between counterparts, in arcseconds.",
     )
-    g_geom.add_argument("--ra1", dest="ra_column_1", help="RA column name for catalogue 1.")
-    g_geom.add_argument("--dec1", dest="dec_column_1", help="Dec column name for catalogue 1.")
-    g_geom.add_argument("--ra2", dest="ra_column_2", help="RA column name for catalogue 2.")
-    g_geom.add_argument("--dec2", dest="dec_column_2", help="Dec column name for catalogue 2.")
     g_geom.add_argument(
+        "--ra-column-1", "--ra1", metavar="COLUMN", help="RA column in catalogue 1."
+    )
+    g_geom.add_argument(
+        "--dec-column-1", "--dec1", metavar="COLUMN", help="Declination column in catalogue 1."
+    )
+    g_geom.add_argument(
+        "--ra-column-2", "--ra2", metavar="COLUMN", help="RA column in catalogue 2."
+    )
+    g_geom.add_argument(
+        "--dec-column-2", "--dec2", metavar="COLUMN", help="Declination column in catalogue 2."
+    )
+    g_side.add_argument(
         "--columns-1",
         dest="columns_1",
-        help="Comma-separated columns to read from catalogue 1 (projection).",
+        help="Comma-separated columns to read from catalogue 1.",
     )
-    g_geom.add_argument(
+    g_side.add_argument(
         "--columns-2",
         dest="columns_2",
-        help="Comma-separated columns to read from catalogue 2 (projection).",
+        help="Comma-separated columns to read from catalogue 2.",
     )
 
-    g_side = parser.add_argument_group(
-        "Per-catalogue overrides (skyerr / skyellipse / frames)",
-        description=(
-            "Repeatable comma-separated KEY=VALUE pairs. Keys:\n"
-            "  ra_column, dec_column, id_column, ra_err_column, dec_err_column,\n"
-            "  corr_column, pos_err_units, default_pos_error_arcsec, epoch,\n"
-            "  epoch_column, pm_ra_column, pm_dec_column, parallax_column,\n"
-            "  radial_velocity_column, frame, lr_magnitude_column.\n"
-            "Example: --side1 ra_err_column=ra_err,pos_err_units=mas"
-        ),
+    g_side.add_argument(
+        "--catalogue-option",
+        "--side",
+        dest="side_n_overrides",
+        action="append",
+        nargs=2,
+        metavar=("N", "KEY=VALUE"),
+        help="Set a column name, uncertainty unit, coordinate frame or epoch for catalogue N.",
     )
     g_side.add_argument(
         "--side1",
         dest="side1_overrides",
         action="append",
         metavar="KEY=VALUE",
-        help="Overrides for catalogue 1.",
+        help="Set an option for catalogue 1.",
     )
     g_side.add_argument(
         "--side2",
         dest="side2_overrides",
         action="append",
         metavar="KEY=VALUE",
-        help="Overrides for catalogue 2.",
-    )
-    g_side.add_argument(
-        "--side",
-        dest="side_n_overrides",
-        action="append",
-        nargs=2,
-        metavar=("N", "KEY=VALUE"),
-        help="Overrides for catalogue N (any catalogue, e.g. --side 3 ra_err_column=err).",
+        help="Set an option for catalogue 2.",
     )
 
-    g_alg = parser.add_argument_group("Match algorithm")
     g_alg.add_argument(
+        "--match-method",
         "--matcher",
-        choices=["sky", "skyerr", "skyellipse", "lr", "ml", "xgb", "auf", "macauff"],
-        default="sky",
-        help="Match algorithm.",
+        dest="matcher",
+        type=_named_choice(_MATCH_METHOD_NAMES),
+        default="angular-separation",
+        metavar="METHOD",
+        help="Criterion for accepting and ranking counterparts. Positional methods: "
+        "angular-separation, scaled-positional-errors, error-ellipse. "
+        "Other methods: likelihood-ratio, ml, xgb, auf, macauff.",
     )
     g_alg.add_argument(
+        "--max-normalized-offset",
         "--max-error",
         dest="max_error",
         type=_bounded_float(0.0, math.inf, low_open=True),
         default=3.0,
-        help="N-sigma cap for skyerr; Mahalanobis d cap for skyellipse.",
+        metavar="N",
+        help="Dimensionless threshold N. Scaled positional errors limit separation to N times "
+        "the sum of the radial positional errors. Error ellipses limit Mahalanobis distance to N.",
     )
-    g_alg.add_argument(
+    g_out.add_argument(
+        "--keep-rows",
         "--join",
         dest="join_type",
-        choices=["1and2", "1or2", "all", "1not2", "2not1", "all1", "all2"],
-        help="Join type (1and2=inner, 1or2=full outer, all1=left, all2=right, 1not2/2not1=anti). "
-        "Default: 1and2, or 1or2 with --union.",
+        type=_named_choice(_ROW_SELECTION_NAMES, "all"),
+        metavar="ROWS",
+        help="Retain matched rows, all-sources, all-from-1, all-from-2, unmatched-1 or "
+        "unmatched-2 after match selection. Default: matched, or all-sources with --union.",
     )
-    g_alg.add_argument(
+    g_pairs.add_argument(
+        "--matches",
         "--find",
+        dest="find",
         choices=["best", "all"],
         default="best",
-        help="Keep the best match or all matches within the radius.",
+        help="Keep the best-ranked eligible match or all eligible matches. "
+        "The ranking depends on the match method.",
     )
-    g_alg.add_argument(
+    g_pairs.add_argument(
+        "--post-match-filter",
+        "--filter-expr",
+        dest="filter_expr",
+        metavar="SQL",
+        help="Apply a SQL condition to selected matches. A rejected best match leaves the "
+        "source without a retained counterpart.",
+    )
+    g_pairs.add_argument(
+        "--extra-distance-cols",
+        dest="extra_distance_cols",
+        metavar="COLUMN:WEIGHT,...",
+        help="Rank eligible pairs using sky position and weighted column differences "
+        "(e.g. g:0.5,bp_rp:0.3).",
+    )
+    g_engine.add_argument(
         "--engine",
         choices=[
             "auto",
@@ -1025,17 +1115,17 @@ def _build_match_subparser() -> argparse.ArgumentParser:
             "ray-anchor",
         ],
         default="auto",
+        metavar="ENGINE",
         help=(
-            "Sky-match engine (auto=default dispatch, stilts=Java tmatch2, "
-            "astropy=astropy match_to_catalog_sky / search_around_sky, "
-            "fast=torchsky exact zone index (in memory), zone=same search as fast, "
-            "torchsky=torchsky crossmatch_sky (sky/skyerr), "
-            "ray=distributed zone match, ray-union=distributed N-way "
-            "outer join on Ray with mirrored HATS inputs, ray-anchor=one row per "
-            "anchor source with the best counterpart from every survey)."
+            "auto: select a compatible backend; fast/zone: in-memory spherical search; "
+            "stilts/astropy: use their spherical matchers; "
+            "torchsky: direct sky or scaled-error search; "
+            "ray: distribute pair matching; ray-union: keep sources across all inputs; "
+            "ray-anchor: one output row per source in the first catalogue, with the best "
+            "counterpart from each later catalogue."
         ),
     )
-    g_alg.add_argument(
+    g_engine.add_argument(
         "--fallback-policy",
         dest="fallback_policy",
         choices=["warn", "error"],
@@ -1044,20 +1134,20 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "substitutes a supported path; 'error' aborts. Use 'error' for reproducible "
         "science runs.",
     )
-    g_alg.add_argument(
+    g_out.add_argument(
         "--union",
         dest="union_match",
         action="store_true",
-        help="Build a master union catalogue (full outer join across all).",
+        help="Build a catalogue that includes unmatched sources from all inputs.",
     )
-    g_alg.add_argument(
+    g_out.add_argument(
         "--fof",
         dest="fof_match",
         action="store_true",
-        help="Friends-of-Friends transitive closure across all catalogues.",
+        help="Group sources linked by chains of matches (Friends-of-Friends). "
+        "Keep groups that contain a source from catalogue 1.",
     )
 
-    g_ray = parser.add_argument_group("Distributed (engine=ray-union)")
     g_ray.add_argument(
         "--no-sync",
         dest="no_sync",
@@ -1083,10 +1173,13 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         help="Target rows per Ray chunk task (default 2,000,000).",
     )
     g_ray.add_argument(
+        "--max-combinations-per-source",
         "--max-tuples",
         dest="max_tuples",
+        metavar="COUNT",
         type=int,
-        help="Max output tuples per hub source row (default 10,000).",
+        help="Maximum counterpart combinations retained per source with ray-union "
+        "(default 10,000).",
     )
     g_ray.add_argument(
         "--chunk-memory-gb",
@@ -1105,9 +1198,8 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "--anchor-partitions",
         dest="anchor_partitions",
         metavar="ORDER/PIX[,ORDER/PIX…]",
-        help="engine=ray-anchor only: process just these anchor HATS partitions "
-        "(e.g. a pilot: --anchor-partitions 2/69,6/42837). The output's properties "
-        "name the subset (xmatcher_anchor_partitions).",
+        help="With ray-anchor, process only these HEALPix partitions of the first catalogue "
+        "(e.g. 2/69,6/42837). The output records the selection.",
     )
     g_ray.add_argument(
         "--read-threads",
@@ -1139,44 +1231,46 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         "days (default: always probe).",
     )
     g_ray.add_argument(
+        "--min-free-gib",
         "--min-free-gb",
         dest="min_free_gb",
+        metavar="GIB",
         type=float,
         help="Fail fast when the cache root or output filesystem has less free space "
         "than this many GiB (default 10.0; env XMATCHER_MIN_FREE_GB overrides).",
     )
 
-    g_id = parser.add_argument_group("ID join")
     g_id.add_argument(
         "--id-join",
         dest="id_join",
         action="store_true",
-        help="Join on id columns instead of sky position.",
+        help="Match rows with equal source identifiers.",
     )
-    g_id.add_argument("--id1", dest="id_column_1", help="ID column for catalogue 1.")
-    g_id.add_argument("--id2", dest="id_column_2", help="ID column for catalogue 2.")
+    g_id.add_argument("--id-column-1", "--id1", metavar="COLUMN", help="ID column in catalogue 1.")
+    g_id.add_argument("--id-column-2", "--id2", metavar="COLUMN", help="ID column in catalogue 2.")
 
-    g_prob = parser.add_argument_group("Probabilistic / Bayesian")
     g_prob.add_argument(
         "--probabilistic",
         dest="probabilistic",
         action="store_true",
-        help="Compute a positional Bayesian p_match. Both sides need positional "
-        "errors; add --priors for photometric terms.",
+        help="Add a Bayesian match probability (p_match) to the selected pairs. "
+        "Both catalogues need positional uncertainties. Add --priors for photometry.",
     )
     g_prob.add_argument(
         "--priors",
         dest="priors",
         default="",
-        help="Comma-separated photometric prior columns; enables p_match (e.g. g,r).",
+        help="Shared photometry columns used to estimate the Bayesian match probability "
+        "(e.g. g,r).",
     )
 
-    g_pm = parser.add_argument_group("Proper motion")
     g_pm.add_argument(
         "--target-epoch",
         dest="target_epoch",
         type=_bounded_float(-math.inf, math.inf),
-        help="Julian-year epoch to propagate coordinates via proper motion.",
+        metavar="JYEAR",
+        help="Propagate positions with available motion measurements to this Julian-year "
+        "epoch (e.g. 2016.0).",
     )
     g_pm.add_argument(
         "--pm-prior",
@@ -1191,39 +1285,31 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         help="Magnitude column for refining the PM drift dispersion estimate.",
     )
 
-    g_filt = parser.add_argument_group("Advanced filters")
-    g_filt.add_argument(
-        "--filter-expr",
-        dest="filter_expr",
-        help="Polars SQL WHERE clause applied after selection; rejected 'best' "
-        "matches are not replaced.",
-    )
-    g_filt.add_argument(
-        "--extra-distance-cols",
-        dest="extra_distance_cols",
-        help="Column:weight pairs for N-dimensional ranking (e.g. 'g:0.5,bp_rp:0.3').",
-    )
-
-    g_msm = parser.add_argument_group("Matcher-specific")
     g_msm.add_argument(
         "--lr-magnitude-column",
         dest="lr_magnitude_column",
-        help="Magnitude column for the LR matcher (required when --matcher lr). With "
-        "three or more catalogues, one name for every secondary or a comma-separated "
-        "list with one per secondary (e.g. W1mag,Jmag).",
+        metavar="COLUMN",
+        help="Comparison catalogue magnitude column for likelihood-ratio matching. "
+        "Supply one name for every comparison catalogue or a comma-separated list, "
+        "one per catalogue (e.g. W1mag,Jmag).",
     )
     g_msm.add_argument(
+        "--lr-primary-magnitude-column",
         "--lr-color-column",
         dest="lr_color_column",
-        help="Primary-catalogue magnitude column: the LR photometric term becomes the "
-        "colour secondary magnitude - this column (e.g. G for W1 - G).",
+        metavar="COLUMN",
+        help="Use comparison magnitude minus primary magnitude as the likelihood-ratio "
+        "photometric term (e.g. supply G for W1 − G).",
     )
     g_msm.add_argument(
+        "--lr-counterpart-fraction",
         "--lr-q",
         dest="lr_q",
         type=_bounded_float(0.0, 1.0),
         default=0.8,
-        help="Prior probability Q that a primary source has a counterpart (0-1).",
+        metavar="FRACTION",
+        help="Prior fraction of primary sources expected to have a counterpart in a "
+        "comparison catalogue (0–1).",
     )
     g_msm.add_argument(
         "--ml-color-cols",
@@ -1242,21 +1328,38 @@ def _build_match_subparser() -> argparse.ArgumentParser:
         help="Path to save/load a pre-trained XGBoost model (joblib).",
     )
     g_msm.add_argument(
+        "--macauff-magnitude-columns",
         "--macauff-flux-cols",
         dest="macauff_flux_cols",
-        help="Comma-separated magnitude columns for macauff flux likelihoods.",
+        metavar="COLUMNS",
+        help="Shared magnitude columns for macauff photometric likelihoods (comma-separated). "
+        "The default scatter is 0.1 mag when magnitude errors are unavailable.",
     )
 
-    g_reg = parser.add_argument_group("Region (remote downloads)")
     g_reg.add_argument(
-        "--ra", type=_bounded_float(-math.inf, math.inf), help="Region center RA (deg)."
+        "--cone-ra-deg",
+        "--ra",
+        dest="ra",
+        type=_bounded_float(-math.inf, math.inf),
+        metavar="DEG",
+        help="Right ascension of the remote search centre, in degrees.",
     )
-    g_reg.add_argument("--dec", type=_bounded_float(-90.0, 90.0), help="Region center Dec (deg).")
     g_reg.add_argument(
+        "--cone-dec-deg",
+        "--dec",
+        dest="dec",
+        type=_bounded_float(-90.0, 90.0),
+        metavar="DEG",
+        help="Declination of the remote search centre, in degrees.",
+    )
+    g_reg.add_argument(
+        "--cone-radius-deg",
         "--radius-deg",
         dest="radius_deg",
         type=_bounded_float(0.0, 180.0, low_open=True),
-        help="Region radius (deg) for remote cone downloads.",
+        metavar="DEG",
+        help="Angular radius of the remote search region, in degrees. "
+        "Supply --cone-ra-deg and --cone-dec-deg together with this option.",
     )
     g_reg.add_argument(
         "--endpoint",
@@ -1316,11 +1419,13 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
         help="Parallel download workers (default 8).",
     )
     parser.add_argument(
+        "--hats-split-rows",
         "--hats-threshold",
         dest="hats_threshold",
+        metavar="ROWS",
         type=int,
         default=100_000,
-        help="Max rows per HEALPix pixel for the converted HATS catalogue.",
+        help="Subdivide a HEALPix cell above this row count when converting to HATS.",
     )
     parser.add_argument(
         "--fresh-after",
@@ -1330,8 +1435,10 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
         "(default: always probe).",
     )
     parser.add_argument(
+        "--min-free-gib",
         "--min-free-gb",
         dest="min_free_gb",
+        metavar="GIB",
         type=float,
         help="Fail fast when the cache root has less free space than this many GiB "
         "(default 10.0; env XMATCHER_MIN_FREE_GB overrides).",
@@ -1384,11 +1491,13 @@ def _build_project_hats_subparser() -> argparse.ArgumentParser:
         help="Durable cache root for mirrored HATS catalogues.",
     )
     parser.add_argument(
+        "--hats-split-rows",
         "--hats-threshold",
         dest="hats_threshold",
+        metavar="ROWS",
         type=int,
         default=100_000,
-        help="Max rows per HEALPix pixel when a non-HATS source is converted.",
+        help="Subdivide a HEALPix cell above this row count when converting to HATS.",
     )
     parser.add_argument(
         "--rate-limit",
@@ -1468,11 +1577,14 @@ def _build_convert_subparser() -> argparse.ArgumentParser:
     parser.add_argument("--ra-col", dest="ra_col", help="RA column for a HATS output.")
     parser.add_argument("--dec-col", dest="dec_col", help="Dec column for a HATS output.")
     parser.add_argument(
+        "--hats-split-rows",
         "--hats-max-rows",
         dest="hats_max_rows",
+        metavar="ROWS",
         type=int,
         default=1_000_000,
-        help="Split a HEALPix cell holding more rows than this (default 1,000,000).",
+        help="Subdivide a HEALPix cell above this row count, up to --hats-max-order "
+        "(default 1,000,000 rows).",
     )
     parser.add_argument(
         "--hats-max-order",
@@ -1958,10 +2070,10 @@ def _build_top_parser() -> argparse.ArgumentParser:
         "  describe    show columns & access info for a catalogue\n"
         "  discover    browse tables and columns on a remote TAP endpoint\n"
         "  search      search every endpoint for tables matching a substring\n"
-        "  adopt       save a remote table into ~/.config/xmatcher/xmatcher.yaml\n"
-        "  sync        mirror remote catalogues into the local HATS cache\n"
-        "  project-hats  write a narrow HATS tree with selected columns\n"
-        "  export-hats   flatten a HATS tree to a single .parquet or .fits file\n"
+        "  adopt       add a remote table or HATS catalogue to your configuration\n"
+        "  sync        store a local copy of remote catalogues in the HATS cache\n"
+        "  project-hats  write selected columns to a new HATS catalogue\n"
+        "  export-hats   write a HATS catalogue to one Parquet or FITS file\n"
         "  convert     convert between FITS, Parquet, HATS and CSV (any direction)\n"
         "  completion  emit a shell tab-completion script (bash | zsh | fish)\n"
         "  doctor      report drift between your xmatcher.yaml and the bundled baseline\n"
@@ -2501,7 +2613,8 @@ def handle_adopt(
         console.info(f"Alias {console.cyan(alias.lower())} → {name}")
     console.hint(f"Try: xmatcher describe {alias or name}")
     console.hint(
-        f"     xmatcher match <local.parquet> {alias or name} --ra … --dec … --radius-deg …"
+        f"     xmatcher match <local.parquet> {alias or name} "
+        "--cone-ra-deg … --cone-dec-deg … --cone-radius-deg …"
     )
     return 0
 
@@ -2657,7 +2770,7 @@ def _run_match_subcommand(argv: Sequence[str]) -> int:
     args = parser.parse_args(list(argv))
     region = (args.ra, args.dec, args.radius_deg)
     if any(value is not None for value in region) and None in region:
-        parser.error("--ra, --dec and --radius-deg must be given together")
+        parser.error("--cone-ra-deg, --cone-dec-deg and --cone-radius-deg must be given together")
     setup_logging(args.verbose)
     console = _make_console(no_color=bool(getattr(args, "no_color", False)))
     cm = _load_cli_crossmatch(args.config_file, console)

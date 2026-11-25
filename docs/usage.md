@@ -104,7 +104,7 @@ CSV in any direction; the output suffix names the format. Rows stream in Arrow
 batches (`--batch-rows`, default 262,144), so memory stays bounded. FITS is
 written by a streaming binary-table writer rather than Astropy; a HATS output
 takes three passes over the input (count, tile, write), with the tiling set by
-`--hats-max-rows` and `--hats-max-order`. Reading a HATS tree drops its
+`--hats-split-rows` and `--hats-max-order`. Reading a HATS tree drops its
 `_healpix_29` index column unless `--keep-healpix29` is given.
 
 ```bash
@@ -155,7 +155,8 @@ mirror holds every requested column, the cone is read from the mirror instead.
 xmatcher match my_sources.csv gaia -r 1.0 -o matches.parquet
 
 # Explicit cone: 0.05 deg around Vega
-xmatcher match gaia my_catalog.csv --ra 279.23 --dec 38.78 --radius-deg 0.05 -r 1.5
+xmatcher match gaia my_catalog.csv --cone-ra-deg 279.23 --cone-dec-deg 38.78 \
+    --cone-radius-deg 0.05 -r 1.5
 ```
 
 Two server-side routes skip the download: a local-vs-CDS match uses the CDS
@@ -166,7 +167,8 @@ post-filter, N-D feature, column projection, target epoch or
 probabilistic/photometric scoring. Other requests download a region and match
 locally.
 
-Explicit `ra`, `dec` and `radius_deg` (`--ra`, `--dec`, `--radius-deg`) are
+Explicit `ra`, `dec` and `radius_deg` (`--cone-ra-deg`, `--cone-dec-deg`,
+`--cone-radius-deg`) are
 required when:
 
 - both inputs are remote and the server-side join does not apply (there is no
@@ -189,7 +191,8 @@ products carry no per-pair errors; a 0.75″ default positional error is
 configured.
 
 ```bash
-xmatcher match nsc_x_gaia my_stars.csv --ra 279.2 --dec 38.8 --radius-deg 0.01 -r 1.5
+xmatcher match nsc_x_gaia my_stars.csv --cone-ra-deg 279.2 --cone-dec-deg 38.8 \
+    --cone-radius-deg 0.01 -r 1.5
 ```
 
 ### Discovering remote tables
@@ -295,7 +298,7 @@ xmatcher sync hats:mmu_cfa_seccsn
 Other options: `--rate-limit` (requests per second per host, default 1.0; 0
 disables throttling), `--threads` (parallel download workers, default 8),
 `--fresh-after DAYS` (skip the change probe for copies fully synced within that
-many days), and `--min-free-gb` (fail early when the cache filesystem has less
+many days), and `--min-free-gib` (fail early when the cache filesystem has less
 free space; default 10 GiB, or `XMATCHER_MIN_FREE_GB`).
 
 What a mirror provides:
@@ -338,14 +341,14 @@ only narrow it. Set it to the largest separation you are willing to accept.
 
 Small local files rarely carry the column metadata that `skyerr`,
 `skyellipse` and probabilistic scoring need. In Python, pass a
-`SideOverrides` per side. On the CLI, the same keys go in repeatable
-`--side1` / `--side2` comma-separated `KEY=VALUE` pairs, and `--side N KEY=VALUE`
-addresses catalogue `N` of an N-way run:
+`SideOverrides` for each catalogue. On the CLI, use the repeatable
+`--catalogue-option N KEY=VALUE` for any input catalogue `N`. A single flag
+can carry several comma-separated pairs.
 
 ```bash
-xmatcher match xray.fits optical.parquet --matcher skyerr -r 5 \
-  --side1 ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \
-  --side2 ra_err_column=e_RAJ2000,dec_err_column=e_DEJ2000,pos_err_units=arcsec
+xmatcher match xray.fits optical.parquet --match-method scaled-positional-errors -r 5 \
+  --catalogue-option 1 ra_err_column=ra_err,dec_err_column=dec_err,pos_err_units=arcsec \
+  --catalogue-option 2 ra_err_column=e_RAJ2000,dec_err_column=e_DEJ2000,pos_err_units=arcsec
 ```
 
 Accepted keys are `ra_column`, `dec_column`, `id_column`, `ra_err_column`,
@@ -641,7 +644,7 @@ See [Bayesian score assumptions](algorithms.md#6-probabilistic--bayesian-matcher
 
 ### J. Post-filters and feature-weighted ranking
 
-`filter_expr` (CLI `--filter-expr`) is a Polars SQL `WHERE` clause evaluated
+`filter_expr` (CLI `--post-match-filter`) is a Polars SQL `WHERE` clause evaluated
 on the matched pairs after selection; second-catalogue columns that collide
 with the first carry the `_2` suffix. A `find="best"` match rejected by the
 filter is not replaced by the next candidate.
@@ -665,14 +668,14 @@ spec = MatchSpec(
 
 ### Join modes
 
-| `join_type` (CLI `--join`) | Conventional name | Rows emitted |
+| Python `join_type` | CLI `--keep-rows` | Rows emitted |
 |---|---|---|
-| `"1and2"` | Inner join | Only matched pairs (default). |
-| `"all1"` | Left outer join | All left rows; right columns matched or `null`. |
-| `"all2"` | Right outer join | All right rows; left columns matched or `null`. |
-| `"1or2"` / `"all"` | Full outer join (union) | Every source from both catalogues (unmatched slots `null`). |
-| `"1not2"` | Left anti-join | Left sources with **no** counterpart in the right catalogue. |
-| `"2not1"` | Right anti-join | Right sources with **no** counterpart in the left catalogue. |
+| `"1and2"` | `matched` | Only matched pairs (default). |
+| `"all1"` | `all-from-1` | Every row from catalogue 1, with counterpart fields where available. |
+| `"all2"` | `all-from-2` | Every row from catalogue 2, with counterpart fields where available. |
+| `"1or2"` / `"all"` | `all-sources` | Matched rows and unmatched sources from both catalogues. |
+| `"1not2"` | `unmatched-1` | Rows from catalogue 1 without a retained match. |
+| `"2not1"` | `unmatched-2` | Rows from catalogue 2 without a retained match. |
 
 ```python
 # Anti-join: new detections with no Gaia counterpart within 2″
@@ -687,7 +690,7 @@ transients = cm.crossmatch(
 ### Relational ID join (`id_join=True`)
 
 A relational join on identifier columns (e.g. `source_id`, `objid`), with no
-positional matching (CLI `--id-join --id1 COL --id2 COL`):
+positional matching (CLI `--id-join --id-column-1 COL --id-column-2 COL`):
 
 ```python
 result = cm.crossmatch(
@@ -768,7 +771,7 @@ fraction of columns the match needs) exceeds the budget:
 ```bash
 xmatcher match large_a.parquet large_b.parquet \
   --memory-budget-bytes 1073741824 --scratch-dir /scratch/xmatcher \
-  --matcher sky --join 1or2 -o matches.parquet
+  --match-method angular-separation --keep-rows all-sources -o matches.parquet
 ```
 
 The spill path supports:
@@ -852,7 +855,7 @@ xmatcher match gaia allwise twomass \
 ```
 
 Tuning options: `--task-rows` (target rows per Ray chunk, default 2,000,000),
-`--max-tuples` (output tuples per hub row, default 10,000),
+`--max-combinations-per-source` (counterpart combinations per source, default 10,000),
 `--chunk-memory-gb` (per-chunk candidate-pool guard, default 8.0),
 `--retries` (driver-level reruns after a failure; finished chunks are skipped),
 and `--no-sync` (require existing mirrors instead of syncing).
