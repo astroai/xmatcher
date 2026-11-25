@@ -46,17 +46,18 @@ extras, the Pixi developer environment and platform notes.
 Match two local catalogues within 1.5″, keeping the best counterpart:
 
 ```bash
-xmatcher match optical.parquet infrared.csv -r 1.5 -o matched.parquet
+xmatcher match optical.parquet infrared.csv --match-radius-arcsec 1.5 -o matched.parquet
 ```
 
 Each output row holds both sources' columns (clashing names from the second
 catalogue get a `_2` suffix) and their separation in `sep_arcsec`.
 
-Match a target list against Gaia DR3; the cone around your targets is fetched
-over TAP:
+Match a target list against Gaia DR3 and keep every target. xmatcher fetches
+the cone around your targets over TAP.
 
 ```bash
-xmatcher match targets.csv gaia -r 1.0 -o targets_gaia.parquet
+xmatcher match targets.csv gaia --match-radius-arcsec 1.0 \
+  --keep-rows all-from-1 -o targets_gaia.parquet
 ```
 
 List the named catalogues, and convert a result to FITS:
@@ -107,7 +108,8 @@ The [user guide](docs/usage.md) explains how to choose between them.
 | [Catalogue naming](docs/naming.md) | Catalogue names, aliases and explicit identifiers |
 | [HATS sources](docs/hats-sources.md) | Registry lookups, verified remote trees, mirroring |
 | [Gaia-anchored masters](docs/ray-anchor.md) | The `ray-anchor` engine and its output schema |
-| [PENSUS on CANFAR](scripts/pensus/README.md) | Source-preserving photometry unions from mounted HATS catalogues |
+| [CANFAR setup](docs/canfar.md) | Headless sessions, shared HATS catalogues and project storage |
+| [PENSUS](https://github.com/astroai/xmatcher/tree/main/scripts/pensus) | Source-preserving photometry unions from mounted HATS catalogues |
 | [Documentation index](docs/README.md) | All guides, data contracts and release notes |
 
 ## Contributing

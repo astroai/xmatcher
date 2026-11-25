@@ -5,7 +5,9 @@ Thank you for contributing to `xmatcher`! User-facing installation is in
 
 ## Development setup
 
-Use [Pixi](https://pixi.sh): the locked environment has Python 3.13, conda-forge CPU PyTorch, torchsky and torchfits from PyPI, and every optional backend (`hats`, `ray`, `astroquery`, the ML libraries):
+Use [Pixi](https://pixi.sh) for the locked environment. It includes Python
+3.13, conda-forge CPU PyTorch, torchsky, torchfits, HATS, Ray and astroquery.
+The optional `ml` extra adds the machine-learning matchers.
 
 ```bash
 git clone https://github.com/astroai/xmatcher.git

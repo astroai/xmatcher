@@ -9,7 +9,7 @@ automatically:
 | [torchfits](https://github.com/astroai/torchfits) (>=1.3.3) | FITS table reading and streaming FITS output |
 | Polars, PyArrow | In-memory and streamed tables, Parquet and HATS I/O |
 | Astropy, PyVO | Coordinate frames and units, TAP queries |
-| NumPy, SciPy, PyYAML | Numerics, `cKDTree` searches (Friends-of-Friends, `ray-union`), catalogue registry |
+| NumPy, SciPy, PyYAML | Numerics, spatial indexing and catalogue configuration |
 
 An installed torchsky older than 0.6.0 is refused with an upgrade message.
 
@@ -52,7 +52,8 @@ extra.
 ## Developer environment (Pixi)
 
 The repository ships a locked [Pixi](https://pixi.sh) environment with Python
-3.13, conda-forge CPU PyTorch and every optional backend:
+3.13, conda-forge CPU PyTorch, HATS, Ray and CDS support. The `ml` extra adds
+the optional machine-learning matchers.
 
 ```bash
 git clone https://github.com/astroai/xmatcher.git
@@ -74,5 +75,7 @@ release checks.
 - On shared or NFS-mounted systems (CANFAR, for example), set
   `PYTHONNOUSERSITE=1` and unset `PYTHONPATH` so packages in your user
   site-packages do not shadow the environment's.
+- The [CANFAR setup](canfar.md) shows how to reuse mounted survey releases
+  and select a durable project directory.
 - `xmatcher doctor` compares your `~/.config/xmatcher/xmatcher.yaml` against
   the bundled catalogue registry and reports drift.

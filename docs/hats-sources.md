@@ -258,7 +258,8 @@ Prefer keeping HATS for survey-scale catalogues.
 `/arc/projects/hats` holds HATS trees laid out as `<survey>/<product>`. It is
 read-only for xmatcher: trees there are used in place and never synced,
 replicated or written (see [the user guide](usage.md#community-trees-used-in-place)).
-Bundled entries that read them:
+Enable shared-root lookup with the [CANFAR setup](canfar.md). The following
+bundled entries describe mounted products.
 
 | Entry | Tree | Rows | How it is found |
 |---|---|---:|---|

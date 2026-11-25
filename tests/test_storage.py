@@ -5,6 +5,7 @@ and traversal rejection at the storage boundary."""
 from __future__ import annotations
 
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -26,6 +27,44 @@ from xmatcher.storage import (
     default_output_root,
     open_storage,
 )
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="requires Bash")
+@pytest.mark.parametrize("override", [False, True])
+def test_canfar_setup_is_explicit_and_preserves_overrides(
+    monkeypatch: pytest.MonkeyPatch, override: bool
+) -> None:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "canfar-env.sh"
+    monkeypatch.delenv("PYTHONNOUSERSITE", raising=False)
+    if override:
+        monkeypatch.setenv("XMATCHER_CACHE_ROOT", "/scratch/mirror")
+        monkeypatch.setenv("XMATCHER_OUTPUT_ROOT", "/shared/results")
+        monkeypatch.setenv("XMATCHER_COMMUNITY_ROOTS", "")
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            'source "$1"\n'
+            """printf '%s\n' "$XMATCHER_CACHE_ROOT" "$XMATCHER_OUTPUT_ROOT" """
+            '"$XMATCHER_COMMUNITY_ROOTS" "$PYTHONNOUSERSITE"',
+            "bash",
+            str(script),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    expected = (
+        ["/scratch/mirror", "/shared/results", "", "1"]
+        if override
+        else [
+            "/arc/projects/astroai/hats",
+            "/arc/projects/astroai/xmatcher",
+            "/arc/projects/hats",
+            "1",
+        ]
+    )
+    assert result.stdout.splitlines() == expected
 
 
 def test_local_roundtrip(tmp_path: Path) -> None:
@@ -174,7 +213,7 @@ def test_assert_headroom_uses_binary_gibibytes(tmp_path: Path, monkeypatch) -> N
         "xmatcher.storage.shutil.disk_usage",
         lambda _: DiskUsage(2**40, 2**40 - 1_000_000_000, 1_000_000_000),
     )
-    with pytest.raises(CrossMatchError, match="below the --min-free-gb floor"):
+    with pytest.raises(CrossMatchError, match="below the --min-free-gib floor"):
         assert_headroom(tmp_path, 1.0, "test filesystem")
 
     monkeypatch.setattr(
@@ -480,7 +519,6 @@ def test_open_storage_routing(tmp_path: Path) -> None:
 def test_default_cache_root(monkeypatch) -> None:
     key = "XMATCHER_CACHE_ROOT"
     monkeypatch.delenv(key, raising=False)
-    monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: None)
     assert default_cache_root() == str(Path.home() / ".cache" / "xmatcher")
     monkeypatch.setenv(key, "/tmp/xc-root")
     assert default_cache_root() == "/tmp/xc-root"
@@ -491,8 +529,6 @@ def test_all_cache_roots_precedence_and_dedup(monkeypatch) -> None:
     key = "XMATCHER_CACHE_ROOT"
     default = str(Path.home() / ".cache" / "xmatcher")
     monkeypatch.delenv(key, raising=False)
-    # off-platform probe: tests must not depend on where they run
-    monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: None)
 
     # unset everything -> the default root alone (never [])
     assert all_cache_roots() == [default]
@@ -513,36 +549,12 @@ def test_all_cache_roots_precedence_and_dedup(monkeypatch) -> None:
     ]
 
 
-def test_default_cache_root_prefers_platform_arc(monkeypatch) -> None:
-    """On AstroAI/CANFAR sessions the cache defaults to /arc/projects/astroai/hats —
-    never a home directory — and XMATCHER_CACHE_ROOT still wins."""
-    key = "XMATCHER_CACHE_ROOT"
-    monkeypatch.delenv(key, raising=False)
-    home_default = str(Path.home() / ".cache" / "xmatcher")
-
-    monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: "/arc")
-    assert default_cache_root() == "/arc/projects/astroai/hats"
-
-    monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: None)
-    assert default_cache_root() == home_default
-
-    # env override beats the platform default
-    monkeypatch.setenv(key, "vos:hats")
-    monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: "/arc")
-    assert default_cache_root() == "vos:hats"
-
-
-def test_default_output_root_platform_and_env(monkeypatch) -> None:
-    """Outputs default to /arc/projects/astroai/xmatcher on the platform, stay
-    cwd-relative off it, and XMATCHER_OUTPUT_ROOT (incl. empty=off) wins."""
+def test_default_output_root_uses_explicit_env(monkeypatch) -> None:
+    """Bare output names use the working directory unless a root is set."""
     key = "XMATCHER_OUTPUT_ROOT"
     monkeypatch.delenv(key, raising=False)
 
-    monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: None)
     assert default_output_root() is None
-
-    monkeypatch.setattr("xmatcher.storage.platform_arc_root", lambda: "/arc")
-    assert default_output_root() == "/arc/projects/astroai/xmatcher"
 
     monkeypatch.setenv(key, "vos:hats/xmatcher")
     assert default_output_root() == "vos:hats/xmatcher"

@@ -210,7 +210,7 @@ where the table says otherwise.
 |---|---|---|
 | `--no-sync` | off | Do not mirror remote inputs; require existing cached HATS copies. |
 | `--synclimit FLOAT` | `cache.rate_limit_rps`, else `1.0` | Requests/sec rate limit when mirroring remote catalogues. |
-| `--cache-root PATH` | `$XMATCHER_CACHE_ROOT`; on AstroAI/CANFAR sessions `/arc/projects/astroai/hats`; else `~/.cache/xmatcher` | Durable cache root for mirrored HATS catalogues. |
+| `--cache-root PATH` | `XMATCHER_CACHE_ROOT`, then `cache.root`, then `~/.cache/xmatcher` | Durable cache root for mirrored HATS catalogues. |
 | `--task-rows INT` | `2000000` | Target rows per Ray chunk task. |
 | `--max-combinations-per-source INT` | `10000` | Maximum counterpart combinations retained per source (`ray-union` only). |
 | `--chunk-memory-gb FLOAT` | `8.0` | Per-chunk candidate-pool memory guard in GiB. |
@@ -234,7 +234,7 @@ The parser accepts these names from existing scripts.
 | `--match-method error-ellipse` | `--matcher skyellipse` |
 | `--match-method likelihood-ratio` | `--matcher lr` |
 | `--max-normalized-offset`, `--matches`, `--post-match-filter` | `--max-error`, `--find`, `--filter-expr` |
-| `--ra-column-N`, `--dec-column-N`, `--id-column-N` (N = 1 or 2) | `--ra1`, `--dec1`, `--id1` and the catalogue 2 equivalents |
+| `--ra-column-1`, `--dec-column-1`, `--id-column-1` and the catalogue 2 equivalents | `--ra1`, `--dec1`, `--id1` and the catalogue 2 equivalents |
 | `--catalogue-option N KEY=VALUE` | `--side N KEY=VALUE`, `--side1 KEY=VALUE`, `--side2 KEY=VALUE` |
 | `--cone-ra-deg`, `--cone-dec-deg`, `--cone-radius-deg` | `--ra`, `--dec`, `--radius-deg` |
 | `--lr-primary-magnitude-column`, `--lr-counterpart-fraction`, `--macauff-magnitude-columns` | `--lr-color-column`, `--lr-q`, `--macauff-flux-cols` |

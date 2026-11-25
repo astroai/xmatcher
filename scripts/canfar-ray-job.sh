@@ -22,18 +22,14 @@
 #
 # Usage (from any AstroAI/CANFAR session with the platform CLIs on PATH):
 #   scripts/canfar-ray-job.sh \
-#       --command "pixi run python scripts/bench_ray_union.py --rows 100000 --repeat 1 --warmup 0 --work-dir /arc/projects/hats/xmatcher-bench-unique"
+#       --command "pixi run python scripts/bench_ray_union.py --rows 100000 --repeat 1 --warmup 0 --work-dir /arc/projects/astroai/xmatcher/xmatcher-bench-unique"
 #
-# IMPORTANT — the union cache must be visible to every worker pod.  On the
-# platform the defaults are already shared: the mirrored-HATS cache root is
-# /arc/projects/hats (inputs) and bare relative outputs land in
-# /arc/projects/hats/xmatcher — never a pod-local home.  Override with
-# `--env XMATCHER_CACHE_ROOT=vos:hats` (VOSpace root) or XMATCHER_OUTPUT_ROOT=...
-# and `-o vos:hats/xmatcher/name.hats` works too (staged locally, uploaded;
-# resume pulls the remote tree back first).  Bare output names share the
-# root: use a distinct name per run — a rerun with different parameters
-# wipes the previous run's stale chunks.  CANFAR `/scratch` is per-pod and
-# breaks remote workers' reads.
+# The union cache and output must be visible to every worker pod. To use
+# AstroAI's shared paths, begin the job command with
+# `source scripts/canfar-env.sh &&`. For other project paths, pass settings
+# such as `--env XMATCHER_CACHE_ROOT=/arc/projects/PROJECT/hats` and set
+# XMATCHER_OUTPUT_ROOT or use an explicit output path. Use a distinct
+# output directory per run. CANFAR /scratch is local to each pod.
 #
 # Options:
 #   --command CMD        required command to run as the Ray Job (shell string)
@@ -49,8 +45,8 @@
 #                        Default: none — on the platform (webterm, /arc
 #                        mounted) the command is self-located into the
 #                        current directory instead, so nothing uploads,
-#                        the installed pixi env is reused and outputs
-#                        land in the repo.  From a laptop, self-locate:
+#                        the installed pixi env is reused. From a laptop,
+#                        specify the repo's location on the manager:
 #                        --command "bash -lc 'cd /arc/... && pixi run ...'"
 #   --create-manager IMG create a 2-CPU/8-GiB ray-manager session first
 #   --manager-name NAME  manager session name (default xmatcher-ray)
@@ -136,18 +132,17 @@ if [ -z "$CMD" ]; then
     exit 2
 fi
 
-# Job working directory.  On the platform (webterm; /arc mounted) the repo
-# at $(pwd) already lives on the head pod via the shared /arc volume — so
-# default to SELF-LOCATING the command (`bash -c 'cd <pwd> && CMD'`): zero
-# upload, the installed pixi env is reused, and outputs land in the repo.
-# Off-platform (laptop) there is no safe default: the user passes --cwd
-# (explicit upload) or a self-locating command.
+# A checkout on the shared /arc volume is visible to the Ray head, so set
+# the working directory there and reuse its installed Pixi environment.
+# For a private checkout, pass --cwd to upload it or supply a self-locating
+# command.
 SELF_LOCATE=""
 if [ -z "$CWD" ]; then
-    if [ -f pixi.toml ] && [ -d /arc ]; then
-        SELF_LOCATE="bash -c $(shq "cd $(pwd) && $CMD")"
+    WORK_DIR=$(pwd -P)
+    if [ -f pixi.toml ] && [ "${WORK_DIR#/arc/}" != "$WORK_DIR" ]; then
+        SELF_LOCATE="bash -c $(shq "cd $(shq "$WORK_DIR") && $CMD")"
     else
-        echo "note: no self-locating default (needs pixi.toml + the /arc mount);" >&2
+        echo "note: automatic job working directory requires a checkout under /arc;" >&2
         echo "  the job would run in the head's default working directory." >&2
         echo "  Run this from the repo on the manager, pass --cwd (uploads this" >&2
         echo "  copy's non-ignored files, including untracked files; inspect it" >&2

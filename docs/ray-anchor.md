@@ -18,7 +18,7 @@ xmatcher match gaia_hats sdss_hats ps1_hats catwise_hats \
   --engine ray-anchor \
   -r 1.5 \
   --target-epoch 2016.0 \
-  -o /arc/projects/astroai/xmatcher/gaia_master.hats
+  -o gaia_master.hats
 ```
 
 The first catalogue is the anchor. Every later catalogue is a survey. Remote
@@ -229,8 +229,8 @@ worker.
 
 ## CANFAR local products
 
-On CANFAR, inputs whose trees are in the community root `/arc/projects/hats`
-are read there in place (see
+With the [CANFAR setup](canfar.md), verified trees under `/arc/projects/hats`
+are read in place (see
 [HATS sources](hats-sources.md#community-trees-on-canfar)); only the other
 remote inputs are mirrored into the cache root `/arc/projects/astroai/hats`.
 For example, in

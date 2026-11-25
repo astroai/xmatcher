@@ -2,9 +2,8 @@
 
 Backs the ``engine=ray-union`` pipeline: every remote input (a TAP table, or a
 HATS catalogue served over HTTP / ``vos:`` / ``s3://`` / ``hf://``) is mirrored
-into a per-catalogue
-cache dir under the cache root (``XMATCHER_CACHE_ROOT``; on AstroAI/CANFAR
-sessions ``/arc/projects/astroai/hats``, else ``~/.cache/xmatcher``), stored through
+into a per-catalogue directory under the configured cache root
+(``~/.cache/xmatcher`` by default), stored through
 :class:`xmatcher.storage.Storage` (POSIX dir or VOSpace ``vos:`` URI).  Re-syncs
 are incremental:
 
@@ -2255,18 +2254,18 @@ def _refuse_community_self_mirror(src: CatalogueSource) -> None:
     mounted.  On the platform its ``local_paths`` copy failed verification
     (logged above), and copying terabytes from the same tree would hide that.
     """
-    from .storage import PLATFORM_COMMUNITY_ROOT, read_only_root_for
+    from .storage import ARC_RELEASE_ROOT, read_only_root_for
 
     ident = str(src.access_identifier or "")
     if (
         src.access_method == "hats"
         and ident.startswith("vos:")
         and read_only_root_for(ident) is not None
-        and os.path.isdir(PLATFORM_COMMUNITY_ROOT)
+        and os.path.isdir(ARC_RELEASE_ROOT)
     ):
         raise CrossMatchError(
             f"'{src.name}' names the community tree {ident}, which is mounted under "
-            f"{PLATFORM_COMMUNITY_ROOT}, but none of its local_paths passed verification "
+            f"{ARC_RELEASE_ROOT}, but none of its local_paths passed verification "
             "(see the warnings above); refusing to copy the community tree into the "
             "cache. Update the entry's local_paths / hats_nrows / obs_collection."
         )

@@ -4,7 +4,7 @@
 CANFAR splits ``create ... -- CMD ARGS`` on whitespace and does not honour
 shell quoting, so the session command has to be a single token.  The embeddable
 bootstrap in ``scripts/canfar_bootstrap.py`` satisfies that: it copies a
-source tarball from VOSpace (the repository is private) into ``/scratch`` and
+source tarball from mounted storage or VOSpace into ``/scratch`` and
 hands off to this file:
 
     python3 -c exec(__import__('base64').b64decode('<bootstrap>').decode()) <scenario>
@@ -14,7 +14,8 @@ bounded while exercising alias resolution, explicit identifiers, matchers,
 union/fof, HATS inputs, discovery, the registry contract, engine-independent
 ``skyerr`` pair sets, join-type composition, and RA = 0/360 seam handling.
 
-Results are written to ``/arc/projects/hats/tests/xmatcher-matrix/<run>/``
+Results are written to ``$XMATCHER_RESULTS_ROOT/<run>/`` (by default under
+``/arc/projects/astroai/xmatcher/tests/xmatcher-matrix``)
 and a ``SUMMARY {...}`` line is printed for ``canfar logs`` collection.
 """
 
@@ -39,8 +40,15 @@ REPO = Path(os.environ.get("XMATCHER_REPO", str(WORK / "xmatcher")))
 os.environ["PIXI_HOME"] = str(WORK / "pixi-home")
 os.environ["PIXI_CACHE_DIR"] = str(WORK / "pixi-cache")
 os.environ["UV_CACHE_DIR"] = str(WORK / "uv-cache")
-REPO_URL = "https://github.com/sfabbro/xmatcher.git"
-ARC_ROOT = Path("/arc/projects/hats/tests/xmatcher-matrix") / RUN_ID
+REPO_URL = "https://github.com/astroai/xmatcher.git"
+RESULTS_ROOT = (
+    Path(
+        os.environ.get(
+            "XMATCHER_RESULTS_ROOT", "/arc/projects/astroai/xmatcher/tests/xmatcher-matrix"
+        )
+    )
+    / RUN_ID
+)
 
 COSMOS = (150.10, 2.20, 0.05)
 GALEX = (150.10, 2.20, 0.20)
@@ -969,7 +977,7 @@ def scenario_ray() -> None:
 
 
 def scenario_report() -> None:
-    root = ARC_ROOT
+    root = RESULTS_ROOT
     if not root.is_dir():
         print(f"no results at {root}")
         return
@@ -1437,7 +1445,7 @@ def prepare() -> str:
 
 def publish() -> None:
     try:
-        target = ARC_ROOT / SCENARIO
+        target = RESULTS_ROOT / SCENARIO
         target.mkdir(parents=True, exist_ok=True)
         for path in (WORK / "out" / SCENARIO).glob("*.parquet"):
             if path.stat().st_size <= 2_000_000:
@@ -1446,7 +1454,7 @@ def publish() -> None:
             if path.name.startswith(SCENARIO):
                 shutil.copy2(path, target / path.name)
     except OSError as exc:
-        print(f"note: could not publish results to {ARC_ROOT}: {exc}", flush=True)
+        print(f"note: could not publish results to {RESULTS_ROOT}: {exc}", flush=True)
 
 
 def main() -> int:

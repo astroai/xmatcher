@@ -1,6 +1,6 @@
 # xmatcher Python API reference
 
-This page covers the stable public surface of xmatcher 0.7.0: the names in
+This page covers the stable public surface of xmatcher 0.7.1, including the names in
 `xmatcher.__all__`, plus the modules named in their own sections below
 (`xmatcher.convert`, `xmatcher.mirror`, `xmatcher.association`). Any other
 module or name is internal.
@@ -729,17 +729,14 @@ from xmatcher.storage import open_storage
   when needed and returns a source pointing at the local copy.
   `open_storage(root)` returns a storage backend for a POSIX path or a `vos:`
   URI.
-- **Cache root.** `XMATCHER_CACHE_ROOT` if set; on AstroAI/CANFAR sessions
-  `/arc/projects/astroai/hats`; otherwise `~/.cache/xmatcher`. A catalogue is
-  stored under `<cache>/<name>/<version>/`. The CANFAR working and output
-  directory is `/arc/projects/astroai/xmatcher`. `/arc/projects/hats` is the
-  community HATS tree: xmatcher reads it and never writes to it.
+- **Cache root.** `XMATCHER_CACHE_ROOT`, then `cache.root`, then
+  `~/.cache/xmatcher`. A catalogue is stored under
+  `<cache>/<name>/<version>/`.
 - **Cache roots.** `xmatcher.storage.all_cache_roots(cache_cfg)` returns the
   writable roots (primary, then `replica_roots(cache_cfg)`: `cache.replica_roots`
   followed by the legacy `cache.roots`). `community_roots(cache_cfg)` returns
   the read-only roots (`XMATCHER_COMMUNITY_ROOTS`, else
-  `cache.community_roots`, else `[/arc/projects/hats]` on CANFAR when it
-  exists). `assert_writable(path, label)` raises
+  `cache.community_roots`, else an empty list). `assert_writable(path, label)` raises
   `xmatcher.ReadOnlyRootError` (a `ConfigError`) for a path inside a read-only
   root or `/arc/projects/hats`; `LocalStorage`/`VOSpaceStorage` opened there
   read normally and refuse every write.

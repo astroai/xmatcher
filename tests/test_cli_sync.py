@@ -190,20 +190,16 @@ def test_cli_match_ray_union_from_local_hats(tmp_path) -> None:
     assert (df["_src_cats"] == "1").sum() == 8
 
 
-def test_cli_resolves_bare_output_under_platform_root(monkeypatch) -> None:
-    """On the platform a bare -o name lands under the output root; explicit
-    paths and off-platform runs are untouched (XMATCHER_OUTPUT_ROOT override
-    rides through default_output_root)."""
+def test_cli_resolves_bare_output_under_configured_root(monkeypatch) -> None:
+    """The output root applies only to bare names and only when configured."""
     from xmatcher.cli import _resolve_output_path
 
-    monkeypatch.setattr(
-        "xmatcher.storage.default_output_root", lambda: "/arc/projects/astroai/xmatcher"
-    )
-    assert _resolve_output_path("full.hats") == "/arc/projects/astroai/xmatcher/full.hats"
-    assert _resolve_output_path("out.parquet") == "/arc/projects/astroai/xmatcher/out.parquet"
+    monkeypatch.setenv("XMATCHER_OUTPUT_ROOT", "/data/matches")
+    assert _resolve_output_path("full.hats") == "/data/matches/full.hats"
+    assert _resolve_output_path("out.parquet") == "/data/matches/out.parquet"
     assert _resolve_output_path("/abs/full.hats") == "/abs/full.hats"
     assert _resolve_output_path("sub/full.hats") == "sub/full.hats"
     assert _resolve_output_path(None) is None
 
-    monkeypatch.setattr("xmatcher.storage.default_output_root", lambda: None)
+    monkeypatch.delenv("XMATCHER_OUTPUT_ROOT")
     assert _resolve_output_path("full.hats") == "full.hats"

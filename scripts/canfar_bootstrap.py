@@ -7,11 +7,10 @@ bootstrap is small enough to embed that way::
 
     python3 -c exec(__import__('base64').b64decode('<this file>').decode()) <scenario>
 
-It copies a source tarball from VOSpace (the repository is private, so the
-session cannot clone it), unpacks it into ``/scratch``, and hands off to
+It unpacks a source tarball into ``/scratch`` and hands off to
 ``scripts/canfar_headless_run.py``, which installs the pixi environment and
-runs the scenario.  ``XMATCHER_RUN_ID`` groups results; ``XMATCHER_ARCHIVE``
-names the ``vos:`` tarball.
+runs the scenario. Set ``XMATCHER_ARCHIVE_PATH`` to a mounted tarball or
+``XMATCHER_ARCHIVE`` to a ``vos:`` tarball. ``XMATCHER_RUN_ID`` groups results.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from pathlib import Path
 
 VCP = "/opt/canfar/bin/vcp"
 RUN_ID = os.environ.get("XMATCHER_RUN_ID") or time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-ARCHIVE = os.environ.get("XMATCHER_ARCHIVE", "vos:sfabbro/xmatcher-matrix/xmatcher-src.tar.gz")
+ARCHIVE = os.environ.get("XMATCHER_ARCHIVE")
 SCENARIO = sys.argv[1] if len(sys.argv) > 1 else "help"
 WORK = Path(os.environ.get("XMATCHER_WORK", f"/scratch/xmatcher-{SCENARIO}-{RUN_ID}"))
 
@@ -46,10 +45,13 @@ def main() -> int:
         path = os.environ.get("XMATCHER_ARCHIVE_PATH")
         if path:
             tarball = Path(path)
-        else:
+        elif ARCHIVE:
             code = step([VCP, ARCHIVE, str(tarball)])
             if code:
                 return code
+        else:
+            print("Set XMATCHER_ARCHIVE_PATH or XMATCHER_ARCHIVE.", file=sys.stderr)
+            return 2
         print(f"unpacking {tarball} into {WORK}", flush=True)
         with tarfile.open(tarball) as archive:
             archive.extractall(WORK, filter="data")

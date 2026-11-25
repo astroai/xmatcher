@@ -517,25 +517,8 @@ def open_storage(root: str | Path) -> Storage:
     return LocalStorage(root)
 
 
-def platform_arc_root() -> str | None:
-    """``/arc`` when running on an AstroAI/CANFAR session, else ``None``.
-
-    Every platform pod mounts the shared ``/arc`` volume; laptops never
-    have it.  This is the on-platform probe for the storage defaults.
-    """
-    return "/arc" if os.path.isdir("/arc") else None
-
-
-#: Platform cache root for mirrored catalogues. ``/arc/projects/hats`` is the
-#: community tree (read it, never write to it); xmatcher's own mirrors live under
-#: ``/arc/projects/astroai/hats`` until they are promoted to community-ready HATS.
-PLATFORM_CACHE_ROOT = "/arc/projects/astroai/hats"
-#: Platform root for crossmatch outputs (bare relative output names).
-PLATFORM_OUTPUT_ROOT = "/arc/projects/astroai/xmatcher"
-#: Community HATS tree on AstroAI/CANFAR sessions.  xmatcher reads trees
-#: under it in place and never writes there; it is always a protected root,
-#: whether or not it is configured as a community (read) root.
-PLATFORM_COMMUNITY_ROOT = "/arc/projects/hats"
+#: Released ARC catalogues are protected independently of cache configuration.
+ARC_RELEASE_ROOT = "/arc/projects/hats"
 
 _REGISTERED_READ_ONLY: set[str] = set()
 _VOS_COMMUNITY = re.compile(r"^vos:(?://[^/]*~arc/|arc:)?/?projects/hats(?:/|$)")
@@ -562,21 +545,13 @@ def community_roots(cache_cfg: dict | None = None) -> list[str]:
     """Read-only community roots whose HATS trees are used in place.
 
     ``XMATCHER_COMMUNITY_ROOTS`` (``os.pathsep``-separated; an empty value
-    disables them) wins over ``cache_cfg["community_roots"]``; on
-    AstroAI/CANFAR sessions the default is ``[/arc/projects/hats]`` when that
-    directory exists, else ``[]``.  These trees are never synced, replicated
-    or written to; an index of their sync records is kept under the writable
-    cache root.
+    disables them) wins over ``cache_cfg["community_roots"]``. The default is
+    an empty list. An index of sync records is kept under the writable cache.
     """
     env = os.environ.get("XMATCHER_COMMUNITY_ROOTS")
     if env is not None:
         return _split_roots(env)
-    cache_cfg = cache_cfg or {}
-    if "community_roots" in cache_cfg:
-        return _split_roots(cache_cfg.get("community_roots"))
-    if platform_arc_root() and os.path.isdir(PLATFORM_COMMUNITY_ROOT):
-        return [PLATFORM_COMMUNITY_ROOT]
-    return []
+    return _split_roots((cache_cfg or {}).get("community_roots"))
 
 
 def register_read_only_roots(roots: object) -> None:
@@ -587,8 +562,8 @@ def register_read_only_roots(roots: object) -> None:
 
 def read_only_roots(cache_cfg: dict | None = None) -> list[str]:
     """Every protected root: community roots, registered roots, and
-    :data:`PLATFORM_COMMUNITY_ROOT` (always)."""
-    out = [PLATFORM_COMMUNITY_ROOT]
+    :data:`ARC_RELEASE_ROOT` (always)."""
+    out = [ARC_RELEASE_ROOT]
     for root in (*community_roots(cache_cfg), *sorted(_REGISTERED_READ_ONLY)):
         if root not in out:
             out.append(root)
@@ -596,7 +571,7 @@ def read_only_roots(cache_cfg: dict | None = None) -> list[str]:
 
 
 def _vos_read_only_root(uri: str) -> str | None:
-    return PLATFORM_COMMUNITY_ROOT if _VOS_COMMUNITY.match(uri) else None
+    return ARC_RELEASE_ROOT if _VOS_COMMUNITY.match(uri) else None
 
 
 def _inside(path: str, root: str) -> bool:
@@ -628,45 +603,19 @@ def assert_writable(path: str | Path, label: str, cache_cfg: dict | None = None)
     if root is not None:
         raise ReadOnlyRootError(
             f"{label} ({path}) is inside the read-only community root {root}; xmatcher "
-            "never writes there. Use a writable cache root (XMATCHER_CACHE_ROOT, "
-            f"default {PLATFORM_CACHE_ROOT} on CANFAR) or output directory instead."
+            "requires a writable destination. Set XMATCHER_CACHE_ROOT or choose a "
+            "writable output directory."
         )
 
 
 def default_cache_root() -> str:
-    """Effective default cache root.
-
-    ``XMATCHER_CACHE_ROOT`` wins; on AstroAI/CANFAR sessions (shared ``/arc``
-    volume) the default is :data:`PLATFORM_CACHE_ROOT`
-    (``/arc/projects/astroai/hats``) — never a home directory, which is
-    pod-local and lost, and never the community tree ``/arc/projects/hats``,
-    which is read-only for xmatcher; off the platform it falls back to
-    ``~/.cache/xmatcher``.
-    """
-    env = os.environ.get("XMATCHER_CACHE_ROOT")
-    if env:
-        return env
-    if platform_arc_root():
-        return PLATFORM_CACHE_ROOT
-    return str(Path.home() / ".cache" / "xmatcher")
+    """Use the configured environment root or the user's local cache."""
+    return os.environ.get("XMATCHER_CACHE_ROOT") or str(Path.home() / ".cache" / "xmatcher")
 
 
 def default_output_root() -> str | None:
-    """Root for crossmatch outputs.
-
-    ``XMATCHER_OUTPUT_ROOT`` wins (empty string disables); on
-    AstroAI/CANFAR sessions the default is :data:`PLATFORM_OUTPUT_ROOT`
-    (``/arc/projects/astroai/xmatcher``; never the community ``/arc/projects/hats``);
-    off the platform there is no default and relative outputs stay
-    cwd-relative.  The CLI resolves bare relative output names under this
-    root; explicit paths are always respected verbatim.
-    """
-    env = os.environ.get("XMATCHER_OUTPUT_ROOT")
-    if env is not None:
-        return env.strip() or None
-    if platform_arc_root():
-        return PLATFORM_OUTPUT_ROOT
-    return None
+    """Optional CLI root for bare output names, set in the environment."""
+    return os.environ.get("XMATCHER_OUTPUT_ROOT", "").strip() or None
 
 
 def replica_roots(cache_cfg: dict | None = None) -> list[str]:
@@ -729,6 +678,6 @@ def assert_headroom(path: str | Path, min_free_gb: float, label: str) -> None:
     free_gib = shutil.disk_usage(str(path)).free / 1024**3
     if free_gib < min_free_gb:
         raise CrossMatchError(
-            f"{label} has only {free_gib:.1f} GiB free, below the --min-free-gb floor "
+            f"{label} has only {free_gib:.1f} GiB free, below the --min-free-gib floor "
             f"of {min_free_gb:g} GiB; refusing to start a sync/union it cannot fit."
         )

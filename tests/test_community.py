@@ -333,7 +333,7 @@ def test_community_tree_is_not_self_mirrored_on_the_platform(tmp_path: Path, mon
     monkeypatch.setattr(
         os.path,
         "isdir",
-        lambda p: True if str(p) == storage.PLATFORM_COMMUNITY_ROOT else real_isdir(p),
+        lambda p: True if str(p) == storage.ARC_RELEASE_ROOT else real_isdir(p),
     )
     src = _remote_src(
         access_identifier="vos://cadc.nrc.ca~arc/projects/hats/vhs/dr7",
@@ -417,26 +417,19 @@ def test_cache_roots_backward_compatible_and_split(tmp_path: Path, monkeypatch) 
     assert str(tmp_path / "community") not in all_cache_roots({"root": a})
 
 
-def test_canfar_defaults(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.delenv("XMATCHER_COMMUNITY_ROOTS", raising=False)
-    monkeypatch.delenv("XMATCHER_CACHE_ROOT", raising=False)
-    monkeypatch.setattr(storage, "platform_arc_root", lambda: "/arc")
+def test_mounted_arc_does_not_choose_output_or_cache_roots(monkeypatch, tmp_path: Path) -> None:
     real_isdir = os.path.isdir
     monkeypatch.setattr(
         os.path,
         "isdir",
-        lambda p: True if str(p) == "/arc/projects/hats" else real_isdir(p),
+        lambda p: True if str(p) in ("/arc", "/arc/projects/hats") else real_isdir(p),
     )
-    assert community_roots() == ["/arc/projects/hats"]
-    assert storage.default_cache_root() == "/arc/projects/astroai/hats"
-    monkeypatch.delenv("XMATCHER_OUTPUT_ROOT", raising=False)
-    assert storage.default_output_root() == "/arc/projects/astroai/xmatcher"
+    assert community_roots() == []
+    assert storage.default_cache_root() == str(Path.home() / ".cache" / "xmatcher")
+    assert storage.default_output_root() is None
     assert community_roots({"community_roots": [str(tmp_path)]}) == [str(tmp_path)]
     monkeypatch.setenv("XMATCHER_COMMUNITY_ROOTS", "")
-    assert community_roots() == []
-    monkeypatch.setattr(storage, "platform_arc_root", lambda: None)
-    monkeypatch.delenv("XMATCHER_COMMUNITY_ROOTS")
-    assert community_roots() == []
+    assert community_roots({"community_roots": [str(tmp_path)]}) == []
 
 
 # --------------------------------------------------------------------------- #

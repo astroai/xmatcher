@@ -413,8 +413,8 @@ Examples:
   # Preview the YAML without writing
   xmatcher adopt noirlab catwise2020.main --name catwise --dry-run
 
-  # Draft an entry from a HATS tree (community copy read in place, never written)
-  xmatcher adopt hats /arc/projects/hats/vhs/dr7 --name vhs_dr7 --dry-run
+  # Draft an entry from a shared HATS catalogue
+  xmatcher adopt hats /data/surveys/vhs/dr7 --name vhs_dr7 --dry-run
 
   # Match an ad-hoc table id without adopting (endpoint auto-guessed for VizieR)
   xmatcher match sources.csv II/349/ps1 --cone-ra-deg 150.1 --cone-dec-deg 2.18 --cone-radius-deg 0.05
@@ -1163,8 +1163,8 @@ def _build_match_subparser() -> argparse.ArgumentParser:
     g_ray.add_argument(
         "--cache-root",
         dest="cache_root",
-        help="Durable cache root for mirrored HATS catalogues (default: $XMATCHER_CACHE_ROOT "
-        "or, on AstroAI/CANFAR sessions, /arc/projects/astroai/hats; else ~/.cache/xmatcher).",
+        help="Writable cache for mirrored HATS catalogues. Default: $XMATCHER_CACHE_ROOT, "
+        "then cache.root in the configuration, then ~/.cache/xmatcher.",
     )
     g_ray.add_argument(
         "--task-rows",
@@ -1408,8 +1408,8 @@ def _build_sync_subparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cache-root",
         dest="cache_root",
-        help="Durable cache root for mirrored HATS catalogues (default: $XMATCHER_CACHE_ROOT "
-        "or, on AstroAI/CANFAR sessions, /arc/projects/astroai/hats; else ~/.cache/xmatcher).",
+        help="Writable cache for mirrored HATS catalogues. Default: $XMATCHER_CACHE_ROOT, "
+        "then cache.root in the configuration, then ~/.cache/xmatcher.",
     )
     parser.add_argument(
         "--threads",
@@ -2625,15 +2625,7 @@ def handle_adopt(
 
 
 def _resolve_output_path(output_file: str | None) -> str | None:
-    """Resolve a bare relative output name against the platform output root.
-
-    On AstroAI/CANFAR sessions (shared ``/arc``) bare names like
-    ``full.hats`` land under ``/arc/projects/astroai/xmatcher/`` — never a
-    pod-local home or cwd.  Explicit paths (absolute or containing a
-    directory) are respected verbatim; ``XMATCHER_OUTPUT_ROOT`` overrides the
-    platform default (empty disables it).  Off the platform this is a
-    no-op.
-    """
+    """Apply XMATCHER_OUTPUT_ROOT to bare output filenames."""
     if not output_file:
         return output_file
     from .storage import default_output_root  # noqa: PLC0415 - keeps --help light

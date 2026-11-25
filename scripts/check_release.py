@@ -49,6 +49,7 @@ def required_sdist_files(
             "LICENSE",
             ".gitignore",
             ".pre-commit-config.yaml",
+            ".github/workflows/ci.yml",
         )
     ]
     required += package
@@ -58,6 +59,9 @@ def required_sdist_files(
         ("docs", "*.md"),
         ("docs", "*.csv"),
         ("docs", "*.png"),
+        ("docs/archive", "*.md"),
+        ("docs/archive", "*.csv"),
+        ("docs/archive", "*.png"),
         ("scripts", "*.py"),
         ("scripts", "*.sh"),
         ("scripts/git-hooks", "pre-push"),

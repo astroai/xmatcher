@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.1] — 2026-11-25
+
 ### Added
 
 - Astronomy-oriented CLI aliases for the match radius, counterpart method,
@@ -37,8 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   without proper-motion metadata (no copies of their coordinates). Task stats
   record `memory_estimate_gib`.
 
-- Read-only community roots (`cache.community_roots`, `XMATCHER_COMMUNITY_ROOTS`;
-  default `/arc/projects/hats` on CANFAR). A remote HATS catalogue whose
+- Read-only community roots (`cache.community_roots` or
+  `XMATCHER_COMMUNITY_ROOTS`). A remote HATS catalogue whose
   `access_identifier` and version directory match a `PENSUS_SYNC.json` or
   `sync.json` record under a community root is read there in place, keeping the
   catalogue entry's metadata, after verification (properties, partition index,
@@ -84,13 +86,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   instead of aborting, and records the count per survey as
   `xmatcher_invalid_survey_rows` in the output `properties` (per partition in
   `resume.state`). Invalid anchor rows still abort.
-- CANFAR defaults: the cache root for mirrored catalogues is now
-  `/arc/projects/astroai/hats` (was `/arc/projects/hats`) and the default output
-  root is `/arc/projects/astroai/xmatcher` (was `/arc/projects/hats/xmatcher`).
-  `/arc/projects/hats` is the community HATS tree: xmatcher reads it and never
-  writes to it. Cached catalogues under `/arc/projects/astroai/hats` can later be
-  promoted to community-ready HATS. `XMATCHER_CACHE_ROOT` and
-  `XMATCHER_OUTPUT_ROOT` still override both.
+- Storage defaults are the same on every platform. Mirrors go into
+  `~/.cache/xmatcher` unless a cache root is configured. Bare output paths
+  are relative to the working directory unless `XMATCHER_OUTPUT_ROOT` is set.
+  The [CANFAR setup](docs/canfar.md) enables AstroAI's project storage and
+  read-only reuse of catalogues under `/arc/projects/hats`.
 
 ### Removed
 
@@ -98,9 +98,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   longer uses (it runs on torchsky's zone index since 0.7.0). Install
   `xmatcher[hats]` or `xmatcher[ray]` when you need `cdshealpix`; pip ignores
   the unknown extra in an old `xmatcher[zone]` command with a warning.
+- Removed a machine-specific test launcher and moved the remaining CANFAR
+  verification outputs to scratch or writable project storage.
 
 ### Fixed
 
+- The source distribution includes the workflow and release notes read by
+  its release checks. PENSUS operational tests stay in the repository with
+  the scripts they exercise.
 - HATS partitions stored as `Npix=N/` directories of files (Euclid DR1 MER)
   get their footer row counts summed instead of falling back to the
   `hats_threshold` placeholder.

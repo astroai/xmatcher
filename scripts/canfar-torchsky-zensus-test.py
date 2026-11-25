@@ -58,7 +58,7 @@ def parse_args():
     )
     parser.add_argument(
         "--out-dir",
-        default=os.environ.get("OUT_DIR", "/arc/projects/hats/tests/output"),
+        default=os.environ.get("OUT_DIR", "/scratch/xmatcher-zensus-test"),
         help="Destination directory for output matches and metrics JSON",
     )
     parser.add_argument(

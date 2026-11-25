@@ -1013,7 +1013,7 @@ def test_fresh_after_still_probes_when_stale(tmp_path: Path, tap_server) -> None
 
 
 def test_headroom_gate_blocks_sync_when_disk_full(tmp_path: Path, tap_server, monkeypatch) -> None:
-    """--min-free-gb: fail fast before any fetch when the cache root is nearly full."""
+    """Fail fast before fetching when the cache root is nearly full."""
     src = _tap_source(tap_server)
     cache = str(tmp_path / "cache")
     import collections
@@ -1023,7 +1023,7 @@ def test_headroom_gate_blocks_sync_when_disk_full(tmp_path: Path, tap_server, mo
         "xmatcher.storage.shutil.disk_usage",
         lambda p: DU(1000, 900, 5.0),  # 5 bytes free
     )
-    with pytest.raises(mirror.CrossMatchError, match=r"min-free-gb"):
+    with pytest.raises(mirror.CrossMatchError, match=r"min-free-gib"):
         _sync(src, cache, min_free_gb=10)
 
 

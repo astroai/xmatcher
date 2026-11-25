@@ -35,6 +35,7 @@ flowchart LR
 
 - [Installation](install.md): pip and the optional extras, the Pixi developer
   environment, platform notes.
+- [CANFAR setup](canfar.md) for headless sessions and shared survey releases.
 - [User guide](usage.md): formats and storage, remote archives and discovery,
   local mirroring, the matcher cookbook, joins and multi-catalogue chains,
   choosing an execution path, Friends-of-Friends.
@@ -70,6 +71,8 @@ flowchart LR
 
 ## Release notes and reports
 
+- [0.7.1](archive/release-0.7.1.md) for the CLI, shared HATS setup, and
+  distributed matching fixes.
 - [0.7.0](archive/release-0.7.0.md): torchsky matching engine, catalogue
   conversion, release audit.
 - [0.6.0](archive/release-0.6.0.md): named catalogues, HATS over S3 and Hugging

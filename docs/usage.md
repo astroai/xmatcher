@@ -229,19 +229,17 @@ xmatcher adopt vizier II/349/ps1 --name ps1
 ## 3. Local mirroring & offline caching (`xmatcher sync`)
 
 `xmatcher sync` mirrors remote catalogues into a durable HATS cache. The cache
-root is `--cache-root`, else `$XMATCHER_CACHE_ROOT`, else
-`/arc/projects/astroai/hats` on AstroAI/CANFAR sessions, else
-`~/.cache/xmatcher`. On CANFAR, write match outputs under
-`/arc/projects/astroai/xmatcher`. `/arc/projects/hats` is the community HATS
-tree: xmatcher reads it and never writes to it.
+root is `--cache-root`, `XMATCHER_CACHE_ROOT`, `cache.root` in
+`xmatcher.yaml`, or `~/.cache/xmatcher`, in that order. A bare match output
+filename is relative to the working directory unless `XMATCHER_OUTPUT_ROOT`
+is set. See the [CANFAR setup](canfar.md) for shared catalogue and project paths.
 
 ### Community trees used in place
 
 A catalogue whose HATS tree already sits in a read-only *community root* is
-read there instead of being mirrored again. On AstroAI/CANFAR sessions the
-community root defaults to `/arc/projects/hats`; set
-`XMATCHER_COMMUNITY_ROOTS` (`:`-separated, empty to disable) or
-`cache.community_roots` in `xmatcher.yaml` elsewhere. Two things find a copy:
+read there in place. Set `XMATCHER_COMMUNITY_ROOTS` (a colon-separated list,
+empty to disable) or `cache.community_roots` in `xmatcher.yaml` to enable
+lookup in shared releases. xmatcher can find a copy in two ways.
 
 - **Sync records.** A tree copied with xmatcher-style versioning carries a
   `PENSUS_SYNC.json` (or xmatcher's `sync.json`) naming the upstream URL and
@@ -263,9 +261,9 @@ directory invalidates it early.
 
 ```yaml
 cache:
-  root: /arc/projects/astroai/hats      # writable primary
-  replica_roots: [vos:projects/astroai/hats]  # written after each sync (`roots:` still works)
-  community_roots: [/arc/projects/hats]  # read only: never synced, replicated or written
+  root: /data/catalogue-cache
+  replica_roots: [/backup/catalogue-cache]
+  community_roots: [/shared/hats-releases]
 ```
 
 Nothing is ever written inside a community root, nor under

@@ -27,7 +27,7 @@ CHECKS = {
         "tests/test_pensus_release.py",
         "tests/test_pensus_tile.py",
         "tests/test_pensus_arc_ingest.py",
-        "tests/test_hats_audit_repair.py",
+        "tests/test_pensus_hats_audit_repair.py",
         "tests/test_observations.py",
         "tests/test_r2_observations.py",
         "tests/test_hats_project.py",
@@ -69,7 +69,9 @@ def main(argv: list[str] | None = None) -> int:
             UV_CACHE_DIR=str(scratch / "uv-cache"),
             RAY_TMPDIR=str(scratch),
             MPLCONFIGDIR=str(scratch / "matplotlib"),
+            PYTHONNOUSERSITE="1",
         )
+        env.pop("PYTHONPATH", None)
         for step, command in CHECKS.items():
             print(f"STEP {step}", flush=True)
             log_path = args.results / f"{step}.log"
