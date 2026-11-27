@@ -67,8 +67,6 @@ def required_sdist_files(
         ("scripts/git-hooks", "pre-push"),
     ):
         required.extend(sorted((root / directory).glob(pattern)))
-    # Mirrors MANIFEST.in: pensus tests need the unreleased scripts/pensus tree.
-    required = [path for path in required if not path.match("tests/test_pensus_*.py")]
     if project is not None:
         for pattern in project.get("license-files", []):
             required.extend(sorted(root.glob(pattern)))

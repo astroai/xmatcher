@@ -1,21 +1,21 @@
 """Read-only community HATS trees used in place of a mirror.
 
-A *community root* (on AstroAI/CANFAR ``/arc/projects/hats``) holds HATS
-trees that other people maintain, laid out by survey and product
-(``2mass/psc``, ``gaia/dr3``, ...) rather than by xmatcher's cache layout.
-xmatcher never writes there.  Two mechanisms find an equivalent copy of a
-configured catalogue:
+A *community root* (configured via ``cache.community_roots`` or
+``XMATCHER_COMMUNITY_ROOTS``) holds HATS trees that other people maintain,
+laid out by survey and product (``2mass/psc``, ``gaia/dr3``, ...) rather
+than by xmatcher's cache layout. xmatcher never writes there.  Two
+mechanisms find an equivalent copy of a configured catalogue:
 
 * **Sync records.**  A tree copied with xmatcher-style versioning carries a
-  ``PENSUS_SYNC.json`` (or xmatcher's own ``sync.json``) recording the
-  upstream ``source`` URL and the ``version`` directory name
-  (:func:`xmatcher.mirror._version_dir`).  :func:`community_index` scans the
-  community roots for these records and caches the index under the writable
-  cache root (``<cache>/registry/community_index.json``) with a TTL; the
-  modification times of each root and its first-level directories are a cheap
-  invalidation signature, so a new survey or product directory is noticed
-  before the TTL expires.  A remote HATS catalogue whose
-  ``access_identifier`` and version match a record uses that tree.
+  ``sync.json`` recording the upstream ``source`` URL and the ``version``
+  directory name (:func:`xmatcher.mirror._version_dir`).
+  :func:`community_index` scans the community roots for these records and
+  caches the index under the writable cache root
+  (``<cache>/registry/community_index.json``) with a TTL; the modification
+  times of each root and its first-level directories are a cheap invalidation
+  signature, so a new survey or product directory is noticed before the TTL
+  expires.  A remote HATS catalogue whose ``access_identifier`` and version
+  match a record uses that tree.
 * **Explicit local paths.**  A catalogue entry may list ``local_paths:`` for
   equivalent copies without a sync record.
 
@@ -43,7 +43,7 @@ from .sources import CatalogueSource, is_remote_hats_uri
 logger = logging.getLogger(__name__)
 
 #: Sync-record file names recognised in a community tree.
-SYNC_RECORD_NAMES = ("PENSUS_SYNC.json", "sync.json")
+SYNC_RECORD_NAMES = ("sync.json",)
 #: HATS properties file names, in lookup order.
 PROPERTIES_NAMES = ("properties", "hats.properties")
 _PARTITION_INDEX = ("partition_info.csv", "dataset/partition_info.parquet", "dataset/_metadata")

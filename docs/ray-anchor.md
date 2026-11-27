@@ -146,7 +146,7 @@ If the XP product is stored as Parquet rather than HATS, point
 `XMATCHER_GAIA_XP_HATS` at the HATS root produced by the conversion, then use
 `xp_hats` as the sidecar name. Join the sidecar to the master on `source_id`
 with `xmatcher match ... --id-join` or with Polars/Arrow. The CDS Gaia HATS
-does **not** carry XP coefficients; only the ESA table or a staged CANFAR copy
+does **not** carry XP coefficients; only the ESA table or a staged local copy
 does.
 
 ## HATS projection
@@ -227,35 +227,32 @@ If Ray is not installed (it is in the `ray` and `hats-ray` extras), the same
 partition loop runs serially. The cache and output must be visible to every
 worker.
 
-## CANFAR local products
+## Local HATS products
 
-With the [CANFAR setup](canfar.md), verified trees under `/arc/projects/hats`
-are read in place (see
-[HATS sources](hats-sources.md#community-trees-on-canfar)); only the other
-remote inputs are mirrored into the cache root `/arc/projects/astroai/hats`.
-For example, in
+When `XMATCHER_COMMUNITY_ROOTS` (or `cache.community_roots`) points at a
+shared HATS tree layout, verified trees are read in place (see
+[HATS sources](hats-sources.md#community-hats-trees)); other remote inputs are
+mirrored into the writable cache root. For example, in
 
 ```bash
 xmatcher match gaia_lsdb_hats twomass_hats vhs_dr7 ps1_otmo \
   --engine ray-anchor -r 1.5 -o msa_master.hats
 ```
 
-`gaia_lsdb_hats` reads `/arc/projects/hats/gaia/dr3` (`local_paths`),
-`twomass_hats` reads `/arc/projects/hats/2mass/psc` (its `PENSUS_SYNC.json`
-matches the LSDB URL and version), and `vhs_dr7` / `ps1_otmo` read their
-community trees; nothing is copied. The entries' `default_columns` keep the
+community copies are used when present and verified; otherwise each survey is
+mirrored from its `access_identifier`. The entries' `default_columns` keep the
 master narrow. The log names the copy used for each input.
 
-The bundled configuration also exposes local HATS aliases for products staged on
-CANFAR (the full list of names and variables is in
-[HATS sources](hats-sources.md#cds-pinned-hats-products)). Point the
-environment variables at the HATS roots before resolving the alias:
+The bundled configuration also exposes local HATS aliases via environment
+variables (the full list is in
+[HATS sources](hats-sources.md#cds-pinned-hats-products)). Point the variables
+at HATS roots before resolving the alias:
 
 ```bash
-export XMATCHER_UHS_DR3_HATS=/arc/projects/<group>/uhs_dr3/hats
-export XMATCHER_SPLUS_DR5_HATS=/arc/projects/<group>/splus_dr5/hats
-export XMATCHER_GAIA_XP_HATS=/arc/projects/<group>/gaia_xp/hats
-export XMATCHER_DP2_HATS=/arc/projects/<group>/dp2/hats
+export XMATCHER_UHS_DR3_HATS=/data/<group>/uhs_dr3/hats
+export XMATCHER_SPLUS_DR5_HATS=/data/<group>/splus_dr5/hats
+export XMATCHER_GAIA_XP_HATS=/data/<group>/gaia_xp/hats
+export XMATCHER_DP2_HATS=/data/<group>/dp2/hats
 ```
 
 Use `uhs_hats`, `splus5_hats`, `xp_hats`, and `dp2` as catalogue names.

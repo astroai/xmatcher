@@ -155,7 +155,7 @@ row count and the knobs that fix it.
   reset the connection after three attempts during the run, and the opt-in
   check skips rather than fails on an archive outage. Each query is now bounded
   by a socket timeout, so a stalled service cannot hang the run.
-- CANFAR: the last remote `hats-sources` session passed all five checks
+- Remote: the last remote `hats-sources` session passed all five checks
   (registry listing, collection descent, dated-collection refusal, anonymous S3
   descent to 29.95 M rows, live LSDB mirror + match). The `hats-hf-access`
   check added with this release runs the same resolve-and-index path that was

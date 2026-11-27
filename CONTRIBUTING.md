@@ -15,7 +15,7 @@ cd xmatcher
 pixi install --frozen
 ```
 
-On shared or NFS-mounted systems (such as CANFAR), isolate user site-packages before running Python or tests:
+On shared or NFS-mounted systems, isolate user site-packages before running Python or tests:
 
 ```bash
 export PYTHONNOUSERSITE=1
@@ -51,8 +51,7 @@ pixi run lint
 ```
 
 Always run `pixi run format` (or `preflight-push`) before pushing changes under
-`scripts/` (including `scripts/pensus`); CI's format check rejects unformatted
-Python.
+`scripts/`; CI's format check rejects unformatted Python.
 
 Run the release gate before opening a pull request. It runs the preflight and all tests not marked `slow` or `bench`:
 

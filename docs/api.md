@@ -738,13 +738,13 @@ from xmatcher.storage import open_storage
   the read-only roots (`XMATCHER_COMMUNITY_ROOTS`, else
   `cache.community_roots`, else an empty list). `assert_writable(path, label)` raises
   `xmatcher.ReadOnlyRootError` (a `ConfigError`) for a path inside a read-only
-  root or `/arc/projects/hats`; `LocalStorage`/`VOSpaceStorage` opened there
+  root; `LocalStorage`/`VOSpaceStorage` opened there
   read normally and refuse every write.
 - **Read-only copies.** `ensure_mirrored`, `locate_mirrored` and
   `sync_catalogue` take `read_roots=` (default `community_roots()`) and first
   call `xmatcher.community.resolve_in_place(src, read_roots=..., cache_root=...)`,
   which returns `src` repointed at a verified community tree (matched by
-  `PENSUS_SYNC.json`/`sync.json` source URL and version) or `local_paths`
+  `sync.json` source URL and version) or `local_paths`
   copy, with `read_only_origin` set and the entry metadata kept, or `None`.
   `verify_tree(path, src)` is the check (properties, partition index, complete
   sync record, pinned `hats_nrows`/`obs_collection`/coordinate columns).

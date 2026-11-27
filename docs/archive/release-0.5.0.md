@@ -31,7 +31,6 @@ deselected, and 13 ERFA warnings in 178.02 s; archive, metadata, and
 installed-wheel checks also passed. See
 [PR #204](https://github.com/astroai/xmatch/pull/204) and the
 [CI run](https://github.com/astroai/xmatch/actions/runs/37691455480).
-On CANFAR, eight independent worker sessions, each with one CPU, matched
-1,000,000 rows per input in a 60.004 s median, compared with 283.778 s on one
-worker (4.73×). See the
-[CANFAR scaling report](https://github.com/astroai/xmatch/blob/v0.5.0/docs/canfar-scaling-2026-10-07.md) for run details.
+On a multi-node Ray cluster, eight independent worker sessions, each with one
+CPU, matched 1,000,000 rows per input in a 60.004 s median, compared with
+283.778 s on one worker (4.73×).

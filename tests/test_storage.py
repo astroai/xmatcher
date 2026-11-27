@@ -1,11 +1,9 @@
 """Storage abstraction tests: LocalStorage round-trips, atomicity, the
-VOSpace CLI argv seam (the agreed one-line adaptation point for CANFAR),
-and traversal rejection at the storage boundary."""
+VOSpace CLI argv seam, and traversal rejection at the storage boundary."""
 
 from __future__ import annotations
 
 import os
-import shutil
 import stat
 import subprocess
 import sys
@@ -27,44 +25,6 @@ from xmatcher.storage import (
     default_output_root,
     open_storage,
 )
-
-
-@pytest.mark.skipif(shutil.which("bash") is None, reason="requires Bash")
-@pytest.mark.parametrize("override", [False, True])
-def test_canfar_setup_is_explicit_and_preserves_overrides(
-    monkeypatch: pytest.MonkeyPatch, override: bool
-) -> None:
-    script = Path(__file__).resolve().parents[1] / "scripts" / "canfar-env.sh"
-    monkeypatch.delenv("PYTHONNOUSERSITE", raising=False)
-    if override:
-        monkeypatch.setenv("XMATCHER_CACHE_ROOT", "/scratch/mirror")
-        monkeypatch.setenv("XMATCHER_OUTPUT_ROOT", "/shared/results")
-        monkeypatch.setenv("XMATCHER_COMMUNITY_ROOTS", "")
-    result = subprocess.run(
-        [
-            "bash",
-            "-c",
-            'source "$1"\n'
-            """printf '%s\n' "$XMATCHER_CACHE_ROOT" "$XMATCHER_OUTPUT_ROOT" """
-            '"$XMATCHER_COMMUNITY_ROOTS" "$PYTHONNOUSERSITE"',
-            "bash",
-            str(script),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    expected = (
-        ["/scratch/mirror", "/shared/results", "", "1"]
-        if override
-        else [
-            "/arc/projects/astroai/hats",
-            "/arc/projects/astroai/xmatcher",
-            "/arc/projects/hats",
-            "1",
-        ]
-    )
-    assert result.stdout.splitlines() == expected
 
 
 def test_local_roundtrip(tmp_path: Path) -> None:
@@ -372,7 +332,7 @@ def _fake_vos_binary(monkeypatch, tmp_path: Path, scripts: dict[str, str] | None
 
 
 def test_vospace_argv_seam(monkeypatch, tmp_path) -> None:
-    """The vos CLI argv (one-line adaptation point for CANFAR) is pinned.
+    """The vos CLI argv seam is pinned.
 
     Verified here against the reference pyvos console scripts: ``vls`` has no
     ``--recursive``/``-L`` flags and ``vrm`` has no ``--force``, so this test

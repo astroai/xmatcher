@@ -9,8 +9,7 @@
 - Configuration environment variables change from the `XMATCH_` prefix to
   `XMATCHER_`.
 - The default cache path changes from `~/.cache/xmatch` to
-  `~/.cache/xmatcher`. The documented CANFAR working/output root is
-  `/arc/projects/hats/xmatcher`.
+  `~/.cache/xmatcher`.
 
 The `xmatch.*` association schema identifiers remain stable. Existing v0.5.0
 GitHub release assets and historical provenance such as
@@ -22,9 +21,7 @@ To reuse an existing user configuration, copy
 `~/.config/xmatch/xmatch.yaml` to `~/.config/xmatcher/xmatcher.yaml`.
 The `adopt` command writes catalogue entries to this new user configuration.
 To reuse the previous local cache, set
-`XMATCHER_CACHE_ROOT=~/.cache/xmatch`. The shared CANFAR cache base
-`/arc/projects/hats` is unchanged; the xmatcher working/output directory is
-`/arc/projects/hats/xmatcher`.
+`XMATCHER_CACHE_ROOT=~/.cache/xmatch`.
 
 ## Installation
 
@@ -46,13 +43,8 @@ native HATS, Healpy, fallback-policy, Astropy scoring, and score-filtering check
 using Torchfits 1.0.0 and
 XGBoost 3.4.2. All 16 best/all Ray parity cases passed with the optional ML
 dependencies installed. The scaling analyser self-check passed normally and under
-`python -O`. The [CANFAR scaling report](canfar-scaling-2026-10-07.md) records
-the earlier eight-worker results from the frozen `xmatch` 0.5.0 candidate, not
-this `xmatcher` wheel. A fresh eight-worker smoke, with one independent CANFAR
-session per worker, could not start: `canfar-cluster status` reported no
-manager, and `canfar ps` failed its TLS connection to the CANFAR session
-service. No sessions or jobs were created for this attempt, so the 0.5.1
-release does not claim a new CANFAR run.
+`python -O`. A fresh eight-worker remote smoke could not start (no manager
+session available), so the 0.5.1 release does not claim a new multi-node run.
 
 ## Audit findings
 

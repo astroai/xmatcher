@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- Site-specific ops scripts and docs for shared-platform sessions (env helpers,
+  Ray job wrappers, smoke/headless runners, scaling report). Community HATS
+  reuse is configured only via `XMATCHER_COMMUNITY_ROOTS` / `local_paths`; the
+  library no longer hard-codes a site release root.
+
 ## [0.7.1] — 2026-11-25
 
 ### Added
@@ -16,10 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   The help names the units of positional and photometric options and groups
   storage controls below the science options. Existing option spellings are
   also accepted.
-- PENSUS now has a resumable CANFAR workflow for source-preserving photometry
-  unions, with explicit catalogue roles, per-row position epochs, a pilot
-  candidate export, and radius summaries. The headless verifier runs the
-  code checks independently of the mounted survey data.
 - Observation mappings now support nJy, calibrated linear native units,
   variance and inverse variance, numeric missing sentinels, and per-band
   characters in native status flags.
@@ -41,8 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Read-only community roots (`cache.community_roots` or
   `XMATCHER_COMMUNITY_ROOTS`). A remote HATS catalogue whose
-  `access_identifier` and version directory match a `PENSUS_SYNC.json` or
-  `sync.json` record under a community root is read there in place, keeping the
+  `access_identifier` and version directory match a `sync.json` record under a
+  community root is read there in place, keeping the
   catalogue entry's metadata, after verification (properties, partition index,
   complete sync record, pinned `hats_nrows`/`obs_collection`/coordinate
   columns); otherwise the writable cache is used. The record index is cached
@@ -67,8 +70,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   notes).
 - `xmatcher.ReadOnlyRootError`: every write path (sync, replication, registry
   snapshot, community index, `assert_headroom`, storage writes, ray-union /
-  ray-anchor / project-hats outputs) refuses a path inside a read-only root,
-  and `/arc/projects/hats` is always protected.
+  ray-anchor / project-hats outputs) refuses a path inside a configured
+  read-only community root.
 
 ### Changed
 
@@ -89,8 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Storage defaults are the same on every platform. Mirrors go into
   `~/.cache/xmatcher` unless a cache root is configured. Bare output paths
   are relative to the working directory unless `XMATCHER_OUTPUT_ROOT` is set.
-  The [CANFAR setup](docs/canfar.md) enables AstroAI's project storage and
-  read-only reuse of catalogues under `/arc/projects/hats`.
+  Shared catalogue reuse uses configured `community_roots` / `local_paths`.
 
 ### Removed
 
@@ -98,14 +100,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   longer uses (it runs on torchsky's zone index since 0.7.0). Install
   `xmatcher[hats]` or `xmatcher[ray]` when you need `cdshealpix`; pip ignores
   the unknown extra in an old `xmatcher[zone]` command with a warning.
-- Removed a machine-specific test launcher and moved the remaining CANFAR
-  verification outputs to scratch or writable project storage.
+- Removed a machine-specific test launcher and moved remaining verification
+  outputs to scratch or writable project storage.
 
 ### Fixed
 
 - The source distribution includes the workflow and release notes read by
-  its release checks. PENSUS operational tests stay in the repository with
-  the scripts they exercise.
+  its release checks.
 - HATS partitions stored as `Npix=N/` directories of files (Euclid DR1 MER)
   get their footer row counts summed instead of falling back to the
   `hats_threshold` placeholder.
@@ -356,7 +357,7 @@ without it. Requires torchsky 0.6.0 (released first).
 - The source archive shipped tests for unshipped scripts and missed the
   pre-push hook; the hook now runs `pixi run --frozen preflight-push` and
   requires pixi.
-- `preflight-push` failed on macOS (`os.getxattr` in a CANFAR-only script).
+- `preflight-push` failed on macOS (`os.getxattr` in a platform-only script).
 
 #### Torchsky
 
@@ -365,7 +366,7 @@ without it. Requires torchsky 0.6.0 (released first).
 - HATS pruning (torchsky path) swallowed every exception; it now filters
   non-finite coordinates and lets real errors surface, and no longer makes
   PyTorch warn about read-only arrays.
-- The CANFAR torchsky runner installed a torchsky 0.4.0 tarball and stub
+- The platform torchsky runner installed a torchsky 0.4.0 tarball and stub
   `torchfits` modules; it now installs `xmatcher[cds]` (torchsky is a core
   dependency) with CPU PyTorch. Its suite called `healpix.neighbors`, which
   torchsky 0.5.0 renamed `get_all_neighbours`.
@@ -392,14 +393,14 @@ The `v0.6.0` tag is the GitHub release. See the
   `project.state` fingerprint and skips finished partitions.
 - Pinned HATS catalogue aliases for products not in the IVOA registry:
   `gaia_hats`, `sdss_hats` (CDS `sdss_dr16`), `catwise_hats`, `vhs_hats`,
-  `ps1_hats`, `galex_hats`, `splus_hats`, plus local CANFAR aliases
+  `ps1_hats`, `galex_hats`, `splus_hats`, plus local product aliases
   `uhs_hats`, `splus5_hats`, `xp_hats`, and `dp2` driven by environment
   variables. `gaia_lsdb_hats` pins the 153-column LSDB Gaia DR3 tree as the
   compact anchor source.
 - `scripts/validate_anchor_output.py` streams a master and reports row counts,
   null/duplicate IDs, and per-survey ambiguity coverage.
 - `docs/ray-anchor.md` documents the schema, epoch/PM policy, projection, and
-  CANFAR local-product setup.
+  local-product setup.
 - Explicit catalogue identifiers: `vizier:<id>`, `tap:<endpoint>/<table>`, and
   `hats:<url>`, documented in [docs/naming.md](docs/naming.md). Configured
   tables resolve before any TAP_SCHEMA probe.
@@ -411,9 +412,9 @@ The `v0.6.0` tag is the GitHub release. See the
 - `xmatcher list --aliases` prints alias-to-catalogue mappings, and
   `xmatcher describe` shows the alias used and the catalogue's release.
 - `docs/naming.md` and `docs/README.md`.
-- `scripts/canfar_headless_run.py` and `scripts/canfar_bootstrap.py` run the
-  scenario matrix (aliases, explicit identifiers, matchers, multi/union/fof,
-  discovery, HATS, Ray) in CANFAR headless sessions against live TAP services.
+- Headless session runners exercised the scenario matrix (aliases, explicit
+  identifiers, matchers, multi/union/fof, discovery, HATS, Ray) against live
+  TAP services.
 - `hats:<short_name>` resolves through the IVOA HATS registry instead of
   failing as an unimplemented namespace. The lookup is cached for seven days
   under `<cache>/registry/hats_registry.json`, reused when the registry is
@@ -444,7 +445,7 @@ The `v0.6.0` tag is the GitHub release. See the
   bundled `access_identifier` is a real table and that its declared RA/Dec,
   error, motion and `default_columns` exist in the live `TAP_SCHEMA` — the
   guard for the `galex` (`II/335` vs `II/335/galex_ais`) class of drift.
-- CANFAR scenarios for engine-independent `skyerr` pair sets, join-type
+- Platform scenarios for engine-independent `skyerr` pair sets, join-type
   composition (`1and2`/`1or2`/`all1`/`all2`/anti joins, `find=all`), RA = 0/360
   seam handling, a distributed union checked against the sequential oracle, and
   a live HATS source check (registry name, collection descent, mirror, match).
@@ -549,7 +550,7 @@ Published on PyPI as `xmatcher`. The `v0.5.1` tag is the GitHub release.
   becomes `xmatcher.yaml`; environment variables move from the `XMATCH_` prefix
   to `XMATCHER_`.
 - **Changed local paths**: the default cache moves to `~/.cache/xmatcher`, and
-  the documented CANFAR output root is `/arc/projects/hats/xmatcher`.
+  the documented shared output root used project storage.
 - The persisted `xmatch.*` association schema identifiers remain unchanged.
 
 ### Fixed
@@ -583,7 +584,7 @@ Published on PyPI as `xmatcher`. The `v0.5.1` tag is the GitHub release.
   limits include short final pages.
 - Native HATS reads and distributed unions retain the schema of valid empty
   catalogues while rejecting missing partitions from nonempty catalogues.
-  CANFAR scaling validation requires the observed worker count to match the
+  Ray scaling validation requires the observed worker count to match the
   requested count.
 
 ## [0.5.0] — 2026-10-07
@@ -599,7 +600,7 @@ No PyPI package is published because another project owns the `xmatch` name.
 - **Versioned Association Contract** (`association.py`):
   - Deterministic `xmatch.association.v1` pair records, atomic release directories, component sidecar releases (`xmatch.association.component.release.v1`), component delta classifications (`created`, `continued`, `merged`, `split`, `retired`), and bijective member equivalence crosswalks.
 - **HATS Mirroring & Distributed Full-Sky Union** (`mirror.py`, `ray_union.py`, `storage.py`):
-  - `xmatch sync` CLI command and `sync_catalogue` / `ensure_mirrored` APIs to mirror remote TAP and HATS catalogues (over HTTP or CANFAR `vos:`) into a local HATS cache with keyset paging, token-bucket rate limiting, endpoint failover, and resumable checkpoints.
+  - `xmatch sync` CLI command and `sync_catalogue` / `ensure_mirrored` APIs to mirror remote TAP and HATS catalogues (over HTTP or `vos:`) into a local HATS cache with keyset paging, token-bucket rate limiting, endpoint failover, and resumable checkpoints.
   - `engine="ray-union"`: distributed $N$-survey full-outer join over mirrored HATS inputs on Ray, producing partitioned HATS trees (`Norder=*/Dir=*/Npix=*.parquet`) with chunk-level resume state.
   - `ray_engine.py`: parallel HEALPix pixel-batch cone crossmatching (`engine="ray"`).
 - **Astrometric Kinematics & Probabilistic Matchers** (`matchers.py`, `out_of_core.py`, `bayes.py`):

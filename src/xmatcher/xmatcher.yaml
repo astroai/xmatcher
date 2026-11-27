@@ -218,9 +218,6 @@ catalogues:
     service_id: hats_service
     release: "dr3"
     access_identifier: "https://data.lsdb.io/hats/gaia_dr3/gaia"
-    # /arc/projects/hats/gaia/dr3 is a byte copy of this LSDB tree (same
-    # properties, builder and creation date) without a sync record.
-    local_paths: ["/arc/projects/hats/gaia/dr3"]
     hats_nrows: 1811709771
     obs_collection: "gaia"
     estimated_size: 'huge'
@@ -268,8 +265,6 @@ catalogues:
     service_id: hats_service
     release: "allsky"
     access_identifier: "https://data.lsdb.io/hats/two_mass/two_mass"
-    # /arc/projects/hats/2mass/psc carries a PENSUS_SYNC.json for this URL and
-    # version, so the community index finds it without local_paths.
     hats_nrows: 470992970
     obs_collection: "two_mass"
     estimated_size: 'huge'
@@ -288,8 +283,6 @@ catalogues:
     service_id: hats_service
     release: "allwise"
     access_identifier: "https://data.lsdb.io/hats/wise/allwise/allwise"
-    # /arc/projects/hats/allwise/catalog is a byte copy of this LSDB tree.
-    local_paths: ["/arc/projects/hats/allwise/catalog"]
     hats_nrows: 747634026
     obs_collection: "allwise"
     estimated_size: 'huge'
@@ -311,15 +304,12 @@ catalogues:
   skymapper_dr4_hats:
     # Flat master photometry on LIneA (~96 GiB, 724M rows, 356 pixels).
     # Do NOT use data.lsdb.io/.../skymapper_dr4_lightcurves (~6.5 TiB nested
-    # epoch photometry) for the pensus UV–IR source catalog pin.
+    # epoch photometry) when a flat source photometry pin is required.
     description: "SkyMapper DR4 flat source photometry via LIneA HATS (PSF u..z)"
     archive: hats
     service_id: hats_service
     release: "dr4"
     access_identifier: "https://linea.data.lsdb.io/hats/skymapper/catalog/sky_mapper_dr4"
-    # /arc/projects/hats/skymapper/dr4 is the same build (properties, builder
-    # and creation date match) without a sync record.
-    local_paths: ["/arc/projects/hats/skymapper/dr4"]
     hats_nrows: 724329344
     obs_collection: "sky_mapper_dr4"
     estimated_size: 'large'
@@ -434,7 +424,7 @@ catalogues:
     pos_err_units: "arcsec"
     default_pos_error_arcsec: 0.1
 
-  # Local CANFAR products. The environment variable must point at an existing
+  # Local HATS products. The environment variable must point at an existing
   # HATS tree; `xmatcher describe` reports a clear error when it is unset.
   pristine_dr2_hats:
     description: "Pristine DR2 local HATS tree (set XMATCHER_PRISTINE_DR2_HATS)"
@@ -503,9 +493,8 @@ catalogues:
     service_id: hats_service
     release: "dr3"
     access_identifier: "${XMATCHER_GAIA_XP_HATS}"
-    # Community copy (pensus xp_layout, positions from gaia/dr3); used when the
-    # environment variable is unset.  Its schema was not read remotely.
-    local_paths: ["/arc/projects/hats/gaia/dr3_xp_continuous"]
+    # Community copy (XP continuous layout, positions from gaia/dr3); used when
+    # the environment variable is unset.  Its schema was not read remotely.
     hats_nrows: 219197643
     obs_collection: "gaia_dr3_xp_continuous"
     ra_column: "ra"
@@ -526,15 +515,13 @@ catalogues:
     epoch: 2025.0
     estimated_size: 'huge'
 
-  # --- Community HATS trees under /arc/projects/hats (CANFAR) ---
-  # Read in place through `local_paths` (never written; see docs/hats-sources.md).
-  # `access_identifier` is the same tree over ARC VOSpace, used only where /arc is
-  # not mounted.  `hats_nrows`/`obs_collection` pin the build each entry describes:
-  # a rebuilt tree fails verification instead of matching silently.  Column
-  # contracts were read from each tree's properties and _common_metadata.
+  # --- Community HATS trees (read in place via local_paths or community_roots) ---
+  # `hats_nrows`/`obs_collection` pin the build each entry describes: a rebuilt
+  # tree fails verification instead of matching silently. Column contracts were
+  # read from each tree's properties and _common_metadata.
 
   sdss_dr16_photoprimary:
-    # id is THING_ID and can repeat. The PENSUS pilot uses RERUN/RUN/CAMCOL/FIELD/ID as its imaging key.
+    # id is THING_ID and can repeat. Imaging keys may use RERUN/RUN/CAMCOL/FIELD/ID.
     # Fluxes are nanomaggies, IVAR in nmgy^-2.
     # epoch: imaging spans 1998-2009 and the tree has no per-row epoch; 2000.0 matches sdss_dr16_hats
     # no positional-error columns in this tree
@@ -543,7 +530,6 @@ catalogues:
     service_id: hats_service
     release: "dr16"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/sdss/photoprimary_dr13"
-    local_paths: ["/arc/projects/hats/sdss/photoprimary_dr13"]
     hats_nrows: 469050917
     obs_collection: "dr16"
     estimated_size: 'huge'
@@ -565,7 +551,6 @@ catalogues:
     service_id: hats_service
     release: "dr2-otmo"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/ps1/otmo"
-    local_paths: ["/arc/projects/hats/ps1/otmo"]
     hats_nrows: 10560724292
     obs_collection: "otmo"
     estimated_size: 'huge'
@@ -586,7 +571,6 @@ catalogues:
     service_id: hats_service
     release: "dr7"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/vhs/dr7"
-    local_paths: ["/arc/projects/hats/vhs/dr7"]
     hats_nrows: 1496104720
     obs_collection: "dr7"
     estimated_size: 'huge'
@@ -608,7 +592,6 @@ catalogues:
     service_id: hats_service
     release: "dr11"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/legacysurvey/dr11"
-    local_paths: ["/arc/projects/hats/legacysurvey/dr11"]
     hats_nrows: 3967618454
     obs_collection: "dr11"
     estimated_size: 'huge'
@@ -621,12 +604,11 @@ catalogues:
 
   des_y6_gold:
     # epoch: approximate (2013-2019); no per-row epoch column
-    description: "DES Y6 Gold (Pensus QA soft-fail: a few out-of-range coordinates; ray-anchor drops them)"
+    description: "DES Y6 Gold (QA soft-fail: a few out-of-range coordinates; ray-anchor drops them)"
     archive: hats
     service_id: hats_service
     release: "y6"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/des/y6_gold"
-    local_paths: ["/arc/projects/hats/des/y6_gold"]
     hats_nrows: 691483608
     obs_collection: "des_y6_gold"
     estimated_size: 'huge'
@@ -640,12 +622,11 @@ catalogues:
 
   delve_dr3_gold:
     # epoch: approximate; no per-row epoch column
-    description: "DELVE DR3 Gold (Pensus QA soft-fail: a few out-of-range coordinates)"
+    description: "DELVE DR3 Gold (QA soft-fail: a few out-of-range coordinates)"
     archive: hats
     service_id: hats_service
     release: "dr3"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/delve/dr3_gold"
-    local_paths: ["/arc/projects/hats/delve/dr3_gold"]
     hats_nrows: 2588267795
     obs_collection: "delve_dr3_gold"
     estimated_size: 'huge'
@@ -665,7 +646,6 @@ catalogues:
     service_id: hats_service
     release: "dr3"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/uhs/dr3"
-    local_paths: ["/arc/projects/hats/uhs/dr3"]
     estimated_size: 'huge'
     ra_column: "ra"
     dec_column: "dec"
@@ -682,7 +662,6 @@ catalogues:
     service_id: hats_service
     release: "dr11"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/ukidss/dr11_las"
-    local_paths: ["/arc/projects/hats/ukidss/dr11_las"]
     hats_nrows: 77685267
     obs_collection: "dr11_las"
     estimated_size: 'large'
@@ -701,7 +680,6 @@ catalogues:
     service_id: hats_service
     release: "dr11"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/ukidss/dr11_gcs"
-    local_paths: ["/arc/projects/hats/ukidss/dr11_gcs"]
     hats_nrows: 64835919
     obs_collection: "dr11_gcs"
     estimated_size: 'large'
@@ -720,7 +698,6 @@ catalogues:
     service_id: hats_service
     release: "dr5"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/viking/dr5"
-    local_paths: ["/arc/projects/hats/viking/dr5"]
     hats_nrows: 82063585
     obs_collection: "dr5"
     estimated_size: 'large'
@@ -739,7 +716,6 @@ catalogues:
     service_id: hats_service
     release: "dr1"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/vvvx/dr1"
-    local_paths: ["/arc/projects/hats/vvvx/dr1"]
     hats_nrows: 886574093
     obs_collection: "dr1"
     estimated_size: 'huge'
@@ -758,7 +734,6 @@ catalogues:
     service_id: hats_service
     release: "dr7"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/vmc/dr7"
-    local_paths: ["/arc/projects/hats/vmc/dr7"]
     hats_nrows: 64359516
     obs_collection: "dr7"
     estimated_size: 'large'
@@ -778,7 +753,6 @@ catalogues:
     service_id: hats_service
     release: "gr67"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/galex/guvcat_ais_gr67"
-    local_paths: ["/arc/projects/hats/galex/guvcat_ais_gr67"]
     hats_nrows: 82992062
     obs_collection: "galex_gr67"
     estimated_size: 'large'
@@ -797,7 +771,6 @@ catalogues:
     service_id: hats_service
     release: "dr4"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/splus/dr4"
-    local_paths: ["/arc/projects/hats/splus/dr4"]
     hats_nrows: 80155547
     obs_collection: "dr4"
     estimated_size: 'large'
@@ -819,7 +792,6 @@ catalogues:
     service_id: hats_service
     release: "dr3"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/jplus/dr3"
-    local_paths: ["/arc/projects/hats/jplus/dr3"]
     hats_nrows: 16419372
     obs_collection: "dr3"
     estimated_size: 'medium'
@@ -840,7 +812,6 @@ catalogues:
     service_id: hats_service
     release: "e2dr"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/jpas/e2dr"
-    local_paths: ["/arc/projects/hats/jpas/e2dr"]
     hats_nrows: 4804561
     obs_collection: "e2dr"
     estimated_size: 'medium'
@@ -859,7 +830,6 @@ catalogues:
     service_id: hats_service
     release: "dr2"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/pristine/dr2"
-    local_paths: ["/arc/projects/hats/pristine/dr2"]
     hats_nrows: 25224342
     obs_collection: "pristine_dr2"
     estimated_size: 'medium'
@@ -879,7 +849,6 @@ catalogues:
     service_id: hats_service
     release: "2020"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/catwise/2020"
-    local_paths: ["/arc/projects/hats/catwise/2020"]
     hats_nrows: 1890715640
     obs_collection: "2020"
     estimated_size: 'huge'
@@ -902,7 +871,6 @@ catalogues:
     service_id: hats_service
     release: "pdr3"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_g"
-    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_g"]
     hats_nrows: 783961389
     obs_collection: "hsc_pdr3-forced-G"
     estimated_size: 'huge'
@@ -923,7 +891,6 @@ catalogues:
     service_id: hats_service
     release: "pdr3"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_r"
-    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_r"]
     hats_nrows: 779192787
     obs_collection: "hsc_pdr3-forced-R"
     estimated_size: 'huge'
@@ -944,7 +911,6 @@ catalogues:
     service_id: hats_service
     release: "pdr3"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_i"
-    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_i"]
     hats_nrows: 757603782
     obs_collection: "hsc_pdr3-forced-I"
     estimated_size: 'huge'
@@ -966,7 +932,6 @@ catalogues:
     service_id: hats_service
     release: "pdr3"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_z"
-    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_z"]
     hats_nrows: 771110298
     obs_collection: "hsc_pdr3-forced-Z"
     estimated_size: 'huge'
@@ -987,7 +952,6 @@ catalogues:
     service_id: hats_service
     release: "pdr3"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/hsc/pdr3/forced_y"
-    local_paths: ["/arc/projects/hats/hsc/pdr3/forced_y"]
     hats_nrows: 731099731
     obs_collection: "hsc_pdr3-forced-Y"
     estimated_size: 'huge'
@@ -1007,7 +971,6 @@ catalogues:
     service_id: hats_service
     release: "dr1"
     access_identifier: "vos://cadc.nrc.ca~arc/projects/hats/euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats"
-    local_paths: ["/arc/projects/hats/euclid/dr1/mer_catalogue_wide_survey/euclid_dr1_reformatted_catalogs_mer_catalogue_wide_survey-hats"]
     hats_nrows: 888152165
     obs_collection: "mer_catalogue_wide_survey"
     estimated_size: 'huge'

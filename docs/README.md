@@ -35,7 +35,6 @@ flowchart LR
 
 - [Installation](install.md): pip and the optional extras, the Pixi developer
   environment, platform notes.
-- [CANFAR setup](canfar.md) for headless sessions and shared survey releases.
 - [User guide](usage.md): formats and storage, remote archives and discovery,
   local mirroring, the matcher cookbook, joins and multi-catalogue chains,
   choosing an execution path, Friends-of-Friends.
@@ -80,7 +79,6 @@ flowchart LR
 - [0.5.1](archive/release-0.5.1.md): rename from `xmatch` to `xmatcher`.
 - [0.5.0](archive/release-0.5.0.md): first release.
 - [Documentation and CLI audit, 2026-10-21](archive/audit-2026-10-21.md)
-- [CANFAR scaling report, 2026-10-07](archive/canfar-scaling-2026-10-07.md)
 - [0.5.0 release audit, 2026-10-06](archive/release-audit-2026-10-06.md)
 
 The full history is in the [changelog](../CHANGELOG.md).

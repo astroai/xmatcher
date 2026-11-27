@@ -84,7 +84,14 @@ def _fake_tree(
     return path
 
 
-def _sync_record(tree: Path, *, url: str = URL, version: str | None = None, **extra) -> None:
+def _sync_record(
+    tree: Path,
+    *,
+    url: str = URL,
+    version: str | None = None,
+    record_name: str = "sync.json",
+    **extra,
+) -> None:
     src = _remote_src(access_identifier=url)
     record = {
         "fetched_at": "2026-11-11T20:07:15Z",
@@ -96,7 +103,7 @@ def _sync_record(tree: Path, *, url: str = URL, version: str | None = None, **ex
         },
     }
     record.update(extra)
-    (tree / "PENSUS_SYNC.json").write_text(json.dumps(record))
+    (tree / record_name).write_text(json.dumps(record))
 
 
 @pytest.fixture()
@@ -158,15 +165,15 @@ def test_mismatched_or_incomplete_community_tree_falls_back(
         extra["url"] = "https://example.invalid/other"
     _sync_record(tree, **extra)
     if case == "no_fetched_at":
-        data = json.loads((tree / "PENSUS_SYNC.json").read_text())
+        data = json.loads((tree / "sync.json").read_text())
         data.pop("fetched_at")
-        (tree / "PENSUS_SYNC.json").write_text(json.dumps(data))
+        (tree / "sync.json").write_text(json.dumps(data))
     if case == "size":
         (tree / "partition_info.csv").write_text("Norder,Npix\n0,0\n0,1\n")
     src = _remote_src(expected_hats_nrows=3, expected_obs_collection="two_mass")
     if case == "no_properties":
         (tree / "properties").rename(tree / "properties.bak")
-        (tree / "PENSUS_SYNC.json").write_text(
+        (tree / "sync.json").write_text(
             json.dumps({"source": URL, "version": _version_dir(src), "fetched_at": "x"})
         )
         # a tree without properties is not even a tree for the index walk
@@ -328,15 +335,14 @@ def test_invalid_local_paths_rejected(tmp_path: Path) -> None:
         CrossMatch(config_file=_config_with_entry(tmp_path, entry))
 
 
-def test_community_tree_is_not_self_mirrored_on_the_platform(tmp_path: Path, monkeypatch) -> None:
-    real_isdir = os.path.isdir
-    monkeypatch.setattr(
-        os.path,
-        "isdir",
-        lambda p: True if str(p) == storage.ARC_RELEASE_ROOT else real_isdir(p),
-    )
+def test_community_tree_is_not_self_mirrored_when_root_is_mounted(
+    tmp_path: Path, monkeypatch
+) -> None:
+    community = tmp_path / "community"
+    community.mkdir()
+    monkeypatch.setenv("XMATCHER_COMMUNITY_ROOTS", str(community))
     src = _remote_src(
-        access_identifier="vos://cadc.nrc.ca~arc/projects/hats/vhs/dr7",
+        access_identifier="vos://example.test/community/vhs/dr7",
         local_paths=[str(tmp_path / "does-not-exist")],
     )
     with pytest.raises(CrossMatchError, match="refusing to copy the community tree"):
@@ -395,15 +401,19 @@ def test_replication_skips_a_read_only_replica(
     assert "read-only" in caplog.text
 
 
-def test_platform_community_root_is_always_protected(monkeypatch) -> None:
-    monkeypatch.setenv("XMATCHER_COMMUNITY_ROOTS", "")
-    assert read_only_root_for("/arc/projects/hats/2mass/psc") == "/arc/projects/hats"
-    assert read_only_root_for("/arc/projects/astroai/hats/x") is None
-    assert read_only_root_for("vos://cadc.nrc.ca~arc/projects/hats/vhs/dr7") is not None
-    assert read_only_root_for("vos:projects/hats/x") is not None
-    assert read_only_root_for("vos:projects/astroai/hats") is None
+def test_configured_community_roots_are_protected(tmp_path: Path, monkeypatch) -> None:
+    # vos: roots belong in YAML lists; os.pathsep would split "vos://…".
+    monkeypatch.delenv("XMATCHER_COMMUNITY_ROOTS", raising=False)
+    root = tmp_path / "hats"
+    root.mkdir()
+    vos_root = "vos://example.test/hats"
+    cfg = {"community_roots": [str(root), vos_root]}
+    assert read_only_root_for(root / "2mass" / "psc", cache_cfg=cfg) == str(root)
+    assert read_only_root_for(tmp_path / "other" / "x", cache_cfg=cfg) is None
+    assert read_only_root_for(f"{vos_root}/vhs/dr7", cache_cfg=cfg) == vos_root
+    assert read_only_root_for("vos://example.test/other/x", cache_cfg=cfg) is None
     with pytest.raises(ReadOnlyRootError):
-        assert_writable("/arc/projects/hats/xmatcher", "output directory")
+        assert_writable(root / "xmatcher", "output directory", cache_cfg=cfg)
 
 
 def test_cache_roots_backward_compatible_and_split(tmp_path: Path, monkeypatch) -> None:
@@ -417,13 +427,10 @@ def test_cache_roots_backward_compatible_and_split(tmp_path: Path, monkeypatch) 
     assert str(tmp_path / "community") not in all_cache_roots({"root": a})
 
 
-def test_mounted_arc_does_not_choose_output_or_cache_roots(monkeypatch, tmp_path: Path) -> None:
-    real_isdir = os.path.isdir
-    monkeypatch.setattr(
-        os.path,
-        "isdir",
-        lambda p: True if str(p) in ("/arc", "/arc/projects/hats") else real_isdir(p),
-    )
+def test_defaults_do_not_choose_output_or_cache_roots(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("XMATCHER_COMMUNITY_ROOTS", raising=False)
+    monkeypatch.delenv("XMATCHER_CACHE_ROOT", raising=False)
+    monkeypatch.delenv("XMATCHER_OUTPUT_ROOT", raising=False)
     assert community_roots() == []
     assert storage.default_cache_root() == str(Path.home() / ".cache" / "xmatcher")
     assert storage.default_output_root() is None

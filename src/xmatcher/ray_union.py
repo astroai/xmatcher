@@ -1907,7 +1907,7 @@ def _input_fingerprint(catalogues: Sequence[CataloguePlan]) -> list[dict[str, An
 
 
 def _init_ray(ray: Any, *, engine: str, fallback_policy: str) -> None:
-    """Join ``RAY_ADDRESS`` when set (CANFAR ray-manager), else start a private cluster.
+    """Join ``RAY_ADDRESS`` when set, else start a private cluster.
 
     ``address="auto"`` (Ray's default discovery) attaches to whatever cluster
     another process on this host started last; the run then shares its CPUs
