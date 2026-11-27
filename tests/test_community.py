@@ -84,7 +84,14 @@ def _fake_tree(
     return path
 
 
-def _sync_record(tree: Path, *, url: str = URL, version: str | None = None, **extra) -> None:
+def _sync_record(
+    tree: Path,
+    *,
+    url: str = URL,
+    version: str | None = None,
+    record_name: str = "sync.json",
+    **extra,
+) -> None:
     src = _remote_src(access_identifier=url)
     record = {
         "fetched_at": "2026-11-11T20:07:15Z",
@@ -96,7 +103,7 @@ def _sync_record(tree: Path, *, url: str = URL, version: str | None = None, **ex
         },
     }
     record.update(extra)
-    (tree / "PENSUS_SYNC.json").write_text(json.dumps(record))
+    (tree / record_name).write_text(json.dumps(record))
 
 
 @pytest.fixture()
@@ -158,15 +165,15 @@ def test_mismatched_or_incomplete_community_tree_falls_back(
         extra["url"] = "https://example.invalid/other"
     _sync_record(tree, **extra)
     if case == "no_fetched_at":
-        data = json.loads((tree / "PENSUS_SYNC.json").read_text())
+        data = json.loads((tree / "sync.json").read_text())
         data.pop("fetched_at")
-        (tree / "PENSUS_SYNC.json").write_text(json.dumps(data))
+        (tree / "sync.json").write_text(json.dumps(data))
     if case == "size":
         (tree / "partition_info.csv").write_text("Norder,Npix\n0,0\n0,1\n")
     src = _remote_src(expected_hats_nrows=3, expected_obs_collection="two_mass")
     if case == "no_properties":
         (tree / "properties").rename(tree / "properties.bak")
-        (tree / "PENSUS_SYNC.json").write_text(
+        (tree / "sync.json").write_text(
             json.dumps({"source": URL, "version": _version_dir(src), "fetched_at": "x"})
         )
         # a tree without properties is not even a tree for the index walk
@@ -204,6 +211,16 @@ def test_xmatcher_sync_json_records_are_indexed(tmp_path: Path, community_root: 
             {"source": URL, "version": _version_dir(src), "fetched_at": "2026-01-01T00:00:00Z"}
         )
     )
+    copy = find_read_only_copy(src, read_roots=[str(community_root)], cache_root=str(tmp_path))
+    assert copy is not None and copy.path == tree and copy.origin == "community"
+
+
+def test_legacy_pensus_sync_json_records_are_indexed(tmp_path: Path, community_root: Path) -> None:
+    # Legacy on-disk name still present on some community HATS trees;
+    # pensus product code moved to sfabbro/pensus.
+    tree = _fake_tree(community_root / "2mass" / "psc", nrows=3)
+    _sync_record(tree, record_name="PENSUS_SYNC.json")
+    src = _remote_src(expected_hats_nrows=3, expected_obs_collection="two_mass")
     copy = find_read_only_copy(src, read_roots=[str(community_root)], cache_root=str(tmp_path))
     assert copy is not None and copy.path == tree and copy.origin == "community"
 

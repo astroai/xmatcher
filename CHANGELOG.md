@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- Pensus product scripts, configs, audits, docs, and operational tests. That
+  product now lives in the private repo `sfabbro/pensus`. xmatcher still
+  recognises the legacy community sync-record filename `PENSUS_SYNC.json`
+  alongside `sync.json`.
+
 ## [0.7.1] — 2026-11-25
 
 ### Added
@@ -16,10 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   The help names the units of positional and photometric options and groups
   storage controls below the science options. Existing option spellings are
   also accepted.
-- PENSUS now has a resumable CANFAR workflow for source-preserving photometry
-  unions, with explicit catalogue roles, per-row position epochs, a pilot
-  candidate export, and radius summaries. The headless verifier runs the
-  code checks independently of the mounted survey data.
 - Observation mappings now support nJy, calibrated linear native units,
   variance and inverse variance, numeric missing sentinels, and per-band
   characters in native status flags.
@@ -41,8 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - Read-only community roots (`cache.community_roots` or
   `XMATCHER_COMMUNITY_ROOTS`). A remote HATS catalogue whose
-  `access_identifier` and version directory match a `PENSUS_SYNC.json` or
-  `sync.json` record under a community root is read there in place, keeping the
+  `access_identifier` and version directory match a `sync.json` (or legacy
+  `PENSUS_SYNC.json`) record under a community root is read there in place, keeping the
   catalogue entry's metadata, after verification (properties, partition index,
   complete sync record, pinned `hats_nrows`/`obs_collection`/coordinate
   columns); otherwise the writable cache is used. The record index is cached
@@ -104,8 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - The source distribution includes the workflow and release notes read by
-  its release checks. PENSUS operational tests stay in the repository with
-  the scripts they exercise.
+  its release checks.
 - HATS partitions stored as `Npix=N/` directories of files (Euclid DR1 MER)
   get their footer row counts summed instead of falling back to the
   `hats_threshold` placeholder.

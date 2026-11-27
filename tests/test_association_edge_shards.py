@@ -1,4 +1,4 @@
-"""Sharded association construction for pensus tile edge artifacts."""
+"""Sharded association construction for tile edge artifacts."""
 
 from __future__ import annotations
 

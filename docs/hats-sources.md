@@ -263,7 +263,7 @@ bundled entries describe mounted products.
 
 | Entry | Tree | Rows | How it is found |
 |---|---|---:|---|
-| `twomass_psc_hats` (`twomass_hats`) | `2mass/psc` | 470,992,970 | `PENSUS_SYNC.json` (LSDB URL + version) |
+| `twomass_psc_hats` (`twomass_hats`) | `2mass/psc` | 470,992,970 | sync record (LSDB URL + version; legacy `PENSUS_SYNC.json` still accepted) |
 | `gaia_lsdb_hats` | `gaia/dr3` | 1,811,709,771 | `local_paths` (byte copy of the LSDB tree) |
 | `allwise_hats` | `allwise/catalog` | 747,634,026 | `local_paths` (byte copy of the LSDB tree) |
 | `skymapper_dr4_hats` | `skymapper/dr4` | 724,329,344 | `local_paths` (same build as LIneA) |

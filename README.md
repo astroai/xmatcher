@@ -109,7 +109,6 @@ The [user guide](docs/usage.md) explains how to choose between them.
 | [HATS sources](docs/hats-sources.md) | Registry lookups, verified remote trees, mirroring |
 | [Gaia-anchored masters](docs/ray-anchor.md) | The `ray-anchor` engine and its output schema |
 | [CANFAR setup](docs/canfar.md) | Headless sessions, shared HATS catalogues and project storage |
-| [PENSUS](https://github.com/astroai/xmatcher/tree/main/scripts/pensus) | Source-preserving photometry unions from mounted HATS catalogues |
 | [Documentation index](docs/README.md) | All guides, data contracts and release notes |
 
 ## Contributing

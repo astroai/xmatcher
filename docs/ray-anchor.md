@@ -241,7 +241,7 @@ xmatcher match gaia_lsdb_hats twomass_hats vhs_dr7 ps1_otmo \
 ```
 
 `gaia_lsdb_hats` reads `/arc/projects/hats/gaia/dr3` (`local_paths`),
-`twomass_hats` reads `/arc/projects/hats/2mass/psc` (its `PENSUS_SYNC.json`
+`twomass_hats` reads `/arc/projects/hats/2mass/psc` (its sync record
 matches the LSDB URL and version), and `vhs_dr7` / `ps1_otmo` read their
 community trees; nothing is copied. The entries' `default_columns` keep the
 master narrow. The log names the copy used for each input.

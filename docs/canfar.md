@@ -42,7 +42,6 @@ xmatcher match targets.csv gaia --match-radius-arcsec 1 \
 ```
 
 For a full-sky workload, see the
-[distributed union guide](usage.md#distributed-full-sky-union-ray-union) or
-the [PENSUS runbook](https://github.com/astroai/xmatcher/tree/main/scripts/pensus).
+[distributed union guide](usage.md#distributed-full-sky-union-ray-union).
 For a multi-node CANFAR job, see the options in
 [`scripts/canfar-ray-job.sh`](../scripts/canfar-ray-job.sh).

@@ -242,8 +242,9 @@ empty to disable) or `cache.community_roots` in `xmatcher.yaml` to enable
 lookup in shared releases. xmatcher can find a copy in two ways.
 
 - **Sync records.** A tree copied with xmatcher-style versioning carries a
-  `PENSUS_SYNC.json` (or xmatcher's `sync.json`) naming the upstream URL and
-  version directory. When both match a remote HATS catalogue's
+  `sync.json` (or the legacy on-disk name `PENSUS_SYNC.json`; pensus product
+  code moved to `sfabbro/pensus`) naming the upstream URL and version
+  directory. When both match a remote HATS catalogue's
   `access_identifier`, that tree is used (on CANFAR, `twomass_hats` reads
   `/arc/projects/hats/2mass/psc` this way).
 - **`local_paths`.** A catalogue entry can list equivalent copies without a

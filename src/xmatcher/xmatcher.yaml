@@ -268,7 +268,7 @@ catalogues:
     service_id: hats_service
     release: "allsky"
     access_identifier: "https://data.lsdb.io/hats/two_mass/two_mass"
-    # /arc/projects/hats/2mass/psc carries a PENSUS_SYNC.json for this URL and
+    # /arc/projects/hats/2mass/psc carries a sync record for this URL and
     # version, so the community index finds it without local_paths.
     hats_nrows: 470992970
     obs_collection: "two_mass"
@@ -311,7 +311,7 @@ catalogues:
   skymapper_dr4_hats:
     # Flat master photometry on LIneA (~96 GiB, 724M rows, 356 pixels).
     # Do NOT use data.lsdb.io/.../skymapper_dr4_lightcurves (~6.5 TiB nested
-    # epoch photometry) for the pensus UV–IR source catalog pin.
+    # epoch photometry) when a flat source photometry pin is required.
     description: "SkyMapper DR4 flat source photometry via LIneA HATS (PSF u..z)"
     archive: hats
     service_id: hats_service
@@ -503,8 +503,8 @@ catalogues:
     service_id: hats_service
     release: "dr3"
     access_identifier: "${XMATCHER_GAIA_XP_HATS}"
-    # Community copy (pensus xp_layout, positions from gaia/dr3); used when the
-    # environment variable is unset.  Its schema was not read remotely.
+    # Community copy (XP continuous layout, positions from gaia/dr3); used when
+    # the environment variable is unset.  Its schema was not read remotely.
     local_paths: ["/arc/projects/hats/gaia/dr3_xp_continuous"]
     hats_nrows: 219197643
     obs_collection: "gaia_dr3_xp_continuous"
@@ -534,7 +534,7 @@ catalogues:
   # contracts were read from each tree's properties and _common_metadata.
 
   sdss_dr16_photoprimary:
-    # id is THING_ID and can repeat. The PENSUS pilot uses RERUN/RUN/CAMCOL/FIELD/ID as its imaging key.
+    # id is THING_ID and can repeat. Imaging keys may use RERUN/RUN/CAMCOL/FIELD/ID.
     # Fluxes are nanomaggies, IVAR in nmgy^-2.
     # epoch: imaging spans 1998-2009 and the tree has no per-row epoch; 2000.0 matches sdss_dr16_hats
     # no positional-error columns in this tree
@@ -621,7 +621,7 @@ catalogues:
 
   des_y6_gold:
     # epoch: approximate (2013-2019); no per-row epoch column
-    description: "DES Y6 Gold (Pensus QA soft-fail: a few out-of-range coordinates; ray-anchor drops them)"
+    description: "DES Y6 Gold (QA soft-fail: a few out-of-range coordinates; ray-anchor drops them)"
     archive: hats
     service_id: hats_service
     release: "y6"
@@ -640,7 +640,7 @@ catalogues:
 
   delve_dr3_gold:
     # epoch: approximate; no per-row epoch column
-    description: "DELVE DR3 Gold (Pensus QA soft-fail: a few out-of-range coordinates)"
+    description: "DELVE DR3 Gold (QA soft-fail: a few out-of-range coordinates)"
     archive: hats
     service_id: hats_service
     release: "dr3"

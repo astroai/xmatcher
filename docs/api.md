@@ -744,7 +744,8 @@ from xmatcher.storage import open_storage
   `sync_catalogue` take `read_roots=` (default `community_roots()`) and first
   call `xmatcher.community.resolve_in_place(src, read_roots=..., cache_root=...)`,
   which returns `src` repointed at a verified community tree (matched by
-  `PENSUS_SYNC.json`/`sync.json` source URL and version) or `local_paths`
+  `sync.json` / legacy `PENSUS_SYNC.json` source URL and version; pensus
+  product code moved to `sfabbro/pensus`) or `local_paths`
   copy, with `read_only_origin` set and the entry metadata kept, or `None`.
   `verify_tree(path, src)` is the check (properties, partition index, complete
   sync record, pinned `hats_nrows`/`obs_collection`/coordinate columns).

@@ -27,9 +27,9 @@ and fixes for distributed matching and HATS output.
   HATS matching uses the accumulated match result.
 - Bundled HATS metadata includes verified local copies and corrections for
   2MASS coordinates, SkyMapper error units, and AllWISE motion handling.
-- The PENSUS checkout includes source-preserving photometry union scripts,
-  survey metadata, pilot checks, and mappings for nJy, calibrated fluxes,
-  magnitude systems, uncertainties and flags.
+- Observation mappings support nJy, calibrated fluxes, magnitude systems,
+  uncertainties and flags. (Source-preserving photometry union product code
+  moved to `sfabbro/pensus`.)
 
 The `zone` engine remains available in the core package. Use the
 `hats` or `ray` extra to install the HEALPix dependency formerly provided

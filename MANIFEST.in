@@ -2,8 +2,6 @@ include CHANGELOG.md CONTRIBUTING.md pixi.toml pixi.lock
 include .gitignore .pre-commit-config.yaml
 include .github/workflows/ci.yml
 include tests/*.py tests/inputs/*.csv
-# pensus tests exercise internal CANFAR operations scripts that are not released.
-exclude tests/test_pensus_*.py
 include docs/*.md docs/*.csv docs/*.png
 include docs/archive/*.md docs/archive/*.csv docs/archive/*.png
 include scripts/*.py scripts/*.sh scripts/git-hooks/pre-push

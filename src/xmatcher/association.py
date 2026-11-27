@@ -1882,7 +1882,7 @@ def construct_association_components_from_edge_shards(
 ) -> list[AssociationComponent]:
     """Build components from Parquet edge shards instead of an association release.
 
-    Pensus tile campaigns emit mutual-best edges per tile without publishing a
+    Tile campaigns may emit mutual-best edges per tile without publishing a
     monolithic association.v1 release; this unions those shards under the same
     deterministic component-ID contract. Nothing is verified against a release
     manifest: ``association_release_id`` is only the ID the components are
