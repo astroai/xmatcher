@@ -205,8 +205,7 @@ def ray_zone_match(
 
     owns_ray = not ray.is_initialized()
     if owns_ray:
-        # Join the cluster in $RAY_ADDRESS when one is running (CANFAR:
-        # a ray-manager session — see scripts/canfar-ray-job.sh); with the env
+        # Join the cluster in $RAY_ADDRESS when one is running; with the env
         # unset start a private local cluster ("local", not Ray's default
         # discovery, which would attach to another process's cluster on this
         # host). An explicit address must never be silently replaced by a

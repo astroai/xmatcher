@@ -112,7 +112,7 @@ The anchor also has an LSDB-pinned catalogue entry, `gaia_lsdb_hats`
 cannot silently follow a registry change, and it is the preferred anchor for
 [`ray-anchor`](ray-anchor.md) because the narrow schema needs less storage.
 
-Local products, such as trees staged on CANFAR, are addressed by catalogue
+Local products, such as trees staged on shared storage, are addressed by catalogue
 entries whose roots come from the environment:
 
 | Name | Variable |
@@ -237,8 +237,8 @@ downloading it; the error names the `xmatcher sync` command to run.
 copy.
 
 A live check of the whole path — registry lookup, collection descent, HTTP
-walk, mirror — is `scripts/canfar_headless_run.py hats-sources` on CANFAR, which
-mirrors the small TNS tree and matches a synthetic source against it.
+walk, mirror — mirrors the small TNS tree and matches a synthetic source
+against it.
 
 To flatten a local tree into one table for STILTS or notebooks, use
 [`export-hats`](cli.md#xmatcher-export-hats). It also accepts a configured
@@ -253,48 +253,49 @@ xmatcher export-hats ./tns.hats tns.fits --columns RA,DEC,Name
 Parquet scans Npix partitions lazily and FITS streams in bounded memory.
 Prefer keeping HATS for survey-scale catalogues.
 
-## Community trees on CANFAR
+## Community HATS trees
 
-`/arc/projects/hats` holds HATS trees laid out as `<survey>/<product>`. It is
-read-only for xmatcher: trees there are used in place and never synced,
+Community roots hold HATS trees laid out as `<survey>/<product>`. Trees
+under configured `community_roots` are used in place and never synced,
 replicated or written (see [the user guide](usage.md#community-trees-used-in-place)).
-Enable shared-root lookup with the [CANFAR setup](canfar.md). The following
-bundled entries describe mounted products.
+Enable shared-root lookup with `XMATCHER_COMMUNITY_ROOTS` or
+`cache.community_roots`. The following bundled entries describe known
+products; set `local_paths` or mount a community root to read them in place,
+otherwise their `access_identifier` (HTTPS or `vos:`) is mirrored.
 
-| Entry | Tree | Rows | How it is found |
+| Entry | Relative tree | Rows | Notes |
 |---|---|---:|---|
-| `twomass_psc_hats` (`twomass_hats`) | `2mass/psc` | 470,992,970 | sync record (LSDB URL + version; legacy `PENSUS_SYNC.json` still accepted) |
-| `gaia_lsdb_hats` | `gaia/dr3` | 1,811,709,771 | `local_paths` (byte copy of the LSDB tree) |
-| `allwise_hats` | `allwise/catalog` | 747,634,026 | `local_paths` (byte copy of the LSDB tree) |
-| `skymapper_dr4_hats` | `skymapper/dr4` | 724,329,344 | `local_paths` (same build as LIneA) |
-| `gaia_xp_hats` | `gaia/dr3_xp_continuous` | 219,197,643 | `local_paths` (schema not read remotely) |
-| `sdss_dr16_photoprimary` | `sdss/photoprimary_dr13` | 469,050,917 | `local_paths` |
-| `ps1_otmo` | `ps1/otmo` | 10,560,724,292 | `local_paths` |
-| `vhs_dr7` | `vhs/dr7` | 1,496,104,720 | `local_paths` |
-| `ls_dr11_sweep` | `legacysurvey/dr11` | 3,967,618,454 | `local_paths` |
-| `des_y6_gold` | `des/y6_gold` | 691,483,608 | `local_paths` |
-| `delve_dr3_gold` | `delve/dr3_gold` | 2,588,267,795 | `local_paths` |
-| `uhs_dr3` | `uhs/dr3` | (not pinned: being rebuilt) | `local_paths` |
-| `ukidss_dr11_las`, `ukidss_dr11_gcs` | `ukidss/dr11_las`, `ukidss/dr11_gcs` | 77,685,267; 64,835,919 | `local_paths` |
-| `viking_dr5`, `vvvx_dr1`, `vmc_dr7` | `viking/dr5`, `vvvx/dr1`, `vmc/dr7` | 82,063,585; 886,574,093; 64,359,516 | `local_paths` |
-| `galex_guvcat_ais` | `galex/guvcat_ais_gr67` | 82,992,062 | `local_paths` |
-| `splus_dr4_dual` | `splus/dr4` | 80,155,547 | `local_paths` |
-| `jplus_dr3`, `jpas_e2dr` | `jplus/dr3`, `jpas/e2dr` | 16,419,372; 4,804,561 | `local_paths` (magnitudes stored as strings) |
-| `pristine_dr2` | `pristine/dr2` | 25,224,342 | `local_paths` |
-| `catwise2020_catalog` | `catwise/2020` | 1,890,715,640 | `local_paths` |
-| `hsc_pdr3_forced_{g,r,i,z,y}` | `hsc/pdr3/forced_*` | 731–784 M each | `local_paths` |
-| `euclid_dr1_mer_wide` | `euclid/dr1/mer_catalogue_wide_survey/…-hats` | 888,152,165 | `local_paths` |
+| `twomass_psc_hats` (`twomass_hats`) | `2mass/psc` | 470,992,970 | LSDB HTTPS; sync record when present |
+| `gaia_lsdb_hats` | `gaia/dr3` | 1,811,709,771 | LSDB HTTPS |
+| `allwise_hats` | `allwise/catalog` | 747,634,026 | LSDB HTTPS |
+| `skymapper_dr4_hats` | `skymapper/dr4` | 724,329,344 | LIneA HTTPS |
+| `gaia_xp_hats` | `gaia/dr3_xp_continuous` | 219,197,643 | env / community |
+| `sdss_dr16_photoprimary` | `sdss/photoprimary_dr13` | 469,050,917 | VOSpace identifier |
+| `ps1_otmo` | `ps1/otmo` | 10,560,724,292 | VOSpace identifier |
+| `vhs_dr7` | `vhs/dr7` | 1,496,104,720 | VOSpace identifier |
+| `ls_dr11_sweep` | `legacysurvey/dr11` | 3,967,618,454 | VOSpace identifier |
+| `des_y6_gold` | `des/y6_gold` | 691,483,608 | VOSpace identifier |
+| `delve_dr3_gold` | `delve/dr3_gold` | 2,588,267,795 | VOSpace identifier |
+| `uhs_dr3` | `uhs/dr3` | (not pinned: being rebuilt) | VOSpace identifier |
+| `ukidss_dr11_las`, `ukidss_dr11_gcs` | `ukidss/dr11_las`, `ukidss/dr11_gcs` | 77,685,267; 64,835,919 | VOSpace identifier |
+| `viking_dr5`, `vvvx_dr1`, `vmc_dr7` | `viking/dr5`, `vvvx/dr1`, `vmc/dr7` | 82,063,585; 886,574,093; 64,359,516 | VOSpace identifier |
+| `galex_guvcat_ais` | `galex/guvcat_ais_gr67` | 82,992,062 | VOSpace identifier |
+| `splus_dr4_dual` | `splus/dr4` | 80,155,547 | VOSpace identifier |
+| `jplus_dr3`, `jpas_e2dr` | `jplus/dr3`, `jpas/e2dr` | 16,419,372; 4,804,561 | VOSpace; magnitudes as strings |
+| `pristine_dr2` | `pristine/dr2` | 25,224,342 | VOSpace identifier |
+| `catwise2020_catalog` | `catwise/2020` | 1,890,715,640 | VOSpace identifier |
+| `hsc_pdr3_forced_{g,r,i,z,y}` | `hsc/pdr3/forced_*` | 731–784 M each | VOSpace identifier |
+| `euclid_dr1_mer_wide` | `euclid/dr1/mer_catalogue_wide_survey/…-hats` | 888,152,165 | VOSpace identifier |
 
 These are different releases or products from the CDS aliases
 (`sdss_dr16_hats`, `ps1_dr2_hats`, `vhs_dr5_hats`, ...), so they have their own
 names; resolution never substitutes one for the other. The SDSS tree sits in a
 `dr13` directory but its properties and build record say DR16 photoPrimary,
 hence the name. Each entry pins `hats_nrows` and `obs_collection`, so a rebuilt
-tree fails verification with a warning instead of matching silently, and on
-CANFAR it is not copied from VOSpace either: the run stops and asks for the
-entry to be updated. Off the platform the same entries' `access_identifier`
-(`vos://cadc.nrc.ca~arc/projects/hats/...`) mirrors the tree over VOSpace.
-Each entry's comments list the fields that metadata could not confirm.
+tree fails verification with a warning instead of matching silently. When a
+configured community root is mounted and `local_paths` fail verification, the
+run refuses to re-copy the same tree from VOSpace and asks for the entry to be
+updated. Each entry's comments list the fields that metadata could not confirm.
 
 ## Metadata the mirror needs
 

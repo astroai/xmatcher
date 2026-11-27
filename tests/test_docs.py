@@ -17,7 +17,7 @@ import xmatcher.cli as cli
 
 ROOT = Path(__file__).resolve().parents[1]
 CURRENT_DOCS = [ROOT / "README.md", *sorted((ROOT / "docs").glob("*.md"))]
-HISTORICAL_GLOBS = ("release-*", "canfar-*", "audit-*")
+HISTORICAL_GLOBS = ("release-*", "audit-*")
 
 
 def _current_docs() -> list[Path]:

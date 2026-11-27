@@ -232,7 +232,7 @@ xmatcher adopt vizier II/349/ps1 --name ps1
 root is `--cache-root`, `XMATCHER_CACHE_ROOT`, `cache.root` in
 `xmatcher.yaml`, or `~/.cache/xmatcher`, in that order. A bare match output
 filename is relative to the working directory unless `XMATCHER_OUTPUT_ROOT`
-is set. See the [CANFAR setup](canfar.md) for shared catalogue and project paths.
+is set. Configure shared catalogue roots with `XMATCHER_COMMUNITY_ROOTS`.
 
 ### Community trees used in place
 
@@ -242,13 +242,10 @@ empty to disable) or `cache.community_roots` in `xmatcher.yaml` to enable
 lookup in shared releases. xmatcher can find a copy in two ways.
 
 - **Sync records.** A tree copied with xmatcher-style versioning carries a
-  `sync.json` (or the legacy on-disk name `PENSUS_SYNC.json`; pensus product
-  code moved to `sfabbro/pensus`) naming the upstream URL and version
-  directory. When both match a remote HATS catalogue's
-  `access_identifier`, that tree is used (on CANFAR, `twomass_hats` reads
-  `/arc/projects/hats/2mass/psc` this way).
+  `sync.json` naming the upstream URL and version directory. When both match
+  a remote HATS catalogue's `access_identifier`, that tree is used.
 - **`local_paths`.** A catalogue entry can list equivalent copies without a
-  sync record (`gaia_lsdb_hats` lists `/arc/projects/hats/gaia/dr3`).
+  sync record.
 
 The copy must have `properties` and a partition index, a complete sync record
 when it has one, and the `hats_nrows` / `obs_collection` / coordinate columns
@@ -267,13 +264,12 @@ cache:
   community_roots: [/shared/hats-releases]
 ```
 
-Nothing is ever written inside a community root, nor under
-`/arc/projects/hats` whatever the configuration: a cache root, replica root,
-registry snapshot, index or output directory there raises `ReadOnlyRootError`
-before anything is created. The bundled configuration has entries for the
-community trees with no other alias (`sdss_dr16_photoprimary`, `ps1_otmo`,
-`vhs_dr7`, `ls_dr11_sweep`, `des_y6_gold`, ...); see
-[HATS sources](hats-sources.md#community-trees-on-canfar).
+Nothing is ever written inside a configured community root: a cache root,
+replica root, registry snapshot, index or output directory there raises
+`ReadOnlyRootError` before anything is created. The bundled configuration has
+entries for community trees with no other alias (`sdss_dr16_photoprimary`,
+`ps1_otmo`, `vhs_dr7`, `ls_dr11_sweep`, `des_y6_gold`, ...); see
+[HATS sources](hats-sources.md#community-hats-trees).
 `xmatcher adopt hats <path-or-url> --name NAME` drafts an entry for another
 tree from its properties and schema.
 
@@ -850,7 +846,7 @@ separation of the closest edge used.
 xmatcher sync gaia allwise twomass
 xmatcher match gaia allwise twomass \
   --union --engine ray-union \
-  -o /arc/projects/astroai/xmatcher/master_union.hats
+  -o ./master_union.hats
 ```
 
 Tuning options: `--task-rows` (target rows per Ray chunk, default 2,000,000),
@@ -861,11 +857,9 @@ and `--no-sync` (require existing mirrors instead of syncing).
 
 Resume state is tied to source identity and metadata. Change the inputs or
 configuration and start a new output directory rather than expecting an old
-partial run to be reused. For a local end-to-end synthetic smoke test, use
-`scripts/canfar-smoke.sh`; it verifies every synthetic singleton ID. Passing
-catalogue names runs their complete remote sync and union, then checks only
-readability and nonempty output; it requires working credentials and network
-access and has no synthetic row-count oracle.
+partial run to be reused. For a local end-to-end synthetic smoke, run a small
+`xmatcher match` against generated catalogues and verify every synthetic
+singleton ID in the output.
 
 ### Gaia-anchored master (`ray-anchor`)
 
@@ -893,7 +887,7 @@ Narrow wide inputs first with `xmatcher project-hats <source> <out> --columns
 …`; it writes a new HATS tree with the same partition layout and only the
 requested columns, streaming an HTTPS tree without a full mirror. See
 [ray-anchor.md](ray-anchor.md) for the full schema, epoch/PM policy,
-projection workflow, and CANFAR local-product aliases. To flatten the
+projection workflow, and local-product aliases. To flatten the
 resulting tree for other tools, see
 [Converting and flattening catalogues](#converting-and-flattening-catalogues).
 

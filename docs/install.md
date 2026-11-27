@@ -72,10 +72,11 @@ release checks.
 - In a conda or Pixi environment, take PyTorch from conda-forge (the Pixi
   environment does). The PyPI PyTorch wheel bundles its own OpenMP runtime,
   which aborts the process on macOS when another OpenMP runtime is loaded.
-- On shared or NFS-mounted systems (CANFAR, for example), set
-  `PYTHONNOUSERSITE=1` and unset `PYTHONPATH` so packages in your user
-  site-packages do not shadow the environment's.
-- The [CANFAR setup](canfar.md) shows how to reuse mounted survey releases
-  and select a durable project directory.
+- On shared or NFS-mounted systems, set `PYTHONNOUSERSITE=1` and unset
+  `PYTHONPATH` so packages in your user site-packages do not shadow the
+  environment's.
+- Shared catalogue reuse uses `XMATCHER_COMMUNITY_ROOTS` /
+  `cache.community_roots` and optional `local_paths` on catalogue entries
+  (see [usage](usage.md#community-trees-used-in-place)).
 - `xmatcher doctor` compares your `~/.config/xmatcher/xmatcher.yaml` against
   the bundled catalogue registry and reports drift.

@@ -1,15 +1,14 @@
 """Read-only community HATS trees used in place of a mirror.
 
-A *community root* (on AstroAI/CANFAR ``/arc/projects/hats``) holds HATS
-trees that other people maintain, laid out by survey and product
-(``2mass/psc``, ``gaia/dr3``, ...) rather than by xmatcher's cache layout.
-xmatcher never writes there.  Two mechanisms find an equivalent copy of a
-configured catalogue:
+A *community root* (configured via ``cache.community_roots`` or
+``XMATCHER_COMMUNITY_ROOTS``) holds HATS trees that other people maintain,
+laid out by survey and product (``2mass/psc``, ``gaia/dr3``, ...) rather
+than by xmatcher's cache layout. xmatcher never writes there.  Two
+mechanisms find an equivalent copy of a configured catalogue:
 
 * **Sync records.**  A tree copied with xmatcher-style versioning carries a
-  ``sync.json`` (or the legacy on-disk name ``PENSUS_SYNC.json``; product
-  code moved to ``sfabbro/pensus``) recording the upstream ``source`` URL
-  and the ``version`` directory name (:func:`xmatcher.mirror._version_dir`).
+  ``sync.json`` recording the upstream ``source`` URL and the ``version``
+  directory name (:func:`xmatcher.mirror._version_dir`).
   :func:`community_index` scans the community roots for these records and
   caches the index under the writable cache root
   (``<cache>/registry/community_index.json``) with a TTL; the modification
@@ -44,9 +43,7 @@ from .sources import CatalogueSource, is_remote_hats_uri
 logger = logging.getLogger(__name__)
 
 #: Sync-record file names recognised in a community tree.
-#: ``PENSUS_SYNC.json`` is a legacy on-disk name still present on some
-#: community HATS trees; pensus product code moved to ``sfabbro/pensus``.
-SYNC_RECORD_NAMES = ("sync.json", "PENSUS_SYNC.json")
+SYNC_RECORD_NAMES = ("sync.json",)
 #: HATS properties file names, in lookup order.
 PROPERTIES_NAMES = ("properties", "hats.properties")
 _PARTITION_INDEX = ("partition_info.csv", "dataset/partition_info.parquet", "dataset/_metadata")

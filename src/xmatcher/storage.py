@@ -1,18 +1,18 @@
 """Storage abstraction for xmatcher mirrors and Ray task I/O.
 
 A :class:`Storage` hides *where* the durable root lives (a POSIX dir on the
-driver/manager node, or a CANFAR VOSpace ``vos:`` URI) behind one API.  All
+driver/manager node, or a VOSpace ``vos:`` URI) behind one API.  All
 catalogue parquet reads/writes and per-worker staging funnel through it, so
 a Ray task reading "the same catalogue file" transparently hits the durable
 root or a worker's fast scratch copy.
 
 ``LocalStorage`` is a plain pathlib-backed dir whose writes are durable and
-atomic (same-directory temp file, ``fsync``, ``os.replace``). ``VOSpaceStorage`` shells the ``vos`` CLI
-(``vls``/``vcp``/``vput``/``vmkdir``), falls back to the python ``vos``
-package when the binary is missing, and raises :class:`ConfigError` when
-neither is available. The python client path has been exercised against live
-ARC VOSpace; the CLI flags remain unverified against a live endpoint, so
-their argv is kept in one place (:meth:`VOSpaceStorage._argv`).
+atomic (same-directory temp file, ``fsync``, ``os.replace``).
+``VOSpaceStorage`` shells the ``vos`` CLI (``vls``/``vcp``/``vput``/
+``vmkdir``), falls back to the python ``vos`` package when the binary is
+missing, and raises :class:`ConfigError` when neither is available. CLI
+flags remain unverified against a live endpoint, so their argv is kept in
+one place (:meth:`VOSpaceStorage._argv`).
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ import builtins
 import contextlib
 import logging
 import os
-import re
 import secrets
 import shutil
 import subprocess
@@ -226,14 +225,13 @@ class LocalStorage(Storage):
 
 
 class VOSpaceStorage(Storage):
-    """CANFAR VOSpace :class:`Storage` via the ``vos`` CLI (or python binding).
+    """VOSpace :class:`Storage` via the ``vos`` CLI (or python binding).
 
     ``root`` is a ``vos:`` URI prefix.  Commands are resolved once at init:
     a ``vos`` binary on PATH wins, the python ``vos`` package is the
     fallback, and :class:`ConfigError` is raised when neither exists.
 
-    The python client path has been exercised against live ARC VOSpace. The
-    CLI flags have not been verified against that endpoint; its argv is
+    CLI flags have not been verified against a live endpoint; argv is
     centralized in :meth:`_argv`.
     """
 
@@ -241,7 +239,7 @@ class VOSpaceStorage(Storage):
         if not isinstance(root, str) or not root.startswith("vos:"):
             raise ConfigError(f"VOSpaceStorage root must be a 'vos:' URI, got {root!r}")
         self.root = root.rstrip("/")
-        #: VOSpace URIs naming the community HATS tree are read-only.
+        #: Set when ``root`` lies under a configured read-only community root.
         self.read_only_root = _vos_read_only_root(self.root)
         self._binary: str | None = shutil.which("vos")
         self._client = None  # python-vos client when no binary
@@ -462,8 +460,7 @@ class VOSpaceStorage(Storage):
 
     def _python_put(self, local: Path, rel: str) -> None:
         """Store a local file under ``rel`` via the python-vos fallback."""
-        # The copy method was verified in a live python-vos 3.7 ARC VOSpace
-        # smoke; CI covers the protocol through a fake client.
+        # CI covers the protocol through a fake client.
         try:
             self._client.copy(str(local), self._uri(rel))  # type: ignore[union-attr]
         except Exception as exc:
@@ -517,11 +514,7 @@ def open_storage(root: str | Path) -> Storage:
     return LocalStorage(root)
 
 
-#: Released ARC catalogues are protected independently of cache configuration.
-ARC_RELEASE_ROOT = "/arc/projects/hats"
-
 _REGISTERED_READ_ONLY: set[str] = set()
-_VOS_COMMUNITY = re.compile(r"^vos:(?://[^/]*~arc/|arc:)?/?projects/hats(?:/|$)")
 
 
 def _split_roots(value: object) -> list[str]:
@@ -561,17 +554,25 @@ def register_read_only_roots(roots: object) -> None:
 
 
 def read_only_roots(cache_cfg: dict | None = None) -> list[str]:
-    """Every protected root: community roots, registered roots, and
-    :data:`ARC_RELEASE_ROOT` (always)."""
-    out = [ARC_RELEASE_ROOT]
+    """Every protected root: configured community roots and registered roots."""
+    out: list[str] = []
     for root in (*community_roots(cache_cfg), *sorted(_REGISTERED_READ_ONLY)):
         if root not in out:
             out.append(root)
     return out
 
 
-def _vos_read_only_root(uri: str) -> str | None:
-    return ARC_RELEASE_ROOT if _VOS_COMMUNITY.match(uri) else None
+def _vos_under_root(uri: str, root: str) -> bool:
+    base = root.rstrip("/")
+    return uri == base or uri.startswith(base + "/")
+
+
+def _vos_read_only_root(uri: str, cache_cfg: dict | None = None) -> str | None:
+    """Return the configured vos: community root containing ``uri``, if any."""
+    for root in read_only_roots(cache_cfg):
+        if root.startswith("vos:") and _vos_under_root(uri, root):
+            return root
+    return None
 
 
 def _inside(path: str, root: str) -> bool:
@@ -588,7 +589,7 @@ def read_only_root_for(path: str | Path, cache_cfg: dict | None = None) -> str |
     """The protected root containing ``path`` (POSIX or ``vos:``), else ``None``."""
     text = os.path.expandvars(os.path.expanduser(str(path)))
     if text.startswith("vos:"):
-        return _vos_read_only_root(text)
+        return _vos_read_only_root(text, cache_cfg)
     for root in read_only_roots(cache_cfg):
         if root.startswith("vos:"):
             continue

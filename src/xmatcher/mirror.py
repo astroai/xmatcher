@@ -2249,26 +2249,30 @@ def _replicate_to_roots(cache: Storage, src: CatalogueSource, replica_roots: lis
 def _refuse_community_self_mirror(src: CatalogueSource) -> None:
     """Refuse to copy a community tree into the cache where it is mounted.
 
-    An entry whose ``access_identifier`` is the community tree over VOSpace
-    (``vos://…~arc/projects/hats/…``) is only mirrored where ``/arc`` is not
-    mounted.  On the platform its ``local_paths`` copy failed verification
-    (logged above), and copying terabytes from the same tree would hide that.
+    An entry whose ``access_identifier`` is a ``vos:`` URI is only mirrored
+    when no configured POSIX community root is available locally. Copying the
+    same tree into the cache would hide a failed ``local_paths`` verification.
     """
-    from .storage import ARC_RELEASE_ROOT, read_only_root_for
+    from .storage import community_roots
 
     ident = str(src.access_identifier or "")
-    if (
-        src.access_method == "hats"
-        and ident.startswith("vos:")
-        and read_only_root_for(ident) is not None
-        and os.path.isdir(ARC_RELEASE_ROOT)
-    ):
-        raise CrossMatchError(
-            f"'{src.name}' names the community tree {ident}, which is mounted under "
-            f"{ARC_RELEASE_ROOT}, but none of its local_paths passed verification "
-            "(see the warnings above); refusing to copy the community tree into the "
-            "cache. Update the entry's local_paths / hats_nrows / obs_collection."
-        )
+    if src.access_method != "hats" or not ident.startswith("vos:"):
+        return
+    mounted = [
+        root
+        for root in community_roots()
+        if not root.startswith("vos:")
+        and os.path.isdir(os.path.expandvars(os.path.expanduser(root)))
+    ]
+    if not mounted:
+        return
+    raise CrossMatchError(
+        f"'{src.name}' names the community tree {ident}, and a community root "
+        f"is mounted ({mounted[0]}), but none of its local_paths passed "
+        "verification (see the warnings above); refusing to copy the community "
+        "tree into the cache. Update the entry's local_paths / hats_nrows / "
+        "obs_collection."
+    )
 
 
 # --------------------------------------------------------------------------- #

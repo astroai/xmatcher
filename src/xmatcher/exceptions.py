@@ -53,7 +53,7 @@ class StiltsError(CrossMatchError):
 class ReadOnlyRootError(ConfigError):
     """Raised when a write would land inside a read-only (community) root.
 
-    Community HATS trees (on CANFAR ``/arc/projects/hats``) are read in place
-    and never written: no sync, replica, registry snapshot, cache index or
-    output may be created under them.
+    Community HATS trees under configured ``community_roots`` are read in
+    place and never written: no sync, replica, registry snapshot, cache
+    index or output may be created under them.
     """

@@ -15,7 +15,7 @@ cd xmatcher
 pixi install --frozen
 ```
 
-On shared or NFS-mounted systems (such as CANFAR), isolate user site-packages before running Python or tests:
+On shared or NFS-mounted systems, isolate user site-packages before running Python or tests:
 
 ```bash
 export PYTHONNOUSERSITE=1

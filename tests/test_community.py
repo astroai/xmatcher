@@ -215,16 +215,6 @@ def test_xmatcher_sync_json_records_are_indexed(tmp_path: Path, community_root: 
     assert copy is not None and copy.path == tree and copy.origin == "community"
 
 
-def test_legacy_pensus_sync_json_records_are_indexed(tmp_path: Path, community_root: Path) -> None:
-    # Legacy on-disk name still present on some community HATS trees;
-    # pensus product code moved to sfabbro/pensus.
-    tree = _fake_tree(community_root / "2mass" / "psc", nrows=3)
-    _sync_record(tree, record_name="PENSUS_SYNC.json")
-    src = _remote_src(expected_hats_nrows=3, expected_obs_collection="two_mass")
-    copy = find_read_only_copy(src, read_roots=[str(community_root)], cache_root=str(tmp_path))
-    assert copy is not None and copy.path == tree and copy.origin == "community"
-
-
 def test_community_index_ttl_and_invalidation(
     tmp_path: Path, community_root: Path, monkeypatch
 ) -> None:
@@ -345,15 +335,14 @@ def test_invalid_local_paths_rejected(tmp_path: Path) -> None:
         CrossMatch(config_file=_config_with_entry(tmp_path, entry))
 
 
-def test_community_tree_is_not_self_mirrored_on_the_platform(tmp_path: Path, monkeypatch) -> None:
-    real_isdir = os.path.isdir
-    monkeypatch.setattr(
-        os.path,
-        "isdir",
-        lambda p: True if str(p) == storage.ARC_RELEASE_ROOT else real_isdir(p),
-    )
+def test_community_tree_is_not_self_mirrored_when_root_is_mounted(
+    tmp_path: Path, monkeypatch
+) -> None:
+    community = tmp_path / "community"
+    community.mkdir()
+    monkeypatch.setenv("XMATCHER_COMMUNITY_ROOTS", str(community))
     src = _remote_src(
-        access_identifier="vos://cadc.nrc.ca~arc/projects/hats/vhs/dr7",
+        access_identifier="vos://example.test/community/vhs/dr7",
         local_paths=[str(tmp_path / "does-not-exist")],
     )
     with pytest.raises(CrossMatchError, match="refusing to copy the community tree"):
@@ -412,15 +401,19 @@ def test_replication_skips_a_read_only_replica(
     assert "read-only" in caplog.text
 
 
-def test_platform_community_root_is_always_protected(monkeypatch) -> None:
-    monkeypatch.setenv("XMATCHER_COMMUNITY_ROOTS", "")
-    assert read_only_root_for("/arc/projects/hats/2mass/psc") == "/arc/projects/hats"
-    assert read_only_root_for("/arc/projects/astroai/hats/x") is None
-    assert read_only_root_for("vos://cadc.nrc.ca~arc/projects/hats/vhs/dr7") is not None
-    assert read_only_root_for("vos:projects/hats/x") is not None
-    assert read_only_root_for("vos:projects/astroai/hats") is None
+def test_configured_community_roots_are_protected(tmp_path: Path, monkeypatch) -> None:
+    # vos: roots belong in YAML lists; os.pathsep would split "vos://…".
+    monkeypatch.delenv("XMATCHER_COMMUNITY_ROOTS", raising=False)
+    root = tmp_path / "hats"
+    root.mkdir()
+    vos_root = "vos://example.test/hats"
+    cfg = {"community_roots": [str(root), vos_root]}
+    assert read_only_root_for(root / "2mass" / "psc", cache_cfg=cfg) == str(root)
+    assert read_only_root_for(tmp_path / "other" / "x", cache_cfg=cfg) is None
+    assert read_only_root_for(f"{vos_root}/vhs/dr7", cache_cfg=cfg) == vos_root
+    assert read_only_root_for("vos://example.test/other/x", cache_cfg=cfg) is None
     with pytest.raises(ReadOnlyRootError):
-        assert_writable("/arc/projects/hats/xmatcher", "output directory")
+        assert_writable(root / "xmatcher", "output directory", cache_cfg=cfg)
 
 
 def test_cache_roots_backward_compatible_and_split(tmp_path: Path, monkeypatch) -> None:
@@ -434,13 +427,10 @@ def test_cache_roots_backward_compatible_and_split(tmp_path: Path, monkeypatch) 
     assert str(tmp_path / "community") not in all_cache_roots({"root": a})
 
 
-def test_mounted_arc_does_not_choose_output_or_cache_roots(monkeypatch, tmp_path: Path) -> None:
-    real_isdir = os.path.isdir
-    monkeypatch.setattr(
-        os.path,
-        "isdir",
-        lambda p: True if str(p) in ("/arc", "/arc/projects/hats") else real_isdir(p),
-    )
+def test_defaults_do_not_choose_output_or_cache_roots(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.delenv("XMATCHER_COMMUNITY_ROOTS", raising=False)
+    monkeypatch.delenv("XMATCHER_CACHE_ROOT", raising=False)
+    monkeypatch.delenv("XMATCHER_OUTPUT_ROOT", raising=False)
     assert community_roots() == []
     assert storage.default_cache_root() == str(Path.home() / ".cache" / "xmatcher")
     assert storage.default_output_root() is None

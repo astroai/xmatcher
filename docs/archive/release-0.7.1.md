@@ -12,10 +12,9 @@ and fixes for distributed matching and HATS output.
 - Mirrors default to `~/.cache/xmatcher`. Bare output filenames resolve
   in the working directory by default. Configure a shared cache, read-only
   HATS roots, and a default output directory when you need them.
-- CANFAR users can source `scripts/canfar-env.sh` in a checkout to enable
-  the AstroAI paths. Verified survey copies under `/arc/projects/hats` are
-  used in place while derivatives and cache files go to writable project
-  storage. See the [CANFAR setup](https://github.com/astroai/xmatcher/blob/v0.7.1/docs/canfar.md).
+- Configure shared HATS roots with `XMATCHER_COMMUNITY_ROOTS` /
+  `cache.community_roots` so verified survey copies are read in place while
+  derivatives and cache files go to writable storage.
 
 ## Matching and catalogue reliability
 
@@ -28,8 +27,7 @@ and fixes for distributed matching and HATS output.
 - Bundled HATS metadata includes verified local copies and corrections for
   2MASS coordinates, SkyMapper error units, and AllWISE motion handling.
 - Observation mappings support nJy, calibrated fluxes, magnitude systems,
-  uncertainties and flags. (Source-preserving photometry union product code
-  moved to `sfabbro/pensus`.)
+  uncertainties and flags.
 
 The `zone` engine remains available in the core package. Use the
 `hats` or `ray` extra to install the HEALPix dependency formerly provided

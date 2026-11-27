@@ -191,7 +191,7 @@ timing spread and background machine activity limit throughput interpretation.
 This run began before the final null-allocation and GiB/Polars compatibility
 fixes; its identity proof does not measure those later changes' performance.
 
-The same 100,000-row workload also ran on an actual CANFAR Ray manager with two
+The same 100,000-row workload also ran on an actual remote Ray manager with two
 separate one-CPU, 4-GiB workers. Ray task records confirm execution on both worker
 nodes. Every warmup and measured run verified 150,000 output identities across
 29 partitions. The three timed runs had median 6.330 s and range 6.149–6.820 s;
@@ -212,7 +212,7 @@ had median 0.003814 s for the capped kernel and 0.120979 s for the full-product
 oracle. These methods emit different row counts; the measurements establish
 correctness and bounded kernel cost, not an equivalent-workload speedup.
 
-The CANFAR environment used Python 3.13.15, Ray 2.58.0, NumPy 2.4.6, Polars
+The remote environment used Python 3.13.15, Ray 2.58.0, NumPy 2.4.6, Polars
 1.44.2, PyArrow 25.0.0, SciPy 1.18.1, Astropy 8.0.1, PyVO 1.9.1, HATS 0.11.0
 and CDSHealpix 0.8.1. The three owned cluster sessions were removed after
 testing. The helper-created VOS configuration was removed before starting the
@@ -223,7 +223,7 @@ timed repetitions, with output identity checks and complete worker task records
 saved locally. The one-million-row median fell from 283.778 s with one worker
 to 60.004 s with eight workers (4.73 times faster, 59.1% parallel efficiency).
 Fifteen workers joined the 16-worker attempt. The request to add worker sixteen
-failed with a manager HTTP 400 wrapping a CANFAR session-service HTTP 500; no
+failed with a manager HTTP 400 wrapping a session-service HTTP 500; no
 sixteen-worker timing exists. The manager and workers were removed after the
 sweep stopped. All seventeen owned
 manager, bootstrap and worker IDs subsequently returned HTTP 404 on direct checks.
@@ -258,8 +258,8 @@ also passed. Separate optional integrations passed on the same source tree:
 17 Torchsky tests, 23 Torchfits I/O tests, one Healpy oracle test, and two
 XGBoost/Ray parity tests. The complete run skipped the live ESA case when its
 reachability check failed; the unchanged live test passed separately (1 passed
-in 225.40 s), and its UWS job was deleted in 80.67 s. CANFAR measurements are
-in the [scaling report](https://github.com/astroai/xmatch/blob/v0.5.0/docs/canfar-scaling-2026-10-07.md).
+in 225.40 s), and its UWS job was deleted in 80.67 s. remote measurements are
+in the release notes.
 
 ## Compatibility and limits from the initial audit
 
@@ -269,7 +269,7 @@ in the [scaling report](https://github.com/astroai/xmatch/blob/v0.5.0/docs/canfa
 - Unsupported remote/Ray-union options fail instead of being silently ignored.
   Remote uncertainty and target-epoch matching requires an explicit cone.
 - The locked release runtime is Python 3.13. The extended checks above cover
-  Linux/CANFAR, Python 3.14, optional integrations and live archives separately;
+  Linux/remote, Python 3.14, optional integrations and live archives separately;
   targeted checks do not establish complete coverage of every dependency version.
 - Local resume fingerprints can miss edits that preserve both size and mtime.
   Mutable TAP values can evade count-only refresh probes; use `--force` or pinned
@@ -278,7 +278,7 @@ in the [scaling report](https://github.com/astroai/xmatch/blob/v0.5.0/docs/canfa
   coordinator. Ray-union task memory estimates are advisory, not hard limits;
   tuple/output cardinality can still grow rapidly. Workers need shared inputs.
 - The extended VOS check exercises backend moves and injected client failures;
-  it does not simulate a server or machine crash. Multi-node CANFAR execution is
+  it does not simulate a server or machine crash. Multi-node remote execution is
   verified separately above.
 - Full and live tests were run only after explicit user authorization. No
   survey-scale performance claim follows from the synthetic checks.
